@@ -92,7 +92,7 @@ func buildToolsListResult(t *testing.T, f *MCPServerFilter, tools []model.ToolCo
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	if f.selector != nil {
-		session, _ := f.sessionManager.EnsureSession("")
+		session, _ := f.sessionManager.CreateSession()
 		ctx.SetSessionID(session.ID)
 	}
 
@@ -283,7 +283,7 @@ func TestToolCall_SelectorDeniesUnauthorized(t *testing.T) {
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPRequestID(req.ID)
-	session, _ := f.sessionManager.EnsureSession("")
+	session, _ := f.sessionManager.CreateSession()
 	ctx.SetSessionID(session.ID)
 
 	status := f.handleToolCall(ctx, req)
@@ -322,7 +322,7 @@ func TestPostToolCall_WithSSEAcceptStillAuthorizes(t *testing.T) {
 	require.NoError(t, f.registry.ReplaceAllTools([]model.ToolConfig{
 		createTestToolConfig("get_user", "get user"),
 	}))
-	session, _ := f.sessionManager.EnsureSession("")
+	session, _ := f.sessionManager.CreateSession()
 
 	reqBody := []byte(`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"get_user","arguments":{}}}`)
 	httpReq := httptest.NewRequest("POST", "/mcp", bytes.NewReader(reqBody))
@@ -356,7 +356,7 @@ func TestToolCall_SelectorAllowsAuthorized(t *testing.T) {
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
 	ctx.SetMCPRequestID(req.ID)
-	session, _ := f.sessionManager.EnsureSession("")
+	session, _ := f.sessionManager.CreateSession()
 	ctx.SetSessionID(session.ID)
 
 	f.handleToolCall(ctx, req)

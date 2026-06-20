@@ -38,14 +38,13 @@ func TestNewSessionManager(t *testing.T) {
 	sm.Stop()
 }
 
-func TestEnsureSession_CreateNew(t *testing.T) {
+func TestCreateSession(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
 
-	// Test creating new session with empty header
-	session, isNew := sm.EnsureSession("")
-	if !isNew {
-		t.Error("Expected new session to be created")
+	session, err := sm.CreateSession()
+	if err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
 	}
 	if session == nil {
 		t.Fatal("Session should not be nil")
@@ -61,20 +60,18 @@ func TestEnsureSession_CreateNew(t *testing.T) {
 	}
 }
 
-func TestEnsureSession_ReuseExisting(t *testing.T) {
+func TestGetSessionReusesExisting(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
 
-	// Create first session
-	session1, isNew1 := sm.EnsureSession("")
-	if !isNew1 {
-		t.Error("Expected new session")
+	session1, err := sm.CreateSession()
+	if err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
 	}
 
-	// Try to get same session by ID
-	session2, isNew2 := sm.EnsureSession(session1.ID)
-	if isNew2 {
-		t.Error("Expected existing session, not new")
+	session2, exists := sm.GetSession(session1.ID)
+	if !exists {
+		t.Fatal("expected existing session")
 	}
 	if session1.ID != session2.ID {
 		t.Error("Should return same session")
@@ -94,12 +91,25 @@ func TestEnsureSession_ReuseExisting(t *testing.T) {
 	}
 }
 
+func TestGetSessionUnknownDoesNotCreate(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	_, exists := sm.GetSession("missing")
+	if exists {
+		t.Fatal("unknown session should not exist")
+	}
+	if sm.ActiveSessionCount() != 0 {
+		t.Fatalf("unknown lookup created a session, count=%d", sm.ActiveSessionCount())
+	}
+}
+
 func TestSession(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
 
 	// Create session
-	session1, _ := sm.EnsureSession("")
+	session1, _ := sm.CreateSession()
 	sessionID := session1.ID
 
 	// Retrieve session
@@ -123,7 +133,7 @@ func TestRemoveSession(t *testing.T) {
 	defer sm.Stop()
 
 	// Create session
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	sessionID := session.ID
 
 	// Verify session exists
@@ -157,7 +167,7 @@ func TestSessionRemovedHandlerCalledOutsideLock(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
 
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	done := make(chan struct{})
 	sm.AddSessionRemovedHandler(func(string) {
 		// This would deadlock if the callback ran while the manager lock was held.
@@ -178,7 +188,7 @@ func TestSessionRemovedHandlerPanicDoesNotBreakCleanup(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
 
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	called := make(chan string, 1)
 	sm.AddSessionRemovedHandler(func(string) {
 		panic("boom")
@@ -203,10 +213,10 @@ func TestRemoveSessionClosesBlockedSSEWrite(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
 
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	reader, writer := io.Pipe()
 	defer reader.Close()
-	session.SetPipeWriter(writer)
+	session.AttachStream(writer)
 
 	writeDone := make(chan error, 1)
 	go func() {
@@ -237,12 +247,62 @@ func TestRemoveSessionClosesBlockedSSEWrite(t *testing.T) {
 	}
 }
 
+func TestStreamTokenCannotWriteReplacementStream(t *testing.T) {
+	sm := NewSessionManager()
+	defer sm.Stop()
+
+	session, _ := sm.CreateSession()
+	readerA, writerA := io.Pipe()
+	defer readerA.Close()
+	tokenA := session.AttachStream(writerA)
+
+	readerB, writerB := io.Pipe()
+	defer readerB.Close()
+	defer writerB.Close()
+	tokenB := session.AttachStream(writerB)
+
+	readB := make(chan string, 1)
+	go func() {
+		buf := make([]byte, 64)
+		n, err := readerB.Read(buf)
+		if err == nil {
+			readB <- string(buf[:n])
+		}
+	}()
+
+	if err := session.WriteSSEDataForStream(tokenA, []byte("data: old\n\n"), time.Now()); err == nil {
+		t.Fatal("old stream token should not write after replacement")
+	}
+	select {
+	case got := <-readB:
+		t.Fatalf("old stream token wrote to replacement stream: %q", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	writeDone := make(chan error, 1)
+	go func() {
+		writeDone <- session.WriteSSEDataForStream(tokenB, []byte("data: new\n\n"), time.Now())
+	}()
+
+	select {
+	case got := <-readB:
+		if got != "data: new\n\n" {
+			t.Fatalf("unexpected replacement stream data: %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("replacement stream did not receive token-owned write")
+	}
+	if err := <-writeDone; err != nil {
+		t.Fatalf("replacement token write failed: %v", err)
+	}
+}
+
 func TestSessionCleanup(t *testing.T) {
 	sm := NewSessionManager()
 	defer sm.Stop()
 
 	// Create session
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	sessionID := session.ID
 
 	// Manually set old LastActivity to simulate timeout
@@ -270,7 +330,7 @@ func TestSessionExpiredLookupRemovesAndCallsHandler(t *testing.T) {
 	})
 	defer sm.Stop()
 
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	removed := make(chan string, 1)
 	sm.AddSessionRemovedHandler(func(id string) {
 		removed <- id
@@ -299,8 +359,8 @@ func TestSessionManager_Stop(t *testing.T) {
 	sm := NewSessionManager()
 
 	// Create multiple sessions
-	session1, _ := sm.EnsureSession("")
-	session2, _ := sm.EnsureSession("")
+	session1, _ := sm.CreateSession()
+	session2, _ := sm.CreateSession()
 
 	// Stop manager
 	sm.Stop()
@@ -339,8 +399,8 @@ func TestSessionManager_Stop(t *testing.T) {
 func TestSessionManagerStopCallsRemovalHandlers(t *testing.T) {
 	sm := NewSessionManager()
 
-	session1, _ := sm.EnsureSession("")
-	session2, _ := sm.EnsureSession("")
+	session1, _ := sm.CreateSession()
+	session2, _ := sm.CreateSession()
 	removed := make(chan string, 2)
 	sm.AddSessionRemovedHandler(func(id string) {
 		removed <- id
@@ -389,7 +449,7 @@ func TestConcurrentSessionAccess(t *testing.T) {
 	defer sm.Stop()
 
 	// Create initial session
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	sessionID := session.ID
 
 	done := make(chan bool, 3)
@@ -415,7 +475,7 @@ func TestConcurrentSessionAccess(t *testing.T) {
 	// Concurrent session creation
 	go func() {
 		for i := 0; i < 10; i++ {
-			sm.EnsureSession("")
+			sm.CreateSession()
 			time.Sleep(10 * time.Millisecond)
 		}
 		done <- true

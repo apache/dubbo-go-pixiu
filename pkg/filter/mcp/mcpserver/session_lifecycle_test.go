@@ -18,7 +18,10 @@
 package mcpserver
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
@@ -107,7 +110,7 @@ func initializeSession(t *testing.T, f *MCPServerFilter) string {
 	req.Params = map[string]any{
 		"protocolVersion": constant.MCPProtocolVersion20250618,
 		"clientInfo":      map[string]any{"name": "client", "version": "1.0"},
-		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": true}},
+		"capabilities":    map[string]any{},
 	}
 
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
@@ -119,6 +122,111 @@ func initializeSession(t *testing.T, f *MCPServerFilter) string {
 	sessionID := rec.Header().Get(constant.HeaderKeyMCPSessionId)
 	require.NotEmpty(t, sessionID)
 	return sessionID
+}
+
+func postMCP(t *testing.T, f *MCPServerFilter, sessionID string, body []byte) (*httptest.ResponseRecorder, filter.FilterStatus) {
+	t.Helper()
+	httpReq := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(body))
+	httpReq.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueApplicationJson)
+	if sessionID != "" {
+		httpReq.Header.Set(constant.HeaderKeyMCPSessionId, sessionID)
+	}
+	rec := httptest.NewRecorder()
+	ctx := NewMCPContext(createTestContext(httpReq, rec))
+	ctx.ParseAndSetSessionHeader()
+	ctx.ParseAndSetAcceptHeader()
+	return rec, f.handlePostRequest(ctx)
+}
+
+func TestInitializeCreatesNewSessionForStandardClientCapabilities(t *testing.T) {
+	cases := []struct {
+		name         string
+		capabilities map[string]any
+	}{
+		{name: "empty", capabilities: map[string]any{}},
+		{name: "roots", capabilities: map[string]any{"roots": map[string]any{"listChanged": true}}},
+		{name: "sampling", capabilities: map[string]any{"sampling": map[string]any{}}},
+		{name: "roots and sampling", capabilities: map[string]any{
+			"roots":    map[string]any{"listChanged": true},
+			"sampling": map[string]any{},
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f, store := newLifecycleFilter(t)
+			defer f.sessionManager.Stop()
+			defer store.Stop()
+
+			body, err := json.Marshal(map[string]any{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  string(mcp.MethodInitialize),
+				"params": map[string]any{
+					"protocolVersion": constant.MCPProtocolVersion20250618,
+					"clientInfo":      map[string]any{"name": "standard-client", "version": "1.0"},
+					"capabilities":    tc.capabilities,
+				},
+			})
+			require.NoError(t, err)
+
+			rec, status := postMCP(t, f, "", body)
+
+			require.Equal(t, filter.Stop, status)
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.NotEmpty(t, rec.Header().Get(constant.HeaderKeyMCPSessionId))
+
+			var response map[string]any
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+			result := response["result"].(map[string]any)
+			capabilities := result["capabilities"].(map[string]any)
+			tools := capabilities["tools"].(map[string]any)
+			assert.Equal(t, true, tools["listChanged"])
+		})
+	}
+}
+
+func TestInitializeWithSuppliedSessionIDRejected(t *testing.T) {
+	f, store := newLifecycleFilter(t)
+	defer f.sessionManager.Stop()
+	defer store.Stop()
+
+	existing, _ := f.sessionManager.CreateSession()
+	store.Set(&router.SelectionPlan{SessionID: existing.ID, ToolNames: []string{"ping"}})
+
+	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`)
+	rec, status := postMCP(t, f, existing.ID, body)
+
+	require.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, 1, f.sessionManager.ActiveSessionCount())
+	_, ok := store.Get(existing.ID)
+	assert.True(t, ok, "rejected initialize must not overwrite the existing plan")
+}
+
+func TestPostUnknownSessionReturns404AndDoesNotCreate(t *testing.T) {
+	f, store := newLifecycleFilter(t)
+	defer f.sessionManager.Stop()
+	defer store.Stop()
+
+	body := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+	rec, status := postMCP(t, f, "missing-session", body)
+
+	require.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
+}
+
+func TestPostRouterMissingSessionReturns400(t *testing.T) {
+	f, store := newLifecycleFilter(t)
+	defer f.sessionManager.Stop()
+	defer store.Stop()
+
+	body := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+	rec, status := postMCP(t, f, "", body)
+
+	require.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func buildToolsListForSession(t *testing.T, f *MCPServerFilter, sessionID string) []string {
@@ -156,7 +264,7 @@ func TestSessionPlanRemovedWithTransportSession(t *testing.T) {
 	status := callTool(f, sessionID, "ping")
 	assert.Equal(t, filter.Stop, status, "removed transport session must not authorize old plan")
 
-	newSession, _ := f.sessionManager.EnsureSession("")
+	newSession, _ := f.sessionManager.CreateSession()
 	status = callTool(f, newSession.ID, "ping")
 	assert.Equal(t, filter.Stop, status, "new session must not inherit old plan")
 }
@@ -175,7 +283,7 @@ func TestTransportTTLExpiryDeletesPlan(t *testing.T) {
 	defer store.Stop()
 	sm.AddSessionRemovedHandler(store.Delete)
 
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	store.Set(&router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
 
 	clock.Advance(transport.SessionTimeout + time.Nanosecond)
@@ -190,17 +298,16 @@ func TestToolsListChangedPendingFlushesOnReconnect(t *testing.T) {
 	defer f.sessionManager.Stop()
 	defer store.Stop()
 
-	session, _ := f.sessionManager.EnsureSession("")
-	session.SetToolsListChangedSupported(true)
+	session, _ := f.sessionManager.CreateSession()
 
 	f.notifyToolsListChanged(session.ID)
-	assert.True(t, session.ConsumeToolsListChangedPending())
-	session.MarkToolsListChangedPending()
+	_, pending := session.PendingToolsListChangedVersion()
+	assert.True(t, pending)
 
 	reader, writer := io.Pipe()
 	defer reader.Close()
 	defer writer.Close()
-	session.SetPipeWriter(writer)
+	session.AttachStream(writer)
 
 	notificationCh := make(chan string, 1)
 	go func() {
@@ -219,5 +326,6 @@ func TestToolsListChangedPendingFlushesOnReconnect(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("expected pending tools/list_changed notification")
 	}
-	assert.False(t, session.ConsumeToolsListChangedPending())
+	_, pending = session.PendingToolsListChangedVersion()
+	assert.False(t, pending)
 }

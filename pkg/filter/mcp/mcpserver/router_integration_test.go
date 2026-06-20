@@ -120,7 +120,7 @@ func TestIntegration_TenantIsolation_ListAndCall(t *testing.T) {
 	require.NotNil(t, f.selector)
 
 	// 1. acme session sees only acme tools.
-	acmeSession, _ := f.sessionManager.EnsureSession("")
+	acmeSession, _ := f.sessionManager.CreateSession()
 	acmeNames := listToolsForTenant(f, acmeSession.ID, "acme")
 	require.NotEmpty(t, acmeNames)
 	for _, name := range acmeNames {
@@ -128,7 +128,7 @@ func TestIntegration_TenantIsolation_ListAndCall(t *testing.T) {
 	}
 
 	// 2. globex session sees only globex tools (no cross-tenant leakage).
-	globexSession, _ := f.sessionManager.EnsureSession("")
+	globexSession, _ := f.sessionManager.CreateSession()
 	globexNames := listToolsForTenant(f, globexSession.ID, "globex")
 	require.NotEmpty(t, globexNames)
 	for _, name := range globexNames {

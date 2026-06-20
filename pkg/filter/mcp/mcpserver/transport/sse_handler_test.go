@@ -146,9 +146,9 @@ func TestSendSSEMessage(t *testing.T) {
 	handler := NewSSEHandler(sm)
 
 	// Create session with pipe
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.PipeWriter = pipeWriter
+	session.AttachStream(pipeWriter)
 
 	// Send message in goroutine
 	message := map[string]any{
@@ -194,12 +194,12 @@ func TestSendSSEMessage_NoPipe(t *testing.T) {
 	handler := NewSSEHandler(sm)
 
 	// Create session without pipe
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 
 	message := map[string]any{"test": "data"}
 	err := handler.SendSSEMessage(session, message)
 	if err == nil {
-		t.Error("Expected error when PipeWriter is nil")
+		t.Error("Expected error when no SSE stream is attached")
 	}
 	if err.Error() != "SSE pipe not established" {
 		t.Errorf("Unexpected error message: %v", err)
@@ -211,9 +211,9 @@ func TestSendSSEMessage_InvalidJSON(t *testing.T) {
 	defer sm.Stop()
 	handler := NewSSEHandler(sm)
 
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.PipeWriter = pipeWriter
+	session.AttachStream(pipeWriter)
 	defer pipeReader.Close()
 	defer pipeWriter.Close()
 

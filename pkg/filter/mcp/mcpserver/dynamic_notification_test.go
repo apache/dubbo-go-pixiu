@@ -41,10 +41,9 @@ func TestNotifyToolsListChanged(t *testing.T) {
 	sm := GetOrInitSessionManager()
 
 	// Create session with SSE pipe
-	session, _ := sm.EnsureSession("")
-	session.SetToolsListChangedSupported(true)
+	session, _ := sm.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.SetPipeWriter(pipeWriter)
+	session.AttachStream(pipeWriter)
 	defer pipeReader.Close()
 	defer pipeWriter.Close()
 
@@ -95,10 +94,9 @@ func TestNotifyToolsListChanged_MultipleSessions(t *testing.T) {
 	notificationChs := make([]chan string, numSessions)
 
 	for i := 0; i < numSessions; i++ {
-		session, _ := sm.EnsureSession("")
-		session.SetToolsListChangedSupported(true)
+		session, _ := sm.CreateSession()
 		pipeReader, pipeWriter := io.Pipe()
-		session.SetPipeWriter(pipeWriter)
+		session.AttachStream(pipeWriter)
 		readers[i] = pipeReader
 		writers[i] = pipeWriter
 		defer pipeReader.Close()
@@ -166,8 +164,7 @@ func TestNotifyToolsListChanged_DisconnectedSession(t *testing.T) {
 	sm := GetOrInitSessionManager()
 
 	// Create session but don't attach pipe
-	session, _ := sm.EnsureSession("")
-	session.SetToolsListChangedSupported(true)
+	session, _ := sm.CreateSession()
 	// session has no SSE pipe, so the update should be coalesced as pending.
 
 	// Apply config
@@ -181,5 +178,6 @@ func TestNotifyToolsListChanged_DisconnectedSession(t *testing.T) {
 
 	// Should handle disconnected session gracefully (logged as warning)
 	// No panic or error
-	assert.True(t, session.ConsumeToolsListChangedPending())
+	_, pending := session.PendingToolsListChangedVersion()
+	assert.True(t, pending)
 }
