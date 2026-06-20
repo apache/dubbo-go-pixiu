@@ -83,6 +83,7 @@ func newRoutedFilter(t *testing.T, tools []model.ToolConfig) *MCPServerFilter {
 		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          factory.runtime.selector,
+		governanceEnabled: factory.runtime.governanceEnabled,
 	}
 }
 
@@ -128,6 +129,7 @@ func newIsolatedRouterFilter(t *testing.T, sm *transport.SessionManager, store *
 		sseHandler:        transport.NewSSEHandler(sm),
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          sel,
+		governanceEnabled: true,
 	}
 }
 
@@ -249,7 +251,7 @@ func TestIntegration_BypassListDirectCallDenied(t *testing.T) {
 	assert.Equal(t, filter.Stop, status)
 }
 
-func TestIntegration_DefaultRouterIsAlwaysOn(t *testing.T) {
+func TestIntegration_OmittedRouterDisablesGovernance(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
@@ -261,5 +263,24 @@ func TestIntegration_DefaultRouterIsAlwaysOn(t *testing.T) {
 	}
 	factory := &FilterFactory{cfg: cfg}
 	require.NoError(t, factory.Apply())
-	assert.NotNil(t, factory.runtime.selector, "no router config => always-on selector")
+	assert.False(t, factory.runtime.governanceEnabled)
+	assert.Nil(t, factory.runtime.selector)
+	assert.Nil(t, factory.runtime.plans)
+}
+
+func TestIntegration_EmptyRouterEnablesGovernance(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools:      buildTenantFixture(),
+		Router:     &model.RouterConfig{},
+	}
+	factory := &FilterFactory{cfg: cfg}
+	require.NoError(t, factory.Apply())
+	assert.True(t, factory.runtime.governanceEnabled)
+	assert.NotNil(t, factory.runtime.selector)
+	assert.NotNil(t, factory.runtime.plans)
 }

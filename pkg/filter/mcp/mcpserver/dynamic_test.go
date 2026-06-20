@@ -481,10 +481,15 @@ func TestApplyMcpServerConfig_InvalidRiskRejected(t *testing.T) {
 	defer sm.Stop()
 	sseHandler := transport.NewSSEHandler(sm)
 	consumer := NewDynamicConsumer(registry, sm, sseHandler)
+	store := router.NewSessionPlanStore()
+	defer store.Stop()
+	sel, err := router.Build(&model.RouterConfig{}, store)
+	require.NoError(t, err)
+	consumer.SetGovernance(sel, store)
 
 	validTool := createTestToolConfig("tool1", "First tool")
 	validTool.Meta = &model.ToolMeta{Risk: "low"}
-	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{validTool}))
+	err = consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{validTool}))
 	require.NoError(t, err)
 	require.Len(t, registry.ListTools(), 1)
 
@@ -497,6 +502,23 @@ func TestApplyMcpServerConfig_InvalidRiskRejected(t *testing.T) {
 	tools := registry.ListTools()
 	require.Len(t, tools, 1)
 	assert.Equal(t, "tool1", tools[0].Name)
+}
+
+func TestApplyMcpServerConfig_NoRouterSkipsGovernanceMetadataValidation(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+
+	tool := createTestToolConfig("tool1", "First tool")
+	tool.Meta = &model.ToolMeta{Risk: "legacy-risk-value"}
+	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{tool}))
+	require.NoError(t, err)
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	require.NotNil(t, tools[0].Meta)
+	assert.Equal(t, "legacy-risk-value", tools[0].Meta.Risk)
 }
 
 func TestApplyMcpServerConfig_MetadataChangeIsNotSkipped(t *testing.T) {

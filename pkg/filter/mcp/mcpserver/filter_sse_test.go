@@ -28,6 +28,10 @@ import (
 )
 
 import (
+	"github.com/mark3labs/mcp-go/mcp"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
@@ -212,6 +216,65 @@ func TestHandleGetRequest_UnknownSession(t *testing.T) {
 	}
 	if mcpFilter.sessionManager.ActiveSessionCount() != 0 {
 		t.Fatalf("unknown GET created a session, count=%d", mcpFilter.sessionManager.ActiveSessionCount())
+	}
+}
+
+func TestHandleGetRequest_NoRouterMissingSessionCreatesSession(t *testing.T) {
+	mcpFilter := createNoRouterTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	req := httptest.NewRequest(constant.Get, "/mcp", nil)
+	req.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	recorder := httptest.NewRecorder()
+	ctx := createTestContext(req, recorder)
+	mcpCtx := NewMCPContext(ctx)
+	mcpCtx.ParseAndSetAcceptHeader()
+	mcpCtx.ParseAndSetSessionHeader()
+
+	status := mcpFilter.handleGetRequest(mcpCtx)
+
+	if status != filter.Stop {
+		t.Fatalf("expected filter.Stop, got %v", status)
+	}
+	if ctx.SourceResp == nil {
+		t.Fatal("SourceResp should be set")
+	}
+	httpResp := ctx.SourceResp.(*http.Response)
+	sessionID := httpResp.Header.Get(constant.HeaderKeyMCPSessionId)
+	if sessionID == "" {
+		t.Fatal("legacy GET should create a session when no router is configured")
+	}
+	if mcpFilter.sessionManager.ActiveSessionCount() != 1 {
+		t.Fatalf("expected one active session, got %d", mcpFilter.sessionManager.ActiveSessionCount())
+	}
+}
+
+func TestInitialize_NoRouterAllowsSuppliedSessionHeader(t *testing.T) {
+	mcpFilter := createNoRouterTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`
+	req := httptest.NewRequest(constant.Post, "/mcp", strings.NewReader(body))
+	req.Header.Set(constant.HeaderKeyMCPSessionId, "caller-supplied")
+	recorder := httptest.NewRecorder()
+	ctx := NewMCPContext(createTestContext(req, recorder))
+	ctx.ParseAndSetSessionHeader()
+	ctx.SetMCPMethod(string(mcp.MethodInitialize))
+	ctx.SetMCPRequestID(mcp.NewRequestId(int64(1)))
+
+	status := mcpFilter.handleInitialize(ctx, mcp.JSONRPCRequest{
+		Request: mcp.Request{Method: string(mcp.MethodInitialize)},
+		ID:      mcp.NewRequestId(int64(1)),
+	})
+
+	if status != filter.Stop {
+		t.Fatalf("expected filter.Stop, got %v", status)
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+	if recorder.Header().Get(constant.HeaderKeyMCPSessionId) == "" {
+		t.Fatal("initialize should return a server-issued session")
 	}
 }
 
@@ -506,6 +569,7 @@ func createTestFilter(t *testing.T) *MCPServerFilter {
 		},
 		Endpoint: "/mcp",
 		Tools:    []model.ToolConfig{},
+		Router:   &model.RouterConfig{},
 	}
 
 	factory := &FilterFactory{cfg: cfg}
@@ -521,6 +585,36 @@ func createTestFilter(t *testing.T) *MCPServerFilter {
 		sessionManager:    factory.runtime.sessionManager,
 		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
+		selector:          factory.runtime.selector,
+		governanceEnabled: factory.runtime.governanceEnabled,
+	}
+}
+
+func createNoRouterTestFilter(t *testing.T) *MCPServerFilter {
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{
+			Name:    "Test Server",
+			Version: "1.0.0",
+		},
+		Endpoint: "/mcp",
+		Tools:    []model.ToolConfig{},
+	}
+
+	factory := &FilterFactory{cfg: cfg}
+	if err := factory.Apply(); err != nil {
+		t.Fatalf("Failed to apply filter factory: %v", err)
+	}
+
+	return &MCPServerFilter{
+		cfg:               cfg,
+		registry:          factory.runtime.registry,
+		errorHandler:      NewErrorHandler(),
+		responseBuilder:   NewResponseBuilder(),
+		sessionManager:    factory.runtime.sessionManager,
+		sseHandler:        factory.runtime.sseHandler,
+		contentNegotiator: transport.NewContentNegotiator(),
+		selector:          factory.runtime.selector,
+		governanceEnabled: factory.runtime.governanceEnabled,
 	}
 }
 

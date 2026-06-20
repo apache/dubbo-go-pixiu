@@ -18,8 +18,8 @@
 # Demonstrates MCP intelligent tool routing against a Pixiu
 # gateway started with router.yaml.
 #
-# The example router.yaml uses an always-on policy rule (no `when`) that denies
-# the `internal`/`admin` tags, so the demo works WITHOUT the auth filter. The
+# The example router.yaml uses an unconditional policy rule (no `when`) that
+# denies the `internal`/`admin` tags, so the demo works WITHOUT the auth filter. The
 # additional claim-based rules in router.yaml only take effect when the MCP auth
 # filter populates JWT claims.
 #

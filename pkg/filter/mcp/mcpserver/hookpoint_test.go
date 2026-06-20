@@ -98,7 +98,7 @@ func buildToolsListResult(t *testing.T, f *MCPServerFilter, tools []model.ToolCo
 
 	httpReq := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
-	if f.selector != nil {
+	if f.governanceEnabled {
 		session, _ := f.sessionManager.CreateSession()
 		ctx.SetSessionID(session.ID)
 	}
@@ -170,15 +170,17 @@ func TestBuildSelectionContext_PopulatesFields(t *testing.T) {
 	assert.Equal(t, "get_user", sc.Requested)
 }
 
-// TestToolsList_ResponseBuilderWithoutSelectorReturnsAll covers the low-level
-// response helper. Production filters always install a selector during Apply.
+// TestToolsList_ResponseBuilderWithoutGovernanceReturnsAll covers the no-router
+// response helper path.
 func TestToolsList_ResponseBuilderWithoutSelectorReturnsAll(t *testing.T) {
 	f := createTestFilter(t)
+	f.governanceEnabled = false
+	f.selector = nil
 	result := buildToolsListResult(t, f, alphaBetaTools())
 	assert.Len(t, result.Tools, 2)
 }
 
-func TestFilterFactory_DefaultRouterInitializesGovernanceState(t *testing.T) {
+func TestFilterFactory_OmittedRouterLeavesGovernanceStateNil(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
@@ -193,8 +195,9 @@ func TestFilterFactory_DefaultRouterInitializesGovernanceState(t *testing.T) {
 
 	require.NoError(t, factory.Apply())
 	assert.NotNil(t, factory.runtime)
-	assert.NotNil(t, factory.runtime.selector)
-	assert.NotNil(t, factory.runtime.plans)
+	assert.False(t, factory.runtime.governanceEnabled)
+	assert.Nil(t, factory.runtime.selector)
+	assert.Nil(t, factory.runtime.plans)
 }
 
 func TestFilterFactory_ConfiguredRouterInitializesGovernanceState(t *testing.T) {
@@ -212,6 +215,7 @@ func TestFilterFactory_ConfiguredRouterInitializesGovernanceState(t *testing.T) 
 	factory := &FilterFactory{cfg: cfg}
 
 	require.NoError(t, factory.Apply())
+	assert.True(t, factory.runtime.governanceEnabled)
 	assert.NotNil(t, factory.runtime.selector)
 	assert.NotNil(t, factory.runtime.plans)
 }
@@ -226,12 +230,32 @@ func TestFilterFactory_InvalidToolRiskFailsFast(t *testing.T) {
 		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
 		Endpoint:   "/mcp",
 		Tools:      []model.ToolConfig{tool},
+		Router:     &model.RouterConfig{},
 	}
 	factory := &FilterFactory{cfg: cfg}
 
 	err := factory.Apply()
 	assert.ErrorContains(t, err, "invalid mcp tool router metadata")
 	assert.ErrorContains(t, err, "unsupported risk")
+}
+
+func TestFilterFactory_OmittedRouterSkipsGovernanceMetadataValidation(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	tool := createTestToolConfig("alpha", "A")
+	tool.Meta = &model.ToolMeta{Risk: "legacy-risk-value"}
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools:      []model.ToolConfig{tool},
+	}
+	factory := &FilterFactory{cfg: cfg}
+
+	require.NoError(t, factory.Apply())
+	require.NotNil(t, factory.runtime)
+	assert.False(t, factory.runtime.governanceEnabled)
+	assert.Nil(t, factory.runtime.selector)
 }
 
 func TestFilterFactory_DuplicateStaticToolFailsFast(t *testing.T) {

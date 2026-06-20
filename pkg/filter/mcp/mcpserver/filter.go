@@ -51,13 +51,14 @@ type (
 
 	// RuntimeState owns all mutable state for one MCP server filter instance.
 	RuntimeState struct {
-		id             string
-		registry       *ToolRegistry
-		sessionManager *transport.SessionManager
-		plans          *router.SessionPlanStore
-		selector       router.ToolSelector
-		sseHandler     *transport.SSEHandler
-		dynamic        *DynamicConsumer
+		id                string
+		registry          *ToolRegistry
+		sessionManager    *transport.SessionManager
+		plans             *router.SessionPlanStore
+		selector          router.ToolSelector
+		sseHandler        *transport.SSEHandler
+		dynamic           *DynamicConsumer
+		governanceEnabled bool
 	}
 
 	// MCPServerFilter is a filter that handles MCP protocol.
@@ -70,6 +71,7 @@ type (
 		sseHandler        *transport.SSEHandler
 		contentNegotiator *transport.ContentNegotiator
 		selector          router.ToolSelector
+		governanceEnabled bool
 	}
 )
 
@@ -83,22 +85,28 @@ func (f *FilterFactory) Apply() error {
 	if cfg == nil {
 		cfg = &model.McpServerConfig{}
 	}
-	if cfg.Router == nil {
-		cfg.Router = &model.RouterConfig{}
-	}
+	governanceEnabled := cfg.Router != nil
 
-	planStore := router.NewSessionPlanStoreWithMaxEntries(cfg.Router.Session.MaxEntries)
-	sessionManager := transport.NewSessionManagerWithMaxEntries(routerPlanCapacity(cfg.Router.Session.MaxEntries))
-	sessionManager.AddSessionRemovedHandler(func(sessionID string) {
-		planStore.DeleteSession(sessionID)
-	})
+	var planStore *router.SessionPlanStore
+	maxSessions := transport.DefaultMaxSessions
+	if governanceEnabled {
+		maxSessions = routerPlanCapacity(cfg.Router.Session.MaxEntries)
+		planStore = router.NewSessionPlanStoreWithMaxEntries(cfg.Router.Session.MaxEntries)
+	}
+	sessionManager := transport.NewSessionManagerWithMaxEntries(maxSessions)
+	if planStore != nil {
+		sessionManager.AddSessionRemovedHandler(func(sessionID string) {
+			planStore.DeleteSession(sessionID)
+		})
+	}
 	registry := NewToolRegistry()
 	sseHandler := transport.NewSSEHandler(sessionManager)
 	runtime := &RuntimeState{
-		registry:       registry,
-		sessionManager: sessionManager,
-		plans:          planStore,
-		sseHandler:     sseHandler,
+		registry:          registry,
+		sessionManager:    sessionManager,
+		plans:             planStore,
+		sseHandler:        sseHandler,
+		governanceEnabled: governanceEnabled,
 	}
 	runtime.dynamic = NewDynamicConsumer(registry, sessionManager, sseHandler)
 	f.runtime = runtime
@@ -121,9 +129,11 @@ func (f *FilterFactory) Apply() error {
 		return err
 	}
 
-	if err := f.configureSelector(); err != nil {
-		runtime.Stop()
-		return err
+	if governanceEnabled {
+		if err := f.configureSelector(); err != nil {
+			runtime.Stop()
+			return err
+		}
 	}
 	runtime.id = registerRuntime(runtime)
 	return nil
@@ -137,11 +147,11 @@ func routerPlanCapacity(maxEntries int) int {
 }
 
 func (f *FilterFactory) registerConfiguredTools() error {
-	if err := router.ValidateTools(f.cfg.Tools); err != nil {
-		return fmt.Errorf("invalid mcp tool router metadata: %v", err)
+	if f.runtime.governanceEnabled {
+		if err := router.ValidateTools(f.cfg.Tools); err != nil {
+			return fmt.Errorf("invalid mcp tool router metadata: %v", err)
+		}
 	}
-
-	// Sync statically configured tools into registry (full replace)
 	if err := f.runtime.registry.ReplaceAllTools(f.cfg.Tools); err != nil {
 		return fmt.Errorf("failed to register mcp tools: %v", err)
 	}
@@ -189,6 +199,9 @@ func (f *FilterFactory) registerConfiguredPrompts() error {
 }
 
 func (f *FilterFactory) configureSelector() error {
+	if !f.runtime.governanceEnabled {
+		return nil
+	}
 	selector, err := router.Build(f.cfg.Router, f.runtime.plans)
 	if err != nil {
 		return fmt.Errorf("failed to build mcp tool router: %v", err)
@@ -224,6 +237,7 @@ func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain fil
 		sseHandler:        sseHandler,
 		contentNegotiator: contentNegotiator,
 		selector:          f.runtime.selector,
+		governanceEnabled: f.runtime.governanceEnabled,
 	}
 	chain.AppendDecodeFilters(mcpFilter)
 	chain.AppendEncodeFilters(mcpFilter) // Add to Encode chain
@@ -330,13 +344,24 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 		return f.sendNotAcceptable(ctx, "GET request must accept text/event-stream")
 	}
 
-	sessionIDHeader, err := validSessionHeader(ctx, true)
-	if err != nil {
-		return f.sendBadRequest(ctx, err.Error())
-	}
-	session, exists := f.sessionManager.GetSession(sessionIDHeader)
-	if !exists {
-		return f.sendNotFound(ctx, "MCP session not found")
+	var session *transport.MCPSession
+	if f.governanceEnabled {
+		sessionIDHeader, err := validSessionHeader(ctx, true)
+		if err != nil {
+			return f.sendBadRequest(ctx, err.Error())
+		}
+		var exists bool
+		session, exists = f.sessionManager.GetSession(sessionIDHeader)
+		if !exists {
+			return f.sendNotFound(ctx, "MCP session not found")
+		}
+	} else {
+		var err error
+		session, _, err = f.sessionManager.EnsureSession(ctx.SessionID())
+		if err != nil {
+			logger.Errorf("[dubbo-go-pixiu] mcp server failed to create session: %v", err)
+			return f.errorHandler.SendInternalError(ctx, nil, "failed to create session")
+		}
 	}
 	ctx.SetSessionID(session.ID)
 
@@ -400,12 +425,14 @@ func (f *MCPServerFilter) handlePostRequest(ctx *MCPContext) filter.FilterStatus
 	ctx.SetMCPMethod(jsonrpcReq.Method)
 	ctx.SetMCPRequestID(jsonrpcReq.ID)
 
-	if err := f.validateSessionHeaderForMethod(ctx, jsonrpcReq.Method); err != nil {
-		return f.sendBadRequest(ctx, err.Error())
-	}
+	if f.governanceEnabled {
+		if err := f.validateSessionHeaderForMethod(ctx, jsonrpcReq.Method); err != nil {
+			return f.sendBadRequest(ctx, err.Error())
+		}
 
-	if status := f.validateSessionForMethod(ctx, jsonrpcReq.Method); status != filter.Continue {
-		return status
+		if status := f.validateSessionForMethod(ctx, jsonrpcReq.Method); status != filter.Continue {
+			return status
+		}
 	}
 
 	// Determine response format based on content negotiation
@@ -512,6 +539,9 @@ func (f *MCPServerFilter) sessionExists(sessionID string) bool {
 }
 
 func (f *MCPServerFilter) validateSessionHeaderForMethod(ctx *MCPContext, method string) error {
+	if !f.governanceEnabled {
+		return nil
+	}
 	if method == string(mcp.MethodInitialize) {
 		if _, err := validSessionHeader(ctx, false); err != nil {
 			return err

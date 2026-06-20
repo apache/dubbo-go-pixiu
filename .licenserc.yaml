@@ -43,7 +43,6 @@ header:
     - 'licenses'
     - 'NOTICE'
     - '**/bin/**'
-    - '.github/actions/**'
 
     # ignore files clone from istio
     - 'istio/pkg/test/eventually.go'

@@ -168,6 +168,21 @@ func (sm *SessionManager) CreateSession() (*MCPSession, error) {
 	return session, nil
 }
 
+// EnsureSession returns an existing active session for legacy Streamable HTTP
+// GET semantics, or creates a new server-issued session when none exists.
+func (sm *SessionManager) EnsureSession(sessionIDHeader string) (*MCPSession, bool, error) {
+	if sessionIDHeader != "" {
+		if session, exists := sm.GetSession(sessionIDHeader); exists {
+			return session, false, nil
+		}
+	}
+	session, err := sm.CreateSession()
+	if err != nil {
+		return nil, false, err
+	}
+	return session, true, nil
+}
+
 // GetSession retrieves an existing MCP session. Unknown or expired IDs are not
 // replaced with new sessions.
 func (sm *SessionManager) GetSession(sessionID string) (*MCPSession, bool) {

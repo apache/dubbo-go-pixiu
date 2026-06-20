@@ -1,8 +1,8 @@
 # Full Pixiu config demonstrating the MCP intelligent tool router.
 #
 # This config exposes 4 tools across 2 workflows and a tenant-isolation policy.
-# With tool governance always active, tools/list is trimmed per session and tools/call is
-# enforced against the session's plan.
+# The router block below enables tool governance; tools/list is trimmed per
+# session and tools/call is enforced against the session's plan.
 #
 # Run:  dubbo-go-pixiu gateway start -c docs/ai/mcp/router-example/router.yaml
 # Then: bash docs/ai/mcp/router-example/demo.sh

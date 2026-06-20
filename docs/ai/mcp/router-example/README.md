@@ -4,8 +4,8 @@ This directory demonstrates the MCP intelligent tool router.
 
 ## Files
 
-- `router.yaml` — a complete Pixiu gateway config with the tool governance active:
-  4 tools, 1 always-on policy rule (deny `internal`/`admin` tags), 2 workflow
+- `router.yaml` — a complete Pixiu gateway config with the `router` block present,
+  which enables tool governance: 4 tools, 1 unconditional policy rule (deny `internal`/`admin` tags), 2 workflow
   bundles, sampled decision logs, and decision detail logging for denied-tool samples.
 - `demo.sh` — a curl walkthrough: initialize → tools/list (trimmed) →
   tools/call (denied vs allowed).
@@ -13,7 +13,7 @@ This directory demonstrates the MCP intelligent tool router.
 ## What it shows
 
 1. **`tools/list` trimming** — `internal_dump` (tagged `internal`/`admin`) is
-   filtered out of the listing by the always-on `block-privileged` policy rule.
+   filtered out of the listing by the unconditional `block-privileged` policy rule.
 2. **`tools/call` enforcement** — calling `internal_dump` is denied because it
    is not in the session's plan, even though the client knows its name.
 3. **Allowed call** — `search_kb` is in the plan and is forwarded to the backend.
@@ -48,7 +48,7 @@ bash docs/ai/mcp/router-example/demo.sh
 `agent_role`-based workflow. These only take effect when the
 [MCP auth filter](../mcp.md#mcp-auth-filter-dgpfilterhttpauthmcp-configuration)
 is in the chain and populates JWT claims — the router consumes already-validated
-claims and never re-validates tokens. The always-on `block-privileged` rule
+claims and never re-validates tokens. The unconditional `block-privileged` rule
 needs no claims, so the demo works standalone.
 
 Dynamic Nacos updates for this PR support tool catalog updates only. Router-only

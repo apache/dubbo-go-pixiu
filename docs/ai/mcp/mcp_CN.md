@@ -99,9 +99,9 @@ args:
 
 ### 智能工具路由 (`router`) 配置
 
-当 MCP server 暴露大量工具时，每次 `tools/list` 都把全部工具发给 LLM 会导致工具过载、上下文膨胀、暴露面不可控。可选的 `router` 配置块增加一层治理：按 session 裁剪 `tools/list`，并在 `tools/call` 时强制校验裁剪结果。
+当 MCP server 暴露大量工具时，每次 `tools/list` 都把全部工具发给 LLM 会导致工具过载、上下文膨胀、暴露面不可控。可选的 `router` 配置块用于启用确定性 MCP 工具治理：按 session 裁剪 `tools/list`，并在 `tools/call` 时强制校验裁剪结果。
 
-**Tool Governance 始终启用。** 省略 `router` 块会使用规范化默认配置：initialize 后，tools/list 返回当前 policy 允许的全部工具并创建 session plan，tools/call 始终根据该 session plan 校验。
+未配置 `router` 时，保持原有 MCP Server 行为。只要存在 `router` 配置块（包括 `router: {}`），治理即自动启用，并且 `tools/call` enforcement 不可关闭。
 
 两条核心原则：
 
@@ -201,7 +201,7 @@ tools:
 
 #### MCP Session 与工具列表通知
 
-`initialize` 总是创建新的 MCP session，并通过 `Mcp-Session-Id` 返回给客户端。客户端不应在 `initialize` 请求中携带 `Mcp-Session-Id`；Pixiu 会返回 `400`，不会采用调用方提供的 ID。后续 GET SSE stream 必须携带已存在的 session ID：缺失 header 返回 `400`，未知或过期 ID 返回 `404`。启用 router 强制的 POST 请求（`tools/list` 和 `tools/call`）也必须使用有效 session；未知或过期 ID 不会被静默替换成新 session。
+配置了 `router` 时，`initialize` 会创建新的 MCP session，并通过 `Mcp-Session-Id` 返回给客户端。客户端不应在 `initialize` 请求中携带 `Mcp-Session-Id`；Pixiu 会返回 `400`，不会采用调用方提供的 ID。后续 GET SSE stream 必须携带已存在的 session ID：缺失 header 返回 `400`，未知或过期 ID 返回 `404`。启用 router 强制的 POST 请求（`tools/list` 和 `tools/call`）也必须使用有效 session；未知或过期 ID 不会被静默替换成新 session。
 
 MCP session 持有 router plan、progressive 计数器和 pending notification 状态。SSE stream 只是挂载在 session 上的连接：断开、请求 context cancel、重连或新 stream 替换旧 stream，都不会终止 MCP session 或删除 plan。当 transport session 被移除时，Pixiu 会删除该 session 下所有 router 实例的 plan；TTL 清理只是异常路径下的兜底。
 
@@ -209,7 +209,7 @@ Initialize response 会声明 `ServerCapabilities.tools.listChanged=true`。这�
 
 #### 动态工具更新
 
-Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块的动态 text detail 会被明确拒绝，避免 Pixiu 在“新工具目录 + 旧 router policy”的不一致状态下运行。成功发布工具目录后，Pixiu 会为已初始化的 session 标记 `notifications/tools/list_changed`；在线 session 立即通知，离线 session 在 SSE reconnect 后通知。
+Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块的动态 text detail 会被明确拒绝，避免 Pixiu 在“新工具目录 + 旧 router policy”的不一致状态下运行。成功发布工具目录后会原子替换当前目录。启用治理时，Pixiu 会基于实际可见工具集合变化重算受影响 session，并只为可见集合发生变化的 session 标记 `notifications/tools/list_changed`；在线 session 立即通知，离线 session 在 SSE reconnect 后通知。
 
 #### 可观测性
 

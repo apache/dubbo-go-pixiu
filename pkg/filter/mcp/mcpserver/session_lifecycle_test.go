@@ -99,6 +99,7 @@ func newLifecycleFilterWithSessionManager(t *testing.T, sm *transport.SessionMan
 		sseHandler:        transport.NewSSEHandler(sm),
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          sel,
+		governanceEnabled: true,
 	}, store
 }
 
@@ -114,7 +115,13 @@ func newLifecycleAllAllowedFilter(t *testing.T, routerCfg *model.RouterConfig) *
 	}
 	factory := &FilterFactory{cfg: cfg}
 	require.NoError(t, factory.Apply())
-	require.NotNil(t, factory.runtime.selector)
+	if routerCfg != nil {
+		require.NotNil(t, factory.runtime.selector)
+		require.True(t, factory.runtime.governanceEnabled)
+	} else {
+		require.Nil(t, factory.runtime.selector)
+		require.False(t, factory.runtime.governanceEnabled)
+	}
 	return &MCPServerFilter{
 		cfg:               cfg,
 		registry:          factory.runtime.registry,
@@ -124,6 +131,7 @@ func newLifecycleAllAllowedFilter(t *testing.T, routerCfg *model.RouterConfig) *
 		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
 		selector:          factory.runtime.selector,
+		governanceEnabled: factory.runtime.governanceEnabled,
 	}
 }
 
@@ -243,19 +251,19 @@ func TestInitializeWithUnknownSuppliedSessionIDRejected(t *testing.T) {
 	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
 }
 
-func TestRouterAbsentRequiresSessionWithoutAllAllowed(t *testing.T) {
+func TestRouterAbsentPreservesPostWithoutSessionBehavior(t *testing.T) {
 	f := newLifecycleAllAllowedFilter(t, nil)
 	defer f.sessionManager.Stop()
 
 	listBody := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
 	rec, status := postMCP(t, f, "", listBody)
 	require.Equal(t, filter.Stop, status)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code)
 
 	callBody := []byte(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ping","arguments":{"param":"v"}}}`)
 	rec, status = postMCP(t, f, "", callBody)
-	require.Equal(t, filter.Stop, status)
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, filter.Continue, status)
+	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
 }
 

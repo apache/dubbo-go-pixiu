@@ -64,7 +64,7 @@ type initializeClientInfo struct {
 
 // handleInitialize handles the initialize method
 func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
-	if ctx.SessionID() != "" {
+	if f.governanceEnabled && ctx.SessionID() != "" {
 		return f.sendBadRequest(ctx, "initialize must not include Mcp-Session-Id")
 	}
 
@@ -149,7 +149,7 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 	// Router hookpoint: trim the candidate set to a session-scoped plan.
 	// On internal error or invalid session, fail closed so governance failures
 	// never expose the raw candidate catalog.
-	if f.selector != nil {
+	if f.governanceEnabled {
 		if !f.routerSessionValid(ctx) {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router rejected tools/list for invalid session")
 			return f.responseBuilder.Success(req.ID, mcp.NewListToolsResult(nil, ""))
@@ -198,7 +198,7 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 }
 
 func (f *MCPServerFilter) routerSessionValid(ctx *MCPContext) bool {
-	if f.selector == nil {
+	if !f.governanceEnabled {
 		return true
 	}
 	if ctx.SessionID() == "" {
@@ -471,7 +471,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 	// Router hookpoint: enforce that the tool is authorized for this session.
 	// This implements discovery/execution separation: even a tool name learned
 	// out-of-band cannot be invoked unless it is part of the session plan.
-	if f.selector != nil {
+	if f.governanceEnabled {
 		if !f.routerSessionValid(ctx) {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router denied tool call for invalid session")
 			return f.errorHandler.SendToolCallError(ctx, req.ID, "tool not authorized for this session")
@@ -658,6 +658,9 @@ func (f *MCPServerFilter) processToolCallResponse(ctx *MCPContext, requestID any
 }
 
 func (f *MCPServerFilter) recordToolCallSuccess(ctx *MCPContext) bool {
+	if !f.governanceEnabled {
+		return false
+	}
 	recorder, ok := f.selector.(router.CallSuccessRecorder)
 	if !ok {
 		return false

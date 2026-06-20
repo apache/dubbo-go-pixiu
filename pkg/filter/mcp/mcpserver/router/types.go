@@ -18,8 +18,7 @@
 // Package router implements deterministic MCP tool governance.
 //
 // It provides a ToolSelector that the MCP server filter invokes at tools/list
-// and tools/call. Governance is always active; an omitted router block uses the
-// normalized default policy.
+// and tools/call when the MCP server configuration contains a router block.
 package router
 
 import (

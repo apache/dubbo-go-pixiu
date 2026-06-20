@@ -99,9 +99,9 @@ Each argument object contains the following fields:
 
 ### Intelligent Tool Routing (`router`) Configuration
 
-When an MCP server exposes a large catalog of tools, sending all of them to an LLM on every `tools/list` causes tool overload, context bloat, and an uncontrolled exposure surface. The optional `router` block adds a governance layer that trims `tools/list` per session and enforces the trimmed set at `tools/call`.
+When an MCP server exposes a large catalog of tools, sending all of them to an LLM on every `tools/list` causes tool overload, context bloat, and an uncontrolled exposure surface. The optional `router` block enables deterministic MCP tool governance: it trims `tools/list` per session and enforces the trimmed set at `tools/call`.
 
-**Tool governance is always active.** Omitting the `router` block applies the normalized default configuration: all current policy-allowed tools are listed after initialize/tools/list, and tools/call is always checked against the session-bound plan.
+Omitting the `router` block preserves the existing MCP server behavior. When the router block is present, including `router: {}`, governance is enabled and `tools/call` enforcement cannot be disabled.
 
 Two principles shape the design:
 
@@ -201,7 +201,7 @@ Tools with `meta.discovery_visibility: false` are omitted from the plan's `visib
 
 #### MCP Sessions and Tool-List Notifications
 
-`initialize` always creates a fresh MCP session and returns it in `Mcp-Session-Id`. Clients must not send `Mcp-Session-Id` on `initialize`; Pixiu rejects that with `400` instead of adopting a caller-supplied ID. Later GET SSE streams require an existing session ID: a missing header returns `400`, and an unknown or expired ID returns `404`. Router-enforced POST requests (`tools/list` and `tools/call`) also require a valid session; unknown or expired IDs are never silently replaced with new sessions.
+When the router block is configured, `initialize` creates a fresh MCP session and returns it in `Mcp-Session-Id`. Clients must not send `Mcp-Session-Id` on `initialize`; Pixiu rejects that with `400` instead of adopting a caller-supplied ID. Later GET SSE streams require an existing session ID: a missing header returns `400`, and an unknown or expired ID returns `404`. Router-enforced POST requests (`tools/list` and `tools/call`) also require a valid session; unknown or expired IDs are never silently replaced with new sessions.
 
 The MCP session owns the router plan, progressive counter, and pending notification state. An SSE stream is only an attachment to that session: disconnecting, canceling the request context, reconnecting, or replacing the active stream does not terminate the MCP session or delete its plan. When the transport session is removed, Pixiu deletes all router-instance plans for that session; TTL cleanup is only a stale-entry safety net.
 
@@ -209,11 +209,11 @@ The initialize response advertises `ServerCapabilities.tools.listChanged=true`. 
 
 #### Dynamic Tool Updates
 
-Nacos dynamic updates currently support tool catalog changes only. A dynamic text detail containing a `router` section is rejected so Pixiu does not run with a new tool catalog and stale router policy. A successful catalog update marks initialized sessions for `notifications/tools/list_changed`; online sessions are notified immediately and offline sessions are notified after SSE reconnect.
+Nacos dynamic updates currently support tool catalog changes only. A dynamic text detail containing a `router` section is rejected so Pixiu does not run with a new tool catalog and stale router policy. A successful catalog update publishes the tool catalog atomically. When governance is enabled, Pixiu recomputes affected session plans and marks `notifications/tools/list_changed` only for sessions whose visible tool set changed; online sessions are notified immediately and offline sessions are notified after SSE reconnect.
 
 #### Observability
 
-Tool governance publishes Prometheus metrics under the `pixiu_mcp_tool_router_*` namespace:
+When governance is enabled, Pixiu publishes Prometheus metrics under the `pixiu_mcp_tool_router_*` namespace:
 
 | Metric | Type | Labels |
 |--------|------|--------|

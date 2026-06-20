@@ -30,8 +30,9 @@ type McpServerConfig struct {
 	Resources         []ResourceConfig         `yaml:"resources,omitempty" json:"resources,omitempty"`
 	ResourceTemplates []ResourceTemplateConfig `yaml:"resource_templates,omitempty" json:"resource_templates,omitempty"`
 	Prompts           []PromptConfig           `yaml:"prompts,omitempty" json:"prompts,omitempty"`
-	// Router holds optional tool governance configuration. A nil router uses
-	// the normalized default governance policy.
+	// Router optionally enables deterministic MCP tool governance. A nil Router
+	// preserves the existing MCP server behavior. A non-nil Router, including an
+	// empty configuration, enables governance.
 	Router *RouterConfig `yaml:"router,omitempty" json:"router,omitempty"`
 }
 
@@ -87,8 +88,9 @@ type ToolMeta struct {
 	DiscoveryVisibility *bool `yaml:"discovery_visibility,omitempty" json:"discovery_visibility,omitempty"`
 }
 
-// RouterConfig configures MCP tool governance. Governance is always active;
-// omitting this block applies the normalized default configuration.
+// RouterConfig configures deterministic MCP tool governance. The configuration
+// block enables governance by presence; there is no public enabled switch, and
+// tools/call enforcement cannot be disabled while governance is active.
 type RouterConfig struct {
 	// Fallback is "bundle_default" (default) or "fail_closed".
 	Fallback string `yaml:"fallback,omitempty" json:"fallback,omitempty"`

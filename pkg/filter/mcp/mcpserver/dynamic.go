@@ -53,6 +53,7 @@ type DynamicConsumer struct {
 	sseHandler     *transport.SSEHandler
 	selector       router.ToolSelector
 	plans          *router.SessionPlanStore
+	governance     bool
 
 	// Tool configuration management grouped by server
 	mu            sync.RWMutex
@@ -75,6 +76,7 @@ func (d *DynamicConsumer) SetGovernance(selector router.ToolSelector, plans *rou
 	defer d.mu.Unlock()
 	d.selector = selector
 	d.plans = plans
+	d.governance = selector != nil && plans != nil
 }
 
 // ApplyMcpServerConfigByServer applies a dynamic tool catalog update by server
@@ -88,8 +90,10 @@ func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *mod
 	if cfg.Router != nil {
 		return errDynamicRouterUpdateUnsupported
 	}
-	if err := router.ValidateTools(cfg.Tools); err != nil {
-		return fmt.Errorf("invalid mcp tool router metadata: %w", err)
+	if d.governanceEnabled() {
+		if err := router.ValidateTools(cfg.Tools); err != nil {
+			return fmt.Errorf("invalid mcp tool router metadata: %w", err)
+		}
 	}
 
 	d.mu.Lock()
@@ -287,10 +291,11 @@ func (d *DynamicConsumer) notifyToolsListChanged() {
 
 func (d *DynamicConsumer) sessionsWithChangedVisibleSet() map[string]struct{} {
 	d.mu.RLock()
+	governance := d.governance
 	selector := d.selector
 	plans := d.plans
 	d.mu.RUnlock()
-	if selector == nil || plans == nil {
+	if !governance || selector == nil || plans == nil {
 		return nil
 	}
 	snapshot := d.registry.ToolCatalogSnapshot()
@@ -308,6 +313,12 @@ func (d *DynamicConsumer) sessionsWithChangedVisibleSet() map[string]struct{} {
 		}
 	}
 	return changed
+}
+
+func (d *DynamicConsumer) governanceEnabled() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.governance
 }
 
 func sameStrings(a, b []string) bool {
