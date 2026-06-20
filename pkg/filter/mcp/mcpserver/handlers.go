@@ -53,9 +53,8 @@ const (
 )
 
 type initializeParams struct {
-	ProtocolVersion string                 `json:"protocolVersion"`
-	ClientInfo      initializeClientInfo   `json:"clientInfo"`
-	Capabilities    initializeCapabilities `json:"capabilities,omitempty"`
+	ProtocolVersion string               `json:"protocolVersion"`
+	ClientInfo      initializeClientInfo `json:"clientInfo"`
 }
 
 type initializeClientInfo struct {
@@ -63,16 +62,12 @@ type initializeClientInfo struct {
 	Version string `json:"version"`
 }
 
-type initializeCapabilities struct {
-	Tools *initializeToolsCapabilities `json:"tools,omitempty"`
-}
-
-type initializeToolsCapabilities struct {
-	ListChanged bool `json:"listChanged,omitempty"`
-}
-
 // handleInitialize handles the initialize method
 func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCRequest) filter.FilterStatus {
+	if ctx.SessionID() != "" {
+		return f.sendBadRequest(ctx, "initialize must not include Mcp-Session-Id")
+	}
+
 	// Parse client's protocol version from request params
 	var initParams initializeParams
 
@@ -87,8 +82,8 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 		clientVersion = ctx.ProtocolVersion()
 	}
 
-	logger.Infof("[dubbo-go-pixiu] mcp server initialize: client=%s version=%s, server will respond with=%s",
-		initParams.ClientInfo.Name, clientVersion, constant.MCPProtocolVersion20250618)
+	logger.Infof("[dubbo-go-pixiu] mcp server initialize: client_protocol=%s server_protocol=%s",
+		clientVersion, constant.MCPProtocolVersion20250618)
 
 	capabilities := mcp.ServerCapabilities{
 		Tools: &struct {
@@ -125,14 +120,16 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 	// Per MCP spec: assign a session ID at initialization time for Streamable HTTP transport
 	// This enables clients to use the session for SSE-based responses
-	sessionIDHeader := ctx.SessionID()
-	session, _ := f.sessionManager.EnsureSession(sessionIDHeader)
-	session.SetToolsListChangedSupported(initParams.Capabilities.Tools != nil && initParams.Capabilities.Tools.ListChanged)
+	session, err := f.sessionManager.CreateSession()
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp server failed to create session: %v", err)
+		return f.errorHandler.SendInternalError(ctx, req.ID, "failed to create session")
+	}
 
 	// Add Mcp-Session-Id header to the response
 	ctx.AddHeader(constant.HeaderKeyMCPSessionId, session.ID)
 
-	logger.Infof("[dubbo-go-pixiu] mcp server created session for client: %s", session.ID)
+	logger.Infof("[dubbo-go-pixiu] mcp server created session for client")
 
 	// Router hookpoint: store initialize-time metadata for later decisions/logs.
 	// Errors are non-fatal; tools/list will compute the plan on demand.
@@ -607,7 +604,7 @@ func (f *MCPServerFilter) buildBackendRequest(ctx *MCPContext, toolConfig model.
 		// Set Content-Type header
 		ctx.Request.Header.Set(constant.HeaderKeyContextType, constant.HeaderValueApplicationJson)
 
-		logger.Debugf("[dubbo-go-pixiu] mcp server built request body: %s", string(bodyJSON))
+		logger.Debugf("[dubbo-go-pixiu] mcp server built backend request body")
 	}
 
 	return nil
@@ -710,7 +707,7 @@ func (f *MCPServerFilter) sendMCPResponse(ctx *MCPContext, response mcp.JSONRPCR
 		if exists && session.HasPipeWriter() {
 			// Send via SSE stream
 			if sseErr := f.sseHandler.SendSSEMessage(session, response); sseErr == nil {
-				logger.Debugf("[dubbo-go-pixiu] mcp server sent tool call response via SSE for session: %s", sessionID)
+				logger.Debugf("[dubbo-go-pixiu] mcp server sent tool call response via SSE")
 				// Return 202 Accepted without body per MCP spec
 				ctx.SendLocalReply(http.StatusAccepted, nil)
 				return filter.Stop
@@ -742,27 +739,28 @@ func (f *MCPServerFilter) notifyToolsListChanged(sessionID string) {
 	if sessionID == "" {
 		return
 	}
-	session, exists := f.sessionManager.Session(sessionID)
-	if !exists || !session.ToolsListChangedSupported() {
+	session, exists := f.sessionManager.GetSession(sessionID)
+	if !exists {
 		return
 	}
-	if !session.HasPipeWriter() {
-		session.MarkToolsListChangedPending()
-		return
-	}
-	if err := f.sendToolsListChangedNotification(session); err != nil {
-		logger.Warnf("[dubbo-go-pixiu] mcp server failed to send tools/list_changed: %v", err)
-		session.MarkToolsListChangedPending()
-	}
+	session.MarkToolsListChangedPending()
+	f.flushPendingToolsListChanged(session)
 }
 
 func (f *MCPServerFilter) flushPendingToolsListChanged(session *transport.MCPSession) {
-	if session == nil || !session.ConsumeToolsListChangedPending() {
+	if session == nil {
 		return
 	}
-	if err := f.sendToolsListChangedNotification(session); err != nil {
-		logger.Warnf("[dubbo-go-pixiu] mcp server failed to flush pending tools/list_changed: %v", err)
-		session.MarkToolsListChangedPending()
+	for {
+		version, pending := session.PendingToolsListChangedVersion()
+		if !pending || !session.HasPipeWriter() {
+			return
+		}
+		if err := f.sendToolsListChangedNotification(session); err != nil {
+			logger.Warnf("[dubbo-go-pixiu] mcp server failed to flush pending tools/list_changed: %v", err)
+			return
+		}
+		session.MarkToolsListChangedNotified(version)
 	}
 }
 

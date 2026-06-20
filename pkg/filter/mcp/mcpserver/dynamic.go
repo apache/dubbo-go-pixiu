@@ -279,7 +279,8 @@ func (d *DynamicConsumer) calculateCurrentMergedTools() []model.ToolConfig {
 	return allTools
 }
 
-// notifyToolsListChanged sends notifications/tools/list_changed to all connected clients
+// notifyToolsListChanged marks notifications/tools/list_changed for all active
+// sessions. Offline sessions keep a bounded pending version for reconnect.
 func (d *DynamicConsumer) notifyToolsListChanged() {
 	if d.sessionManager == nil {
 		logger.Debugf("[dubbo-go-pixiu] mcp server session manager not available, skip tools list_changed notification")
@@ -293,56 +294,48 @@ func (d *DynamicConsumer) notifyToolsListChanged() {
 		return
 	}
 
-	// Send notification to each session
-	successCount := 0
-	eligibleCount := 0
+	markedCount := 0
+	flushedCount := 0
 	for _, sessionID := range sessionIDs {
-		session, exists := d.sessionManager.Session(sessionID)
-		if !exists || !session.ToolsListChangedSupported() {
+		session, exists := d.sessionManager.GetSession(sessionID)
+		if !exists {
 			continue
 		}
-		eligibleCount++
-		if err := d.sendToolsListChangedNotification(sessionID); err != nil {
+		session.MarkToolsListChangedPending()
+		markedCount++
+		if err := d.flushToolsListChangedNotification(session); err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp server failed to send tools list_changed: %v", err)
 		} else {
-			successCount++
+			flushedCount++
 		}
 	}
 
-	if eligibleCount == 0 {
-		logger.Debugf("[dubbo-go-pixiu] mcp server no sessions support tools list_changed notification")
+	if markedCount == 0 {
+		logger.Debugf("[dubbo-go-pixiu] mcp server no active sessions to mark for tools list_changed notification")
 		return
 	}
-	logger.Infof("[dubbo-go-pixiu] mcp server sent tools/list_changed notification to %d/%d sessions", successCount, eligibleCount)
+	logger.Infof("[dubbo-go-pixiu] mcp server marked tools/list_changed notification for %d sessions, flushed %d online sessions", markedCount, flushedCount)
 }
 
-// sendToolsListChangedNotification sends notification to a specific session
-func (d *DynamicConsumer) sendToolsListChangedNotification(sessionID string) error {
-	session, exists := d.sessionManager.Session(sessionID)
-	if !exists {
-		return fmt.Errorf("session not found")
-	}
-	if !session.ToolsListChangedSupported() {
-		return nil
-	}
+// flushToolsListChangedNotification sends pending notifications to a specific
+// session when an SSE stream is attached.
+func (d *DynamicConsumer) flushToolsListChangedNotification(session *transport.MCPSession) error {
 	if d.sseHandler == nil {
-		session.MarkToolsListChangedPending()
 		return fmt.Errorf("SSE handler not configured")
 	}
-
-	// Build tools/list_changed notification (no params needed)
-	notification := map[string]any{
-		"jsonrpc": "2.0",
-		"method":  "notifications/tools/list_changed",
+	for {
+		version, pending := session.PendingToolsListChangedVersion()
+		if !pending || !session.HasPipeWriter() {
+			return nil
+		}
+		notification := map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "notifications/tools/list_changed",
+		}
+		if err := d.sseHandler.SendSSEMessage(session, notification); err != nil {
+			return err
+		}
+		session.MarkToolsListChangedNotified(version)
+		logger.Debugf("[dubbo-go-pixiu] mcp server sent tools/list_changed")
 	}
-	if !session.HasPipeWriter() {
-		session.MarkToolsListChangedPending()
-		return nil
-	}
-	if err := d.sseHandler.SendSSEMessage(session, notification); err != nil {
-		session.MarkToolsListChangedPending()
-		return err
-	}
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent tools/list_changed")
-	return nil
 }

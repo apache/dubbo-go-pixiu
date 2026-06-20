@@ -40,18 +40,30 @@ const (
 // Handlers are called outside the SessionManager lock.
 type SessionRemovedHandler func(sessionID string)
 
+// StreamToken identifies one attached SSE stream generation.
+type StreamToken uint64
+
+type streamAttachment struct {
+	token   StreamToken
+	writer  *io.PipeWriter
+	writeMu sync.Mutex
+}
+
 // MCPSession represents an active MCP session
 type MCPSession struct {
-	ID                       string
-	CreatedAt                time.Time
-	LastActivity             time.Time
-	PipeWriter               *io.PipeWriter // Pipe writer for sending SSE messages
-	Done                     chan struct{}
-	SupportsToolsListChanged bool
-	PendingToolsListChanged  bool
-	mu                       sync.RWMutex // Protects mutable session fields
-	writeMu                  sync.Mutex
-	closeOnce                sync.Once
+	ID        string
+	CreatedAt time.Time
+	Done      chan struct{}
+
+	mu                          sync.RWMutex
+	LastActivity                time.Time
+	toolListChangeVersion       uint64
+	lastNotifiedToolListVersion uint64
+
+	streamMu  sync.Mutex
+	streamSeq StreamToken
+	stream    *streamAttachment
+	closeOnce sync.Once
 }
 
 // SessionManager manages MCP sessions for SSE connections
@@ -93,44 +105,27 @@ func (sm *SessionManager) AddSessionRemovedHandler(handler SessionRemovedHandler
 	sm.removedHandlers = append(sm.removedHandlers, handler)
 }
 
-// EnsureSession gets existing session or creates new one
-func (sm *SessionManager) EnsureSession(sessionIDHeader string) (*MCPSession, bool) {
+// CreateSession creates a new MCP session. Client supplied session IDs are never
+// accepted here; this prevents session fixation during initialize.
+func (sm *SessionManager) CreateSession() (*MCPSession, error) {
 	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	now := sm.now()
-
-	// Try to get existing session
-	if sessionIDHeader != "" {
-		if session, exists := sm.sessions[sessionIDHeader]; exists {
-			if sm.sessionExpiredLocked(session, now) {
-				sm.removeSessionLocked(sessionIDHeader)
-				handlers := sm.handlersLocked()
-				sm.mu.Unlock()
-				sm.callRemovedHandlers(handlers, []string{sessionIDHeader})
-				return sm.EnsureSession("")
-			}
-			session.touch(now)
-			sm.mu.Unlock()
-			return session, false // existing session
-		}
-	}
-
-	// Create new session
-	sessionID := sm.generateSessionID()
+	sessionID := sm.generateUniqueSessionIDLocked()
 	session := &MCPSession{
 		ID:           sessionID,
 		CreatedAt:    now,
 		LastActivity: now,
 		Done:         make(chan struct{}),
 	}
-
 	sm.sessions[sessionID] = session
-	sm.mu.Unlock()
-	logger.Infof("[dubbo-go-pixiu] mcp server created new session: %s", sessionID)
-	return session, true // new session
+	logger.Infof("[dubbo-go-pixiu] mcp server created MCP session")
+	return session, nil
 }
 
-// Session retrieves a session by ID
-func (sm *SessionManager) Session(sessionID string) (*MCPSession, bool) {
+// GetSession retrieves an existing MCP session. Unknown or expired IDs are not
+// replaced with new sessions.
+func (sm *SessionManager) GetSession(sessionID string) (*MCPSession, bool) {
 	if sessionID == "" {
 		return nil, false
 	}
@@ -153,6 +148,11 @@ func (sm *SessionManager) Session(sessionID string) (*MCPSession, bool) {
 	return session, true
 }
 
+// Session retrieves a session by ID.
+func (sm *SessionManager) Session(sessionID string) (*MCPSession, bool) {
+	return sm.GetSession(sessionID)
+}
+
 // RemoveSession removes a session and cleans up resources
 func (sm *SessionManager) RemoveSession(sessionID string) {
 	if sessionID == "" {
@@ -167,7 +167,7 @@ func (sm *SessionManager) RemoveSession(sessionID string) {
 	handlers := sm.handlersLocked()
 	sm.mu.Unlock()
 	sm.callRemovedHandlers(handlers, []string{sessionID})
-	logger.Infof("[dubbo-go-pixiu] mcp server removed session: %s", sessionID)
+	logger.Infof("[dubbo-go-pixiu] mcp server removed MCP session")
 }
 
 // Stop stops the session manager
@@ -188,7 +188,7 @@ func (sm *SessionManager) Stop() {
 	})
 }
 
-// generateSessionID generates a unique session ID
+// generateSessionID generates a session ID
 func (sm *SessionManager) generateSessionID() string {
 	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
@@ -196,6 +196,15 @@ func (sm *SessionManager) generateSessionID() string {
 		return hex.EncodeToString([]byte(time.Now().String()))
 	}
 	return hex.EncodeToString(bytes)
+}
+
+func (sm *SessionManager) generateUniqueSessionIDLocked() string {
+	for {
+		id := sm.generateSessionID()
+		if _, exists := sm.sessions[id]; !exists {
+			return id
+		}
+	}
 }
 
 // startCleanupRoutine starts the session cleanup routine
@@ -227,7 +236,7 @@ func (sm *SessionManager) cleanupExpiredSessions() {
 
 	for _, sessionID := range toRemove {
 		sm.removeSessionLocked(sessionID)
-		logger.Infof("[dubbo-go-pixiu] mcp server cleaned up expired session: %s", sessionID)
+		logger.Infof("[dubbo-go-pixiu] mcp server cleaned up expired MCP session")
 	}
 	handlers := sm.handlersLocked()
 	sm.mu.Unlock()
@@ -285,7 +294,7 @@ func (sm *SessionManager) callRemovedHandlers(handlers []SessionRemovedHandler, 
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						logger.Warnf("[dubbo-go-pixiu] mcp session removal handler panicked for session %s: %v", id, r)
+						logger.Warnf("[dubbo-go-pixiu] mcp session removal handler panicked: %v", r)
 					}
 				}()
 				handler(id)
@@ -297,12 +306,8 @@ func (sm *SessionManager) callRemovedHandlers(handlers []SessionRemovedHandler, 
 func (s *MCPSession) close() {
 	s.closeOnce.Do(func() {
 		close(s.Done)
-		s.writeMu.Lock()
-		defer s.writeMu.Unlock()
-		if s.PipeWriter != nil {
-			_ = s.PipeWriter.Close()
-			s.PipeWriter = nil
-		}
+		old := s.clearStream()
+		closeStream(old)
 	})
 }
 
@@ -318,69 +323,116 @@ func (s *MCPSession) lastActivity() time.Time {
 	return s.LastActivity
 }
 
-// SetToolsListChangedSupported stores whether this client can receive
-// notifications/tools/list_changed.
-func (s *MCPSession) SetToolsListChangedSupported(supported bool) {
+// MarkToolsListChangedPending records that this session's visible tool set has
+// changed. The version is monotonic and bounded to one counter per session.
+func (s *MCPSession) MarkToolsListChangedPending() uint64 {
 	s.mu.Lock()
-	s.SupportsToolsListChanged = supported
-	if !supported {
-		s.PendingToolsListChanged = false
-	}
+	s.toolListChangeVersion++
+	version := s.toolListChangeVersion
 	s.mu.Unlock()
+	return version
 }
 
-// ToolsListChangedSupported reports whether notifications may be sent.
-func (s *MCPSession) ToolsListChangedSupported() bool {
+// PendingToolsListChangedVersion returns the latest unsent tool-list change.
+func (s *MCPSession) PendingToolsListChangedVersion() (uint64, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.SupportsToolsListChanged
+	if s.toolListChangeVersion <= s.lastNotifiedToolListVersion {
+		return 0, false
+	}
+	return s.toolListChangeVersion, true
 }
 
-// MarkToolsListChangedPending coalesces a pending list_changed notification.
-func (s *MCPSession) MarkToolsListChangedPending() {
+// MarkToolsListChangedNotified marks one version as successfully sent. If a
+// newer version was created while the send was in flight, it remains pending.
+func (s *MCPSession) MarkToolsListChangedNotified(version uint64) {
 	s.mu.Lock()
-	if s.SupportsToolsListChanged {
-		s.PendingToolsListChanged = true
+	if version > s.lastNotifiedToolListVersion {
+		s.lastNotifiedToolListVersion = version
 	}
 	s.mu.Unlock()
 }
 
-// ConsumeToolsListChangedPending consumes one coalesced pending notification.
-func (s *MCPSession) ConsumeToolsListChangedPending() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.SupportsToolsListChanged || !s.PendingToolsListChanged {
-		return false
-	}
-	s.PendingToolsListChanged = false
-	return true
+// AttachStream installs a new SSE stream and closes the previous stream, if any.
+func (s *MCPSession) AttachStream(writer *io.PipeWriter) StreamToken {
+	s.streamMu.Lock()
+	s.streamSeq++
+	token := s.streamSeq
+	old := s.stream
+	s.stream = &streamAttachment{token: token, writer: writer}
+	s.streamMu.Unlock()
+
+	closeStream(old)
+	return token
 }
 
-// SetPipeWriter installs the current SSE pipe writer.
-func (s *MCPSession) SetPipeWriter(writer *io.PipeWriter) {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	s.PipeWriter = writer
+// DetachStream removes the current SSE stream only if the token still owns it.
+func (s *MCPSession) DetachStream(token StreamToken) {
+	s.streamMu.Lock()
+	if s.stream == nil || s.stream.token != token {
+		s.streamMu.Unlock()
+		return
+	}
+	old := s.stream
+	s.stream = nil
+	s.streamMu.Unlock()
+
+	closeStream(old)
+}
+
+func (s *MCPSession) clearStream() *streamAttachment {
+	s.streamMu.Lock()
+	old := s.stream
+	s.stream = nil
+	s.streamMu.Unlock()
+	return old
 }
 
 // HasPipeWriter reports whether an SSE stream is online.
 func (s *MCPSession) HasPipeWriter() bool {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	return s.PipeWriter != nil
+	s.streamMu.Lock()
+	defer s.streamMu.Unlock()
+	return s.stream != nil
 }
 
 // WriteSSEData writes a formatted SSE frame and updates last activity.
 func (s *MCPSession) WriteSSEData(data []byte, now time.Time) error {
-	s.writeMu.Lock()
-	writer := s.PipeWriter
-	s.writeMu.Unlock()
-	if writer == nil {
+	s.streamMu.Lock()
+	stream := s.stream
+	s.streamMu.Unlock()
+	return s.writeSSEData(stream, data, now)
+}
+
+// WriteSSEDataForStream writes only when token still owns the active stream.
+func (s *MCPSession) WriteSSEDataForStream(token StreamToken, data []byte, now time.Time) error {
+	s.streamMu.Lock()
+	stream := s.stream
+	if stream == nil || stream.token != token {
+		s.streamMu.Unlock()
+		return fmt.Errorf("SSE stream no longer attached")
+	}
+	s.streamMu.Unlock()
+	return s.writeSSEData(stream, data, now)
+}
+
+func (s *MCPSession) writeSSEData(stream *streamAttachment, data []byte, now time.Time) error {
+	if stream == nil {
 		return fmt.Errorf("SSE pipe not established")
 	}
-	if _, err := writer.Write(data); err != nil {
+
+	stream.writeMu.Lock()
+	_, err := stream.writer.Write(data)
+	stream.writeMu.Unlock()
+	if err != nil {
 		return err
 	}
 	s.touch(now)
 	return nil
+}
+
+func closeStream(stream *streamAttachment) {
+	if stream == nil || stream.writer == nil {
+		return
+	}
+	_ = stream.writer.Close()
 }

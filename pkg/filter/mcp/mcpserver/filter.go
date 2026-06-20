@@ -277,14 +277,19 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 		return f.sendNotAcceptable(ctx, "GET request must accept text/event-stream")
 	}
 
-	// Get or create session
 	sessionIDHeader := ctx.SessionID()
-	session, isNewSession := f.sessionManager.EnsureSession(sessionIDHeader)
+	if sessionIDHeader == "" {
+		return f.sendBadRequest(ctx, "Mcp-Session-Id header is required")
+	}
+	session, exists := f.sessionManager.GetSession(sessionIDHeader)
+	if !exists {
+		return f.sendNotFound(ctx, "MCP session not found")
+	}
 	ctx.SetSessionID(session.ID)
 
 	// Create io.Pipe for SSE message transport
 	pipeReader, pipeWriter := io.Pipe()
-	session.SetPipeWriter(pipeWriter)
+	streamToken := session.AttachStream(pipeWriter)
 
 	// Create virtual HTTP response with pipe as body
 	virtualResp := &http.Response{
@@ -304,14 +309,10 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 	ctx.StatusCode(http.StatusOK)
 
 	// Start background goroutine to maintain the SSE connection
-	go f.maintainSSEPipe(ctx, session)
+	go f.maintainSSEPipe(ctx, session, streamToken)
 	go f.flushPendingToolsListChanged(session)
 
-	if isNewSession {
-		logger.Infof("[dubbo-go-pixiu] mcp server established new SSE stream for session: %s", session.ID)
-	} else {
-		logger.Infof("[dubbo-go-pixiu] mcp server resumed SSE stream for existing session: %s", session.ID)
-	}
+	logger.Infof("[dubbo-go-pixiu] mcp server attached SSE stream")
 
 	// Return Stop to skip remaining filters and backend call
 	return filter.Stop
@@ -340,6 +341,10 @@ func (f *MCPServerFilter) handlePostRequest(ctx *MCPContext) filter.FilterStatus
 	// Store information in MCP context
 	ctx.SetMCPMethod(jsonrpcReq.Method)
 	ctx.SetMCPRequestID(jsonrpcReq.ID)
+
+	if status := f.validateSessionForMethod(ctx, jsonrpcReq.Method); status != filter.Continue {
+		return status
+	}
 
 	// Determine response format based on content negotiation
 	sessionID := ctx.SessionID()
@@ -421,7 +426,7 @@ func (f *MCPServerFilter) sendSSEResponse(ctx *MCPContext, response any) filter.
 	session, exists := f.sessionManager.Session(sessionID)
 	if !exists {
 		// Session not found, fall back to JSON
-		logger.Warnf("[dubbo-go-pixiu] mcp server session not found: %s, falling back to JSON", sessionID)
+		logger.Warnf("[dubbo-go-pixiu] mcp server session not found, falling back to JSON")
 		return f.sendJSONResponse(ctx, response)
 	}
 
@@ -433,7 +438,7 @@ func (f *MCPServerFilter) sendSSEResponse(ctx *MCPContext, response any) filter.
 	}
 
 	// SSE message sent successfully, return 202 Accepted per MCP spec
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent response via SSE for session: %s", sessionID)
+	logger.Debugf("[dubbo-go-pixiu] mcp server sent response via SSE")
 	ctx.SendLocalReply(http.StatusAccepted, nil)
 	return filter.Stop
 }
@@ -448,6 +453,13 @@ func (f *MCPServerFilter) sessionExists(sessionID string) bool {
 func (f *MCPServerFilter) sendBadRequest(ctx *MCPContext, message string) filter.FilterStatus {
 	logger.Warnf("[dubbo-go-pixiu] mcp server bad request: %s", message)
 	ctx.SendLocalReply(http.StatusBadRequest, []byte(message))
+	return filter.Stop
+}
+
+// sendNotFound sends a 404 Not Found response
+func (f *MCPServerFilter) sendNotFound(ctx *MCPContext, message string) filter.FilterStatus {
+	logger.Warnf("[dubbo-go-pixiu] mcp server not found: %s", message)
+	ctx.SendLocalReply(http.StatusNotFound, []byte(message))
 	return filter.Stop
 }
 
@@ -474,11 +486,11 @@ func (f *MCPServerFilter) sendInternalError(ctx *MCPContext, message string) fil
 }
 
 // maintainSSEPipe maintains the SSE pipe connection with keepalive
-func (f *MCPServerFilter) maintainSSEPipe(ctx *MCPContext, session *transport.MCPSession) {
+func (f *MCPServerFilter) maintainSSEPipe(ctx *MCPContext, session *transport.MCPSession, token transport.StreamToken) {
 	// Ensure cleanup on exit
 	defer func() {
-		f.sessionManager.RemoveSession(session.ID)
-		logger.Debugf("[dubbo-go-pixiu] mcp server SSE pipe maintenance ended for session: %s", session.ID)
+		session.DetachStream(token)
+		logger.Debugf("[dubbo-go-pixiu] mcp server detached SSE stream")
 	}()
 
 	ticker := time.NewTicker(transport.KeepaliveInterval)
@@ -489,20 +501,20 @@ func (f *MCPServerFilter) maintainSSEPipe(ctx *MCPContext, session *transport.MC
 		case <-ticker.C:
 			// Send keepalive comment (ignored by SSE clients)
 			keepalive := f.sseHandler.FormatSSEKeepalive(time.Now().Unix())
-			if err := session.WriteSSEData([]byte(keepalive), time.Now()); err != nil {
-				logger.Warnf("[dubbo-go-pixiu] mcp server keepalive write failed for session %s: %v", session.ID, err)
+			if err := session.WriteSSEDataForStream(token, []byte(keepalive), time.Now()); err != nil {
+				logger.Warnf("[dubbo-go-pixiu] mcp server keepalive write failed: %v", err)
 				return
 			}
-			logger.Debugf("[dubbo-go-pixiu] mcp server sent keepalive for session: %s", session.ID)
+			logger.Debugf("[dubbo-go-pixiu] mcp server sent keepalive")
 
 		case <-session.Done:
 			// Server-initiated close
-			logger.Infof("[dubbo-go-pixiu] mcp server closing SSE stream (server initiated) for session: %s", session.ID)
+			logger.Infof("[dubbo-go-pixiu] mcp server closing SSE stream (server initiated)")
 			return
 
 		case <-ctx.Ctx.Done():
 			// Client disconnected
-			logger.Infof("[dubbo-go-pixiu] mcp server closing SSE stream (client disconnected) for session: %s", session.ID)
+			logger.Infof("[dubbo-go-pixiu] mcp server closing SSE stream (client disconnected)")
 			return
 		}
 	}
@@ -512,11 +524,11 @@ func (f *MCPServerFilter) maintainSSEPipe(ctx *MCPContext, session *transport.MC
 func (f *MCPServerFilter) SendServerNotification(sessionID string, method string, params map[string]any) error {
 	session, exists := f.sessionManager.Session(sessionID)
 	if !exists {
-		return fmt.Errorf("session not found: %s", sessionID)
+		return fmt.Errorf("session not found")
 	}
 
 	if !session.HasPipeWriter() {
-		return fmt.Errorf("SSE pipe not established for session: %s", sessionID)
+		return fmt.Errorf("SSE pipe not established")
 	}
 
 	// Use ResponseBuilder to create notification
@@ -527,7 +539,7 @@ func (f *MCPServerFilter) SendServerNotification(sessionID string, method string
 		return err
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent notification to session %s: %s", sessionID, method)
+	logger.Debugf("[dubbo-go-pixiu] mcp server sent notification: %s", method)
 	return nil
 }
 
@@ -535,11 +547,11 @@ func (f *MCPServerFilter) SendServerNotification(sessionID string, method string
 func (f *MCPServerFilter) SendServerRequest(sessionID string, id any, method string, params any) error {
 	session, exists := f.sessionManager.Session(sessionID)
 	if !exists {
-		return fmt.Errorf("session not found: %s", sessionID)
+		return fmt.Errorf("session not found")
 	}
 
 	if !session.HasPipeWriter() {
-		return fmt.Errorf("SSE pipe not established for session: %s", sessionID)
+		return fmt.Errorf("SSE pipe not established")
 	}
 
 	// Use ResponseBuilder to create request
@@ -550,6 +562,25 @@ func (f *MCPServerFilter) SendServerRequest(sessionID string, id any, method str
 		return err
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent request to session %s: %s (id: %v)", sessionID, method, id)
+	logger.Debugf("[dubbo-go-pixiu] mcp server sent request: %s (id: %v)", method, id)
 	return nil
+}
+
+func (f *MCPServerFilter) validateSessionForMethod(ctx *MCPContext, method string) filter.FilterStatus {
+	if method == string(mcp.MethodInitialize) {
+		return filter.Continue
+	}
+
+	sessionID := ctx.SessionID()
+	if sessionID != "" {
+		if _, exists := f.sessionManager.GetSession(sessionID); !exists {
+			return f.sendNotFound(ctx, "MCP session not found")
+		}
+		return filter.Continue
+	}
+
+	if f.selector != nil && (method == string(mcp.MethodToolsList) || method == string(mcp.MethodToolsCall)) {
+		return f.sendBadRequest(ctx, "Mcp-Session-Id header is required")
+	}
+	return filter.Continue
 }

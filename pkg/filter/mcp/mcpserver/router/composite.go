@@ -29,7 +29,6 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -168,8 +167,6 @@ func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candi
 
 	c.log.Log(sc, plan, len(candidates))
 
-	logger.Debugf("[dubbo-go-pixiu] mcp router selected %d/%d tools for session %s (mode=%s)",
-		len(plan.ToolNames), len(candidates), sc.SessionID, plan.Mode)
 	return plan, nil
 }
 

@@ -60,7 +60,7 @@ func (h *SSEHandler) SendSSEMessage(session *MCPSession, message any) error {
 		return fmt.Errorf("failed to write to SSE pipe: %w", err)
 	}
 
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent SSE message to session: %s", session.ID)
+	logger.Debugf("[dubbo-go-pixiu] mcp server sent SSE message")
 	return nil
 }
 
