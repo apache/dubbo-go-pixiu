@@ -30,8 +30,8 @@ type McpServerConfig struct {
 	Resources         []ResourceConfig         `yaml:"resources,omitempty" json:"resources,omitempty"`
 	ResourceTemplates []ResourceTemplateConfig `yaml:"resource_templates,omitempty" json:"resource_templates,omitempty"`
 	Prompts           []PromptConfig           `yaml:"prompts,omitempty" json:"prompts,omitempty"`
-	// Router holds optional intelligent tool routing configuration.
-	// When nil or disabled the server behaves identically to the pre-router build.
+	// Router holds optional tool governance configuration. A nil router uses
+	// the normalized default governance policy.
 	Router *RouterConfig `yaml:"router,omitempty" json:"router,omitempty"`
 }
 
@@ -87,17 +87,13 @@ type ToolMeta struct {
 	DiscoveryVisibility *bool `yaml:"discovery_visibility,omitempty" json:"discovery_visibility,omitempty"`
 }
 
-// RouterConfig configures the intelligent tool router.
-// When Enabled is false (the default) the router is a no-op.
+// RouterConfig configures MCP tool governance. Governance is always active;
+// omitting this block applies the normalized default configuration.
 type RouterConfig struct {
-	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	// Fallback is "bundle_default" (default) or "fail_closed".
 	Fallback string `yaml:"fallback,omitempty" json:"fallback,omitempty"`
 	// DefaultBundle names the workflow used when Fallback is "bundle_default".
 	DefaultBundle string `yaml:"default_bundle,omitempty" json:"default_bundle,omitempty"`
-	// EnforceOnCall, when true (default), rejects tools/call for tools that are
-	// not part of the session's selection plan.
-	EnforceOnCall *bool `yaml:"enforce_on_call,omitempty" json:"enforce_on_call,omitempty"`
 
 	Stages      RouterStages        `yaml:"stages,omitempty" json:"stages,omitempty"`
 	Policy      PolicyConfig        `yaml:"policy,omitempty" json:"policy,omitempty"`
@@ -109,8 +105,8 @@ type RouterConfig struct {
 
 // RouterSessionConfig controls the in-process session plan cache.
 type RouterSessionConfig struct {
-	// MaxEntries caps the number of cached session plans. Zero means the
-	// production default; negative values are rejected during router build.
+	// MaxEntries caps active sessions/plans for one MCP filter instance.
+	// Zero means the production default; negative values are rejected.
 	MaxEntries int `yaml:"max_entries,omitempty" json:"max_entries,omitempty"`
 }
 
@@ -119,10 +115,10 @@ type AuditConfig struct {
 	// SampleRate is the fraction (0..1) of selections to emit a decision log
 	// for. Zero disables decision logs.
 	SampleRate float64 `yaml:"sample_rate,omitempty" json:"sample_rate,omitempty"`
-	// PayloadLogging, when true, opts into detailed tool/rule logging. It must
-	// never be enabled in production without understanding that tool and rule
+	// DecisionDetailLogging, when true, opts into detailed tool/rule logging. It must
+	// never be turned on in production without understanding that tool and rule
 	// names can disclose governance intent.
-	PayloadLogging bool `yaml:"payload_logging,omitempty" json:"payload_logging,omitempty"`
+	DecisionDetailLogging bool `yaml:"decision_detail_logging,omitempty" json:"decision_detail_logging,omitempty"`
 }
 
 // RouterStages toggles individual pipeline stages. The pipeline order is fixed
@@ -170,7 +166,7 @@ type ProgressiveConfig struct {
 	InitialBundle string `yaml:"initial_bundle,omitempty" json:"initial_bundle,omitempty"`
 	// ExpandAfterCalls is the number of successful tool calls before the full
 	// filtered set is revealed. Values <= 0 are rejected when progressive
-	// disclosure is enabled.
+	// disclosure is active.
 	ExpandAfterCalls int `yaml:"expand_after_calls,omitempty" json:"expand_after_calls,omitempty"`
 }
 
@@ -418,11 +414,6 @@ func (rc *RouterConfig) DeepCopy() *RouterConfig {
 		return nil
 	}
 	cp := *rc
-
-	if rc.EnforceOnCall != nil {
-		v := *rc.EnforceOnCall
-		cp.EnforceOnCall = &v
-	}
 
 	cp.Stages = rc.Stages
 	if rc.Stages.Policy != nil {

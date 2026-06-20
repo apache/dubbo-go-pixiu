@@ -28,6 +28,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 )
 
 const MCPDataKey = "mcp_data"
@@ -48,6 +49,8 @@ type MCPData struct {
 	AcceptJSON bool
 	// ProtocolVersion stores MCP protocol version from header
 	ProtocolVersion string
+	// AuthorizationReceipt binds a tools/call completion to its authorization.
+	AuthorizationReceipt *router.AuthorizationReceipt
 }
 
 // MCPContext MCP context wrapper that composes HttpContext and provides MCP-specific operations
@@ -97,6 +100,14 @@ func (ctx *MCPContext) SetMCPToolName(name string) {
 // McpToolName gets the current tools/call tool name.
 func (ctx *MCPContext) McpToolName() string {
 	return ctx.mcpData.ToolName
+}
+
+func (ctx *MCPContext) SetAuthorizationReceipt(receipt *router.AuthorizationReceipt) {
+	ctx.mcpData.AuthorizationReceipt = receipt
+}
+
+func (ctx *MCPContext) AuthorizationReceipt() *router.AuthorizationReceipt {
+	return ctx.mcpData.AuthorizationReceipt
 }
 
 // IsMCPToolCall checks if it's a tool call request (by method name)

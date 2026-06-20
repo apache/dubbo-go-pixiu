@@ -32,18 +32,18 @@ const maxDeniedSamples = 10
 
 // DecisionLogger emits a structured, PII-safe record for each selection. It
 // never logs session IDs, identity claims, prompt text, tool arguments, or
-// request payloads. Only counts, the mode, and per-stage drop tallies are
-// emitted by default. Denied tool samples require explicit payload logging.
+// request text details. Only counts, the mode, and per-stage drop tallies are
+// emitted by default. Denied tool samples require explicit decision detail logging.
 type DecisionLogger struct {
-	sampleRate     float64
-	payloadLogging bool
+	sampleRate    float64
+	detailLogging bool
 }
 
 // NewDecisionLogger builds a logger. A sampleRate of 0 disables decision logs;
 // values in (0,1] sample probabilistically/all. Detailed denied samples are
-// emitted only when payload logging is explicitly enabled.
-func NewDecisionLogger(sampleRate float64, payloadLogging bool) *DecisionLogger {
-	return &DecisionLogger{sampleRate: sampleRate, payloadLogging: payloadLogging}
+// emitted only when decision detail logging is explicitly active.
+func NewDecisionLogger(sampleRate float64, detailLogging bool) *DecisionLogger {
+	return &DecisionLogger{sampleRate: sampleRate, detailLogging: detailLogging}
 }
 
 // decisionRecord is the JSON shape emitted to the log.
@@ -69,11 +69,11 @@ func (d *DecisionLogger) Log(sc SelectionContext, plan *SelectionPlan, candidate
 
 	rec := d.record(sc, plan, candidates)
 
-	payload, err := json.Marshal(rec)
+	data, err := json.Marshal(rec)
 	if err != nil {
 		return
 	}
-	logger.Infof("[dubbo-go-pixiu] %s", string(payload))
+	logger.Infof("[dubbo-go-pixiu] %s", string(data))
 }
 
 func (d *DecisionLogger) record(sc SelectionContext, plan *SelectionPlan, candidates int) decisionRecord {
@@ -86,7 +86,7 @@ func (d *DecisionLogger) record(sc SelectionContext, plan *SelectionPlan, candid
 		Mode:            plan.Mode,
 		Stages:          stageDropCountsFromPlan(plan),
 	}
-	if d.payloadLogging {
+	if d.detailLogging {
 		rec.DeniedSamples = deniedSamples(plan.Reasons)
 	}
 	return rec
@@ -151,7 +151,7 @@ func stageDropCountsFromPlan(plan *SelectionPlan) map[string]int {
 
 // deniedSamples returns up to maxDeniedSamples names of dropped tools. Tool
 // names can disclose governance intent, so callers must only include them when
-// payload logging is explicitly enabled.
+// decision detail logging is explicitly active.
 func deniedSamples(traces []DecisionTrace) []string {
 	var out []string
 	for _, t := range traces {

@@ -56,7 +56,6 @@ type CompositeSelector struct {
 	routerID        string
 	fallback        string
 	defaultBundle   string
-	enforceOnCall   bool
 	configHash      string
 	progressiveHash string
 }
@@ -71,7 +70,6 @@ type CompositeOptions struct {
 	Log           *DecisionLogger
 	Fallback      string
 	DefaultBundle string
-	EnforceOnCall bool
 	ConfigHash    string
 	RouterID      string
 }
@@ -92,7 +90,6 @@ func NewCompositeSelector(opts CompositeOptions) *CompositeSelector {
 		routerID:        opts.RouterID,
 		fallback:        fallback,
 		defaultBundle:   opts.DefaultBundle,
-		enforceOnCall:   opts.EnforceOnCall,
 		configHash:      opts.ConfigHash,
 		progressiveHash: progressiveConfigHash(opts.Progressive),
 	}
@@ -101,7 +98,10 @@ func NewCompositeSelector(opts CompositeOptions) *CompositeSelector {
 // Select runs the pipeline, reusing a cached plan when the version is unchanged.
 func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candidates []model.ToolConfig) (*SelectionPlan, error) {
 	start := time.Now()
-	identityHash := identityFingerprint(sc)
+	identityHash, err := identityFingerprint(sc)
+	if err != nil {
+		return nil, err
+	}
 	version := c.version(candidates, identityHash, sc.SessionID, sc.CatalogVersion)
 	key := c.planKey(sc.SessionID)
 
@@ -175,6 +175,8 @@ func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candi
 		CreatedAt:        time.Now().UnixNano(),
 		IdentityHash:     identityHash,
 		ProgressiveHash:  c.progressiveHash,
+		ConfigHash:       c.configHash,
+		CatalogVersion:   c.catalogVersion(candidates, sc.CatalogVersion),
 		Expanded:         expanded,
 	}
 	plan.toolSet = toolNameSet(plan.ToolNames)
@@ -186,7 +188,12 @@ func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candi
 		recordFallback(outcome)
 	}
 
-	c.store.Set(key, plan)
+	if err := c.store.Set(key, plan, sc); err != nil {
+		return nil, err
+	}
+	if stored, ok := c.store.Get(key); ok {
+		plan = stored
+	}
 
 	elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
 	recordSelection(result, plan.Mode, len(candidates), len(plan.ToolNames), elapsedMS)
@@ -200,7 +207,10 @@ func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candi
 // exposes nothing; bundle_default is intersected with the hard-policy result.
 func (c *CompositeSelector) HandleSelectionFailure(_ context.Context, sc SelectionContext, candidates []model.ToolConfig, _ error) *SelectionPlan {
 	start := time.Now()
-	identityHash := identityFingerprint(sc)
+	identityHash, err := identityFingerprint(sc)
+	if err != nil {
+		identityHash = ""
+	}
 	version := c.version(candidates, identityHash, sc.SessionID, sc.CatalogVersion)
 	key := c.planKey(sc.SessionID)
 
@@ -217,7 +227,9 @@ func (c *CompositeSelector) HandleSelectionFailure(_ context.Context, sc Selecti
 
 	plan := c.applyFallback(sc, allowed, version, traces, stageCounts, SelectionOutcomeInternalError)
 	plan.IdentityHash = identityHash
-	c.store.Set(key, plan)
+	plan.ConfigHash = c.configHash
+	plan.CatalogVersion = c.catalogVersion(candidates, sc.CatalogVersion)
+	_ = c.store.Set(key, plan, sc)
 
 	elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
 	recordSelection("fallback", plan.Mode, len(candidates), len(plan.ToolNames), elapsedMS)
@@ -230,6 +242,7 @@ func (c *CompositeSelector) HandleSelectionFailure(_ context.Context, sc Selecti
 // allowed is the policy-filtered candidate set, so the bundle_default branch
 // can never re-expose a tool that policy explicitly denied.
 func (c *CompositeSelector) applyFallback(sc SelectionContext, allowed []model.ToolConfig, version string, traces []DecisionTrace, stageCounts map[string]StageCount, outcome string) *SelectionPlan {
+	identityHash, _ := identityFingerprint(sc)
 	plan := &SelectionPlan{
 		SessionID:       sc.SessionID,
 		Outcome:         outcome,
@@ -237,8 +250,10 @@ func (c *CompositeSelector) applyFallback(sc SelectionContext, allowed []model.T
 		Reasons:         traces,
 		Version:         version,
 		CreatedAt:       time.Now().UnixNano(),
-		IdentityHash:    identityFingerprint(sc),
+		IdentityHash:    identityHash,
 		ProgressiveHash: c.progressiveHash,
+		ConfigHash:      c.configHash,
+		CatalogVersion:  sc.CatalogVersion,
 	}
 
 	if c.fallback == FallbackFailClosed {
@@ -290,45 +305,51 @@ func toolVisible(t model.ToolConfig) bool {
 // AuthorizeCall enforces that the requested tool is part of the current session
 // plan. A cached plan is reused only while its version matches the live
 // candidates and request claims; stale plans are recomputed before checking.
-func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig) error {
-	if !c.enforceOnCall {
-		return nil
-	}
+func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig) (*AuthorizationReceipt, error) {
 	key := c.planKey(sc.SessionID)
-	plan, ok := c.store.Get(key)
-	if !ok {
-		// No plan yet: the client must call tools/list first. Deny to preserve
-		// the discovery/execution separation guarantee.
-		recordCallDenied("no_session_plan")
-		return ErrToolNotAuthorized
+	identityHash, err := identityFingerprint(sc)
+	if err != nil {
+		recordCallDenied("identity_hash_error")
+		return nil, ErrToolNotAuthorized
 	}
-	if plan.Version != c.version(candidates, identityFingerprint(sc), sc.SessionID, sc.CatalogVersion) {
-		var err error
-		plan, err = c.Select(ctx, sc, candidates)
+	catalogVersion := c.catalogVersion(candidates, sc.CatalogVersion)
+	expectedVersion := c.version(candidates, identityHash, sc.SessionID, catalogVersion)
+	receipt, stale, err := c.store.IssueReceiptForVersion(
+		key,
+		sc.Requested,
+		expectedVersion,
+		identityHash,
+		c.configHash,
+		catalogVersion,
+		c.progressiveHash,
+		c.routerID,
+	)
+	if stale {
+		plan, err := c.Select(ctx, sc, candidates)
 		if err != nil {
 			recordCallDenied("stale_plan_recompute_failed")
-			return ErrToolNotAuthorized
+			return nil, ErrToolNotAuthorized
 		}
+		receipt, err = c.store.IssueReceipt(key, sc.Requested, plan, c.routerID)
+		if err != nil {
+			recordCallDenied("receipt_failed")
+			return nil, ErrToolNotAuthorized
+		}
+		return &receipt, nil
 	}
-	if plan.Contains(sc.Requested) {
-		return nil
+	if err == nil {
+		return &receipt, nil
 	}
 	recordCallDenied("not_in_plan")
-	return ErrToolNotAuthorized
+	return nil, ErrToolNotAuthorized
 }
 
 // RecordCallSuccess counts completed tool calls for progressive disclosure.
-func (c *CompositeSelector) RecordCallSuccess(_ context.Context, sc SelectionContext) (CallSuccessResult, error) {
+func (c *CompositeSelector) RecordCallSuccess(_ context.Context, receipt AuthorizationReceipt) (CallSuccessResult, error) {
 	if c.progressive == nil {
 		return CallSuccessResult{}, nil
 	}
-	return c.store.RecordCallSuccess(c.planKey(sc.SessionID), sc.Requested, c.progressive.expandAfter), nil
-}
-
-// OnInitialize is intentionally a no-op. Plans are computed lazily at
-// tools/list and no raw client identity is retained in the plan store.
-func (c *CompositeSelector) OnInitialize(_ context.Context, sc SelectionContext, _ []model.ToolConfig) error {
-	return nil
+	return c.store.RecordCallSuccess(receipt, c.progressive.expandAfter), nil
 }
 
 // version combines the static config hash with a fingerprint of the candidate
@@ -373,10 +394,12 @@ func (c *CompositeSelector) planKey(sessionID string) PlanKey {
 	return NewPlanKey(c.routerID, sessionID)
 }
 
-func identityFingerprint(sc SelectionContext) string {
+func identityFingerprint(sc SelectionContext) (string, error) {
 	h := fnv.New64a()
-	writeClaimsFingerprint(h, sc)
-	return strconv.FormatUint(h.Sum64(), 16)
+	if err := writeClaimsFingerprint(h, sc); err != nil {
+		return "", err
+	}
+	return strconv.FormatUint(h.Sum64(), 16), nil
 }
 
 func progressiveConfigHash(g *ProgressiveGate) string {
@@ -404,7 +427,7 @@ func outcomeAllowsFallback(outcome string) bool {
 // writeClaimsFingerprint folds every validated claim into the plan version so
 // policies and workflows that match arbitrary claim keys cannot reuse another
 // claim set's plan. Only the final hash is exposed on SelectionPlan.Version.
-func writeClaimsFingerprint(h io.Writer, sc SelectionContext) {
+func writeClaimsFingerprint(h io.Writer, sc SelectionContext) error {
 	if sc.UserID != "" {
 		_, _ = h.Write([]byte("sub:"))
 		_, _ = h.Write([]byte(sc.UserID))
@@ -416,7 +439,7 @@ func writeClaimsFingerprint(h io.Writer, sc SelectionContext) {
 		_, _ = h.Write([]byte{0})
 	}
 	if len(sc.Claims) == 0 {
-		return
+		return nil
 	}
 	keys := make([]string, 0, len(sc.Claims))
 	for k := range sc.Claims {
@@ -432,11 +455,12 @@ func writeClaimsFingerprint(h io.Writer, sc SelectionContext) {
 		_, _ = h.Write([]byte("="))
 		data, err := json.Marshal(sc.Claims[k])
 		if err != nil {
-			data = []byte(fmt.Sprintf("%v", sc.Claims[k]))
+			return fmt.Errorf("claim %q is not JSON-canonicalizable: %w", k, err)
 		}
 		_, _ = h.Write(data)
 		_, _ = h.Write([]byte{0})
 	}
+	return nil
 }
 
 func legacyCatalogVersion(candidates []model.ToolConfig) string {

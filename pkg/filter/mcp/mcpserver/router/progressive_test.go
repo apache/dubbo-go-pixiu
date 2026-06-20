@@ -20,7 +20,6 @@ package router
 import (
 	"context"
 	"testing"
-	"time"
 )
 
 import (
@@ -63,7 +62,6 @@ func TestProgressiveGate_MissingBundleFailsClosed(t *testing.T) {
 
 func TestProgressiveGate_ViaCompositeExpands(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
@@ -71,7 +69,7 @@ func TestProgressiveGate_ViaCompositeExpands(t *testing.T) {
 		},
 		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 1},
 	}
-	store := NewSessionPlanStoreWithTTL(time.Minute)
+	store := NewSessionPlanStore()
 	sel, err := Build(cfg, store)
 	require.NoError(t, err)
 	cs := sel.(*CompositeSelector)
@@ -84,8 +82,8 @@ func TestProgressiveGate_ViaCompositeExpands(t *testing.T) {
 	assert.Equal(t, []string{"t0"}, p1.ToolNames)
 
 	// Authorization alone does not bump the counter; only a completed call does.
-	require.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"}, tools))
-	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"})
+	require.NoError(t, authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "t0"}, tools))
+	result, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Requested: "t0"})
 	require.NoError(t, err)
 	assert.True(t, result.Transitioned)
 

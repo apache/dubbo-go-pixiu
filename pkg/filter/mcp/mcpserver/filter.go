@@ -39,13 +39,25 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const maxSessionIDLength = 128
+
 // FilterFactory and MCPServerFilter types
 type (
 	// FilterFactory is a factory to create MCP server filters.
 	FilterFactory struct {
-		cfg      *model.McpServerConfig
-		registry *ToolRegistry
-		selector router.ToolSelector
+		cfg     *model.McpServerConfig
+		runtime *RuntimeState
+	}
+
+	// RuntimeState owns all mutable state for one MCP server filter instance.
+	RuntimeState struct {
+		id             string
+		registry       *ToolRegistry
+		sessionManager *transport.SessionManager
+		plans          *router.SessionPlanStore
+		selector       router.ToolSelector
+		sseHandler     *transport.SSEHandler
+		dynamic        *DynamicConsumer
 	}
 
 	// MCPServerFilter is a filter that handles MCP protocol.
@@ -63,23 +75,65 @@ type (
 
 // Apply prepares the MCP server and tool registry.
 func (f *FilterFactory) Apply() error {
-	// Initialize tool registry (singleton)
-	f.registry = GetOrInitRegistry()
+	if f.runtime != nil {
+		f.runtime.Stop()
+		f.runtime = nil
+	}
+	cfg := f.cfg.DeepCopy()
+	if cfg == nil {
+		cfg = &model.McpServerConfig{}
+	}
+	if cfg.Router == nil {
+		cfg.Router = &model.RouterConfig{}
+	}
+
+	planStore := router.NewSessionPlanStoreWithMaxEntries(cfg.Router.Session.MaxEntries)
+	sessionManager := transport.NewSessionManagerWithMaxEntries(routerPlanCapacity(cfg.Router.Session.MaxEntries))
+	sessionManager.AddSessionRemovedHandler(func(sessionID string) {
+		planStore.DeleteSession(sessionID)
+	})
+	registry := NewToolRegistry()
+	sseHandler := transport.NewSSEHandler(sessionManager)
+	runtime := &RuntimeState{
+		registry:       registry,
+		sessionManager: sessionManager,
+		plans:          planStore,
+		sseHandler:     sseHandler,
+	}
+	runtime.dynamic = NewDynamicConsumer(registry, sessionManager, sseHandler)
+	f.runtime = runtime
+	f.cfg = cfg
 
 	if err := f.registerConfiguredTools(); err != nil {
+		runtime.Stop()
 		return err
 	}
 	if err := f.registerConfiguredResources(); err != nil {
+		runtime.Stop()
 		return err
 	}
 	if err := f.registerConfiguredResourceTemplates(); err != nil {
+		runtime.Stop()
 		return err
 	}
 	if err := f.registerConfiguredPrompts(); err != nil {
+		runtime.Stop()
 		return err
 	}
 
-	return f.configureSelector()
+	if err := f.configureSelector(); err != nil {
+		runtime.Stop()
+		return err
+	}
+	runtime.id = registerRuntime(runtime)
+	return nil
+}
+
+func routerPlanCapacity(maxEntries int) int {
+	if maxEntries <= 0 {
+		return router.DefaultPlanMaxEntries
+	}
+	return maxEntries
 }
 
 func (f *FilterFactory) registerConfiguredTools() error {
@@ -88,7 +142,7 @@ func (f *FilterFactory) registerConfiguredTools() error {
 	}
 
 	// Sync statically configured tools into registry (full replace)
-	if err := f.registry.ReplaceAllTools(f.cfg.Tools); err != nil {
+	if err := f.runtime.registry.ReplaceAllTools(f.cfg.Tools); err != nil {
 		return fmt.Errorf("failed to register mcp tools: %v", err)
 	}
 	for _, tool := range f.cfg.Tools {
@@ -101,7 +155,7 @@ func (f *FilterFactory) registerConfiguredTools() error {
 func (f *FilterFactory) registerConfiguredResources() error {
 	// Register statically configured resources
 	for _, resource := range f.cfg.Resources {
-		if err := f.registry.RegisterResource(resource); err != nil {
+		if err := f.runtime.registry.RegisterResource(resource); err != nil {
 			return fmt.Errorf("failed to register resource %s: %v", resource.Name, err)
 		}
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered resource '%s' -> uri:%s", resource.Name, resource.URI)
@@ -113,7 +167,7 @@ func (f *FilterFactory) registerConfiguredResources() error {
 func (f *FilterFactory) registerConfiguredResourceTemplates() error {
 	// Register statically configured resource templates
 	for _, template := range f.cfg.ResourceTemplates {
-		if err := f.registry.RegisterResourceTemplate(template); err != nil {
+		if err := f.runtime.registry.RegisterResourceTemplate(template); err != nil {
 			return fmt.Errorf("failed to register resource template %s: %v", template.Name, err)
 		}
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered template '%s' -> pattern:%s", template.Name, template.URITemplate)
@@ -125,7 +179,7 @@ func (f *FilterFactory) registerConfiguredResourceTemplates() error {
 func (f *FilterFactory) registerConfiguredPrompts() error {
 	// Register statically configured prompts
 	for _, prompt := range f.cfg.Prompts {
-		if err := f.registry.RegisterPrompt(prompt); err != nil {
+		if err := f.runtime.registry.RegisterPrompt(prompt); err != nil {
 			return fmt.Errorf("failed to register prompt %s: %v", prompt.Name, err)
 		}
 		logger.Debugf("[dubbo-go-pixiu] mcp server registered prompt '%s'", prompt.Name)
@@ -135,17 +189,12 @@ func (f *FilterFactory) registerConfiguredPrompts() error {
 }
 
 func (f *FilterFactory) configureSelector() error {
-	f.selector = nil
-	if f.cfg.Router != nil && f.cfg.Router.Enabled {
-		// Build the tool selector lazily so disabled routing preserves the
-		// pre-router passthrough behavior with zero plan-store overhead.
-		selector, err := router.Build(f.cfg.Router, GetOrInitPlanStoreWithMaxEntries(f.cfg.Router.Session.MaxEntries))
-		if err != nil {
-			return fmt.Errorf("failed to build mcp tool router: %v", err)
-		}
-		f.selector = selector
+	selector, err := router.Build(f.cfg.Router, f.runtime.plans)
+	if err != nil {
+		return fmt.Errorf("failed to build mcp tool router: %v", err)
 	}
-
+	f.runtime.selector = selector
+	f.runtime.dynamic.SetGovernance(selector, f.runtime.plans)
 	return nil
 }
 
@@ -156,21 +205,25 @@ func (f *FilterFactory) Config() any {
 
 // PrepareFilterChain prepares the filter chain
 func (f *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, chain filter.FilterChain) error {
-	// Get global session manager singleton
-	sessionManager := GetOrInitSessionManager()
-	sseHandler := transport.NewSSEHandler(sessionManager)
+	if f.runtime == nil {
+		if err := f.Apply(); err != nil {
+			return err
+		}
+	}
+	sessionManager := f.runtime.sessionManager
+	sseHandler := f.runtime.sseHandler
 	contentNegotiator := transport.NewContentNegotiator()
 
 	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
 	mcpFilter := &MCPServerFilter{
 		cfg:               f.cfg.DeepCopy(),
-		registry:          f.registry,
+		registry:          f.runtime.registry,
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
 		sessionManager:    sessionManager,
 		sseHandler:        sseHandler,
 		contentNegotiator: contentNegotiator,
-		selector:          f.selector,
+		selector:          f.runtime.selector,
 	}
 	chain.AppendDecodeFilters(mcpFilter)
 	chain.AppendEncodeFilters(mcpFilter) // Add to Encode chain
@@ -277,9 +330,9 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 		return f.sendNotAcceptable(ctx, "GET request must accept text/event-stream")
 	}
 
-	sessionIDHeader := ctx.SessionID()
-	if sessionIDHeader == "" {
-		return f.sendBadRequest(ctx, "Mcp-Session-Id header is required")
+	sessionIDHeader, err := validSessionHeader(ctx, true)
+	if err != nil {
+		return f.sendBadRequest(ctx, err.Error())
 	}
 	session, exists := f.sessionManager.GetSession(sessionIDHeader)
 	if !exists {
@@ -289,7 +342,12 @@ func (f *MCPServerFilter) handleGetRequest(ctx *MCPContext) filter.FilterStatus 
 
 	// Create io.Pipe for SSE message transport
 	pipeReader, pipeWriter := io.Pipe()
-	streamToken := session.AttachStream(pipeWriter)
+	streamToken, err := session.AttachStream(pipeWriter)
+	if err != nil {
+		_ = pipeWriter.Close()
+		_ = pipeReader.Close()
+		return f.sendNotFound(ctx, "MCP session not found")
+	}
 
 	// Create virtual HTTP response with pipe as body
 	virtualResp := &http.Response{
@@ -341,6 +399,10 @@ func (f *MCPServerFilter) handlePostRequest(ctx *MCPContext) filter.FilterStatus
 	// Store information in MCP context
 	ctx.SetMCPMethod(jsonrpcReq.Method)
 	ctx.SetMCPRequestID(jsonrpcReq.ID)
+
+	if err := f.validateSessionHeaderForMethod(ctx, jsonrpcReq.Method); err != nil {
+		return f.sendBadRequest(ctx, err.Error())
+	}
 
 	if status := f.validateSessionForMethod(ctx, jsonrpcReq.Method); status != filter.Continue {
 		return status
@@ -445,8 +507,53 @@ func (f *MCPServerFilter) sendSSEResponse(ctx *MCPContext, response any) filter.
 
 // sessionExists checks if a session exists
 func (f *MCPServerFilter) sessionExists(sessionID string) bool {
-	_, exists := f.sessionManager.Session(sessionID)
+	_, exists := f.sessionManager.PeekSession(sessionID)
 	return exists
+}
+
+func (f *MCPServerFilter) validateSessionHeaderForMethod(ctx *MCPContext, method string) error {
+	if method == string(mcp.MethodInitialize) {
+		if _, err := validSessionHeader(ctx, false); err != nil {
+			return err
+		}
+		ctx.SetSessionID("")
+		return nil
+	}
+	sessionID, err := validSessionHeader(ctx, true)
+	if err != nil {
+		return err
+	}
+	ctx.SetSessionID(sessionID)
+	return nil
+}
+
+func validSessionHeader(ctx *MCPContext, required bool) (string, error) {
+	values := ctx.Request.Header.Values(constant.HeaderKeyMCPSessionId)
+	if len(values) == 0 {
+		if required {
+			return "", fmt.Errorf("Mcp-Session-Id header is required")
+		}
+		return "", nil
+	}
+	if !required {
+		return "", fmt.Errorf("initialize must not include Mcp-Session-Id")
+	}
+	if len(values) != 1 {
+		return "", fmt.Errorf("Mcp-Session-Id header must appear exactly once")
+	}
+	value := values[0]
+	if value == "" {
+		return "", fmt.Errorf("Mcp-Session-Id header must not be empty")
+	}
+	if len(value) > maxSessionIDLength {
+		return "", fmt.Errorf("Mcp-Session-Id header is too long")
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < 0x21 || value[i] > 0x7e {
+			return "", fmt.Errorf("Mcp-Session-Id header contains invalid characters")
+		}
+	}
+	return value, nil
 }
 
 // sendBadRequest sends a 400 Bad Request response
@@ -572,15 +679,11 @@ func (f *MCPServerFilter) validateSessionForMethod(ctx *MCPContext, method strin
 	}
 
 	sessionID := ctx.SessionID()
-	if sessionID != "" {
-		if _, exists := f.sessionManager.GetSession(sessionID); !exists {
-			return f.sendNotFound(ctx, "MCP session not found")
-		}
-		return filter.Continue
-	}
-
-	if f.selector != nil && (method == string(mcp.MethodToolsList) || method == string(mcp.MethodToolsCall)) {
+	if sessionID == "" {
 		return f.sendBadRequest(ctx, "Mcp-Session-Id header is required")
+	}
+	if _, exists := f.sessionManager.GetSession(sessionID); !exists {
+		return f.sendNotFound(ctx, "MCP session not found")
 	}
 	return filter.Continue
 }

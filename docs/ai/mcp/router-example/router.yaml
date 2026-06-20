@@ -1,7 +1,7 @@
 # Full Pixiu config demonstrating the MCP intelligent tool router.
 #
 # This config exposes 4 tools across 2 workflows and a tenant-isolation policy.
-# With the router enabled, tools/list is trimmed per session and tools/call is
+# With tool governance always active, tools/list is trimmed per session and tools/call is
 # enforced against the session's plan.
 #
 # Run:  dubbo-go-pixiu gateway start -c docs/ai/mcp/router-example/router.yaml
@@ -34,10 +34,8 @@ static_resources:
 
                     # ---- Intelligent tool router ----
                     router:
-                      enabled: true
                       fallback: "bundle_default"
                       default_bundle: "safe-minimal"
-                      enforce_on_call: true
                       stages:
                         policy: true
                         workflow: true
@@ -65,7 +63,7 @@ static_resources:
                           tools: ["health_check"]
                       audit:
                         sample_rate: 1.0
-                        payload_logging: true   # include bounded denied-tool samples in decision logs
+                        decision_detail_logging: true   # include bounded denied-tool samples in decision logs
                       session:
                         max_entries: 10000       # default cap for in-process session plans
 

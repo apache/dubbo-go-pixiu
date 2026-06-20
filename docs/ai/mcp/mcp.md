@@ -101,7 +101,7 @@ Each argument object contains the following fields:
 
 When an MCP server exposes a large catalog of tools, sending all of them to an LLM on every `tools/list` causes tool overload, context bloat, and an uncontrolled exposure surface. The optional `router` block adds a governance layer that trims `tools/list` per session and enforces the trimmed set at `tools/call`.
 
-**The router is disabled by default.** Omitting the `router` block — or setting `router.enabled: false` — preserves the exact pre-router behavior: every tool is listed and every call is forwarded.
+**Tool governance is always active.** Omitting the `router` block applies the normalized default configuration: all current policy-allowed tools are listed after initialize/tools/list, and tools/call is always checked against the session-bound plan.
 
 Two principles shape the design:
 
@@ -120,10 +120,8 @@ policy  ->  workflow  ->  progressive
     server_info: { name: "Pixiu MCP Server", version: "1.0.0" }
     endpoint: "/mcp"
     router:
-      enabled: true
       fallback: "bundle_default"      # bundle_default (default) | fail_closed
       default_bundle: "safe-minimal"  # bundle used for no-match/error fallback
-      enforce_on_call: true           # default true: reject calls outside the plan
       stages:
         policy: true                  # default true
         workflow: true                # default true
@@ -148,7 +146,7 @@ policy  ->  workflow  ->  progressive
         expand_after_calls: 1
       audit:
         sample_rate: 0.0              # 0 disables decision logs; (0,1] samples
-        payload_logging: false        # opt-in denied-tool samples in decision logs
+        decision_detail_logging: false        # opt-in denied-tool samples in decision logs
       session:
         max_entries: 10000            # default in-process session-plan cap
 ```
@@ -175,7 +173,7 @@ tools:
 |-------|--------------|
 | **policy** | Hard filter on JWT claims. A rule applies when its `when` clause matches; matching rules enforce `allow_tags` (keep only intersecting tags), `deny_tags` (drop any match), and `max_risk` (drop tools above the risk ceiling). |
 | **workflow** | The first workflow whose `when` clause matches keeps only that bundle's tools. Bundles without a `when` clause are name-addressable only (used by fallback / progressive). |
-| **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful completed tool calls, the full filtered set is revealed. Authorization checks and backend failures do not advance the counter. When this stage is enabled, `progressive.initial_bundle` is required and must reference a defined workflow bundle. |
+| **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful completed tool calls, the full filtered set is revealed. Authorization checks and backend failures do not advance the counter. When this stage is active, `progressive.initial_bundle` is required and must reference a defined workflow bundle. |
 
 > **⚠️ Policy Rule Combination Semantics**
 > When multiple policy rules apply to a request, they are combined with **logical AND**: a tool is kept only if **every** applicable rule allows it.
@@ -197,7 +195,7 @@ Explicit empty selections stay empty: policy denial, a matched workflow with no 
 
 #### Enforcement at `tools/call`
 
-With `enforce_on_call: true` (default), a `tools/call` for a tool not in the session's plan is rejected with a tool-call error. The router re-validates the plan against the current claims, router config version, and live tool catalog before authorizing the call, so stale plans are recomputed instead of treated as long-lived credentials. A client that skips `tools/list` entirely has no plan and is therefore denied (reason `no_session_plan`). Set `enforce_on_call: false` to allow calls without plan enforcement.
+A `tools/call` for a tool not in the session's plan is rejected with a tool-call error. The router re-validates the plan against the current claims, router config version, and live tool catalog before authorizing the call, so stale plans are recomputed instead of treated as long-lived credentials. A client that skips `tools/list` entirely has no plan and is therefore denied (reason `no_session_plan`).
 
 Tools with `meta.discovery_visibility: false` are omitted from the plan's `visible_tool_names` / `tools/list` view but remain in the authorized `tool_names` set when selected by policy, workflow, or progressive stages. This supports hidden-but-callable tools for clients that already know the tool name while keeping discovery quieter.
 
@@ -211,11 +209,11 @@ The initialize response advertises `ServerCapabilities.tools.listChanged=true`. 
 
 #### Dynamic Tool Updates
 
-Nacos dynamic updates currently support tool catalog changes only. A dynamic payload containing a `router` section is rejected so Pixiu does not run with a new tool catalog and stale router policy. A successful catalog update marks initialized sessions for `notifications/tools/list_changed`; online sessions are notified immediately and offline sessions are notified after SSE reconnect.
+Nacos dynamic updates currently support tool catalog changes only. A dynamic text detail containing a `router` section is rejected so Pixiu does not run with a new tool catalog and stale router policy. A successful catalog update marks initialized sessions for `notifications/tools/list_changed`; online sessions are notified immediately and offline sessions are notified after SSE reconnect.
 
 #### Observability
 
-When the router is enabled it publishes Prometheus metrics under the `pixiu_mcp_tool_router_*` namespace:
+Tool governance publishes Prometheus metrics under the `pixiu_mcp_tool_router_*` namespace:
 
 | Metric | Type | Labels |
 |--------|------|--------|
@@ -226,9 +224,9 @@ When the router is enabled it publishes Prometheus metrics under the `pixiu_mcp_
 | `call_denied_total` | counter | `reason` (no_session_plan / not_in_plan / stale_plan_recompute_failed) |
 | `plans_active` | gauge | — |
 
-Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and metadata version. Bounded denied-tool samples are included only when `audit.payload_logging: true`. Even with payload logging enabled, Pixiu does not log tokens, claim values, session IDs, authorization headers, or tool arguments.
+Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and metadata version. Bounded denied-tool samples are included only when `audit.decision_detail_logging: true`. Even with decision detail logging active, Pixiu does not log tokens, claim values, session IDs, authorization headers, or tool arguments.
 
-There is intentionally no data-plane plan inspection endpoint. Session plans reveal authorization state, so operational debugging should rely on sampled decision logs and aggregate metrics rather than exposing per-session plan payloads over the MCP listener.
+There is intentionally no data-plane plan inspection endpoint. Session plans reveal authorization state, so operational debugging should rely on sampled decision logs and aggregate metrics rather than exposing per-session plan text details over the MCP listener.
 
 #### Multi-Instance Note
 
@@ -458,12 +456,12 @@ adapters:
 `username`
 
 - **Type**: `string`
-- **Description**: Nacos authentication username. Required if the Nacos server has authentication enabled.
+- **Description**: Nacos authentication username. Required if the Nacos server has authentication active.
 
 `password`
 
 - **Type**: `string`
-- **Description**: Nacos authentication password. Required if the Nacos server has authentication enabled.
+- **Description**: Nacos authentication password. Required if the Nacos server has authentication active.
 
 `namespace` (optional)
 

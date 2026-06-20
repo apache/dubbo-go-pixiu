@@ -23,7 +23,6 @@ import (
 	"errors"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 import (
@@ -45,10 +44,9 @@ type stubSelector struct {
 	keep                []string // tool names to keep in Select; nil = keep all
 	selectErr           error
 	authorizeErr        error // returned by AuthorizeCall
-	onInitCalled        bool
 	selectCalled        bool
 	authorizeCandidates []model.ToolConfig
-	recordSuccessCalls  []router.SelectionContext
+	recordSuccessCalls  []router.AuthorizationReceipt
 }
 
 func (s *stubSelector) Select(_ context.Context, sc router.SelectionContext, candidates []model.ToolConfig) (*router.SelectionPlan, error) {
@@ -66,18 +64,16 @@ func (s *stubSelector) Select(_ context.Context, sc router.SelectionContext, can
 	return &router.SelectionPlan{SessionID: sc.SessionID, ToolNames: names, Mode: router.ModeSelected}, nil
 }
 
-func (s *stubSelector) AuthorizeCall(_ context.Context, _ router.SelectionContext, candidates []model.ToolConfig) error {
+func (s *stubSelector) AuthorizeCall(_ context.Context, sc router.SelectionContext, candidates []model.ToolConfig) (*router.AuthorizationReceipt, error) {
 	s.authorizeCandidates = candidates
-	return s.authorizeErr
+	if s.authorizeErr != nil {
+		return nil, s.authorizeErr
+	}
+	return &router.AuthorizationReceipt{SessionID: sc.SessionID, ToolName: sc.Requested, PlanGeneration: 1, ReceiptID: 1}, nil
 }
 
-func (s *stubSelector) OnInitialize(_ context.Context, _ router.SelectionContext, _ []model.ToolConfig) error {
-	s.onInitCalled = true
-	return nil
-}
-
-func (s *stubSelector) RecordCallSuccess(_ context.Context, sc router.SelectionContext) (router.CallSuccessResult, error) {
-	s.recordSuccessCalls = append(s.recordSuccessCalls, sc)
+func (s *stubSelector) RecordCallSuccess(_ context.Context, receipt router.AuthorizationReceipt) (router.CallSuccessResult, error) {
+	s.recordSuccessCalls = append(s.recordSuccessCalls, receipt)
 	return router.CallSuccessResult{Count: int64(len(s.recordSuccessCalls))}, nil
 }
 
@@ -174,15 +170,15 @@ func TestBuildSelectionContext_PopulatesFields(t *testing.T) {
 	assert.Equal(t, "get_user", sc.Requested)
 }
 
-// TestToolsList_NilSelectorReturnsAll confirms that with no selector the
-// tools/list response contains every registered tool (passthrough behavior).
-func TestToolsList_NilSelectorReturnsAll(t *testing.T) {
+// TestToolsList_ResponseBuilderWithoutSelectorReturnsAll covers the low-level
+// response helper. Production filters always install a selector during Apply.
+func TestToolsList_ResponseBuilderWithoutSelectorReturnsAll(t *testing.T) {
 	f := createTestFilter(t)
 	result := buildToolsListResult(t, f, alphaBetaTools())
 	assert.Len(t, result.Tools, 2)
 }
 
-func TestFilterFactory_RouterDisabledDoesNotInitPlanStore(t *testing.T) {
+func TestFilterFactory_DefaultRouterInitializesGovernanceState(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
@@ -196,16 +192,12 @@ func TestFilterFactory_RouterDisabledDoesNotInitPlanStore(t *testing.T) {
 	factory := &FilterFactory{cfg: cfg}
 
 	require.NoError(t, factory.Apply())
-	assert.Nil(t, factory.selector)
-	assert.Nil(t, globalPlanStore)
-
-	cfg.Router = &model.RouterConfig{Enabled: false}
-	require.NoError(t, factory.Apply())
-	assert.Nil(t, factory.selector)
-	assert.Nil(t, globalPlanStore)
+	assert.NotNil(t, factory.runtime)
+	assert.NotNil(t, factory.runtime.selector)
+	assert.NotNil(t, factory.runtime.plans)
 }
 
-func TestFilterFactory_RouterEnabledInitializesPlanStore(t *testing.T) {
+func TestFilterFactory_ConfiguredRouterInitializesGovernanceState(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
@@ -215,13 +207,13 @@ func TestFilterFactory_RouterEnabledInitializesPlanStore(t *testing.T) {
 		Tools: []model.ToolConfig{
 			createTestToolConfig("alpha", "A"),
 		},
-		Router: &model.RouterConfig{Enabled: true, Fallback: router.FallbackFailClosed},
+		Router: &model.RouterConfig{Fallback: router.FallbackFailClosed},
 	}
 	factory := &FilterFactory{cfg: cfg}
 
 	require.NoError(t, factory.Apply())
-	assert.NotNil(t, factory.selector)
-	assert.NotNil(t, globalPlanStore)
+	assert.NotNil(t, factory.runtime.selector)
+	assert.NotNil(t, factory.runtime.plans)
 }
 
 func TestFilterFactory_InvalidToolRiskFailsFast(t *testing.T) {
@@ -280,11 +272,10 @@ func TestToolsList_SelectorErrorFailClosed(t *testing.T) {
 
 func TestToolsList_SelectorErrorBundleDefaultDoesNotExposeFullCatalog(t *testing.T) {
 	f := createTestFilter(t)
-	store := router.NewSessionPlanStoreWithTTL(time.Minute)
+	store := router.NewSessionPlanStore()
 	defer store.Stop()
 
 	sel, err := router.Build(&model.RouterConfig{
-		Enabled:       true,
 		Fallback:      router.FallbackBundleDefault,
 		DefaultBundle: "safe-minimal",
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
@@ -444,12 +435,12 @@ func TestProcessToolCallResponse_SuccessRecordsToolCall(t *testing.T) {
 	ctx.SetMCPRequestID(reqID)
 	ctx.SetMCPToolName("get_user")
 	ctx.SetSessionID("s1")
+	ctx.SetAuthorizationReceipt(&router.AuthorizationReceipt{SessionID: "s1", ToolName: "get_user", PlanGeneration: 1, ReceiptID: 1})
 
 	status := f.processToolCallResponse(ctx, reqID, []byte("ok"), 200)
 
 	assert.Equal(t, filter.Continue, status)
 	require.Len(t, sel.recordSuccessCalls, 1)
 	assert.Equal(t, "s1", sel.recordSuccessCalls[0].SessionID)
-	assert.Equal(t, string(mcp.MethodToolsCall), sel.recordSuccessCalls[0].Method)
-	assert.Equal(t, "get_user", sel.recordSuccessCalls[0].Requested)
+	assert.Equal(t, "get_user", sel.recordSuccessCalls[0].ToolName)
 }

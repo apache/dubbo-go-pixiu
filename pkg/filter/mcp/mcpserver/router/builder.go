@@ -34,19 +34,15 @@ import (
 
 var routerInstanceCounter uint64
 
-// Build constructs a ToolSelector from the router configuration and a shared
-// session plan store.
+// Build constructs a ToolSelector from the normalized router configuration and
+// an instance-owned session plan store.
 //
-// It returns (nil, nil) when routing is disabled or unconfigured, signaling
-// the MCP server filter to keep its passthrough behavior with zero overhead.
 // Configuration errors (invalid regex, unknown default bundle) fail fast so a
 // broken policy chain never silently degrades to the wrong default.
 func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, error) {
-	if cfg == nil || !cfg.Enabled {
-		return nil, nil
-	}
+	cfg = normalizeConfig(cfg)
 	if store == nil {
-		return nil, fmt.Errorf("router enabled but session plan store is nil")
+		return nil, fmt.Errorf("router session plan store is nil")
 	}
 	if err := validateFallback(cfg.Fallback); err != nil {
 		return nil, err
@@ -61,16 +57,18 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 		return nil, err
 	}
 
-	// Register Prometheus collectors on first enabled build.
+	// Register Prometheus collectors on first governance build.
 	initMetrics()
 
-	cfgHash := configHash(cfg)
+	cfgHash, err := configHash(cfg)
+	if err != nil {
+		return nil, err
+	}
 	opts := CompositeOptions{
 		Store:         store,
-		Log:           NewDecisionLogger(cfg.Audit.SampleRate, cfg.Audit.PayloadLogging),
+		Log:           NewDecisionLogger(cfg.Audit.SampleRate, cfg.Audit.DecisionDetailLogging),
 		Fallback:      cfg.Fallback,
 		DefaultBundle: cfg.DefaultBundle,
-		EnforceOnCall: enforceOnCall(cfg),
 		ConfigHash:    cfgHash,
 		RouterID:      newRouterInstanceID(cfgHash),
 	}
@@ -89,10 +87,21 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 		return nil, err
 	}
 
-	logger.Infof("[dubbo-go-pixiu] mcp tool router enabled (policy=%v workflow=%v progressive=%v enforce_on_call=%v fallback=%s)",
-		opts.Policy != nil, opts.Workflow != nil, opts.Progressive != nil, opts.EnforceOnCall, firstNonEmpty(opts.Fallback, FallbackBundleDefault))
+	logger.Infof("[dubbo-go-pixiu] mcp tool governance active (policy=%v workflow=%v progressive=%v fallback=%s)",
+		opts.Policy != nil, opts.Workflow != nil, opts.Progressive != nil, opts.Fallback)
 
 	return NewCompositeSelector(opts), nil
+}
+
+func normalizeConfig(cfg *model.RouterConfig) *model.RouterConfig {
+	if cfg == nil {
+		return &model.RouterConfig{Fallback: FallbackFailClosed}
+	}
+	cp := cfg.DeepCopy()
+	if cp.Fallback == "" {
+		cp.Fallback = FallbackFailClosed
+	}
+	return cp
 }
 
 // buildWorkflowSelector creates the shared workflow selector used by workflow,
@@ -144,7 +153,7 @@ func buildProgressiveGate(cfg *model.RouterConfig, wf *WorkflowSelector, opts *C
 // validateDefaultFallback verifies bundle_default references a real non-empty
 // workflow bundle, avoiding an empty fallback plan at runtime.
 func validateDefaultFallback(cfg *model.RouterConfig, wf *WorkflowSelector, fallback string) error {
-	if fallback != "" && fallback != FallbackBundleDefault {
+	if fallback != FallbackBundleDefault {
 		return nil
 	}
 	defaultBundle := strings.TrimSpace(cfg.DefaultBundle)
@@ -168,7 +177,7 @@ func validateDefaultFallback(cfg *model.RouterConfig, wf *WorkflowSelector, fall
 // disclosure starts, so a typo cannot reveal all tools by accident.
 func validateProgressiveBundle(initialBundle string, wf *WorkflowSelector) error {
 	if initialBundle == "" {
-		return fmt.Errorf("router progressive.initial_bundle is required when progressive stage is enabled")
+		return fmt.Errorf("router progressive.initial_bundle is required when progressive disclosure is active")
 	}
 	if wf == nil {
 		return fmt.Errorf("router progressive.initial_bundle %q set but no workflows defined", initialBundle)
@@ -177,14 +186,6 @@ func validateProgressiveBundle(initialBundle string, wf *WorkflowSelector) error
 		return fmt.Errorf("router progressive.initial_bundle %q does not match any workflow", initialBundle)
 	}
 	return nil
-}
-
-// enforceOnCall resolves the enforce_on_call setting, defaulting to true.
-func enforceOnCall(cfg *model.RouterConfig) bool {
-	if cfg.EnforceOnCall == nil {
-		return true
-	}
-	return *cfg.EnforceOnCall
 }
 
 // stageEnabled resolves a *bool stage toggle with a default.
@@ -233,15 +234,17 @@ func validateSessionConfig(cfg model.RouterSessionConfig) error {
 	return nil
 }
 
-// configHash produces a stable hash of the router config so plans recompute
-// when the config changes (e.g. a dynamic update). It is best-effort: a
-// marshaling failure falls back to an empty hash, which simply disables reuse.
-func configHash(cfg *model.RouterConfig) string {
-	data, err := json.Marshal(cfg)
+// configHash produces a stable hash of the normalized authorization-affecting
+// router config so plans recompute when governance behavior changes.
+func configHash(cfg *model.RouterConfig) (string, error) {
+	authCfg := cfg.DeepCopy()
+	authCfg.Audit = model.AuditConfig{}
+	authCfg.Session = model.RouterSessionConfig{}
+	data, err := json.Marshal(authCfg)
 	if err != nil {
-		logger.Warnf("[dubbo-go-pixiu] mcp router config hash failed: %v (plan reuse disabled)", err)
-		return ""
+		logger.Warnf("[dubbo-go-pixiu] mcp router config hash failed")
+		return "", fmt.Errorf("router config hash failed: %w", err)
 	}
 	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:8])
+	return hex.EncodeToString(sum[:8]), nil
 }

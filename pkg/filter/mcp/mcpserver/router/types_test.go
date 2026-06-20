@@ -19,7 +19,6 @@ package router
 
 import (
 	"testing"
-	"time"
 )
 
 import (
@@ -61,23 +60,25 @@ func TestSelectionPlan_VisibleNamesDefaultsToAuthorizedNames(t *testing.T) {
 	assert.Nil(t, nilPlan.VisibleNames())
 }
 
-func TestBuild_NilConfigReturnsNilSelector(t *testing.T) {
+func TestBuild_NilConfigRequiresStore(t *testing.T) {
 	s, err := Build(nil, nil)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, s)
 }
 
-func TestBuild_DisabledReturnsNilSelector(t *testing.T) {
-	s, err := Build(&model.RouterConfig{Enabled: false}, nil)
+func TestBuild_NilConfigReturnsComposite(t *testing.T) {
+	store := NewSessionPlanStore()
+	defer store.Stop()
+	s, err := Build(nil, store)
 	assert.NoError(t, err)
-	assert.Nil(t, s)
+	assert.NotNil(t, s)
 }
 
 func TestBuild_EnabledReturnsComposite(t *testing.T) {
-	store := NewSessionPlanStoreWithTTL(time.Minute)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 
-	s, err := Build(&model.RouterConfig{Enabled: true, Fallback: FallbackFailClosed}, store)
+	s, err := Build(&model.RouterConfig{Fallback: FallbackFailClosed}, store)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, s)

@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-// Package router implements deterministic MCP tool routing.
+// Package router implements deterministic MCP tool governance.
 //
-// It provides a pluggable ToolSelector that the MCP server filter invokes at
-// three hookpoints: OnInitialize (session metadata capture), Select (tools/list
-// trimming), and AuthorizeCall (tools/call enforcement). When no router is
-// configured the filter keeps a nil selector and behaves exactly as before.
+// It provides a ToolSelector that the MCP server filter invokes at tools/list
+// and tools/call. Governance is always active; an omitted router block uses the
+// normalized default policy.
 package router
 
 import (
@@ -33,7 +32,7 @@ import (
 )
 
 // ErrToolNotAuthorized is returned by AuthorizeCall when a tool is not part of
-// the session's selection plan and enforce_on_call is enabled.
+// the session's selection plan.
 var ErrToolNotAuthorized = errors.New("tool not authorized for this session")
 
 // Selection mode labels used in plans, logs and metrics.
@@ -68,8 +67,7 @@ const (
 // means the corresponding signal was unavailable.
 type SelectionContext struct {
 	SessionID      string         // Mcp-Session-Id
-	Method         string         // "initialize" | "tools/list" | "tools/call"
-	AgentID        string         // from initialize.clientInfo.name or header
+	Method         string         // "tools/list" | "tools/call"
 	UserID         string         // from claims.sub
 	Tenant         string         // from claims.tenant
 	Claims         map[string]any // JWT claims already validated by the auth/mcp filter
@@ -97,6 +95,9 @@ type SelectionPlan struct {
 	CreatedAt        int64                 `json:"created_at"`         // unix nano
 	IdentityHash     string                `json:"-"`                  // validated-claims fingerprint, never logged
 	ProgressiveHash  string                `json:"-"`                  // progressive config fingerprint
+	ConfigHash       string                `json:"-"`                  // normalized authorization config fingerprint
+	CatalogVersion   string                `json:"-"`                  // immutable catalog version used for this plan
+	Generation       uint64                `json:"-"`                  // monotonic per-session plan generation
 	Expanded         bool                  `json:"expanded,omitempty"` // progressive state for tests/log-free inspection
 	toolSet          map[string]struct{}   `json:"-"`
 }
@@ -148,13 +149,8 @@ type ToolSelector interface {
 	Select(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig) (*SelectionPlan, error)
 
 	// AuthorizeCall enforces the plan at tools/call time against the current
-	// candidate catalog. A nil return allows the call. When enforce_on_call is
-	// disabled the implementation may allow calls even without a session plan.
-	AuthorizeCall(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig) error
-
-	// OnInitialize gives the selector a chance to capture session metadata.
-	// Implementations may treat this as a no-op.
-	OnInitialize(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig) error
+	// catalog and returns a receipt bound to the authorized plan generation.
+	AuthorizeCall(ctx context.Context, sc SelectionContext, candidates []model.ToolConfig) (*AuthorizationReceipt, error)
 }
 
 // SelectionFailureHandler is optionally implemented by selectors that can
@@ -173,7 +169,22 @@ type CallSuccessResult struct {
 // CallSuccessRecorder is implemented by selectors that track successful
 // tools/call completions separately from authorization checks.
 type CallSuccessRecorder interface {
-	RecordCallSuccess(ctx context.Context, sc SelectionContext) (CallSuccessResult, error)
+	RecordCallSuccess(ctx context.Context, receipt AuthorizationReceipt) (CallSuccessResult, error)
+}
+
+// AuthorizationReceipt binds one tools/call authorization to the plan and
+// metadata generation observed at authorization time. It is safe to persist in
+// request context, but must not be logged because it contains identity hashes.
+type AuthorizationReceipt struct {
+	RouterInstanceID string
+	SessionID        string
+	ToolName         string
+	PlanGeneration   uint64
+	IdentityHash     string
+	ConfigHash       string
+	CatalogVersion   string
+	ProgressiveHash  string
+	ReceiptID        uint64
 }
 
 // toolNames extracts the stable ordered name slice from a candidate set.

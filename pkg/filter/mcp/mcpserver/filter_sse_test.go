@@ -222,7 +222,7 @@ func TestMaintainSSEPipe_Keepalive(t *testing.T) {
 	// Create session with pipe
 	session, _ := mcpFilter.sessionManager.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	token := session.AttachStream(pipeWriter)
+	token, _ := session.AttachStream(pipeWriter)
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -387,7 +387,7 @@ func TestSendServerNotification(t *testing.T) {
 	// Create session with pipe
 	session, _ := mcpFilter.sessionManager.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.AttachStream(pipeWriter)
+	_, _ = session.AttachStream(pipeWriter)
 	sessionID := session.ID
 
 	// Send notification in goroutine
@@ -453,7 +453,7 @@ func TestSendServerRequest(t *testing.T) {
 	// Create session with pipe
 	session, _ := mcpFilter.sessionManager.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.AttachStream(pipeWriter)
+	_, _ = session.AttachStream(pipeWriter)
 	sessionID := session.ID
 
 	// Send request in goroutine
@@ -513,18 +513,14 @@ func createTestFilter(t *testing.T) *MCPServerFilter {
 		t.Fatalf("Failed to apply filter factory: %v", err)
 	}
 
-	sessionManager := transport.NewSessionManager()
-	sseHandler := transport.NewSSEHandler(sessionManager)
-	contentNegotiator := transport.NewContentNegotiator()
-
 	return &MCPServerFilter{
 		cfg:               cfg,
-		registry:          factory.registry,
+		registry:          factory.runtime.registry,
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
-		sessionManager:    sessionManager,
-		sseHandler:        sseHandler,
-		contentNegotiator: contentNegotiator,
+		sessionManager:    factory.runtime.sessionManager,
+		sseHandler:        factory.runtime.sseHandler,
+		contentNegotiator: transport.NewContentNegotiator(),
 	}
 }
 

@@ -22,7 +22,6 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 )
 
 import (
@@ -58,18 +57,14 @@ func buildTenantFixture() []model.ToolConfig {
 }
 
 // newRoutedFilter creates an MCPServerFilter with a tenant-isolation router
-// enabled, returning the filter and its plan store.
+// active, returning the filter and its plan store.
 func newRoutedFilter(t *testing.T, tools []model.ToolConfig) *MCPServerFilter {
-	enforce := true
 	cfg := &model.McpServerConfig{
 		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
 		Endpoint:   "/mcp",
 		Tools:      tools,
 		Router: &model.RouterConfig{
-			Enabled:       true,
-			Fallback:      router.FallbackFailClosed,
-			EnforceOnCall: &enforce,
-			Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			Fallback: router.FallbackFailClosed, Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 				{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
 				{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"globex"}},
 				{Name: "initech", When: model.PolicyMatch{Claim: "tenant", Equals: "initech"}, AllowTags: []string{"initech"}},
@@ -79,17 +74,15 @@ func newRoutedFilter(t *testing.T, tools []model.ToolConfig) *MCPServerFilter {
 
 	factory := &FilterFactory{cfg: cfg}
 	require.NoError(t, factory.Apply())
-
-	sm := transport.NewSessionManager()
 	return &MCPServerFilter{
 		cfg:               cfg,
-		registry:          factory.registry,
+		registry:          factory.runtime.registry,
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
-		sessionManager:    sm,
-		sseHandler:        transport.NewSSEHandler(sm),
+		sessionManager:    factory.runtime.sessionManager,
+		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
-		selector:          factory.selector,
+		selector:          factory.runtime.selector,
 	}
 }
 
@@ -197,22 +190,22 @@ func TestIntegration_CrossInstanceSameSessionConcurrentIsolation(t *testing.T) {
 		{Name: "acme_tool", Cluster: "test-cluster", Request: model.RequestConfig{Method: "GET", Path: "/api/acme"}, Meta: &model.ToolMeta{Tags: []string{"acme"}}},
 		{Name: "globex_tool", Cluster: "test-cluster", Request: model.RequestConfig{Method: "GET", Path: "/api/globex"}, Meta: &model.ToolMeta{Tags: []string{"globex"}}},
 	}
-	store := router.NewSessionPlanStoreWithTTL(time.Minute)
-	defer store.Stop()
+	acmeStore := router.NewSessionPlanStore()
+	defer acmeStore.Stop()
+	globexStore := router.NewSessionPlanStore()
+	defer globexStore.Stop()
 	sm := transport.NewSessionManager()
 	defer sm.Stop()
 	session, err := sm.CreateSession()
 	require.NoError(t, err)
 
-	acmeFilter := newIsolatedRouterFilter(t, sm, store, tools, &model.RouterConfig{
-		Enabled:  true,
+	acmeFilter := newIsolatedRouterFilter(t, sm, acmeStore, tools, &model.RouterConfig{
 		Fallback: router.FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
 		}},
 	})
-	globexFilter := newIsolatedRouterFilter(t, sm, store, tools, &model.RouterConfig{
-		Enabled:  true,
+	globexFilter := newIsolatedRouterFilter(t, sm, globexStore, tools, &model.RouterConfig{
 		Fallback: router.FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"globex"}},
@@ -240,7 +233,8 @@ func TestIntegration_CrossInstanceSameSessionConcurrentIsolation(t *testing.T) {
 
 	assert.Equal(t, filter.Stop, callToolWithClaims(acmeFilter, session.ID, "globex_tool", acmeClaims))
 	assert.Equal(t, filter.Stop, callToolWithClaims(globexFilter, session.ID, "acme_tool", globexClaims))
-	assert.Equal(t, 2, store.Len())
+	assert.Equal(t, 1, acmeStore.Len())
+	assert.Equal(t, 1, globexStore.Len())
 }
 
 func TestIntegration_BypassListDirectCallDenied(t *testing.T) {
@@ -255,7 +249,7 @@ func TestIntegration_BypassListDirectCallDenied(t *testing.T) {
 	assert.Equal(t, filter.Stop, status)
 }
 
-func TestIntegration_RouterDisabledIsPassthrough(t *testing.T) {
+func TestIntegration_DefaultRouterIsAlwaysOn(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
@@ -267,5 +261,5 @@ func TestIntegration_RouterDisabledIsPassthrough(t *testing.T) {
 	}
 	factory := &FilterFactory{cfg: cfg}
 	require.NoError(t, factory.Apply())
-	assert.Nil(t, factory.selector, "no router config => nil selector => passthrough")
+	assert.NotNil(t, factory.runtime.selector, "no router config => always-on selector")
 }

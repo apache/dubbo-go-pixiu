@@ -80,14 +80,11 @@ func newLifecycleFilterWithSessionManager(t *testing.T, sm *transport.SessionMan
 		Endpoint:   "/mcp",
 		Tools:      tools,
 		Router: &model.RouterConfig{
-			Enabled:  true,
 			Fallback: router.FallbackFailClosed,
 		},
 	}
 	store := router.NewSessionPlanStoreWithOptions(router.SessionPlanStoreOptions{
-		TTL:             time.Minute,
-		MaxEntries:      10,
-		CleanupInterval: time.Hour,
+		MaxEntries: 10,
 	})
 	sel, err := router.Build(cfg.Router, store)
 	require.NoError(t, err)
@@ -105,7 +102,7 @@ func newLifecycleFilterWithSessionManager(t *testing.T, sm *transport.SessionMan
 	}, store
 }
 
-func newLifecyclePassthroughFilter(t *testing.T, routerCfg *model.RouterConfig) *MCPServerFilter {
+func newLifecycleAllAllowedFilter(t *testing.T, routerCfg *model.RouterConfig) *MCPServerFilter {
 	t.Helper()
 
 	tools := []model.ToolConfig{createTestToolConfig("ping", "ping"), createTestToolConfig("pong", "pong")}
@@ -117,18 +114,16 @@ func newLifecyclePassthroughFilter(t *testing.T, routerCfg *model.RouterConfig) 
 	}
 	factory := &FilterFactory{cfg: cfg}
 	require.NoError(t, factory.Apply())
-	require.Nil(t, factory.selector)
-
-	sm := transport.NewSessionManager()
+	require.NotNil(t, factory.runtime.selector)
 	return &MCPServerFilter{
 		cfg:               cfg,
-		registry:          factory.registry,
+		registry:          factory.runtime.registry,
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
-		sessionManager:    sm,
-		sseHandler:        transport.NewSSEHandler(sm),
+		sessionManager:    factory.runtime.sessionManager,
+		sseHandler:        factory.runtime.sseHandler,
 		contentNegotiator: transport.NewContentNegotiator(),
-		selector:          factory.selector,
+		selector:          factory.runtime.selector,
 	}
 }
 
@@ -223,7 +218,7 @@ func TestInitializeWithSuppliedSessionIDRejected(t *testing.T) {
 
 	existing, _ := f.sessionManager.CreateSession()
 	manualKey := router.NewPlanKey("manual", existing.ID)
-	store.Set(manualKey, &router.SelectionPlan{SessionID: existing.ID, ToolNames: []string{"ping"}})
+	store.Set(manualKey, &router.SelectionPlan{SessionID: existing.ID, ToolNames: []string{"ping"}}, router.SelectionContext{SessionID: manualKey.SessionID})
 
 	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`)
 	rec, status := postMCP(t, f, existing.ID, body)
@@ -248,37 +243,20 @@ func TestInitializeWithUnknownSuppliedSessionIDRejected(t *testing.T) {
 	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
 }
 
-func TestRouterAbsentAndDisabledPassthroughWithoutSession(t *testing.T) {
-	cases := []struct {
-		name   string
-		router *model.RouterConfig
-	}{
-		{name: "absent"},
-		{name: "disabled", router: &model.RouterConfig{Enabled: false}},
-	}
+func TestRouterAbsentRequiresSessionWithoutAllAllowed(t *testing.T) {
+	f := newLifecycleAllAllowedFilter(t, nil)
+	defer f.sessionManager.Stop()
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			f := newLifecyclePassthroughFilter(t, tc.router)
-			defer f.sessionManager.Stop()
+	listBody := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+	rec, status := postMCP(t, f, "", listBody)
+	require.Equal(t, filter.Stop, status)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 
-			listBody := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
-			rec, status := postMCP(t, f, "", listBody)
-			require.Equal(t, filter.Stop, status)
-			require.Equal(t, http.StatusOK, rec.Code)
-
-			var response map[string]any
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-			result := response["result"].(map[string]any)
-			tools := result["tools"].([]any)
-			assert.Len(t, tools, 2)
-
-			callBody := []byte(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ping","arguments":{"param":"v"}}}`)
-			rec, status = postMCP(t, f, "", callBody)
-			require.Equal(t, filter.Continue, status)
-			assert.Equal(t, http.StatusOK, rec.Code)
-		})
-	}
+	callBody := []byte(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ping","arguments":{"param":"v"}}}`)
+	rec, status = postMCP(t, f, "", callBody)
+	require.Equal(t, filter.Stop, status)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, 0, f.sessionManager.ActiveSessionCount())
 }
 
 func TestPostUnknownSessionReturns404AndDoesNotCreate(t *testing.T) {
@@ -303,7 +281,7 @@ func TestExpiredSessionReturns404AndDoesNotCreate(t *testing.T) {
 
 	session, _ := f.sessionManager.CreateSession()
 	manualKey := router.NewPlanKey("manual", session.ID)
-	store.Set(manualKey, &router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
+	store.Set(manualKey, &router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}}, router.SelectionContext{SessionID: manualKey.SessionID})
 	clock.Advance(transport.SessionTimeout + time.Nanosecond)
 
 	getReq := httptest.NewRequest(http.MethodGet, "/mcp", nil)
@@ -381,17 +359,15 @@ func TestTransportTTLExpiryDeletesPlan(t *testing.T) {
 	defer sm.Stop()
 
 	store := router.NewSessionPlanStoreWithOptions(router.SessionPlanStoreOptions{
-		TTL:             time.Hour,
-		MaxEntries:      10,
-		Now:             clock.Now,
-		CleanupInterval: time.Hour,
+		MaxEntries: 10,
+		Now:        clock.Now,
 	})
 	defer store.Stop()
 	sm.AddSessionRemovedHandler(store.DeleteSession)
 
 	session, _ := sm.CreateSession()
 	manualKey := router.NewPlanKey("manual", session.ID)
-	store.Set(manualKey, &router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}})
+	store.Set(manualKey, &router.SelectionPlan{SessionID: session.ID, ToolNames: []string{"ping"}}, router.SelectionContext{SessionID: manualKey.SessionID})
 
 	clock.Advance(transport.SessionTimeout + time.Nanosecond)
 	_, exists := sm.Session(session.ID)
@@ -414,7 +390,7 @@ func TestToolsListChangedPendingFlushesOnReconnect(t *testing.T) {
 	reader, writer := io.Pipe()
 	defer reader.Close()
 	defer writer.Close()
-	session.AttachStream(writer)
+	_, _ = session.AttachStream(writer)
 
 	notificationCh := make(chan string, 1)
 	go func() {

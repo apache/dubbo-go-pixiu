@@ -56,7 +56,7 @@ func ValidateRisk(risk string) error {
 }
 
 // validatePolicyRisks validates max_risk values even when the policy stage is
-// disabled, because an unknown risk enum is a configuration error.
+// off, because an unknown risk enum is a configuration error.
 func validatePolicyRisks(cfg model.PolicyConfig) error {
 	for _, r := range cfg.Rules {
 		if _, err := maxRiskOrdinal(r.MaxRisk); err != nil {

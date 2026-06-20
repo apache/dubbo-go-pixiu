@@ -49,7 +49,7 @@ func TestWorkflowSelector_MatchKeepsBundle(t *testing.T) {
 	assert.Equal(t, "support", traces[0].Rule)
 }
 
-func TestWorkflowSelector_NoMatchPassthrough(t *testing.T) {
+func TestWorkflowSelector_NoMatchAllAllowed(t *testing.T) {
 	ws, err := NewWorkflowSelector([]model.WorkflowConfig{
 		{Name: "support", Tools: []string{"a"}, When: model.PolicyMatch{Claim: "role", Equals: "support"}},
 	})
@@ -71,7 +71,7 @@ func TestWorkflowSelector_BundleWithoutWhenNotAutoMatched(t *testing.T) {
 	tools := testTools("ping", "other")
 	out, _ := ws.Filter(tools, SelectionContext{})
 
-	// No When => never auto-matches => passthrough.
+	// No When => never auto-matches => all-allowed.
 	assert.Equal(t, tools, out)
 
 	// But it is addressable by name.

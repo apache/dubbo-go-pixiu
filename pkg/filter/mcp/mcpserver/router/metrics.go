@@ -31,6 +31,8 @@ import (
 // router package can be imported without forcing metric registration.
 var (
 	metricsOnce sync.Once
+	activeMu    sync.Mutex
+	activePlans = map[*SessionPlanStore]int{}
 
 	selectTotal      *prometheus.CounterVec
 	selectionLatency *prometheus.HistogramVec
@@ -153,10 +155,45 @@ func recordPlanEvicted(reason string) {
 	planEvictedTotal.WithLabelValues(reason).Inc()
 }
 
-// setPlansActive publishes the current cached-plan count.
-func setPlansActive(n int) {
+func registerPlanStoreMetric(store *SessionPlanStore) {
+	if store == nil {
+		return
+	}
+	activeMu.Lock()
+	activePlans[store] = 0
+	publishPlansActiveLocked()
+	activeMu.Unlock()
+}
+
+func unregisterPlanStoreMetric(store *SessionPlanStore) {
+	if store == nil {
+		return
+	}
+	activeMu.Lock()
+	delete(activePlans, store)
+	publishPlansActiveLocked()
+	activeMu.Unlock()
+}
+
+// setPlansActive publishes one store's cached-plan count and exposes the
+// process-wide aggregate without high-cardinality labels.
+func setPlansActive(store *SessionPlanStore, n int) {
+	if store == nil {
+		return
+	}
+	activeMu.Lock()
+	activePlans[store] = n
+	publishPlansActiveLocked()
+	activeMu.Unlock()
+}
+
+func publishPlansActiveLocked() {
 	if plansActive == nil {
 		return
 	}
-	plansActive.Set(float64(n))
+	total := 0
+	for _, n := range activePlans {
+		total += n
+	}
+	plansActive.Set(float64(total))
 }

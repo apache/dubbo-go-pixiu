@@ -148,7 +148,7 @@ func TestSendSSEMessage(t *testing.T) {
 	// Create session with pipe
 	session, _ := sm.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.AttachStream(pipeWriter)
+	_, _ = session.AttachStream(pipeWriter)
 
 	// Send message in goroutine
 	message := map[string]any{
@@ -213,7 +213,7 @@ func TestSendSSEMessage_InvalidJSON(t *testing.T) {
 
 	session, _ := sm.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.AttachStream(pipeWriter)
+	_, _ = session.AttachStream(pipeWriter)
 	defer pipeReader.Close()
 	defer pipeWriter.Close()
 

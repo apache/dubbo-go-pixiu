@@ -37,13 +37,13 @@ func TestNotifyToolsListChanged(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 	sm := GetOrInitSessionManager()
 
 	// Create session with SSE pipe
 	session, _ := sm.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.AttachStream(pipeWriter)
+	_, _ = session.AttachStream(pipeWriter)
 	defer pipeReader.Close()
 	defer pipeWriter.Close()
 
@@ -84,7 +84,7 @@ func TestNotifyToolsListChanged_MultipleSessions(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 	sm := GetOrInitSessionManager()
 
 	// Create multiple sessions with pipes
@@ -96,7 +96,7 @@ func TestNotifyToolsListChanged_MultipleSessions(t *testing.T) {
 	for i := 0; i < numSessions; i++ {
 		session, _ := sm.CreateSession()
 		pipeReader, pipeWriter := io.Pipe()
-		session.AttachStream(pipeWriter)
+		_, _ = session.AttachStream(pipeWriter)
 		readers[i] = pipeReader
 		writers[i] = pipeWriter
 		defer pipeReader.Close()
@@ -141,7 +141,7 @@ func TestNotifyToolsListChanged_NoActiveSessions(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 
 	// Apply config without any active sessions
 	config := createTestMcpServerConfig([]model.ToolConfig{
@@ -160,7 +160,7 @@ func TestNotifyToolsListChanged_DisconnectedSession(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 	sm := GetOrInitSessionManager()
 
 	// Create session but don't attach pipe

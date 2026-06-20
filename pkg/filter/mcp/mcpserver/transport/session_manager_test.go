@@ -216,7 +216,7 @@ func TestRemoveSessionClosesBlockedSSEWrite(t *testing.T) {
 	session, _ := sm.CreateSession()
 	reader, writer := io.Pipe()
 	defer reader.Close()
-	session.AttachStream(writer)
+	_, _ = session.AttachStream(writer)
 
 	writeDone := make(chan error, 1)
 	go func() {
@@ -254,12 +254,12 @@ func TestStreamTokenCannotWriteReplacementStream(t *testing.T) {
 	session, _ := sm.CreateSession()
 	readerA, writerA := io.Pipe()
 	defer readerA.Close()
-	tokenA := session.AttachStream(writerA)
+	tokenA, _ := session.AttachStream(writerA)
 
 	readerB, writerB := io.Pipe()
 	defer readerB.Close()
 	defer writerB.Close()
-	tokenB := session.AttachStream(writerB)
+	tokenB, _ := session.AttachStream(writerB)
 
 	readB := make(chan string, 1)
 	go func() {

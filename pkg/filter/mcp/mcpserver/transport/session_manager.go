@@ -20,6 +20,7 @@ package transport
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -31,10 +32,14 @@ import (
 )
 
 const (
-	SessionTimeout    = 30 * time.Minute
-	CleanupInterval   = 5 * time.Minute
-	KeepaliveInterval = 30 * time.Second
+	SessionTimeout     = 30 * time.Minute
+	CleanupInterval    = 5 * time.Minute
+	KeepaliveInterval  = 30 * time.Second
+	DefaultMaxSessions = 10000
 )
+
+var ErrSessionManagerStopped = errors.New("mcp session manager stopped")
+var ErrSessionCapacityReached = errors.New("mcp session capacity reached")
 
 // SessionRemovedHandler is invoked after a transport session is removed.
 // Handlers are called outside the SessionManager lock.
@@ -64,6 +69,7 @@ type MCPSession struct {
 	streamSeq StreamToken
 	stream    *streamAttachment
 	closeOnce sync.Once
+	closed    bool
 }
 
 // SessionManager manages MCP sessions for SSE connections
@@ -74,22 +80,37 @@ type SessionManager struct {
 	stopCh          chan struct{}
 	once            sync.Once
 	now             func() time.Time
+	maxSessions     int
+	stopped         bool
 }
 
 // NewSessionManager creates a new session manager
 func NewSessionManager() *SessionManager {
-	return NewSessionManagerWithNow(time.Now)
+	return NewSessionManagerWithMaxEntries(DefaultMaxSessions)
 }
 
 // NewSessionManagerWithNow creates a session manager with an injected clock.
 func NewSessionManagerWithNow(now func() time.Time) *SessionManager {
+	return NewSessionManagerWithOptions(now, DefaultMaxSessions)
+}
+
+// NewSessionManagerWithMaxEntries creates a session manager with a capacity.
+func NewSessionManagerWithMaxEntries(maxEntries int) *SessionManager {
+	return NewSessionManagerWithOptions(time.Now, maxEntries)
+}
+
+func NewSessionManagerWithOptions(now func() time.Time, maxEntries int) *SessionManager {
 	if now == nil {
 		now = time.Now
 	}
+	if maxEntries <= 0 {
+		maxEntries = DefaultMaxSessions
+	}
 	sm := &SessionManager{
-		sessions: make(map[string]*MCPSession),
-		stopCh:   make(chan struct{}),
-		now:      now,
+		sessions:    make(map[string]*MCPSession),
+		stopCh:      make(chan struct{}),
+		now:         now,
+		maxSessions: maxEntries,
 	}
 	go sm.startCleanupRoutine()
 	return sm
@@ -109,8 +130,31 @@ func (sm *SessionManager) AddSessionRemovedHandler(handler SessionRemovedHandler
 // accepted here; this prevents session fixation during initialize.
 func (sm *SessionManager) CreateSession() (*MCPSession, error) {
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
 	now := sm.now()
+	if sm.stopped {
+		sm.mu.Unlock()
+		return nil, ErrSessionManagerStopped
+	}
+	if len(sm.sessions) >= sm.maxSessions {
+		removed := sm.removeExpiredLocked(now)
+		handlers := sm.handlersLocked()
+		if len(sm.sessions) >= sm.maxSessions {
+			sm.mu.Unlock()
+			sm.callRemovedHandlers(handlers, removed)
+			return nil, ErrSessionCapacityReached
+		}
+		sm.mu.Unlock()
+		sm.callRemovedHandlers(handlers, removed)
+		sm.mu.Lock()
+		if sm.stopped {
+			sm.mu.Unlock()
+			return nil, ErrSessionManagerStopped
+		}
+		if len(sm.sessions) >= sm.maxSessions {
+			sm.mu.Unlock()
+			return nil, ErrSessionCapacityReached
+		}
+	}
 	sessionID := sm.generateUniqueSessionIDLocked()
 	session := &MCPSession{
 		ID:           sessionID,
@@ -119,6 +163,7 @@ func (sm *SessionManager) CreateSession() (*MCPSession, error) {
 		Done:         make(chan struct{}),
 	}
 	sm.sessions[sessionID] = session
+	sm.mu.Unlock()
 	logger.Infof("[dubbo-go-pixiu] mcp server created MCP session")
 	return session, nil
 }
@@ -126,11 +171,24 @@ func (sm *SessionManager) CreateSession() (*MCPSession, error) {
 // GetSession retrieves an existing MCP session. Unknown or expired IDs are not
 // replaced with new sessions.
 func (sm *SessionManager) GetSession(sessionID string) (*MCPSession, bool) {
+	return sm.getSession(sessionID, true)
+}
+
+// PeekSession retrieves a session without updating last activity.
+func (sm *SessionManager) PeekSession(sessionID string) (*MCPSession, bool) {
+	return sm.getSession(sessionID, false)
+}
+
+func (sm *SessionManager) getSession(sessionID string, touch bool) (*MCPSession, bool) {
 	if sessionID == "" {
 		return nil, false
 	}
 	now := sm.now()
 	sm.mu.Lock()
+	if sm.stopped {
+		sm.mu.Unlock()
+		return nil, false
+	}
 	session, exists := sm.sessions[sessionID]
 	if !exists {
 		sm.mu.Unlock()
@@ -143,7 +201,9 @@ func (sm *SessionManager) GetSession(sessionID string) (*MCPSession, bool) {
 		sm.callRemovedHandlers(handlers, []string{sessionID})
 		return nil, false
 	}
-	session.touch(now)
+	if touch {
+		session.touch(now)
+	}
 	sm.mu.Unlock()
 	return session, true
 }
@@ -176,6 +236,7 @@ func (sm *SessionManager) Stop() {
 		close(sm.stopCh)
 
 		sm.mu.Lock()
+		sm.stopped = true
 		removed := make([]string, 0, len(sm.sessions))
 		for sessionID, session := range sm.sessions {
 			session.close()
@@ -226,18 +287,7 @@ func (sm *SessionManager) startCleanupRoutine() {
 func (sm *SessionManager) cleanupExpiredSessions() {
 	sm.mu.Lock()
 	now := sm.now()
-	var toRemove []string
-
-	for sessionID, session := range sm.sessions {
-		if sm.sessionExpiredLocked(session, now) {
-			toRemove = append(toRemove, sessionID)
-		}
-	}
-
-	for _, sessionID := range toRemove {
-		sm.removeSessionLocked(sessionID)
-		logger.Infof("[dubbo-go-pixiu] mcp server cleaned up expired MCP session")
-	}
+	toRemove := sm.removeExpiredLocked(now)
 	handlers := sm.handlersLocked()
 	sm.mu.Unlock()
 	sm.callRemovedHandlers(handlers, toRemove)
@@ -259,6 +309,17 @@ func (sm *SessionManager) AllSessionIDs() []string {
 	return ids
 }
 
+// SnapshotSessions returns active sessions without touching their TTL.
+func (sm *SessionManager) SnapshotSessions() []*MCPSession {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	out := make([]*MCPSession, 0, len(sm.sessions))
+	for _, session := range sm.sessions {
+		out = append(out, session)
+	}
+	return out
+}
+
 // ActiveSessionCount returns the number of active sessions
 func (sm *SessionManager) ActiveSessionCount() int {
 	sm.mu.RLock()
@@ -277,6 +338,20 @@ func (sm *SessionManager) removeSessionLocked(sessionID string) {
 	}
 	session.close()
 	delete(sm.sessions, sessionID)
+}
+
+func (sm *SessionManager) removeExpiredLocked(now time.Time) []string {
+	var toRemove []string
+	for sessionID, session := range sm.sessions {
+		if sm.sessionExpiredLocked(session, now) {
+			toRemove = append(toRemove, sessionID)
+		}
+	}
+	for _, sessionID := range toRemove {
+		sm.removeSessionLocked(sessionID)
+		logger.Infof("[dubbo-go-pixiu] mcp server cleaned up expired MCP session")
+	}
+	return toRemove
 }
 
 func (sm *SessionManager) handlersLocked() []SessionRemovedHandler {
@@ -305,6 +380,9 @@ func (sm *SessionManager) callRemovedHandlers(handlers []SessionRemovedHandler, 
 
 func (s *MCPSession) close() {
 	s.closeOnce.Do(func() {
+		s.mu.Lock()
+		s.closed = true
+		s.mu.Unlock()
 		close(s.Done)
 		old := s.clearStream()
 		closeStream(old)
@@ -327,6 +405,10 @@ func (s *MCPSession) lastActivity() time.Time {
 // changed. The version is monotonic and bounded to one counter per session.
 func (s *MCPSession) MarkToolsListChangedPending() uint64 {
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return 0
+	}
 	s.toolListChangeVersion++
 	version := s.toolListChangeVersion
 	s.mu.Unlock()
@@ -354,7 +436,13 @@ func (s *MCPSession) MarkToolsListChangedNotified(version uint64) {
 }
 
 // AttachStream installs a new SSE stream and closes the previous stream, if any.
-func (s *MCPSession) AttachStream(writer *io.PipeWriter) StreamToken {
+func (s *MCPSession) AttachStream(writer *io.PipeWriter) (StreamToken, error) {
+	s.mu.RLock()
+	closed := s.closed
+	s.mu.RUnlock()
+	if closed {
+		return 0, ErrSessionManagerStopped
+	}
 	s.streamMu.Lock()
 	s.streamSeq++
 	token := s.streamSeq
@@ -363,7 +451,7 @@ func (s *MCPSession) AttachStream(writer *io.PipeWriter) StreamToken {
 	s.streamMu.Unlock()
 
 	closeStream(old)
-	return token
+	return token, nil
 }
 
 // DetachStream removes the current SSE stream only if the token still owns it.

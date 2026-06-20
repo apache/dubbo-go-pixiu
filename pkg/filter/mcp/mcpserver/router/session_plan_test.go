@@ -52,15 +52,34 @@ func (c *fakeClock) Advance(d time.Duration) {
 
 func newTestPlanStore(clock *fakeClock, maxEntries int) *SessionPlanStore {
 	return NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{
-		TTL:             time.Minute,
-		MaxEntries:      maxEntries,
-		Now:             clock.Now,
-		CleanupInterval: time.Hour,
+		MaxEntries: maxEntries,
+		Now:        clock.Now,
 	})
 }
 
 func testPlanKey(sessionID string) PlanKey {
 	return NewPlanKey("router-test", sessionID)
+}
+
+func issueReceiptForTest(t *testing.T, s *SessionPlanStore, key PlanKey, tool string) AuthorizationReceipt {
+	t.Helper()
+	plan, ok := s.Get(key)
+	require.True(t, ok)
+	receipt, err := s.IssueReceipt(key, tool, plan, key.RouterID)
+	require.NoError(t, err)
+	return receipt
+}
+
+func tryIssueReceiptForTest(s *SessionPlanStore, key PlanKey, tool string) AuthorizationReceipt {
+	plan, ok := s.Get(key)
+	if !ok {
+		return AuthorizationReceipt{}
+	}
+	receipt, err := s.IssueReceipt(key, tool, plan, key.RouterID)
+	if err != nil {
+		return AuthorizationReceipt{}
+	}
+	return receipt
 }
 
 func TestSessionPlanStore_SetGet(t *testing.T) {
@@ -75,7 +94,7 @@ func TestSessionPlanStore_SetGet(t *testing.T) {
 		Reasons:          []DecisionTrace{{Tool: "b"}},
 		Version:          "v1",
 	}
-	s.Set(testPlanKey("s1"), plan)
+	s.Set(testPlanKey("s1"), plan, SelectionContext{SessionID: testPlanKey("s1").SessionID})
 
 	got, ok := s.Get(testPlanKey("s1"))
 	require.True(t, ok)
@@ -87,13 +106,104 @@ func TestSessionPlanStore_SetGet(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestSessionPlanStore_IssueReceiptAllowsEquivalentGenerationRefresh(t *testing.T) {
+	clock := newFakeClock()
+	s := newTestPlanStore(clock, 10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	plan := &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"a"},
+		Version:         "v1",
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}
+	require.NoError(t, s.Set(key, plan, SelectionContext{SessionID: key.SessionID}))
+	stale, ok := s.Get(key)
+	require.True(t, ok)
+
+	require.NoError(t, s.Set(key, plan, SelectionContext{SessionID: key.SessionID}))
+	current, ok := s.Get(key)
+	require.True(t, ok)
+	require.Greater(t, current.Generation, stale.Generation)
+
+	receipt, err := s.IssueReceipt(key, "a", stale, key.RouterID)
+	require.NoError(t, err)
+	assert.Equal(t, current.Generation, receipt.PlanGeneration)
+}
+
+func TestSessionPlanStore_IssueReceiptRejectsDifferentIdentityRefresh(t *testing.T) {
+	clock := newFakeClock()
+	s := newTestPlanStore(clock, 10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"a"},
+		Version:         "v1",
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, SelectionContext{SessionID: key.SessionID}))
+	stale, ok := s.Get(key)
+	require.True(t, ok)
+
+	require.NoError(t, s.Set(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"a"},
+		Version:         "v2",
+		IdentityHash:    "identity-b",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, SelectionContext{SessionID: key.SessionID}))
+
+	_, err := s.IssueReceipt(key, "a", stale, key.RouterID)
+	assert.ErrorIs(t, err, ErrToolNotAuthorized)
+}
+
+func TestSessionPlanStore_IssueReceiptForVersionReportsStale(t *testing.T) {
+	clock := newFakeClock()
+	s := newTestPlanStore(clock, 10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"a"},
+		Version:         "v1",
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, SelectionContext{SessionID: key.SessionID}))
+
+	receipt, stale, err := s.IssueReceiptForVersion(key, "a", "v1", "identity-a", "config-a", "catalog-a", "progressive-a", key.RouterID)
+	require.NoError(t, err)
+	assert.False(t, stale)
+	assert.Equal(t, uint64(1), receipt.PlanGeneration)
+
+	_, stale, err = s.IssueReceiptForVersion(key, "a", "v2", "identity-a", "config-a", "catalog-a", "progressive-a", key.RouterID)
+	require.NoError(t, err)
+	assert.True(t, stale)
+
+	_, stale, err = s.IssueReceiptForVersion(key, "b", "v1", "identity-a", "config-a", "catalog-a", "progressive-a", key.RouterID)
+	assert.False(t, stale)
+	assert.ErrorIs(t, err, ErrToolNotAuthorized)
+}
+
 func TestSessionPlanStore_SetIgnoresEmpty(t *testing.T) {
 	clock := newFakeClock()
 	s := newTestPlanStore(clock, 10)
 	defer s.Stop()
 
-	s.Set(testPlanKey("ignored"), nil)
-	s.Set(testPlanKey(""), &SelectionPlan{SessionID: ""})
+	s.Set(testPlanKey("ignored"), nil, SelectionContext{SessionID: testPlanKey("ignored").SessionID})
+	s.Set(testPlanKey(""), &SelectionPlan{SessionID: ""}, SelectionContext{SessionID: testPlanKey("").SessionID})
 	assert.Equal(t, 0, s.Len())
 }
 
@@ -103,7 +213,7 @@ func TestSessionPlanStore_MutationIsolation(t *testing.T) {
 	defer s.Stop()
 
 	plan := &SelectionPlan{SessionID: "s1", ToolNames: []string{"a", "b"}, VisibleToolNames: []string{"a"}}
-	s.Set(testPlanKey("s1"), plan)
+	s.Set(testPlanKey("s1"), plan, SelectionContext{SessionID: testPlanKey("s1").SessionID})
 	plan.ToolNames[0] = "mutated"
 	plan.VisibleToolNames[0] = "mutated"
 
@@ -126,14 +236,14 @@ func TestSessionPlanStore_CallCountPreservedAndResetByIdentity(t *testing.T) {
 	defer s.Stop()
 
 	key := testPlanKey("s1")
-	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, IdentityHash: "tenant-a", ProgressiveHash: "p1"})
-	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(key, "a", 3))
-	assert.Equal(t, CallSuccessResult{Count: 2}, s.RecordCallSuccess(key, "a", 3))
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, IdentityHash: "tenant-a", ProgressiveHash: "p1"}, SelectionContext{SessionID: key.SessionID})
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(issueReceiptForTest(t, s, key, "a"), 3))
+	assert.Equal(t, CallSuccessResult{Count: 2}, s.RecordCallSuccess(issueReceiptForTest(t, s, key, "a"), 3))
 
-	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v2", IdentityHash: "tenant-a", ProgressiveHash: "p1"})
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v2", IdentityHash: "tenant-a", ProgressiveHash: "p1"}, SelectionContext{SessionID: key.SessionID})
 	assert.Equal(t, int64(2), s.CallCount(key))
 
-	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v3", IdentityHash: "tenant-b", ProgressiveHash: "p1"})
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}, Version: "v3", IdentityHash: "tenant-b", ProgressiveHash: "p1"}, SelectionContext{SessionID: key.SessionID})
 	assert.Equal(t, int64(0), s.CallCount(key))
 	_, expanded := s.CallState(key, "tenant-b", "p1")
 	assert.False(t, expanded)
@@ -145,10 +255,10 @@ func TestSessionPlanStore_RecordCallSuccessTransitionOnce(t *testing.T) {
 	defer s.Stop()
 
 	key := testPlanKey("s1")
-	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}})
-	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(key, "a", 2))
-	assert.Equal(t, CallSuccessResult{Count: 2, Transitioned: true}, s.RecordCallSuccess(key, "a", 2))
-	assert.Equal(t, CallSuccessResult{Count: 3}, s.RecordCallSuccess(key, "a", 2))
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID})
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(issueReceiptForTest(t, s, key, "a"), 2))
+	assert.Equal(t, CallSuccessResult{Count: 2, Transitioned: true}, s.RecordCallSuccess(issueReceiptForTest(t, s, key, "a"), 2))
+	assert.Equal(t, CallSuccessResult{Count: 3}, s.RecordCallSuccess(issueReceiptForTest(t, s, key, "a"), 2))
 
 	got, ok := s.Get(key)
 	require.True(t, ok)
@@ -160,10 +270,10 @@ func TestSessionPlanStore_RecordCallSuccessIgnoresUnknownOrOutsidePlan(t *testin
 	s := newTestPlanStore(clock, 10)
 	defer s.Stop()
 
-	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(testPlanKey("missing"), "a", 1))
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(AuthorizationReceipt{}, 1))
 	key := testPlanKey("s1")
-	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}})
-	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(key, "ghost", 1))
+	s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID})
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(tryIssueReceiptForTest(s, key, "ghost"), 1))
 	assert.Equal(t, int64(0), s.CallCount(key))
 }
 
@@ -173,7 +283,7 @@ func TestSessionPlanStore_Delete(t *testing.T) {
 	defer s.Stop()
 
 	key := testPlanKey("s1")
-	s.Set(key, &SelectionPlan{SessionID: "s1"})
+	s.Set(key, &SelectionPlan{SessionID: "s1"}, SelectionContext{SessionID: key.SessionID})
 	s.Delete(key)
 	_, ok := s.Get(key)
 	assert.False(t, ok)
@@ -186,8 +296,8 @@ func TestSessionPlanStore_IsolatesSameSessionAcrossRouters(t *testing.T) {
 
 	keyA := NewPlanKey("router-a", "shared-session")
 	keyB := NewPlanKey("router-b", "shared-session")
-	s.Set(keyA, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"a"}})
-	s.Set(keyB, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"b"}})
+	s.Set(keyA, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"a"}}, SelectionContext{SessionID: keyA.SessionID})
+	s.Set(keyB, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"b"}}, SelectionContext{SessionID: keyB.SessionID})
 
 	gotA, ok := s.Get(keyA)
 	require.True(t, ok)
@@ -197,7 +307,7 @@ func TestSessionPlanStore_IsolatesSameSessionAcrossRouters(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, []string{"b"}, gotB.ToolNames)
 
-	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(keyA, "a", 3))
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(issueReceiptForTest(t, s, keyA, "a"), 3))
 	assert.Equal(t, int64(1), s.CallCount(keyA))
 	assert.Equal(t, int64(0), s.CallCount(keyB))
 
@@ -212,8 +322,8 @@ func TestSessionPlanStore_DeleteOneRouterKeepsOtherRouter(t *testing.T) {
 
 	keyA := NewPlanKey("router-a", "shared-session")
 	keyB := NewPlanKey("router-b", "shared-session")
-	s.Set(keyA, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"a"}})
-	s.Set(keyB, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"b"}})
+	s.Set(keyA, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"a"}}, SelectionContext{SessionID: keyA.SessionID})
+	s.Set(keyB, &SelectionPlan{SessionID: "shared-session", ToolNames: []string{"b"}}, SelectionContext{SessionID: keyB.SessionID})
 
 	s.Delete(keyA)
 
@@ -224,55 +334,35 @@ func TestSessionPlanStore_DeleteOneRouterKeepsOtherRouter(t *testing.T) {
 	assert.Equal(t, []string{"b"}, gotB.ToolNames)
 }
 
-func TestSessionPlanStore_EvictExpiredWithFakeClock(t *testing.T) {
-	clock := newFakeClock()
-	s := NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{
-		TTL:             time.Minute,
-		MaxEntries:      10,
-		Now:             clock.Now,
-		CleanupInterval: time.Hour,
-	})
-	defer s.Stop()
-
-	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"})
-	clock.Advance(time.Minute)
-	s.EvictExpired()
-	assert.Equal(t, 1, s.Len(), "entry expires only after TTL, not exactly at boundary")
-
-	clock.Advance(time.Nanosecond)
-	s.EvictExpired()
-	assert.Equal(t, 0, s.Len())
-}
-
-func TestSessionPlanStore_CapacityEvictsOldestDeterministically(t *testing.T) {
+func TestSessionPlanStore_CapacityRejectsNewPlan(t *testing.T) {
 	clock := newFakeClock()
 	s := newTestPlanStore(clock, 2)
 	defer s.Stop()
 
-	s.Set(testPlanKey("s2"), &SelectionPlan{SessionID: "s2"})
-	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"})
-	s.Set(testPlanKey("s3"), &SelectionPlan{SessionID: "s3"})
+	require.NoError(t, s.Set(testPlanKey("s2"), &SelectionPlan{SessionID: "s2"}, SelectionContext{SessionID: testPlanKey("s2").SessionID}))
+	require.NoError(t, s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"}, SelectionContext{SessionID: testPlanKey("s1").SessionID}))
+	assert.ErrorIs(t, s.Set(testPlanKey("s3"), &SelectionPlan{SessionID: "s3"}, SelectionContext{SessionID: testPlanKey("s3").SessionID}), ErrPlanStoreFull)
 
 	_, ok := s.Get(testPlanKey("s1"))
-	assert.False(t, ok, "same timestamp ties evict lexicographically oldest session")
+	assert.True(t, ok)
 	_, ok = s.Get(testPlanKey("s2"))
 	assert.True(t, ok)
 	_, ok = s.Get(testPlanKey("s3"))
-	assert.True(t, ok)
+	assert.False(t, ok)
 }
 
-func TestSessionPlanStore_ExpiredEntriesEvictedBeforeCapacity(t *testing.T) {
+func TestSessionPlanStore_CapacityDoesNotExpireActivePlan(t *testing.T) {
 	clock := newFakeClock()
 	s := newTestPlanStore(clock, 2)
 	defer s.Stop()
 
-	s.Set(testPlanKey("expired"), &SelectionPlan{SessionID: "expired"})
+	require.NoError(t, s.Set(testPlanKey("active"), &SelectionPlan{SessionID: "active"}, SelectionContext{SessionID: testPlanKey("active").SessionID}))
 	clock.Advance(2 * time.Minute)
-	s.Set(testPlanKey("fresh"), &SelectionPlan{SessionID: "fresh"})
-	s.Set(testPlanKey("new"), &SelectionPlan{SessionID: "new"})
+	require.NoError(t, s.Set(testPlanKey("fresh"), &SelectionPlan{SessionID: "fresh"}, SelectionContext{SessionID: testPlanKey("fresh").SessionID}))
+	assert.ErrorIs(t, s.Set(testPlanKey("new"), &SelectionPlan{SessionID: "new"}, SelectionContext{SessionID: testPlanKey("new").SessionID}), ErrPlanStoreFull)
 
-	_, ok := s.Get(testPlanKey("expired"))
-	assert.False(t, ok)
+	_, ok := s.Get(testPlanKey("active"))
+	assert.True(t, ok)
 	assert.Equal(t, 2, s.Len())
 }
 
@@ -283,10 +373,11 @@ func TestSessionPlanStore_SetMaxEntries(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		sessionID := fmt.Sprintf("s%d", i)
-		s.Set(testPlanKey(sessionID), &SelectionPlan{SessionID: sessionID})
+		s.Set(testPlanKey(sessionID), &SelectionPlan{SessionID: sessionID}, SelectionContext{SessionID: testPlanKey(sessionID).SessionID})
 	}
 	s.SetMaxEntries(2)
-	assert.Equal(t, 2, s.Len())
+	assert.Equal(t, 5, s.Len())
+	assert.ErrorIs(t, s.Set(testPlanKey("new"), &SelectionPlan{SessionID: "new"}, SelectionContext{SessionID: "new"}), ErrPlanStoreFull)
 }
 
 func TestSessionPlanStore_ConcurrentAccess(t *testing.T) {
@@ -301,8 +392,8 @@ func TestSessionPlanStore_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			id := fmt.Sprintf("s%d", n%10)
 			key := testPlanKey(id)
-			s.Set(key, &SelectionPlan{SessionID: id, ToolNames: []string{"a"}, Version: "v"})
-			s.RecordCallSuccess(key, "a", 1000)
+			s.Set(key, &SelectionPlan{SessionID: id, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: key.SessionID})
+			s.RecordCallSuccess(tryIssueReceiptForTest(s, key, "a"), 1000)
 			s.Get(key)
 			s.CallCount(key)
 			if n%3 == 0 {
@@ -318,7 +409,7 @@ func TestSessionPlanStore_ConcurrentAccess(t *testing.T) {
 func TestSessionPlanStore_StopIdempotentClearsEntries(t *testing.T) {
 	clock := newFakeClock()
 	s := newTestPlanStore(clock, 10)
-	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"})
+	s.Set(testPlanKey("s1"), &SelectionPlan{SessionID: "s1"}, SelectionContext{SessionID: testPlanKey("s1").SessionID})
 
 	s.Stop()
 	s.Stop()

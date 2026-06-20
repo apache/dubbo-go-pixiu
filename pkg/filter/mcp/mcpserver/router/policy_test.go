@@ -38,7 +38,7 @@ func keptNames(tools []model.ToolConfig) []string {
 	return toolNames(tools)
 }
 
-func TestPolicyFilter_NoRulesPassthrough(t *testing.T) {
+func TestPolicyFilter_NoRulesAllAllowed(t *testing.T) {
 	pf, err := NewPolicyFilter(model.PolicyConfig{})
 	require.NoError(t, err)
 

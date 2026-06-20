@@ -22,7 +22,6 @@ import (
 	"math"
 	"sync"
 	"testing"
-	"time"
 )
 
 import (
@@ -35,12 +34,12 @@ import (
 )
 
 func testRouterConfig() *model.RouterConfig {
-	return &model.RouterConfig{Enabled: true, Fallback: FallbackFailClosed}
+	return &model.RouterConfig{Fallback: FallbackFailClosed}
 }
 
 // buildComposite is a test helper that wires a CompositeSelector from a config.
 func buildComposite(t *testing.T, cfg *model.RouterConfig) (*CompositeSelector, *SessionPlanStore) {
-	store := NewSessionPlanStoreWithTTL(time.Minute)
+	store := NewSessionPlanStore()
 	sel, err := Build(cfg, store)
 	require.NoError(t, err)
 	require.NotNil(t, sel)
@@ -60,7 +59,6 @@ func tenantTools() []model.ToolConfig {
 
 func TestComposite_PolicyTenantIsolation(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme", "shared"}},
@@ -108,7 +106,7 @@ func TestComposite_EnforceOnCallDeniesWithoutPlan(t *testing.T) {
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
-	err := cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "no-plan", Requested: "x"}, testTools("x"))
+	err := authorizeCall(cs, context.Background(), SelectionContext{SessionID: "no-plan", Requested: "x"}, testTools("x"))
 	assert.ErrorIs(t, err, ErrToolNotAuthorized)
 }
 
@@ -120,9 +118,9 @@ func TestComposite_EnforceOnCallAllowsInPlan(t *testing.T) {
 	tools := testTools("a", "b")
 	cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 
-	assert.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}, tools))
+	assert.NoError(t, authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}, tools))
 	assert.Equal(t, int64(0), store.CallCount(cs.planKey("s1")), "authorization alone must not advance progressive disclosure")
-	assert.ErrorIs(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"}, tools), ErrToolNotAuthorized)
+	assert.ErrorIs(t, authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"}, tools), ErrToolNotAuthorized)
 }
 
 func TestComposite_HiddenDiscoveryStillAuthorized(t *testing.T) {
@@ -141,12 +139,11 @@ func TestComposite_HiddenDiscoveryStillAuthorized(t *testing.T) {
 
 	assert.ElementsMatch(t, []string{"visible", "hidden"}, plan.ToolNames)
 	assert.Equal(t, []string{"visible"}, plan.VisibleToolNames)
-	assert.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "hidden"}, tools))
+	assert.NoError(t, authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "hidden"}, tools))
 }
 
 func TestComposite_RecordCallSuccessIncrementsCallCount(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
@@ -161,7 +158,7 @@ func TestComposite_RecordCallSuccessIncrementsCallCount(t *testing.T) {
 	_, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, tools)
 	require.NoError(t, err)
 
-	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"})
+	result, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Requested: "a"})
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(1), result.Count)
@@ -171,7 +168,6 @@ func TestComposite_RecordCallSuccessIncrementsCallCount(t *testing.T) {
 
 func TestComposite_RecordCallSuccessSkipsWithoutPlanOrOutsidePlan(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
@@ -182,38 +178,27 @@ func TestComposite_RecordCallSuccessSkipsWithoutPlanOrOutsidePlan(t *testing.T) 
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
-	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "missing", Requested: "a"})
+	result, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "missing", Requested: "a"})
 	require.NoError(t, err)
 	assert.False(t, result.Transitioned)
 	assert.Equal(t, int64(0), store.CallCount(cs.planKey("missing")))
 
-	require.NoError(t, cs.OnInitialize(context.Background(), SelectionContext{SessionID: "init-only", AgentID: "agent"}, nil))
-	result, err = cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "init-only", Requested: "a"})
+	result, err = recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "init-only", Requested: "a"})
 	require.NoError(t, err)
 	assert.False(t, result.Transitioned)
 	assert.Equal(t, int64(0), store.CallCount(cs.planKey("init-only")))
 
 	_, err = cs.Select(context.Background(), SelectionContext{SessionID: "s1"}, testTools("a"))
 	require.NoError(t, err)
-	result, err = cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"})
+	result, err = recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Requested: "ghost"})
 	require.NoError(t, err)
 	assert.False(t, result.Transitioned)
 	assert.Equal(t, int64(0), store.CallCount(cs.planKey("s1")))
 }
 
-func TestComposite_EnforceOnCallDisabledAllowsAll(t *testing.T) {
-	disabled := false
-	cfg := testRouterConfig()
-	cfg.EnforceOnCall = &disabled
-	cs, store := buildComposite(t, cfg)
-	defer store.Stop()
-
-	assert.NoError(t, cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "anything", Requested: "x"}, testTools("x")))
-}
-
 func TestComposite_FallbackBundleDefault(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:       true,
+		Fallback:      FallbackBundleDefault,
 		DefaultBundle: "safe-minimal",
 		Workflows: []model.WorkflowConfig{
 			{Name: "safe-minimal", Tools: []string{"ping"}},
@@ -240,7 +225,7 @@ func TestComposite_FallbackBundleDefault(t *testing.T) {
 
 func TestComposite_NoWorkflowMatchUsesDefaultBundle(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:       true,
+		Fallback:      FallbackBundleDefault,
 		DefaultBundle: "safe-minimal",
 		Workflows: []model.WorkflowConfig{
 			{Name: "safe-minimal", Tools: []string{"ping"}},
@@ -261,7 +246,7 @@ func TestComposite_NoWorkflowMatchUsesDefaultBundle(t *testing.T) {
 
 func TestComposite_ExplicitPolicyDenyDoesNotUseDefaultBundle(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:       true,
+		Fallback:      FallbackBundleDefault,
 		DefaultBundle: "safe-minimal",
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "block-admin", DenyTags: []string{"admin"}},
@@ -284,7 +269,7 @@ func TestComposite_ExplicitPolicyDenyDoesNotUseDefaultBundle(t *testing.T) {
 
 func TestComposite_SelectionFailureBundleDefaultRespectsPolicy(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:       true,
+		Fallback:      FallbackBundleDefault,
 		DefaultBundle: "safe-minimal",
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "block-admin", DenyTags: []string{"admin"}},
@@ -309,7 +294,6 @@ func TestComposite_SelectionFailureBundleDefaultRespectsPolicy(t *testing.T) {
 
 func TestComposite_FallbackBundleRespectsPolicyDeniedTools(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:       true,
 		DefaultBundle: "safe-minimal",
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "block-admin", DenyTags: []string{"admin"}},
@@ -338,7 +322,6 @@ func TestComposite_FallbackBundleRespectsPolicyDeniedTools(t *testing.T) {
 func TestComposite_FallbackBundleWorksWhenWorkflowStageDisabled(t *testing.T) {
 	workflowDisabled := false
 	cfg := &model.RouterConfig{
-		Enabled:       true,
 		DefaultBundle: "safe-minimal",
 		Stages: model.RouterStages{
 			Workflow:    &workflowDisabled,
@@ -364,7 +347,6 @@ func TestComposite_FallbackBundleWorksWhenWorkflowStageDisabled(t *testing.T) {
 
 func TestComposite_FallbackFailClosed(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Workflows: []model.WorkflowConfig{
 			{Name: "acme-flow", Tools: []string{"acme_only"}, When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}},
@@ -385,157 +367,167 @@ func TestComposite_FallbackFailClosed(t *testing.T) {
 
 func TestBuild_DefaultBundleMustExist(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled:       true,
+		Fallback:      FallbackBundleDefault,
 		DefaultBundle: "ghost",
 		Workflows:     []model.WorkflowConfig{{Name: "real", Tools: []string{"a"}}},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.Error(t, err)
 }
 
 func TestBuild_DefaultBundleWithoutWorkflowsFails(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled:       true,
+		Fallback:      FallbackBundleDefault,
 		DefaultBundle: "ghost",
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.Error(t, err)
 }
 
 func TestBuild_BundleDefaultRequiresDefaultBundle(t *testing.T) {
-	_, err := Build(&model.RouterConfig{
-		Enabled: true,
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	_, err := Build(&model.RouterConfig{Fallback: FallbackBundleDefault}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "default_bundle is required")
 }
 
 func TestBuild_DefaultBundleEmptyWorkflowFails(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled:       true,
+		Fallback:      FallbackBundleDefault,
 		DefaultBundle: "empty",
 		Workflows:     []model.WorkflowConfig{{Name: "empty"}},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "empty workflow")
 }
 
 func TestBuild_FailClosedDoesNotRequireDefaultBundle(t *testing.T) {
 	sel, err := Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.NoError(t, err)
 	assert.NotNil(t, sel)
 }
 
 func TestBuild_ProgressiveRequiresInitialBundle(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled: true,
-		Stages:  model.RouterStages{Progressive: true},
+		Stages: model.RouterStages{Progressive: true},
 		Progressive: model.ProgressiveConfig{
 			ExpandAfterCalls: 1,
 		},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 
 	assert.ErrorContains(t, err, "progressive.initial_bundle is required")
 }
 
 func TestBuild_DuplicateWorkflowNameFails(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled: true,
 		Workflows: []model.WorkflowConfig{
 			{Name: "support", Tools: []string{"search"}},
 			{Name: "support", Tools: []string{"ticket"}},
 		},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 
 	assert.ErrorContains(t, err, "defined more than once")
 }
 
 func TestBuild_UnknownFallbackFails(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: "fail_open",
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.Error(t, err)
 }
 
 func TestBuild_InvalidSampleRateFails(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Audit:    model.AuditConfig{SampleRate: 1.5},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "sample_rate")
 
 	_, err = Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Audit:    model.AuditConfig{SampleRate: -0.1},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "sample_rate")
 
 	_, err = Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Audit:    model.AuditConfig{SampleRate: math.NaN()},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "sample_rate")
 
 	_, err = Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Audit:    model.AuditConfig{SampleRate: math.Inf(1)},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "sample_rate")
 }
 
 func TestBuild_InvalidSessionMaxEntriesFails(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Session:  model.RouterSessionConfig{MaxEntries: -1},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "max_entries")
+}
+
+func TestBuild_ConfigHashIgnoresNonAuthorizationFields(t *testing.T) {
+	base := &model.RouterConfig{
+		Fallback: FallbackFailClosed,
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "readers", AllowTags: []string{"read"}, MaxRisk: "low"},
+		}},
+	}
+	withOpsOnly := base.DeepCopy()
+	withOpsOnly.Audit = model.AuditConfig{SampleRate: 1, DecisionDetailLogging: true}
+	withOpsOnly.Session = model.RouterSessionConfig{MaxEntries: 7}
+
+	baseHash, err := configHash(normalizeConfig(base))
+	require.NoError(t, err)
+	opsHash, err := configHash(normalizeConfig(withOpsOnly))
+	require.NoError(t, err)
+	assert.Equal(t, baseHash, opsHash)
+
+	authChanged := base.DeepCopy()
+	authChanged.Policy.Rules[0].MaxRisk = "medium"
+	authHash, err := configHash(normalizeConfig(authChanged))
+	require.NoError(t, err)
+	assert.NotEqual(t, baseHash, authHash)
 }
 
 func TestBuild_ProgressiveRejectsNonPositiveExpandAfter(t *testing.T) {
 	_, err := Build(&model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
 			{Name: "starter", Tools: []string{"t0"}},
 		},
 		Progressive: model.ProgressiveConfig{InitialBundle: "starter"},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "expand_after_calls")
 }
 
-func TestBuild_InvalidMaxRiskFailsEvenWhenPolicyStageDisabled(t *testing.T) {
-	disabled := false
+func TestBuild_InvalidMaxRiskFailsEvenWhenPolicyStageOff(t *testing.T) {
+	off := false
 	_, err := Build(&model.RouterConfig{
-		Enabled: true,
-		Stages:  model.RouterStages{Policy: &disabled},
+		Stages: model.RouterStages{Policy: &off},
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "bad-risk", MaxRisk: "hihg"},
 		}},
-	}, NewSessionPlanStoreWithTTL(time.Minute))
+	}, NewSessionPlanStore())
 	assert.ErrorContains(t, err, "max_risk")
 	assert.ErrorContains(t, err, "unsupported risk")
 }
 
-func TestBuild_EnabledRequiresStore(t *testing.T) {
-	_, err := Build(&model.RouterConfig{Enabled: true}, nil)
+func TestBuild_DefaultGovernanceRequiresStore(t *testing.T) {
+	_, err := Build(&model.RouterConfig{}, nil)
 	assert.Error(t, err)
 }
 
-func TestBuild_DisabledDoesNotRequireStore(t *testing.T) {
-	sel, err := Build(&model.RouterConfig{Enabled: false}, nil)
+func TestBuild_DefaultConfigRequiresStore(t *testing.T) {
+	sel, err := Build(&model.RouterConfig{}, NewSessionPlanStore())
 	assert.NoError(t, err)
-	assert.Nil(t, sel)
+	assert.NotNil(t, sel)
 }
 
 func TestComposite_PolicyWorkflowPipeline(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "no-admin", DenyTags: []string{"admin"}},
@@ -563,7 +555,6 @@ func TestComposite_PolicyWorkflowPipeline(t *testing.T) {
 
 func TestComposite_AuthorizeCallRecomputesOnClaimChange(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Workflows: []model.WorkflowConfig{
 			{Name: "support", Tools: []string{"support_search"}, When: model.PolicyMatch{Claim: "role", Equals: "support"}},
@@ -580,7 +571,7 @@ func TestComposite_AuthorizeCallRecomputesOnClaimChange(t *testing.T) {
 	assert.Equal(t, []string{"support_search"}, plan.ToolNames)
 
 	billingCtx := SelectionContext{SessionID: "s1", Claims: map[string]any{"role": "billing"}, Requested: "support_search"}
-	err = cs.AuthorizeCall(context.Background(), billingCtx, tools)
+	err = authorizeCall(cs, context.Background(), billingCtx, tools)
 	assert.ErrorIs(t, err, ErrToolNotAuthorized)
 
 	got, ok := store.Get(cs.planKey("s1"))
@@ -590,7 +581,6 @@ func TestComposite_AuthorizeCallRecomputesOnClaimChange(t *testing.T) {
 
 func TestComposite_AuthorizeCallRecomputesOnToolMetadataChange(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "safe-only", AllowTags: []string{"safe"}},
@@ -604,7 +594,7 @@ func TestComposite_AuthorizeCallRecomputesOnToolMetadataChange(t *testing.T) {
 	require.NoError(t, err)
 
 	riskyTools := []model.ToolConfig{toolWithMeta("export_data", &model.ToolMeta{Tags: []string{"risky"}})}
-	err = cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "export_data"}, riskyTools)
+	err = authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "export_data"}, riskyTools)
 	assert.ErrorIs(t, err, ErrToolNotAuthorized)
 }
 
@@ -623,7 +613,7 @@ func TestComposite_AuthorizeCallRecomputesOnToolDefinitionChange(t *testing.T) {
 	updatedTools[0].Cluster = "new-cluster"
 	updatedTools[0].Request.Path = "/api/v2/export"
 	updatedTools[0].Args = append(updatedTools[0].Args, model.ArgConfig{Name: "format", Type: "string", In: "query"})
-	err = cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "export_data"}, updatedTools)
+	err = authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "export_data"}, updatedTools)
 	require.NoError(t, err)
 
 	after, ok := store.Get(cs.planKey("s1"))
@@ -641,7 +631,7 @@ func TestComposite_AuthorizeCallAllowsAfterStaleRecompute(t *testing.T) {
 	require.NoError(t, err)
 
 	updatedTools := testTools("a", "b")
-	err = cs.AuthorizeCall(context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}, updatedTools)
+	err = authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "a"}, updatedTools)
 	assert.NoError(t, err)
 
 	got, ok := store.Get(cs.planKey("s1"))
@@ -651,7 +641,6 @@ func TestComposite_AuthorizeCallAllowsAfterStaleRecompute(t *testing.T) {
 
 func TestComposite_IdentityIsolatedCache(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
@@ -677,9 +666,8 @@ func TestComposite_IdentityIsolatedCache(t *testing.T) {
 	assert.NotEqual(t, p1.Version, p2.Version)
 }
 
-func TestComposite_OnInitializeDoesNotPersistRawIdentity(t *testing.T) {
+func TestComposite_InitializeDoesNotPersistRawIdentity(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
@@ -690,8 +678,6 @@ func TestComposite_OnInitializeDoesNotPersistRawIdentity(t *testing.T) {
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
-	err := cs.OnInitialize(context.Background(), SelectionContext{SessionID: "s1", AgentID: "test-agent"}, nil)
-	require.NoError(t, err)
 	assert.Equal(t, 0, store.Len())
 
 	tools := testTools("a", "b")
@@ -702,7 +688,6 @@ func TestComposite_OnInitializeDoesNotPersistRawIdentity(t *testing.T) {
 
 func TestComposite_ProgressiveBoundaryAndPolicyAfterExpansion(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
@@ -727,17 +712,17 @@ func TestComposite_ProgressiveBoundaryAndPolicyAfterExpansion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ping"}, p1.ToolNames)
 
-	r1, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+	r1, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Requested: "ping"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), r1.Count)
 	assert.False(t, r1.Transitioned)
 
-	r2, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+	r2, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Requested: "ping"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), r2.Count)
 	assert.True(t, r2.Transitioned)
 
-	r3, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+	r3, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Requested: "ping"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), r3.Count)
 	assert.False(t, r3.Transitioned)
@@ -750,7 +735,6 @@ func TestComposite_ProgressiveBoundaryAndPolicyAfterExpansion(t *testing.T) {
 
 func TestComposite_ProgressiveConcurrentTransitionOnce(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
@@ -770,7 +754,7 @@ func TestComposite_ProgressiveConcurrentTransitionOnce(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Requested: "ping"})
+			result, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Requested: "ping"})
 			require.NoError(t, err)
 			if result.Transitioned {
 				transitions <- true
@@ -785,7 +769,6 @@ func TestComposite_ProgressiveConcurrentTransitionOnce(t *testing.T) {
 
 func TestComposite_ProgressiveCallCountIsRouterScoped(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Workflows: []model.WorkflowConfig{
@@ -793,7 +776,7 @@ func TestComposite_ProgressiveCallCountIsRouterScoped(t *testing.T) {
 		},
 		Progressive: model.ProgressiveConfig{InitialBundle: "starter", ExpandAfterCalls: 1},
 	}
-	store := NewSessionPlanStoreWithTTL(time.Minute)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 
 	selA, err := Build(cfg, store)
@@ -810,7 +793,7 @@ func TestComposite_ProgressiveCallCountIsRouterScoped(t *testing.T) {
 	_, err = csB.Select(context.Background(), sc, tools)
 	require.NoError(t, err)
 
-	result, err := csA.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "shared", Requested: "ping"})
+	result, err := recordCallSuccessForTest(t, csA, SelectionContext{SessionID: "shared", Requested: "ping"})
 	require.NoError(t, err)
 	assert.True(t, result.Transitioned)
 	assert.Equal(t, int64(1), store.CallCount(csA.planKey("shared")))
@@ -826,7 +809,6 @@ func TestComposite_ProgressiveCallCountIsRouterScoped(t *testing.T) {
 
 func TestComposite_ClaimsChangeResetsProgressiveState(t *testing.T) {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Stages:   model.RouterStages{Progressive: true},
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
@@ -850,7 +832,7 @@ func TestComposite_ClaimsChangeResetsProgressiveState(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ping"}, plan.ToolNames)
 
-	result, err := cs.RecordCallSuccess(context.Background(), SelectionContext{SessionID: "s1", Tenant: "acme", Requested: "ping"})
+	result, err := recordCallSuccessForTest(t, cs, SelectionContext{SessionID: "s1", Tenant: "acme", Requested: "ping"})
 	require.NoError(t, err)
 	assert.True(t, result.Transitioned)
 	expanded, err := cs.Select(context.Background(), acme, tools)

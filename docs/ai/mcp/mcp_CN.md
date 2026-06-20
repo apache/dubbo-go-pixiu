@@ -101,7 +101,7 @@ args:
 
 当 MCP server 暴露大量工具时，每次 `tools/list` 都把全部工具发给 LLM 会导致工具过载、上下文膨胀、暴露面不可控。可选的 `router` 配置块增加一层治理：按 session 裁剪 `tools/list`，并在 `tools/call` 时强制校验裁剪结果。
 
-**路由器默认关闭。** 不写 `router` 块（或 `router.enabled: false`）时行为与未引入路由前完全一致：列出全部工具、转发全部调用。
+**Tool Governance 始终启用。** 省略 `router` 块会使用规范化默认配置：initialize 后，tools/list 返回当前 policy 允许的全部工具并创建 session plan，tools/call 始终根据该 session plan 校验。
 
 两条核心原则：
 
@@ -120,10 +120,8 @@ policy  ->  workflow  ->  progressive
     server_info: { name: "Pixiu MCP Server", version: "1.0.0" }
     endpoint: "/mcp"
     router:
-      enabled: true
       fallback: "bundle_default"      # bundle_default（默认）| fail_closed
       default_bundle: "safe-minimal"  # 无匹配/内部错误回退使用的 bundle
-      enforce_on_call: true           # 默认 true：拒绝 plan 之外的调用
       stages:
         policy: true                  # 默认 true
         workflow: true                # 默认 true
@@ -148,7 +146,7 @@ policy  ->  workflow  ->  progressive
         expand_after_calls: 1
       audit:
         sample_rate: 0.0              # 0 关闭决策日志；(0,1] 表示采样率
-        payload_logging: false        # 显式开启后，决策日志会包含被拒工具名样本
+        decision_detail_logging: false        # 显式开启后，决策日志会包含被拒工具名样本
       session:
         max_entries: 10000            # 进程内 session plan 数量上限，默认 10000
 ```
@@ -197,7 +195,7 @@ tools:
 
 #### `tools/call` 强制校验
 
-`enforce_on_call: true`（默认）时，对不在 session plan 内的工具发起 `tools/call` 会返回 tool-call 错误。授权前，路由器会用当前 claims、router 配置版本和实时工具目录重新校验 plan；过期 plan 会重算，而不会被当作长期授权凭证。完全跳过 `tools/list` 的客户端没有 plan，因此被拒绝（原因 `no_session_plan`）。设为 `false` 则不执行 plan 校验，直接允许调用。
+对不在 session plan 内的工具发起 `tools/call` 会返回 tool-call 错误。授权前，路由器会用当前 claims、router 配置版本和实时工具目录重新校验 plan；过期 plan 会重算，而不会被当作长期授权凭证。完全跳过 `tools/list` 的客户端没有 plan，因此被拒绝（原因 `no_session_plan`）。
 
 配置了 `meta.discovery_visibility: false` 的工具会从 plan 的 `visible_tool_names` / `tools/list` 视图中隐藏；但只要它被 policy、workflow 或 progressive 阶段选中，仍保留在授权用的 `tool_names` 集合中，因此已知工具名的客户端仍可调用。这个能力用于降低 discovery 噪音，而不是作为授权拒绝手段。
 
@@ -211,7 +209,7 @@ Initialize response 会声明 `ServerCapabilities.tools.listChanged=true`。这�
 
 #### 动态工具更新
 
-Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块的动态 payload 会被明确拒绝，避免 Pixiu 在“新工具目录 + 旧 router policy”的不一致状态下运行。成功发布工具目录后，Pixiu 会为已初始化的 session 标记 `notifications/tools/list_changed`；在线 session 立即通知，离线 session 在 SSE reconnect 后通知。
+Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块的动态 text detail 会被明确拒绝，避免 Pixiu 在“新工具目录 + 旧 router policy”的不一致状态下运行。成功发布工具目录后，Pixiu 会为已初始化的 session 标记 `notifications/tools/list_changed`；在线 session 立即通知，离线 session 在 SSE reconnect 后通知。
 
 #### 可观测性
 
@@ -226,9 +224,9 @@ Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块�
 | `call_denied_total` | counter | `reason`（no_session_plan / not_in_plan / stale_plan_recompute_failed） |
 | `plans_active` | gauge | — |
 
-决策日志默认关闭。将 `audit.sample_rate` 设为 `(0,1]` 内的值后，才会输出脱敏结构化日志（`event: mcp_router_decision`），包含计数、mode、各阶段丢弃数和元数据版本。只有显式开启 `audit.payload_logging: true` 时才会包含有上限的被拒工具名样本。即使开启 payload logging，Pixiu 也不会记录 token、claims value、session ID、Authorization header 或 tool arguments。
+决策日志默认关闭。将 `audit.sample_rate` 设为 `(0,1]` 内的值后，才会输出脱敏结构化日志（`event: mcp_router_decision`），包含计数、mode、各阶段丢弃数和元数据版本。只有显式开启 `audit.decision_detail_logging: true` 时才会包含有上限的被拒工具名样本。即使开启 decision detail logging，Pixiu 也不会记录 token、claims value、session ID、Authorization header 或 tool arguments。
 
-数据面不会暴露 plan inspection 端点。Session plan 会泄露授权状态，因此运维调试应依赖采样决策日志和聚合指标，而不是通过 MCP 监听端口暴露单 session 的 plan payload。
+数据面不会暴露 plan inspection 端点。Session plan 会泄露授权状态，因此运维调试应依赖采样决策日志和聚合指标，而不是通过 MCP 监听端口暴露单 session 的 plan text detail。
 
 #### 多实例说明
 

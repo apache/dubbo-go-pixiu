@@ -20,6 +20,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"testing"
 	"time"
@@ -30,9 +31,11 @@ import (
 )
 
 var (
-	benchPlan *SelectionPlan
-	benchOK   bool
-	benchErr  error
+	benchPlan    *SelectionPlan
+	benchReceipt *AuthorizationReceipt
+	benchResult  CallSuccessResult
+	benchOK      bool
+	benchErr     error
 )
 
 // benchTools generates n tools spread across 3 tenants, each tagged for policy.
@@ -53,11 +56,38 @@ func benchTools(n int) []model.ToolConfig {
 
 func benchSelector(b *testing.B, store *SessionPlanStore) *CompositeSelector {
 	cfg := &model.RouterConfig{
-		Enabled:  true,
 		Fallback: FallbackFailClosed,
 		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
 			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme", "shared"}},
 		}},
+	}
+	sel, err := Build(cfg, store)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return sel.(*CompositeSelector)
+}
+
+func benchProgressiveSelector(b *testing.B, store *SessionPlanStore, tools []model.ToolConfig) *CompositeSelector {
+	acmeTools := make([]string, 0, len(tools)/3+1)
+	for _, tool := range tools {
+		if tool.Meta != nil && len(tool.Meta.Tags) > 0 && tool.Meta.Tags[0] == "acme" {
+			acmeTools = append(acmeTools, tool.Name)
+		}
+	}
+	cfg := &model.RouterConfig{
+		Fallback: FallbackFailClosed,
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme", "shared"}},
+		}},
+		Stages: model.RouterStages{Progressive: true},
+		Workflows: []model.WorkflowConfig{
+			{Name: "initial", Tools: acmeTools},
+		},
+		Progressive: model.ProgressiveConfig{
+			InitialBundle:    "initial",
+			ExpandAfterCalls: math.MaxInt32,
+		},
 	}
 	sel, err := Build(cfg, store)
 	if err != nil {
@@ -72,6 +102,10 @@ func BenchmarkCompositeSelector(b *testing.B) {
 			benchmarkCompositeSelectorWarm(b, size)
 		})
 
+		b.Run("call_"+strconv.Itoa(size), func(b *testing.B) {
+			benchmarkCompositeSelectorCall(b, size)
+		})
+
 		b.Run("cold_"+strconv.Itoa(size), func(b *testing.B) {
 			benchmarkCompositeSelectorCold(b, size)
 		})
@@ -79,7 +113,7 @@ func BenchmarkCompositeSelector(b *testing.B) {
 }
 
 func benchmarkCompositeSelectorWarm(b *testing.B, size int) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	cs := benchSelector(b, store)
 	tools := benchTools(size)
@@ -99,8 +133,34 @@ func benchmarkCompositeSelectorWarm(b *testing.B, size int) {
 	requireBenchStoreSize(b, "warm", store, 1)
 }
 
+func benchmarkCompositeSelectorCall(b *testing.B, size int) {
+	store := NewSessionPlanStore()
+	defer store.Stop()
+	tools := benchTools(size)
+	cs := benchProgressiveSelector(b, store, tools)
+	sc := SelectionContext{SessionID: "call", Tenant: "acme", Requested: "acme_tool_0", CatalogVersion: "bench-" + strconv.Itoa(size)}
+	plan, err := cs.Select(context.Background(), sc, tools)
+	if err != nil || plan == nil {
+		b.Fatalf("prewarm failed: plan=%v err=%v", plan, err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchReceipt, benchErr = cs.AuthorizeCall(context.Background(), sc, tools)
+		if benchErr == nil {
+			benchResult, benchErr = cs.RecordCallSuccess(context.Background(), *benchReceipt)
+		}
+	}
+	b.StopTimer()
+	if benchErr != nil || benchReceipt == nil {
+		b.Fatalf("call benchmark failed: receipt=%v result=%v err=%v", benchReceipt, benchResult, benchErr)
+	}
+	requireBenchStoreSize(b, "call", store, 1)
+}
+
 func benchmarkCompositeSelectorCold(b *testing.B, size int) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	cs := benchSelector(b, store)
 	tools := benchTools(size)
@@ -133,22 +193,22 @@ func requireBenchStoreSize(b *testing.B, name string, store *SessionPlanStore, w
 }
 
 func BenchmarkSessionPlanStore_Set(b *testing.B) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	key := NewPlanKey("bench", "s")
 	plan := &SelectionPlan{SessionID: "s", ToolNames: []string{"a", "b"}, Version: "v"}
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.Set(key, plan)
+		store.Set(key, plan, SelectionContext{SessionID: key.SessionID})
 	}
 }
 
 func BenchmarkSessionPlanStore_Get(b *testing.B) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	key := NewPlanKey("bench", "s")
-	store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a", "b"}, Version: "v"})
+	store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a", "b"}, Version: "v"}, SelectionContext{SessionID: key.SessionID})
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -160,14 +220,14 @@ func BenchmarkSessionPlanStore_Get(b *testing.B) {
 }
 
 func BenchmarkSessionPlanStore_Delete(b *testing.B) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	key := NewPlanKey("bench", "s")
 	plan := &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"}
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.Set(key, plan)
+		store.Set(key, plan, SelectionContext{SessionID: key.SessionID})
 		store.Delete(key)
 	}
 	if store.Len() != 0 {
@@ -176,26 +236,30 @@ func BenchmarkSessionPlanStore_Delete(b *testing.B) {
 }
 
 func BenchmarkSessionPlanStore_RecordCallSuccess(b *testing.B) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	key := NewPlanKey("bench", "s")
-	store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"})
+	store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: key.SessionID})
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = store.RecordCallSuccess(key, "a", b.N+1)
+		plan, _ := store.Get(key)
+		receipt, _ := store.IssueReceipt(key, "a", plan, key.RouterID)
+		_ = store.RecordCallSuccess(receipt, b.N+1)
 	}
 }
 
 func BenchmarkSessionPlanStore_ThresholdTransition(b *testing.B) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	key := NewPlanKey("bench", "s")
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"})
-		_ = store.RecordCallSuccess(key, "a", 1)
+		store.Set(key, &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: key.SessionID})
+		plan, _ := store.Get(key)
+		receipt, _ := store.IssueReceipt(key, "a", plan, key.RouterID)
+		_ = store.RecordCallSuccess(receipt, 1)
 		store.Delete(key)
 	}
 	if store.Len() != 0 {
@@ -204,7 +268,7 @@ func BenchmarkSessionPlanStore_ThresholdTransition(b *testing.B) {
 }
 
 func BenchmarkSessionPlanStore_ConcurrentGetSet(b *testing.B) {
-	store := NewSessionPlanStoreWithTTL(time.Hour)
+	store := NewSessionPlanStore()
 	defer store.Stop()
 	key := NewPlanKey("bench", "s")
 	plan := &SelectionPlan{SessionID: "s", ToolNames: []string{"a"}, Version: "v"}
@@ -212,7 +276,7 @@ func BenchmarkSessionPlanStore_ConcurrentGetSet(b *testing.B) {
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			store.Set(key, plan)
+			store.Set(key, plan, SelectionContext{SessionID: key.SessionID})
 			benchPlan, benchOK = store.Get(key)
 		}
 	})
@@ -223,7 +287,6 @@ func BenchmarkSessionPlanStore_ConcurrentGetSet(b *testing.B) {
 
 func BenchmarkSessionPlanStore_CapacityEviction(b *testing.B) {
 	store := NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{
-		TTL:        time.Hour,
 		MaxEntries: 64,
 	})
 	defer store.Stop()
@@ -231,33 +294,34 @@ func BenchmarkSessionPlanStore_CapacityEviction(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		sessionID := fmt.Sprintf("s-%d", i)
-		store.Set(NewPlanKey("bench", sessionID), &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"})
+		key := NewPlanKey("bench", sessionID)
+		_ = store.Set(key, &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: sessionID})
 	}
 	if store.Len() > 64 {
 		b.Fatalf("store size = %d, want <= 64", store.Len())
 	}
 }
 
-func BenchmarkSessionPlanStore_TTLCleanup(b *testing.B) {
+func BenchmarkSessionPlanStore_CapacityReject(b *testing.B) {
 	now := time.Unix(1000, 0)
 	store := NewSessionPlanStoreWithOptions(SessionPlanStoreOptions{
-		TTL:             time.Second,
-		Now:             func() time.Time { return now },
-		CleanupInterval: time.Hour,
+		MaxEntries: 128,
+		Now:        func() time.Time { return now },
 	})
 	defer store.Stop()
 
 	for i := 0; i < 128; i++ {
 		sessionID := fmt.Sprintf("s-%d", i)
-		store.Set(NewPlanKey("bench", sessionID), &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"})
+		key := NewPlanKey("bench", sessionID)
+		_ = store.Set(key, &SelectionPlan{SessionID: sessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: sessionID})
 	}
-	now = now.Add(2 * time.Second)
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		store.EvictExpired()
+		key := NewPlanKey("bench", fmt.Sprintf("overflow-%d", i))
+		_ = store.Set(key, &SelectionPlan{SessionID: key.SessionID, ToolNames: []string{"a"}, Version: "v"}, SelectionContext{SessionID: key.SessionID})
 	}
-	if store.Len() != 0 {
-		b.Fatalf("store size = %d, want 0", store.Len())
+	if store.Len() != 128 {
+		b.Fatalf("store size = %d, want 128", store.Len())
 	}
 }

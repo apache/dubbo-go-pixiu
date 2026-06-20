@@ -94,8 +94,8 @@ func TestSingletonInstances(t *testing.T) {
 	})
 
 	t.Run("Dynamic consumer singleton", func(t *testing.T) {
-		dynamic1 := GetOrInitDynamicConsumer()
-		dynamic2 := GetOrInitDynamicConsumer()
+		dynamic1 := getOrInitTestDynamicConsumer()
+		dynamic2 := getOrInitTestDynamicConsumer()
 		assert.Same(t, dynamic1, dynamic2)
 		assert.Same(t, dynamic1.registry, GetOrInitRegistry())
 	})
@@ -254,7 +254,7 @@ func TestDynamicConsumerMergedToolsStableByServerIDAndConfigOrder(t *testing.T) 
 func TestApplyMcpServerConfigConcurrent(t *testing.T) {
 	ResetGlobalState()
 	registry := GetOrInitRegistry()
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 
 	const numGoroutines = 10
 	var wg sync.WaitGroup
@@ -533,13 +533,13 @@ func TestApplyMcpServerConfig_RejectsDynamicRouterUpdateAtomically(t *testing.T)
 	require.NoError(t, consumer.ApplyMcpServerConfigByServer("default", initial))
 
 	routerOnly := createTestMcpServerConfig(nil)
-	routerOnly.Router = &model.RouterConfig{Enabled: true, Fallback: router.FallbackFailClosed}
+	routerOnly.Router = &model.RouterConfig{Fallback: router.FallbackFailClosed}
 	err := consumer.ApplyMcpServerConfigByServer("default", routerOnly)
 	assert.ErrorContains(t, err, "tool catalog changes only")
 	assert.Equal(t, []string{"tool1"}, toolConfigNames(registry.ListTools()))
 
 	toolsAndRouter := createTestMcpServerConfig([]model.ToolConfig{createTestToolConfig("tool2", "Second tool")})
-	toolsAndRouter.Router = &model.RouterConfig{Enabled: true, Fallback: router.FallbackFailClosed}
+	toolsAndRouter.Router = &model.RouterConfig{Fallback: router.FallbackFailClosed}
 	err = consumer.ApplyMcpServerConfigByServer("default", toolsAndRouter)
 	assert.ErrorContains(t, err, "tool catalog changes only")
 	assert.Equal(t, []string{"tool1"}, toolConfigNames(registry.ListTools()))
@@ -590,7 +590,7 @@ func TestIntegration(t *testing.T) {
 	ResetGlobalState()
 
 	registry := GetOrInitRegistry()
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 
 	// Verify initial state
 	assert.Empty(t, registry.ListTools())

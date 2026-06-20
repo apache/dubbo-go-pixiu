@@ -67,7 +67,7 @@ func TestDecisionLogger_NilSafe(t *testing.T) {
 }
 
 func TestDecisionLogger_ShouldSample(t *testing.T) {
-	assert.False(t, NewDecisionLogger(0, false).shouldSample()) // 0 => disabled
+	assert.False(t, NewDecisionLogger(0, false).shouldSample()) // 0 => off
 	assert.True(t, NewDecisionLogger(1, false).shouldSample())  // 1 => always
 }
 
@@ -85,7 +85,7 @@ func TestDecisionLogger_LogEmitsWithoutPanic(t *testing.T) {
 	d.Log(SelectionContext{SessionID: "s1", Tenant: "acme", Method: "tools/list"}, plan, 2)
 }
 
-func TestDecisionLogger_RecordOmitsDeniedSamplesUnlessPayloadLogging(t *testing.T) {
+func TestDecisionLogger_RecordOmitsDeniedSamplesUnlessDecisionDetailLogging(t *testing.T) {
 	plan := &SelectionPlan{
 		SessionID: "s1",
 		ToolNames: []string{"a"},
@@ -117,7 +117,6 @@ func TestDecisionLogger_RecordDoesNotSerializeIdentityOrPayload(t *testing.T) {
 		SessionID: "raw-session-id",
 		Tenant:    "tenant-acme",
 		UserID:    "subject-123",
-		AgentID:   "agent-client",
 		Claims: map[string]any{
 			"tenant": "tenant-acme",
 			"sub":    "subject-123",
@@ -128,20 +127,20 @@ func TestDecisionLogger_RecordDoesNotSerializeIdentityOrPayload(t *testing.T) {
 	}
 
 	normal := NewDecisionLogger(1.0, false).record(sc, plan, 2)
-	payload, err := json.Marshal(normal)
+	data, err := json.Marshal(normal)
 	assert.NoError(t, err)
-	text := string(payload)
+	text := string(data)
 	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token", "hidden_tool", "tenant-rule"} {
 		assert.False(t, strings.Contains(text, forbidden), "default decision log leaked %q: %s", forbidden, text)
 	}
 
 	detailed := NewDecisionLogger(1.0, true).record(sc, plan, 2)
-	payload, err = json.Marshal(detailed)
+	data, err = json.Marshal(detailed)
 	assert.NoError(t, err)
-	text = string(payload)
+	text = string(data)
 	assert.Contains(t, text, "hidden_tool")
 	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token"} {
-		assert.False(t, strings.Contains(text, forbidden), "payload logging leaked identity %q: %s", forbidden, text)
+		assert.False(t, strings.Contains(text, forbidden), "decision detail logging leaked identity %q: %s", forbidden, text)
 	}
 }
 
@@ -152,5 +151,7 @@ func TestMetricHelpers_NilSafeBeforeInit(t *testing.T) {
 	recordSelection("ok", ModeSelected, 10, 3, 1.5)
 	recordFallback(SelectionOutcomeNoMatch)
 	recordCallDenied("not_in_plan")
-	setPlansActive(5)
+	store := NewSessionPlanStore()
+	setPlansActive(store, 5)
+	store.Stop()
 }

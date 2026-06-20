@@ -131,18 +131,6 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 	logger.Infof("[dubbo-go-pixiu] mcp server created session for client")
 
-	// Router hookpoint: store initialize-time metadata for later decisions/logs.
-	// Errors are non-fatal; tools/list will compute the plan on demand.
-	if f.selector != nil {
-		ctx.SetSessionID(session.ID)
-		toolCfgs, catalogVersion := f.registry.ToolSnapshot()
-		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodInitialize), "", catalogVersion)
-		sc.AgentID = initParams.ClientInfo.Name
-		if err := f.selector.OnInitialize(ctx.Ctx, sc, toolCfgs); err != nil {
-			logger.Warnf("[dubbo-go-pixiu] mcp tool router OnInitialize failed: %v", err)
-		}
-	}
-
 	return f.sendJSONResponse(ctx, response)
 }
 
@@ -154,8 +142,9 @@ func (f *MCPServerFilter) handleToolsList(ctx *MCPContext, req mcp.JSONRPCReques
 
 // buildToolsListResponseObject builds the tools/list response object (for SSE)
 func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.JSONRPCRequest) mcp.JSONRPCResponse {
-	// Read tools from registry to reflect dynamic updates
-	toolCfgs, catalogVersion := f.registry.ToolSnapshot()
+	// Read immutable catalog snapshot to reflect dynamic updates.
+	snapshot := f.registry.ToolCatalogSnapshot()
+	toolCfgs := snapshot.orderedToolsUnsafe()
 
 	// Router hookpoint: trim the candidate set to a session-scoped plan.
 	// On internal error or invalid session, fail closed so governance failures
@@ -165,7 +154,7 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router rejected tools/list for invalid session")
 			return f.responseBuilder.Success(req.ID, mcp.NewListToolsResult(nil, ""))
 		}
-		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsList), "", catalogVersion)
+		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsList), "", snapshot.Version)
 		plan, err := f.selector.Select(ctx.Ctx, sc, toolCfgs)
 		if err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router Select failed: %v", err)
@@ -215,7 +204,7 @@ func (f *MCPServerFilter) routerSessionValid(ctx *MCPContext) bool {
 	if ctx.SessionID() == "" {
 		return false
 	}
-	_, exists := f.sessionManager.Session(ctx.SessionID())
+	_, exists := f.sessionManager.PeekSession(ctx.SessionID())
 	return exists
 }
 
@@ -476,7 +465,8 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 
 	// Read a single live tool snapshot and use it for both lookup and router
 	// authorization so tools/call cannot authorize against stale metadata.
-	toolCfgs, catalogVersion := f.registry.ToolSnapshot()
+	snapshot := f.registry.ToolCatalogSnapshot()
+	toolCfgs := snapshot.orderedToolsUnsafe()
 
 	// Router hookpoint: enforce that the tool is authorized for this session.
 	// This implements discovery/execution separation: even a tool name learned
@@ -486,17 +476,19 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router denied tool call for invalid session")
 			return f.errorHandler.SendToolCallError(ctx, req.ID, "tool not authorized for this session")
 		}
-		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsCall), params.Name, catalogVersion)
-		if err := f.selector.AuthorizeCall(ctx.Ctx, sc, toolCfgs); err != nil {
+		sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsCall), params.Name, snapshot.Version)
+		receipt, err := f.selector.AuthorizeCall(ctx.Ctx, sc, toolCfgs)
+		if err != nil {
 			logger.Warnf("[dubbo-go-pixiu] mcp tool router denied tool call: %v", err)
 			// The client-facing message is intentionally generic and decoupled from
 			// the internal error: it does not reveal whether the tool exists, only
 			// that it is not callable in this session.
 			return f.errorHandler.SendToolCallError(ctx, req.ID, "tool not authorized for this session")
 		}
+		ctx.SetAuthorizationReceipt(receipt)
 	}
 
-	toolConfig, exists := findToolByName(toolCfgs, params.Name)
+	toolConfig, exists := snapshot.lookup(params.Name)
 	if !exists {
 		logger.Warnf("[dubbo-go-pixiu] mcp server tool not found: %s", params.Name)
 		return f.errorHandler.SendToolCallError(ctx, req.ID, fmt.Sprintf("tool not found: %s", params.Name))
@@ -527,15 +519,6 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 
 	// Continue to next filter for backend forwarding
 	return filter.Continue
-}
-
-func findToolByName(toolCfgs []model.ToolConfig, name string) (model.ToolConfig, bool) {
-	for _, toolCfg := range toolCfgs {
-		if toolCfg.Name == name {
-			return toolCfg, true
-		}
-	}
-	return model.ToolConfig{}, false
 }
 
 // buildBackendRequest builds the complete backend request including path, body, and headers
@@ -679,21 +662,21 @@ func (f *MCPServerFilter) recordToolCallSuccess(ctx *MCPContext) bool {
 	if !ok {
 		return false
 	}
-	toolName := ctx.McpToolName()
-	if toolName == "" {
+	receipt := ctx.AuthorizationReceipt()
+	if receipt == nil {
 		return false
 	}
-	toolCfgs, catalogVersion := f.registry.ToolSnapshot()
-	sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsCall), toolName, catalogVersion)
-	result, err := recorder.RecordCallSuccess(ctx.Ctx, sc)
+	result, err := recorder.RecordCallSuccess(ctx.Ctx, *receipt)
 	if err != nil {
-		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to record successful tool call '%s': %v", toolName, err)
+		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to record successful tool call: %v", err)
 		return false
 	}
 	if !result.Transitioned {
 		return false
 	}
-	if _, err := f.selector.Select(ctx.Ctx, sc, toolCfgs); err != nil {
+	snapshot := f.registry.ToolCatalogSnapshot()
+	sc := f.buildSelectionContextWithCatalog(ctx, string(mcp.MethodToolsCall), receipt.ToolName, snapshot.Version)
+	if _, err := f.selector.Select(ctx.Ctx, sc, snapshot.orderedToolsUnsafe()); err != nil {
 		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to refresh expanded plan after transition: %v", err)
 		return false
 	}

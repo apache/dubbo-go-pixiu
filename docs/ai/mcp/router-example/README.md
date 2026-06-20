@@ -4,9 +4,9 @@ This directory demonstrates the MCP intelligent tool router.
 
 ## Files
 
-- `router.yaml` — a complete Pixiu gateway config with the router enabled:
+- `router.yaml` — a complete Pixiu gateway config with the tool governance active:
   4 tools, 1 always-on policy rule (deny `internal`/`admin` tags), 2 workflow
-  bundles, sampled decision logs, and payload logging for denied-tool samples.
+  bundles, sampled decision logs, and decision detail logging for denied-tool samples.
 - `demo.sh` — a curl walkthrough: initialize → tools/list (trimmed) →
   tools/call (denied vs allowed).
 

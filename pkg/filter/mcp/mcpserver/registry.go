@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 )
 
 import (
@@ -38,14 +39,20 @@ import (
 // ToolRegistry tool registry, thread-safe (optimized with single indexing)
 type ToolRegistry struct {
 	mu                sync.RWMutex
-	tools             map[string]model.ToolConfig
-	toolOrder         []string
-	toolGeneration    uint64
-	toolFingerprint   string
-	toolVersion       string
+	toolSnapshot      atomic.Value                            // *ToolCatalogSnapshot
 	resources         map[string]model.ResourceConfig         // indexed by URI
 	resourceTemplates map[string]model.ResourceTemplateConfig // indexed by name
 	prompts           map[string]model.PromptConfig
+}
+
+// ToolCatalogSnapshot is an immutable, versioned view of the tool catalog.
+// The registry publishes a fully built snapshot atomically after validation.
+type ToolCatalogSnapshot struct {
+	Version     string
+	Generation  uint64
+	Fingerprint string
+	ordered     []model.ToolConfig
+	byName      map[string]model.ToolConfig
 }
 
 // EmptyFingerprint is the stable fingerprint for an empty tool catalog.
@@ -54,13 +61,15 @@ const EmptyFingerprint = "00000000"
 // NewToolRegistry creates a new tool registry
 func NewToolRegistry() *ToolRegistry {
 	r := &ToolRegistry{
-		tools:             make(map[string]model.ToolConfig),
-		toolFingerprint:   EmptyFingerprint,
-		toolVersion:       "0:" + EmptyFingerprint,
 		resources:         make(map[string]model.ResourceConfig),
 		resourceTemplates: make(map[string]model.ResourceTemplateConfig),
 		prompts:           make(map[string]model.PromptConfig),
 	}
+	r.toolSnapshot.Store(&ToolCatalogSnapshot{
+		Version:     "0:" + EmptyFingerprint,
+		Fingerprint: EmptyFingerprint,
+		byName:      map[string]model.ToolConfig{},
+	})
 	return r
 }
 
@@ -69,13 +78,16 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, exists := r.tools[tool.Name]; exists {
+	snap := r.snapshot()
+	if _, exists := snap.byName[tool.Name]; exists {
 		return fmt.Errorf("tool %s already exists", tool.Name)
 	}
-
-	r.tools[tool.Name] = tool
-	r.toolOrder = append(r.toolOrder, tool.Name)
-	r.refreshToolVersionLocked()
+	next := append(snap.orderedToolsUnsafe(), *tool.DeepCopy())
+	newSnap, err := buildToolCatalogSnapshot(next, snap.Generation+1, "")
+	if err != nil {
+		return err
+	}
+	r.toolSnapshot.Store(newSnap)
 	return nil
 }
 
@@ -87,26 +99,12 @@ func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) error {
 }
 
 func (r *ToolRegistry) replaceAllToolsWithFingerprint(tools []model.ToolConfig, fingerprint string) error {
-	newMap := make(map[string]model.ToolConfig, len(tools))
-	newOrder := make([]string, 0, len(tools))
-	seen := make(map[string]struct{}, len(tools))
-	for i, t := range tools {
-		if _, ok := seen[t.Name]; ok {
-			return fmt.Errorf("duplicate tool name %q at index %d", t.Name, i)
-		}
-		seen[t.Name] = struct{}{}
-		newOrder = append(newOrder, t.Name)
-		newMap[t.Name] = t
+	old := r.snapshot()
+	newSnap, err := buildToolCatalogSnapshot(tools, old.Generation+1, fingerprint)
+	if err != nil {
+		return err
 	}
-	if fingerprint == "" {
-		fingerprint = toolCatalogFingerprint(tools)
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.tools = newMap
-	r.toolOrder = newOrder
-	r.advanceToolVersionLocked(fingerprint)
+	r.toolSnapshot.Store(newSnap)
 	return nil
 }
 
@@ -129,7 +127,7 @@ func (r *ToolRegistry) GetTool(name string) (model.ToolConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	tool, exists := r.tools[name]
+	tool, exists := r.snapshot().byName[name]
 	return tool, exists
 }
 
@@ -179,41 +177,89 @@ func (r *ToolRegistry) ListResourceTemplates() []model.ResourceTemplateConfig {
 
 // ListTools lists all tools
 func (r *ToolRegistry) ListTools() []model.ToolConfig {
-	tools, _ := r.ToolSnapshot()
-	return tools
+	return r.ToolCatalogSnapshot().OrderedTools()
 }
 
-// ToolSnapshot returns a stable ordered tool snapshot with the catalog version
-// computed on the last registry mutation.
+// ToolSnapshot returns a stable ordered copy of the current tool catalog with
+// the catalog version computed on the last registry mutation.
 func (r *ToolRegistry) ToolSnapshot() ([]model.ToolConfig, string) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	tools := r.toolsLocked()
-	return tools, r.toolVersion
+	snap := r.ToolCatalogSnapshot()
+	return snap.OrderedTools(), snap.Version
 }
 
-func (r *ToolRegistry) toolsLocked() []model.ToolConfig {
-	tools := make([]model.ToolConfig, 0, len(r.tools))
-	for _, name := range r.toolOrder {
-		if tool, ok := r.tools[name]; ok {
-			tools = append(tools, tool)
-		}
+// ToolCatalogSnapshot returns the immutable current snapshot. Package-internal
+// hot paths may read its unexported fields without copying.
+func (r *ToolRegistry) ToolCatalogSnapshot() *ToolCatalogSnapshot {
+	return r.snapshot()
+}
+
+func (r *ToolRegistry) snapshot() *ToolCatalogSnapshot {
+	snap, _ := r.toolSnapshot.Load().(*ToolCatalogSnapshot)
+	if snap == nil {
+		return &ToolCatalogSnapshot{Version: "0:" + EmptyFingerprint, Fingerprint: EmptyFingerprint, byName: map[string]model.ToolConfig{}}
 	}
-	return tools
+	return snap
 }
 
-func (r *ToolRegistry) refreshToolVersionLocked() {
-	r.advanceToolVersionLocked(toolCatalogFingerprint(r.toolsLocked()))
-}
-
-func (r *ToolRegistry) advanceToolVersionLocked(fingerprint string) {
+func buildToolCatalogSnapshot(tools []model.ToolConfig, generation uint64, fingerprint string) (*ToolCatalogSnapshot, error) {
 	if fingerprint == "" {
-		fingerprint = EmptyFingerprint
+		fingerprint = toolCatalogFingerprint(tools)
 	}
-	r.toolFingerprint = fingerprint
-	r.toolGeneration++
-	r.toolVersion = fmt.Sprintf("%d:%s", r.toolGeneration, fingerprint)
+	ordered := make([]model.ToolConfig, len(tools))
+	byName := make(map[string]model.ToolConfig, len(tools))
+	for i := range tools {
+		t := *tools[i].DeepCopy()
+		if t.Name == "" {
+			return nil, fmt.Errorf("tool name is required at index %d", i)
+		}
+		if _, exists := byName[t.Name]; exists {
+			return nil, fmt.Errorf("duplicate tool name %q at index %d", t.Name, i)
+		}
+		ordered[i] = t
+		byName[t.Name] = t
+	}
+	return &ToolCatalogSnapshot{
+		Version:     fmt.Sprintf("%d:%s", generation, firstNonEmptyFingerprint(fingerprint)),
+		Generation:  generation,
+		Fingerprint: firstNonEmptyFingerprint(fingerprint),
+		ordered:     ordered,
+		byName:      byName,
+	}, nil
+}
+
+func firstNonEmptyFingerprint(fingerprint string) string {
+	if fingerprint == "" {
+		return EmptyFingerprint
+	}
+	return fingerprint
+}
+
+// OrderedTools returns a deep copy of the ordered catalog for callers outside
+// hot authorization paths.
+func (s *ToolCatalogSnapshot) OrderedTools() []model.ToolConfig {
+	if s == nil || len(s.ordered) == 0 {
+		return nil
+	}
+	out := make([]model.ToolConfig, len(s.ordered))
+	for i := range s.ordered {
+		out[i] = *s.ordered[i].DeepCopy()
+	}
+	return out
+}
+
+func (s *ToolCatalogSnapshot) orderedToolsUnsafe() []model.ToolConfig {
+	if s == nil {
+		return nil
+	}
+	return s.ordered
+}
+
+func (s *ToolCatalogSnapshot) lookup(name string) (model.ToolConfig, bool) {
+	if s == nil {
+		return model.ToolConfig{}, false
+	}
+	t, ok := s.byName[name]
+	return t, ok
 }
 
 func toolCatalogFingerprint(tools []model.ToolConfig) string {
