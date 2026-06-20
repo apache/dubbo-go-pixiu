@@ -148,7 +148,9 @@ policy  ->  workflow  ->  progressive
         expand_after_calls: 1
       audit:
         sample_rate: 0.0              # 0 disables decision logs; (0,1] samples
-        payload_logging: false        # opt-in; also enables the admin endpoint
+        payload_logging: false        # opt-in denied-tool samples in decision logs
+      session:
+        max_entries: 10000            # default in-process session-plan cap
 ```
 
 #### Tool Metadata (`tools[].meta`)
@@ -176,11 +178,11 @@ tools:
 | **workflow** | The first workflow whose `when` clause matches keeps only that bundle's tools. Bundles without a `when` clause are name-addressable only (used by fallback / progressive). |
 | **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful completed tool calls, the full filtered set is revealed. Authorization checks and backend failures do not advance the counter. When this stage is enabled, `progressive.initial_bundle` is required and must reference a defined workflow bundle. |
 
-> **⚠️ Policy Rule Combination Semantics**  
+> **⚠️ Policy Rule Combination Semantics**
 > When multiple policy rules apply to a request, they are combined with **logical AND**: a tool is kept only if **every** applicable rule allows it.
-> 
+>
 > Example: If Rule A requires `allow_tags: [read]` and Rule B requires `allow_tags: [public]`, a tool must have **both** tags to pass. Satisfying only one rule is not enough.
-> 
+>
 > This defense-in-depth approach ensures that adding a new restrictive rule cannot accidentally weaken existing restrictions.
 
 `when` clauses (used by both policy rules and workflows) support: `claim` + `equals`, `claim` + `in: [...]`, `claim` + `regex`, `missing_claim`, or `claim` alone (presence check). The `sub` and `tenant` claims are promoted from the validated JWT for convenient matching. Claims come from the [MCP Auth Filter](#mcp-auth-filter-dgpfilterhttpauthmcp-configuration); without that filter in the chain, claim-based rules simply do not match. The router consumes already-validated claims and never re-validates tokens. Workflow names must be non-empty and unique because fallback and progressive disclosure address bundles by name.
@@ -200,6 +202,18 @@ With `enforce_on_call: true` (default), a `tools/call` for a tool not in the ses
 
 Tools with `meta.discovery_visibility: false` are omitted from the plan's `visible_tool_names` / `tools/list` view but remain in the authorized `tool_names` set when selected by policy, workflow, or progressive stages. This supports hidden-but-callable tools for clients that already know the tool name while keeping discovery quieter.
 
+#### MCP Sessions and Tool-List Notifications
+
+`initialize` always creates a fresh MCP session and returns it in `Mcp-Session-Id`. Clients must not send `Mcp-Session-Id` on `initialize`; Pixiu rejects that with `400` instead of adopting a caller-supplied ID. Later GET SSE streams require an existing session ID: a missing header returns `400`, and an unknown or expired ID returns `404`. Router-enforced POST requests (`tools/list` and `tools/call`) also require a valid session; unknown or expired IDs are never silently replaced with new sessions.
+
+The MCP session owns the router plan, progressive counter, and pending notification state. An SSE stream is only an attachment to that session: disconnecting, canceling the request context, reconnecting, or replacing the active stream does not terminate the MCP session or delete its plan. Sessions and plans are removed by TTL cleanup, server shutdown, or an explicit future termination path.
+
+The initialize response advertises `ServerCapabilities.tools.listChanged=true`. This is a server capability; clients do not need to declare `capabilities.tools.listChanged`. When a session's visible tool set changes, Pixiu sends `notifications/tools/list_changed` as a JSON-RPC notification without an `id`. Progressive expansion after the configured successful-call threshold marks a change exactly once. If the client is offline, Pixiu keeps a bounded per-session pending version and flushes the latest change after SSE reconnect. Multiple changes may be coalesced, but the final pending change is not lost.
+
+#### Dynamic Tool Updates
+
+Nacos dynamic updates currently support tool catalog changes only. A dynamic payload containing a `router` section is rejected so Pixiu does not run with a new tool catalog and stale router policy. A successful catalog update marks initialized sessions for `notifications/tools/list_changed`; online sessions are notified immediately and offline sessions are notified after SSE reconnect.
+
 #### Observability
 
 When the router is enabled it publishes Prometheus metrics under the `pixiu_mcp_tool_router_*` namespace:
@@ -213,20 +227,9 @@ When the router is enabled it publishes Prometheus metrics under the `pixiu_mcp_
 | `call_denied_total` | counter | `reason` (no_session_plan / not_in_plan / stale_plan_recompute_failed) |
 | `plans_active` | gauge | — |
 
-Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and metadata version. Bounded denied-tool samples are included only when `audit.payload_logging: true`.
+Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and metadata version. Bounded denied-tool samples are included only when `audit.payload_logging: true`. Even with payload logging enabled, Pixiu does not log tokens, claim values, session IDs, authorization headers, or tool arguments.
 
-#### Admin Debug Endpoint
-
-When `audit.payload_logging: true`, the gateway serves `GET /__mcp/router/plan/{session_id}` to loopback clients, returning the session's current plan (selected tool names, decision traces, version, mode) as JSON.
-
-> **🔒 Security Warning: Proxy/Sidecar Deployments**  
-> The endpoint restricts access to loopback peers by checking `RemoteAddr` (never `X-Forwarded-For`). However, in proxy/sidecar deployments where the proxy runs on localhost, `RemoteAddr` will be the proxy's loopback address, making the endpoint accessible to all clients behind the proxy.
-> 
-> **Mitigation**: In such deployments, apply additional routing-layer restrictions (e.g., Envoy RBAC, Istio AuthorizationPolicy) to prevent unauthorized access. Do not rely solely on the built-in loopback check.
-> 
-> **Best Practice**: Keep `audit.payload_logging: false` (default) in production unless you have explicit access controls in place.
-
-Non-loopback clients and configurations with payload logging off receive `404`, so the endpoint's existence is not observable by default. Because plans reveal authorization state, only enable this behind proper access controls.
+There is intentionally no data-plane plan inspection endpoint. Session plans reveal authorization state, so operational debugging should rely on sampled decision logs and aggregate metrics rather than exposing per-session plan payloads over the MCP listener.
 
 #### Multi-Instance Note
 
@@ -331,7 +334,7 @@ static_resources:
                       version: "1.0.0"
                       description: "MCP Server protected by OAuth for tools demonstration"
                       instructions: "Use appropriate tokens to interact with the mock server API via MCP"
-                    
+
                     tools:
                       # Tool 1: Get a user by ID
                       - name: "get_user"
@@ -369,7 +372,7 @@ static_resources:
                             in: "body"
                             description: "User's email address"
                             required: true
-                
+
                 # Standard HTTP Proxy filter for downstream requests
                 - name: "dgp.filter.http.httpproxy"
 

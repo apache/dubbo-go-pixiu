@@ -60,7 +60,7 @@ if [[ -z "$SESSION" ]]; then
   echo "initialize did not return Mcp-Session-Id" >&2
   exit 1
 fi
-echo "session: $SESSION"
+echo "session acquired"
 echo
 
 echo "== 2. tools/list -> internal_dump (internal/admin tags) is filtered out =="

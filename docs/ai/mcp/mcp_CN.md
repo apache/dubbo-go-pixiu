@@ -148,7 +148,9 @@ policy  ->  workflow  ->  progressive
         expand_after_calls: 1
       audit:
         sample_rate: 0.0              # 0 关闭决策日志；(0,1] 表示采样率
-        payload_logging: false        # 显式开启；同时启用 admin 端点
+        payload_logging: false        # 显式开启后，决策日志会包含被拒工具名样本
+      session:
+        max_entries: 10000            # 进程内 session plan 数量上限，默认 10000
 ```
 
 #### 工具元数据 (`tools[].meta`)
@@ -176,11 +178,11 @@ tools:
 | **workflow** | 第一个 `when` 匹配的 workflow 只保留其 bundle 内工具。无 `when` 的 bundle 仅可按名引用（供 fallback / progressive 使用）。 |
 | **progressive** | 新 session 只看到 `initial_bundle`；成功完成 `expand_after_calls` 次 tool call 后展开为完整裁剪集合。仅授权通过或后端失败不会推进计数。启用该阶段时，`progressive.initial_bundle` 必须配置，且必须引用已定义的 workflow bundle。 |
 
-> **⚠️ Policy 规则组合语义**  
+> **⚠️ Policy 规则组合语义**
 > 当多个 policy 规则适用于一个请求时，它们以**逻辑 AND** 组合：工具仅在**所有**适用规则都允许时才被保留。
-> 
+>
 > 示例：如果规则 A 要求 `allow_tags: [read]`，规则 B 要求 `allow_tags: [public]`，工具必须**同时**拥有两个标签才能通过。仅满足一个规则是不够的。
-> 
+>
 > 这种纵深防御方法确保添加新的限制性规则不会意外削弱现有限制。
 
 `when` 子句（policy 规则和 workflow 共用）支持：`claim` + `equals`、`claim` + `in: [...]`、`claim` + `regex`、`missing_claim`，或仅 `claim`（存在性检查）。`sub` 与 `tenant` 会从已校验的 JWT 中提升以便匹配。Claims 来自 [MCP 认证过滤器](#mcp-认证过滤器-dgpfilterhttpauthmcp-配置)；如果链路中没有该过滤器，依赖 claim 的规则不会匹配。路由器消费已校验的 claims，不重复校验 token。Workflow 名必须非空且唯一，因为 fallback 和 progressive disclosure 会按名称引用 bundle。
@@ -200,6 +202,18 @@ tools:
 
 配置了 `meta.discovery_visibility: false` 的工具会从 plan 的 `visible_tool_names` / `tools/list` 视图中隐藏；但只要它被 policy、workflow 或 progressive 阶段选中，仍保留在授权用的 `tool_names` 集合中，因此已知工具名的客户端仍可调用。这个能力用于降低 discovery 噪音，而不是作为授权拒绝手段。
 
+#### MCP Session 与工具列表通知
+
+`initialize` 总是创建新的 MCP session，并通过 `Mcp-Session-Id` 返回给客户端。客户端不应在 `initialize` 请求中携带 `Mcp-Session-Id`；Pixiu 会返回 `400`，不会采用调用方提供的 ID。后续 GET SSE stream 必须携带已存在的 session ID：缺失 header 返回 `400`，未知或过期 ID 返回 `404`。启用 router 强制的 POST 请求（`tools/list` 和 `tools/call`）也必须使用有效 session；未知或过期 ID 不会被静默替换成新 session。
+
+MCP session 持有 router plan、progressive 计数器和 pending notification 状态。SSE stream 只是挂载在 session 上的连接：断开、请求 context cancel、重连或新 stream 替换旧 stream，都不会终止 MCP session 或删除 plan。Session 与 plan 只会因 TTL 清理、server shutdown 或未来显式终止路径而删除。
+
+Initialize response 会声明 `ServerCapabilities.tools.listChanged=true`。这是服务端能力；客户端不需要声明 `capabilities.tools.listChanged`。当某个 session 的可见工具集合发生变化时，Pixiu 会发送 `notifications/tools/list_changed` JSON-RPC notification，且不包含 `id`。Progressive 达到成功调用阈值并展开时只标记一次变化。客户端离线时，Pixiu 在 session 内保存有界的 pending version，并在 SSE reconnect 后发送最新变化。多次变化可以合并，但最终 pending 变化不会丢失。
+
+#### 动态工具更新
+
+Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块的动态 payload 会被明确拒绝，避免 Pixiu 在“新工具目录 + 旧 router policy”的不一致状态下运行。成功发布工具目录后，Pixiu 会为已初始化的 session 标记 `notifications/tools/list_changed`；在线 session 立即通知，离线 session 在 SSE reconnect 后通知。
+
 #### 可观测性
 
 路由器启用时在 `pixiu_mcp_tool_router_*` 命名空间下发布 Prometheus 指标：
@@ -213,20 +227,9 @@ tools:
 | `call_denied_total` | counter | `reason`（no_session_plan / not_in_plan / stale_plan_recompute_failed） |
 | `plans_active` | gauge | — |
 
-决策日志默认关闭。将 `audit.sample_rate` 设为 `(0,1]` 内的值后，才会输出脱敏结构化日志（`event: mcp_router_decision`），包含计数、mode、各阶段丢弃数和元数据版本。只有显式开启 `audit.payload_logging: true` 时才会包含有上限的被拒工具名样本。
+决策日志默认关闭。将 `audit.sample_rate` 设为 `(0,1]` 内的值后，才会输出脱敏结构化日志（`event: mcp_router_decision`），包含计数、mode、各阶段丢弃数和元数据版本。只有显式开启 `audit.payload_logging: true` 时才会包含有上限的被拒工具名样本。即使开启 payload logging，Pixiu 也不会记录 token、claims value、session ID、Authorization header 或 tool arguments。
 
-#### Admin 调试端点
-
-当 `audit.payload_logging: true` 时，网关仅向 loopback 客户端提供 `GET /__mcp/router/plan/{session_id}`，以 JSON 返回该 session 当前 plan（选中工具名、决策轨迹、版本、mode）。
-
-> **🔒 安全警告：代理/Sidecar 部署**  
-> 该端点通过检查 `RemoteAddr`（从不检查 `X-Forwarded-For`）限制对 loopback 对等方的访问。但是，在代理/sidecar 部署中，如果代理运行在 localhost 上，`RemoteAddr` 将是代理的 loopback 地址，使得端点对代理后面的所有客户端可访问。
-> 
-> **缓解措施**：在此类部署中，应用额外的路由层限制（例如 Envoy RBAC、Istio AuthorizationPolicy）以防止未经授权的访问。不要仅依赖内置的 loopback 检查。
-> 
-> **最佳实践**：在生产环境中保持 `audit.payload_logging: false`（默认），除非您有明确的访问控制措施。
-
-非 loopback 客户端或关闭 payload logging 时都会返回 `404`，因此端点的存在默认不可探知。由于 plan 会暴露授权状态，请仅在有适当访问控制的前提下开启。
+数据面不会暴露 plan inspection 端点。Session plan 会泄露授权状态，因此运维调试应依赖采样决策日志和聚合指标，而不是通过 MCP 监听端口暴露单 session 的 plan payload。
 
 #### 多实例说明
 
@@ -331,7 +334,7 @@ static_resources:
                       version: "1.0.0"
                       description: "一个用于工具演示的受 OAuth 保护的 MCP 服务器"
                       instructions: "使用适当的令牌通过 MCP 与模拟服务器 API 进行交互"
-                    
+
                     tools:
                       # 工具 1: 通过 ID 获取用户
                       - name: "get_user"
@@ -369,7 +372,7 @@ static_resources:
                             in: "body"
                             description: "用户的电子邮件地址"
                             required: true
-                
+
                 # 标准的下游 HTTP 代理过滤器
                 - name: "dgp.filter.http.httpproxy"
 

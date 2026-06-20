@@ -66,6 +66,8 @@ static_resources:
                       audit:
                         sample_rate: 1.0
                         payload_logging: true   # include bounded denied-tool samples in decision logs
+                      session:
+                        max_entries: 10000       # default cap for in-process session plans
 
                     tools:
                       - name: "search_kb"

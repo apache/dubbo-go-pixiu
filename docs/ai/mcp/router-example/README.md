@@ -7,9 +7,9 @@ This directory demonstrates the MCP intelligent tool router added for
 
 - `router.yaml` — a complete Pixiu gateway config with the router enabled:
   4 tools, 1 always-on policy rule (deny `internal`/`admin` tags), 2 workflow
-  bundles, and the admin debug endpoint turned on.
+  bundles, sampled decision logs, and payload logging for denied-tool samples.
 - `demo.sh` — a curl walkthrough: initialize → tools/list (trimmed) →
-  tools/call (denied vs allowed) → inspect the session plan.
+  tools/call (denied vs allowed).
 
 ## What it shows
 
@@ -18,9 +18,13 @@ This directory demonstrates the MCP intelligent tool router added for
 2. **`tools/call` enforcement** — calling `internal_dump` is denied because it
    is not in the session's plan, even though the client knows its name.
 3. **Allowed call** — `search_kb` is in the plan and is forwarded to the backend.
-4. **Admin inspection** — from loopback, `GET /__mcp/router/plan/{session_id}`
-   returns the session's plan (selected tools, decision traces, version, mode),
-   available because `audit.payload_logging: true`.
+4. **Session-bound behavior** — `initialize` creates a fresh session; later
+   `tools/list` and `tools/call` reuse that session instead of accepting a
+   caller-supplied session on initialize.
+5. **Notification semantics** — the server advertises
+   `tools.listChanged=true`; clients do not declare this capability. Progressive
+   or dynamic catalog changes are reported with `notifications/tools/list_changed`
+   when the visible tool set changes.
 
 The example uses `fallback: bundle_default` so an empty selection falls back to
 the `safe-minimal` bundle. Treat that as a discovery safety net, not an
@@ -48,3 +52,7 @@ bash docs/ai/mcp/router-example/demo.sh
 is in the chain and populates JWT claims — the router consumes already-validated
 claims and never re-validates tokens. The always-on `block-privileged` rule
 needs no claims, so the demo works standalone.
+
+Dynamic Nacos updates for this PR support tool catalog updates only. Router-only
+dynamic updates are rejected and should be applied by rebuilding/reloading the
+filter configuration.
