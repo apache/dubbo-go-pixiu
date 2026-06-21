@@ -563,7 +563,6 @@ func (s *EndpointSnapshot) withEndpointHealthForIDs(
 		}
 	}
 
-	next.reuseHealthyConsistentHashFrom(s)
 	return next, true
 }
 
