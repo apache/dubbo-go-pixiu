@@ -683,7 +683,7 @@ func (s *ClusterStore) replaceEndpointAt(
 	}
 	clusterConfig.Endpoints[idx] = endpoint
 	s.prepareClusterConfig(clusterConfig)
-		runtimeCluster.SyncConfigEndpoints(clusterConfig.Endpoints)
+	runtimeCluster.SyncConfigEndpoints(clusterConfig.Endpoints)
 	runtimeCluster.RefreshEndpoints()
 	if addressChanged {
 		runtimeCluster.AddEndpoint(endpoint)
