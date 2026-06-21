@@ -179,33 +179,33 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 
 	// Build tools using mcp-go API for standard compliance
 	for _, toolCfg := range toolCfgs {
-		// Start with basic tool options
-		toolOptions := []mcp.ToolOption{
-			mcp.WithDescription(toolCfg.Description),
-		}
-
-		// Add parameter definitions using mcp-go APIs
-		for _, arg := range toolCfg.Args {
-			opts := f.buildToolParameterOptions(&arg)
-			switch arg.Type {
-			case typeString:
-				toolOptions = append(toolOptions, mcp.WithString(arg.Name, opts...))
-			case typeInteger, typeNumber:
-				toolOptions = append(toolOptions, mcp.WithNumber(arg.Name, opts...))
-			case typeBoolean:
-				toolOptions = append(toolOptions, mcp.WithBoolean(arg.Name, opts...))
-			}
-		}
-
-		// Create tool using mcp-go API
-		tool := mcp.NewTool(toolCfg.Name, toolOptions...)
-		tools = append(tools, tool)
+		tools = append(tools, f.buildMCPTool(toolCfg))
 	}
 
 	// Build standard MCP tools list response using mcp-go structures
 	result := mcp.NewListToolsResult(tools, "")
 
 	return f.responseBuilder.Success(req.ID, result), nil
+}
+
+func (f *MCPServerFilter) buildMCPTool(toolCfg model.ToolConfig) mcp.Tool {
+	toolOptions := []mcp.ToolOption{
+		mcp.WithDescription(toolCfg.Description),
+	}
+
+	for _, arg := range toolCfg.Args {
+		opts := f.buildToolParameterOptions(&arg)
+		switch arg.Type {
+		case typeString:
+			toolOptions = append(toolOptions, mcp.WithString(arg.Name, opts...))
+		case typeInteger, typeNumber:
+			toolOptions = append(toolOptions, mcp.WithNumber(arg.Name, opts...))
+		case typeBoolean:
+			toolOptions = append(toolOptions, mcp.WithBoolean(arg.Name, opts...))
+		}
+	}
+
+	return mcp.NewTool(toolCfg.Name, toolOptions...)
 }
 
 func (f *MCPServerFilter) routerSessionValid(ctx *MCPContext) bool {
