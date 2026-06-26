@@ -116,3 +116,147 @@ func TestAdapter_createApiManager(t *testing.T) {
 	assert := require.New(t)
 	assert.NotNil(api)
 }
+
+func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	apiclient.Init(clusterMg)
+
+	node := &model.Node{
+		Cluster: "test-cluster",
+		Id:      "node-test-1",
+	}
+
+	tests := []struct {
+		name        string
+		apiConfig   *model.ApiConfigSource
+		expectNil   bool
+		description string
+	}{
+		{
+			name: "nil config",
+			apiConfig: nil,
+			expectNil: true,
+			description: "should return nil for nil config",
+		},
+		{
+			name: "empty cluster name - GRPC type",
+			apiConfig: &model.ApiConfigSource{
+				APIType:     model.ApiTypeGRPC,
+				APITypeStr:  "GRPC",
+				ClusterName: []string{}, // Empty
+			},
+			expectNil: true,
+			description: "should return nil for empty cluster name in GRPC type",
+		},
+		{
+			name: "unsupported API type",
+			apiConfig: &model.ApiConfigSource{
+				APIType:     model.ApiType(-1), // Invalid type
+				APITypeStr:  "INVALID",
+				ClusterName: []string{"cluster-1"},
+			},
+			expectNil: true,
+			description: "should return nil for unsupported API type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ada := &Xds{
+				clusterMg: clusterMg,
+				exitCh:    make(chan struct{}),
+			}
+
+			api := ada.createApiManager(tt.apiConfig, node, constant.ClusterType)
+			assert := require.New(t)
+			if tt.expectNil {
+				assert.Nil(api, tt.description)
+			} else {
+				assert.NotNil(api, tt.description)
+			}
+		})
+	}
+}
+
+func TestAdapter_Start_NilApiManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	drm := mocks.NewMockDynamicResourceManager(ctrl)
+
+	apiclient.Init(clusterMg)
+
+	// Setup mocks to trigger error scenarios
+	// Start() will call GetLds() first at line 128
+	drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+		APIType:     model.ApiTypeGRPC,
+		ClusterName: []string{}, // Empty - will cause createApiManager to return nil
+	})
+	// Then it calls GetLds() again at line 129 (inside createApiManager call)
+	drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+		APIType:     model.ApiTypeGRPC,
+		ClusterName: []string{},
+	})
+	// Then it calls GetNode() at line 129
+	drm.EXPECT().GetNode().Return(&model.Node{})
+	// After discoverApi == nil, it returns early and doesn't call GetCds()
+
+	ada := &Xds{
+		clusterMg:         clusterMg,
+		dynamicResourceMg: drm,
+		exitCh:            make(chan struct{}),
+	}
+
+	// Start should handle nil DiscoverApi gracefully without panic
+	ada.Start()
+
+	// Verify that lds was not created because createApiManager returned nil
+	assert := require.New(t)
+	assert.Nil(ada.lds)
+	assert.Nil(ada.cds) // Should also be nil because Start() returned early
+}
+
+func TestAdapter_Start_CdsNilApiManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	drm := mocks.NewMockDynamicResourceManager(ctrl)
+
+	apiclient.Init(clusterMg)
+
+	// Setup LDS to skip (nil config)
+	drm.EXPECT().GetLds().Return(nil)
+
+	// Setup CDS to fail
+	// Start() will call GetCds() at line 143
+	drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+		APIType:     model.ApiTypeGRPC,
+		ClusterName: []string{}, // Empty - will cause createApiManager to return nil
+	})
+	// Then it calls GetCds() again at line 144 (inside createApiManager call)
+	drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+		APIType:     model.ApiTypeGRPC,
+		ClusterName: []string{},
+	})
+	// Then it calls GetNode() at line 144
+	drm.EXPECT().GetNode().Return(&model.Node{})
+
+	ada := &Xds{
+		clusterMg:         clusterMg,
+		dynamicResourceMg: drm,
+		exitCh:            make(chan struct{}),
+	}
+
+	// Start should handle nil DiscoverApi gracefully without panic
+	ada.Start()
+
+	// Verify that cds was not created because createApiManager returned nil
+	assert := require.New(t)
+	assert.Nil(ada.lds) // Should be nil because GetLds() returned nil
+	assert.Nil(ada.cds) // Should be nil because discoverApi was nil
+}
