@@ -32,6 +32,12 @@ import (
 
 var server *Server
 
+// blockForever blocks the main goroutine until the process exits.
+// Exposed as a variable to allow tests to replace it.
+var blockForever = func() {
+	select {}
+}
+
 // PX is Pixiu start struct
 type Server struct {
 	listenerManager *ListenerManager
@@ -124,7 +130,7 @@ func Start(bs *model.Bootstrap) {
 	server.Start()
 	// Block forever; the process exits on OS signals (default behavior),
 	// or via ListenerManager.gracefulShutdownInit when graceful shutdown is enabled.
-	select {}
+	blockForever()
 }
 
 func GetServer() *Server {
