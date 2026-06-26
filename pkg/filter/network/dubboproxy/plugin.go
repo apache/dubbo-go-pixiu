@@ -48,7 +48,7 @@ func (p *Plugin) Kind() string {
 func (p *Plugin) CreateFilter(config any) (filter.NetworkFilter, error) {
 	hcmc, ok := config.(*model.DubboProxyConnectionManagerConfig)
 	if !ok {
-		return nil, fmt.Errorf("CreateFilter occur some exception for the type is not suitable one. expected *model.DubboProxyConnectionManagerConfig, got %T", config)
+		return nil, fmt.Errorf("invalid config type: expected *model.DubboProxyConnectionManagerConfig, got %T", config)
 	}
 	hcmc.Timeout = stringutil.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return CreateDubboProxyConnectionManager(hcmc), nil
