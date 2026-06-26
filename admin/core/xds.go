@@ -143,9 +143,9 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 
 func watchConfigAndReload() {
 	const (
-		maxRetries      = 5
-		initialBackoff  = 1 * time.Second
-		maxBackoff      = 30 * time.Second
+		maxRetries        = 5
+		initialBackoff    = 1 * time.Second
+		maxBackoff        = 30 * time.Second
 		backoffMultiplier = 2.0
 	)
 
