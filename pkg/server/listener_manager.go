@@ -98,28 +98,60 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		sig := <-signals
 		logger.Infof("get signal %s, dubbo-go-pixiu will start shutdown.", sig)
 
-		time.AfterFunc(timeout, func() {
-			logger.Warn("Shutdown gracefully timeout, listeners will shutdown immediately. ")
-			os.Exit(0)
-		})
+		// Create error collection channel with capacity for all listeners
+		errCh := make(chan error, len(lm.activeListenerService))
 
+		// Start shutdown for all listeners
 		for _, listener := range lm.activeListenerService {
 			lm.shutdownWG.Add(1)
 			go func(listener *wrapListenerService) {
+				// Note: listener.ShutDown() internally calls wg.Done()
 				err := listener.ShutDown(lm.shutdownWG)
 				if err != nil {
 					logger.Errorf("Shutdown Error: %+v", err)
-					os.Exit(0)
+					errCh <- err
 				}
 			}(listener)
 		}
-		lm.shutdownWG.Wait()
+
+		// Wait for all shutdowns to complete or timeout
+		done := make(chan struct{})
+		go func() {
+			lm.shutdownWG.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// All shutdowns completed
+			logger.Info("All listeners shut down gracefully")
+		case <-time.After(timeout):
+			logger.Warn("Shutdown gracefully timeout, some listeners may not have shut down cleanly")
+		}
+
+		// Drain any remaining errors from the channel (non-blocking)
+		var shutdownErrors []error
+		drainErrors:
+		for {
+			select {
+			case err := <-errCh:
+				shutdownErrors = append(shutdownErrors, err)
+			default:
+				break drainErrors
+			}
+		}
 
 		// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
 		for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
 			if sig == dumpSignal {
 				debug.WriteHeapDump(os.Stdout.Fd())
 			}
+		}
+
+		// Exit with appropriate code based on shutdown errors
+		if len(shutdownErrors) > 0 {
+			logger.Errorf("Shutdown completed with %d errors", len(shutdownErrors))
+			os.Exit(1)
 		}
 		os.Exit(0)
 	}()
