@@ -115,9 +115,9 @@ func TestGetConsumerManagerKey(t *testing.T) {
 	}
 }
 
-// TestNewKafkaConsumerFacadeDoesNotPanicOnSubscribe verifies that
-// Subscribe() does not panic when consumerManager is properly initialized.
-func TestNewKafkaConsumerFacadeDoesNotPanicOnSubscribe(t *testing.T) {
+// TestNewKafkaConsumerFacadeConstructorInitializesMap verifies that
+// the consumerManager map is initialized during construction via NewKafkaConsumerFacade.
+func TestNewKafkaConsumerFacadeConstructorInitializesMap(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping test that requires Kafka broker in short mode")
 	}
