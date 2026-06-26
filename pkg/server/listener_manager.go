@@ -100,6 +100,8 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 
 		// Create error collection channel with capacity for all listeners
 		errCh := make(chan error, len(lm.activeListenerService))
+		// Create done channel to track completion of each listener goroutine
+		doneCh := make(chan struct{}, len(lm.activeListenerService))
 
 		// Start shutdown for all listeners
 		for _, listener := range lm.activeListenerService {
@@ -111,19 +113,32 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 					logger.Errorf("Shutdown Error: %+v", err)
 					errCh <- err
 				}
+				// Signal that this goroutine has completed (after potential error send)
+				doneCh <- struct{}{}
 			}(listener)
 		}
 
-		// Wait for all shutdowns to complete or timeout
-		done := make(chan struct{})
+		// Wait for all listener goroutines to complete or timeout
+		// We use doneCh instead of relying solely on WaitGroup because:
+		// - listener.ShutDown() calls wg.Done() before returning
+		// - this ensures we wait until error is sent to errCh
+		allDone := make(chan struct{})
 		go func() {
-			lm.shutdownWG.Wait()
-			close(done)
+			for i := 0; i < len(lm.activeListenerService); i++ {
+				select {
+				case <-doneCh:
+					// listener goroutine completed
+				case <-time.After(5 * time.Second):
+					// Individual listener stuck, continue anyway
+					logger.Warn("Individual listener shutdown stuck")
+				}
+			}
+			close(allDone)
 		}()
 
 		select {
-		case <-done:
-			// All shutdowns completed
+		case <-allDone:
+			// All listener goroutines completed
 			logger.Info("All listeners shut down gracefully")
 		case <-time.After(timeout):
 			logger.Warn("Shutdown gracefully timeout, some listeners may not have shut down cleanly")
@@ -131,7 +146,7 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 
 		// Drain any remaining errors from the channel (non-blocking)
 		var shutdownErrors []error
-		drainErrors:
+	drainErrors:
 		for {
 			select {
 			case err := <-errCh:

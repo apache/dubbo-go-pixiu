@@ -47,6 +47,7 @@ func TestShutdownWaitGroupDoubleDoneWouldPanic(t *testing.T) {
 func TestShutdownErrorCollection(t *testing.T) {
 	numListeners := 3
 	errCh := make(chan error, numListeners)
+	doneCh := make(chan struct{}, numListeners)
 
 	results := []struct {
 		hasError bool
@@ -56,23 +57,24 @@ func TestShutdownErrorCollection(t *testing.T) {
 		{hasError: false},
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(numListeners)
-
 	for i, result := range results {
 		go func(idx int, hasError bool) {
-			defer wg.Done()
 			if hasError {
 				errCh <- &testShutdownError{msg: "listener failed"}
 			}
+			// Signal completion AFTER potential error send (like listener_manager.go)
+			doneCh <- struct{}{}
 		}(i, result.hasError)
 	}
 
-	wg.Wait()
+	// Wait for all goroutines to complete (like listener_manager.go pattern)
+	for i := 0; i < numListeners; i++ {
+		<-doneCh
+	}
 
 	// Drain errors using labeled break pattern from listener_manager.go
 	var shutdownErrors []error
-	drainErrors:
+drainErrors:
 	for {
 		select {
 		case err := <-errCh:
@@ -89,39 +91,116 @@ func TestShutdownErrorCollection(t *testing.T) {
 
 // TestShutdownTimeoutHandling verifies timeout handling pattern
 func TestShutdownTimeoutHandling(t *testing.T) {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	numListeners := 2
+	doneCh := make(chan struct{}, numListeners)
 
 	timeout := 100 * time.Millisecond
 
 	// Listener 1 completes quickly
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		wg.Done()
+		doneCh <- struct{}{}
 	}()
 
 	// Listener 2 takes longer than timeout
 	go func() {
 		time.Sleep(200 * time.Millisecond)
-		wg.Done()
+		doneCh <- struct{}{}
 	}()
 
 	// Use the pattern from listener_manager.go
-	done := make(chan struct{})
+	allDone := make(chan struct{})
 	go func() {
-		wg.Wait()
-		close(done)
+		for i := 0; i < numListeners; i++ {
+			select {
+			case <-doneCh:
+				// listener completed
+			case <-time.After(5 * time.Second):
+				// individual listener stuck (not expected in this test)
+			}
+		}
+		close(allDone)
 	}()
 
 	select {
-	case <-done:
+	case <-allDone:
 		t.Log("All shutdowns completed before timeout")
 	case <-time.After(timeout):
 		t.Log("Shutdown timeout reached (expected behavior)")
 	}
 
 	// Wait for remaining listener to complete (cleanup)
-	<-done
+	<-allDone
+}
+
+// TestShutdownRaceConditionFix verifies that errors are correctly collected
+// even when wg.Done() is called before the error is sent to errCh.
+// This is the race condition that Copilot identified in PR #993.
+func TestShutdownRaceConditionFix(t *testing.T) {
+	numListeners := 2
+	errCh := make(chan error, numListeners)
+	doneCh := make(chan struct{}, numListeners)
+	wg := &sync.WaitGroup{}
+	wg.Add(numListeners)
+
+	// Simulate the pattern from listener.ShutDown() where wg.Done() is called
+	// in a defer before returning (and before listener_manager.go can send error)
+	for i := 0; i < numListeners; i++ {
+		go func(idx int) {
+			// Simulate ShutDown behavior: wg.Done() in defer
+			defer wg.Done()
+
+			// Simulate an error during shutdown
+			time.Sleep(10 * time.Millisecond)
+			// At this point, wg.Done() has been called (WaitGroup reaches 0)
+			// but we haven't yet returned to listener_manager.go's goroutine
+
+			// In the fixed implementation, listener_manager.go waits for doneCh
+			// which is sent AFTER the error is sent
+			if idx == 0 {
+				errCh <- &testShutdownError{msg: "shutdown error 1"}
+			}
+			if idx == 1 {
+				errCh <- &testShutdownError{msg: "shutdown error 2"}
+			}
+			// Signal completion AFTER error send
+			doneCh <- struct{}{}
+		}(i)
+	}
+
+	// Wait for all listener goroutines to complete (the fixed pattern)
+	allDone := make(chan struct{})
+	go func() {
+		for i := 0; i < numListeners; i++ {
+			<-doneCh
+		}
+		close(allDone)
+	}()
+
+	// Wait with timeout
+	select {
+	case <-allDone:
+		t.Log("All listeners completed")
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timeout waiting for listeners")
+	}
+
+	// Drain errors
+	var shutdownErrors []error
+drainLoop:
+	for {
+		select {
+		case err := <-errCh:
+			shutdownErrors = append(shutdownErrors, err)
+		default:
+			break drainLoop
+		}
+	}
+
+	// Both errors should be collected despite the race condition
+	if len(shutdownErrors) != 2 {
+		t.Errorf("Expected 2 shutdown errors, got %d - race condition not fixed", len(shutdownErrors))
+	}
 }
 
 // TestLabeledBreakPattern verifies the labeled break pattern for draining channel
@@ -132,7 +211,7 @@ func TestLabeledBreakPattern(t *testing.T) {
 	ch <- 3
 
 	var collected []int
-	drainLoop:
+drainLoop:
 	for {
 		select {
 		case v := <-ch:
