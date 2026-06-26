@@ -107,7 +107,7 @@ func TestStartGatewayCmdPreRunE(t *testing.T) {
 
 			// Create a new command to test
 			testCmd := &cobra.Command{
-				Use:   "test",
+				Use:     "test",
 				PreRunE: startGatewayCmd.PreRunE,
 			}
 
@@ -159,7 +159,7 @@ func TestStartGatewayCmdRunE(t *testing.T) {
 
 			// Create a new command to test
 			testCmd := &cobra.Command{
-				Use:   "test",
+				Use:  "test",
 				RunE: startGatewayCmd.RunE,
 			}
 

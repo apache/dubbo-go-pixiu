@@ -18,8 +18,8 @@
 package main
 
 import (
-	"os"
 	_ "net/http/pprof"
+	"os"
 	"strconv"
 	"time"
 )
