@@ -136,9 +136,9 @@ func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
 		description string
 	}{
 		{
-			name: "nil config",
-			apiConfig: nil,
-			expectNil: true,
+			name:        "nil config",
+			apiConfig:   nil,
+			expectNil:   true,
 			description: "should return nil for nil config",
 		},
 		{
@@ -148,7 +148,7 @@ func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
 				APITypeStr:  "GRPC",
 				ClusterName: []string{}, // Empty
 			},
-			expectNil: true,
+			expectNil:   true,
 			description: "should return nil for empty cluster name in GRPC type",
 		},
 		{
@@ -158,7 +158,7 @@ func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
 				APITypeStr:  "INVALID",
 				ClusterName: []string{"cluster-1"},
 			},
-			expectNil: true,
+			expectNil:   true,
 			description: "should return nil for unsupported API type",
 		},
 	}
