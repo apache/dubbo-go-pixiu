@@ -50,7 +50,12 @@ type server interface {
 // RunServer start server
 func RunServer() {
 	// load config
-	global.VP = Viper()
+	vp, err := Viper()
+	if err != nil {
+		fmt.Printf("load config error: %v\n", err)
+		return
+	}
+	global.VP = vp
 	global.LOG = Zap()
 
 	config.InitEtcdClient()

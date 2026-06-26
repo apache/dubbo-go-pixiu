@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"time"
 )
@@ -92,13 +91,13 @@ func StartxDsServer() error {
 	config := GenerateSnapshotPixiu()
 	if err := config.Consistent(); err != nil {
 		logger.Errorf("config inconsistency: %+v\n%+v", config, err)
-		os.Exit(1)
+		return fmt.Errorf("config inconsistency: %w", err)
 	}
 
 	// Add the config to the snaphost
 	if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
 		logger.Errorf("config error %q for %+v", err, config)
-		os.Exit(1)
+		return fmt.Errorf("set snapshot error: %w", err)
 	}
 
 	go watchConfigAndReload()
@@ -148,7 +147,9 @@ func watchConfigAndReload() {
 
 	if err != nil {
 		logger.Errorf("watch config error %q", err)
-		panic(err)
+		// Log the error and return - don't panic in background goroutine
+		// The server should continue running with existing config
+		return
 	}
 
 	for range ch {
@@ -157,13 +158,15 @@ func watchConfigAndReload() {
 		config := GenerateSnapshotPixiu()
 		if err := config.Consistent(); err != nil {
 			logger.Errorf("config inconsistency: %+v\n%+v", config, err)
-			os.Exit(1)
+			// Don't exit the process - continue running with previous valid config
+			continue
 		}
 
 		// Add the config to the snaphost
 		if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
 			logger.Errorf("config error %q for %+v", err, config)
-			os.Exit(1)
+			// Don't exit the process - continue running with previous valid config
+			continue
 		}
 	}
 }

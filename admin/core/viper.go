@@ -35,7 +35,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/utils"
 )
 
-func Viper(path ...string) *viper.Viper {
+func Viper(path ...string) (*viper.Viper, error) {
 	var config string
 	if len(path) == 0 {
 		flag.StringVar(&config, "c", "", "choose config file.")
@@ -56,7 +56,7 @@ func Viper(path ...string) *viper.Viper {
 	v.SetConfigType("yaml")
 	err := v.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("fatal error config file: %s", err))
+		return nil, fmt.Errorf("fatal error config file: %s", err)
 	}
 	v.WatchConfig()
 
@@ -70,5 +70,5 @@ func Viper(path ...string) *viper.Viper {
 		fmt.Println(err)
 	}
 	global.CONFIG.AutoCode.Root, _ = filepath.Abs("..")
-	return v
+	return v, nil
 }
