@@ -65,12 +65,18 @@ func NewKafkaConsumerFacade(config KafkaConsumerConfig, consumerGroup string) (*
 		return nil, err
 	}
 
-	return &KafkaConsumerFacade{consumerGroup: client, httpClient: &http.Client{Timeout: 5 * time.Second}, done: make(chan struct{})}, nil
+	return &KafkaConsumerFacade{
+		consumerGroup:   client,
+		consumerManager: make(map[string]func()),
+		httpClient:      &http.Client{Timeout: 5 * time.Second},
+		done:            make(chan struct{}),
+	}, nil
 }
 
 type KafkaConsumerFacade struct {
 	consumerGroup   sarama.ConsumerGroup
 	consumerManager map[string]func()
+	mu              sync.RWMutex // protects consumerManager
 	httpClient      *http.Client
 	wg              sync.WaitGroup
 	done            chan struct{}
@@ -81,7 +87,9 @@ func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) err
 	cOpt.ApplyOpts(opts...)
 	c, cancel := context.WithCancel(ctx)
 	key := GetConsumerManagerKey(cOpt.TopicList, cOpt.ConsumerGroup)
+	f.mu.Lock()
 	f.consumerManager[key] = cancel
+	f.mu.Unlock()
 	f.wg.Add(2)
 	go f.consumeLoop(ctx, cOpt.TopicList, &consumerGroupHandler{cOpt.ConsumeUrl, f.httpClient})
 	go f.checkConsumerIsAlive(c, key, cOpt.CheckUrl)
@@ -160,6 +168,7 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 		select {
 		case <-f.done:
 			ticker.Stop()
+			return
 		case <-ticker.C:
 			lastCheck := 0
 			for i := 0; i < 5; i++ {
@@ -186,10 +195,17 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 			}
 
 			if lastCheck != http.StatusOK {
-				f.consumerManager[key]()
-				delete(f.consumerManager, key)
+				f.mu.Lock()
+				if cancel, ok := f.consumerManager[key]; ok {
+					cancel()
+					delete(f.consumerManager, key)
+				}
+				f.mu.Unlock()
 			}
 
+		case <-ctx.Done():
+			ticker.Stop()
+			return
 		}
 	}
 }
