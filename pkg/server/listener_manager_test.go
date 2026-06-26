@@ -19,10 +19,43 @@ package server
 
 import (
 	"errors"
+	"os"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
+
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+// mockListenerService is a mock implementation of listener.ListenerService for testing.
+type mockListenerService struct {
+	startErr    error
+	closeErr    error
+	shutdownErr error
+	refreshErr  error
+	shutdownWg  *sync.WaitGroup // Will be set when ShutDown is called
+}
+
+func (m *mockListenerService) Start() error {
+	return m.startErr
+}
+
+func (m *mockListenerService) Close() error {
+	return m.closeErr
+}
+
+func (m *mockListenerService) ShutDown(wg any) error {
+	// Cast the WaitGroup and call Done() to simulate real behavior
+	if w, ok := wg.(*sync.WaitGroup); ok && w != nil {
+		w.Done()
+	}
+	return m.shutdownErr
+}
+
+func (m *mockListenerService) Refresh(_ model.Listener) error {
+	return m.refreshErr
+}
 
 // TestShutdownListenersNoErrors tests shutdownListeners when all listeners
 // shut down successfully without errors.
@@ -222,3 +255,126 @@ func TestShutdownListenersStuckListener(t *testing.T) {
 		t.Errorf("Expected no errors, got %d", len(errs))
 	}
 }
+
+// TestHandleShutdownSignalNoErrors tests handleShutdownSignal when all listeners
+// shut down successfully.
+func TestHandleShutdownSignalNoErrors(t *testing.T) {
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"listener1": {ListenerService: &mockListenerService{shutdownErr: nil}},
+			"listener2": {ListenerService: &mockListenerService{shutdownErr: nil}},
+		},
+		shutdownWG: &sync.WaitGroup{},
+	}
+
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, 1*time.Second)
+
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors, got %d", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout")
+	}
+}
+
+// TestHandleShutdownSignalWithErrors tests handleShutdownSignal when some listeners
+// fail to shut down.
+func TestHandleShutdownSignalWithErrors(t *testing.T) {
+	testErr := errors.New("shutdown failed")
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"listener1": {ListenerService: &mockListenerService{shutdownErr: nil}},
+			"listener2": {ListenerService: &mockListenerService{shutdownErr: testErr}},
+		},
+		shutdownWG: &sync.WaitGroup{},
+	}
+
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, 1*time.Second)
+
+	if len(errs) != 1 {
+		t.Errorf("Expected 1 error, got %d", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout")
+	}
+	if errs[0].Error() != testErr.Error() {
+		t.Errorf("Expected error '%s', got '%s'", testErr.Error(), errs[0].Error())
+	}
+}
+
+// TestHandleShutdownSignalNoListeners tests handleShutdownSignal with no listeners.
+func TestHandleShutdownSignalNoListeners(t *testing.T) {
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{},
+		shutdownWG:            &sync.WaitGroup{},
+	}
+
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, 1*time.Second)
+
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors, got %d", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout")
+	}
+}
+
+// TestHandleShutdownSignalTimeout tests handleShutdownSignal when shutdown times out.
+func TestHandleShutdownSignalTimeout(t *testing.T) {
+	// Create a slow listener that takes longer than the timeout
+	slowListener := &mockSlowListenerService{duration: 100 * time.Millisecond}
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"listener1": {ListenerService: slowListener},
+		},
+		shutdownWG: &sync.WaitGroup{},
+	}
+
+	// Very short timeout to trigger timeout condition (less than slowListener duration)
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, 10*time.Millisecond)
+
+	// Should timeout because listener takes longer than the timeout
+	if !timedOut {
+		t.Error("Expected timeout")
+	}
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors (listener returns nil), got %d", len(errs))
+	}
+}
+
+// TestHandleShutdownSignalDumpHeap tests handleShutdownSignal with a dump heap signal.
+// Note: We skip actually writing heap dump in tests, but verify the code path is reached.
+func TestHandleShutdownSignalDumpHeap(t *testing.T) {
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"listener1": {ListenerService: &mockListenerService{}},
+		},
+		shutdownWG: &sync.WaitGroup{},
+	}
+
+	// SIGQUIT is typically in DumpHeapShutdownSignals
+	errs, timedOut := lm.handleShutdownSignal(os.Signal(syscall.SIGQUIT), 1*time.Second)
+
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors, got %d", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout")
+	}
+}
+
+// mockSlowListenerService is a mock that takes time to shutdown for testing timeout scenarios.
+type mockSlowListenerService struct {
+	duration time.Duration
+}
+
+func (m *mockSlowListenerService) Start() error { return nil }
+func (m *mockSlowListenerService) Close() error  { return nil }
+func (m *mockSlowListenerService) ShutDown(wg any) error {
+	time.Sleep(m.duration)
+	if w, ok := wg.(*sync.WaitGroup); ok && w != nil {
+		w.Done()
+	}
+	return nil
+}
+func (m *mockSlowListenerService) Refresh(_ model.Listener) error { return nil }

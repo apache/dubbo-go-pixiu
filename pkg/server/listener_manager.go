@@ -102,25 +102,8 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		sig := <-signals
 		logger.Infof("get signal %s, dubbo-go-pixiu will start shutdown.", sig)
 
-		// Build shutdown functions for all listeners
-		shutdownFuncs := make([]ShutdownFunc, 0, len(lm.activeListenerService))
-		for _, listener := range lm.activeListenerService {
-			shutdownFuncs = append(shutdownFuncs, func() error {
-				lm.shutdownWG.Add(1)
-				// Note: listener.ShutDown() internally calls wg.Done()
-				return listener.ShutDown(lm.shutdownWG)
-			})
-		}
-
-		// Execute shutdown coordination (extracted for testability)
-		shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
-
-		// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
-		for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
-			if sig == dumpSignal {
-				debug.WriteHeapDump(os.Stdout.Fd())
-			}
-		}
+		// Handle shutdown signal (extracted for testability)
+		shutdownErrors, timedOut := lm.handleShutdownSignal(sig, timeout)
 
 		// Exit with appropriate code based on shutdown errors
 		if len(shutdownErrors) > 0 {
@@ -132,6 +115,33 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		}
 		os.Exit(0)
 	}()
+}
+
+// handleShutdownSignal processes a shutdown signal by coordinating listener shutdowns.
+// It returns a slice of errors from failed shutdowns and a boolean indicating timeout.
+// This function is extracted from gracefulShutdownInit for testability.
+func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Duration) ([]error, bool) {
+	// Build shutdown functions for all listeners
+	shutdownFuncs := make([]ShutdownFunc, 0, len(lm.activeListenerService))
+	for _, listener := range lm.activeListenerService {
+		shutdownFuncs = append(shutdownFuncs, func() error {
+			lm.shutdownWG.Add(1)
+			// Note: listener.ShutDown() internally calls wg.Done()
+			return listener.ShutDown(lm.shutdownWG)
+		})
+	}
+
+	// Execute shutdown coordination
+	shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+
+	// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
+	for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
+		if sig == dumpSignal {
+			debug.WriteHeapDump(os.Stdout.Fd())
+		}
+	}
+
+	return shutdownErrors, timedOut
 }
 
 // shutdownListeners coordinates the shutdown of multiple listeners.
