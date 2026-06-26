@@ -64,7 +64,7 @@ func CreateEnvoyGrpcApiClient(
 	exitCh chan struct{},
 	typeName ResourceTypeName,
 	opts ...GrpcApiClientOption,
-) *AggGrpcApiClient {
+) (*AggGrpcApiClient, error) {
 	v := &AggGrpcApiClient{}
 	v.config = *config
 	v.node = node
@@ -86,8 +86,10 @@ func CreateEnvoyGrpcApiClient(
 	for _, fn := range opts {
 		fn(v)
 	}
-	v.init()
-	return v
+	if err := v.init(); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 type (
@@ -99,9 +101,9 @@ type (
 	discoveryResponseHandler func(any2 []*anypb.Any)
 )
 
-func (g *AggGrpcApiClient) init() {
+func (g *AggGrpcApiClient) init() error {
 	if len(g.config.ClusterName) == 0 {
-		panic("should config one cluster at least")
+		return errors.New("should config one cluster at least")
 	}
 	//todo implement multiple grpc api services
 	if len(g.config.ClusterName) > 1 {
@@ -111,15 +113,16 @@ func (g *AggGrpcApiClient) init() {
 
 	if err != nil {
 		logger.Errorf("get cluster for init error. error=%v", err)
-		panic(err)
+		return errors.Wrap(err, "get cluster for init error")
 	}
 	conn, err := cluster.GetConnection()
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "get connection from cluster error")
 	}
 	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(conn)
 	g.xDSAggClient = discoverypb.NewAggregatedDiscoveryServiceClient(conn)
 
+	return nil
 }
 
 func (g *AggGrpcApiClient) Fetch(_ string) ([]*ProtoAny, error) {

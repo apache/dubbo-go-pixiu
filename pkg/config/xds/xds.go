@@ -69,7 +69,12 @@ func (a *Xds) createApiManager(config *model.ApiConfigSource,
 			logger.Errorf("can not read listener. %v", err)
 			return nil
 		}
-		return apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType, apiclient.WithIstioService(dubboServices...))
+		client, err := apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType, apiclient.WithIstioService(dubboServices...))
+		if err != nil {
+			logger.Errorf("create envoy grpc api client error: %v", err)
+			return nil
+		}
+		return client
 	default:
 		logger.Errorf("un-support the api type %s", config.APITypeStr)
 		return nil
