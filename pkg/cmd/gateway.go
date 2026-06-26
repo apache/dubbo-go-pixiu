@@ -58,7 +58,7 @@ var (
 		Short: "Run dubbo go pixiu in gateway mode",
 	}
 
-	deploy = &DefaultDeployer{
+	deploy Deployer = &DefaultDeployer{
 		configManger: config.NewConfigManger(),
 	}
 
