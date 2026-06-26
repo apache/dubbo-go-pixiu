@@ -62,7 +62,12 @@ func (a *Xds) createApiManager(config *model.ApiConfigSource,
 
 	switch config.APIType {
 	case model.ApiTypeGRPC:
-		return apiclient.CreateGrpExtensionApiClient(config, node, a.exitCh, resourceType)
+		client, err := apiclient.CreateGrpExtensionApiClient(config, node, a.exitCh, resourceType)
+		if err != nil {
+			logger.Errorf("create grpc extension api client error: %+v", err)
+			return nil
+		}
+		return client
 	case model.ApiTypeIstioGRPC:
 		dubboServices, err := a.readDubboServiceFromListener()
 		if err != nil {
