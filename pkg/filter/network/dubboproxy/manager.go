@@ -144,7 +144,7 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 func (dcm *DubboProxyConnectionManager) OnData(data any) (any, error) {
 	old_invoc, ok := data.(*invocation.RPCInvocation)
 	if !ok {
-		panic("create invocation occur some exception for the type is not suitable one.")
+		return nil, errors.Errorf("create invocation occur some exception for the type is not suitable one. expected *invocation.RPCInvocation, got %T", data)
 	}
 	// need reconstruct RPCInvocation ParameterValues witch is same with arguments. refer to dubbogo/common/proxy/proxy.makeDubboCallProxy
 	arguments := old_invoc.Arguments()
