@@ -18,10 +18,162 @@
 package server
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
 )
+
+// TestShutdownListenersNoErrors tests shutdownListeners when all listeners
+// shut down successfully without errors.
+func TestShutdownListenersNoErrors(t *testing.T) {
+	// Create fake listeners that shut down successfully
+	shutdownFuncs := []ShutdownFunc{
+		func() error { return nil },
+		func() error { return nil },
+		func() error { return nil },
+	}
+
+	timeout := 1 * time.Second
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors, got %d: %v", len(errs), errs)
+	}
+	if timedOut {
+		t.Error("Expected no timeout, but timed out")
+	}
+}
+
+// TestShutdownListenersWithErrors tests shutdownListeners when some listeners
+// return errors during shutdown.
+func TestShutdownListenersWithErrors(t *testing.T) {
+	testErr := errors.New("shutdown failed")
+	shutdownFuncs := []ShutdownFunc{
+		func() error { return nil },
+		func() error { return testErr },
+		func() error { return nil },
+	}
+
+	timeout := 1 * time.Second
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	if len(errs) != 1 {
+		t.Errorf("Expected 1 error, got %d", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout, but timed out")
+	}
+	if errs[0].Error() != testErr.Error() {
+		t.Errorf("Expected error '%s', got '%s'", testErr.Error(), errs[0].Error())
+	}
+}
+
+// TestShutdownListenersAllErrors tests shutdownListeners when all listeners
+// return errors.
+func TestShutdownListenersAllErrors(t *testing.T) {
+	shutdownFuncs := []ShutdownFunc{
+		func() error { return errors.New("error 1") },
+		func() error { return errors.New("error 2") },
+		func() error { return errors.New("error 3") },
+	}
+
+	timeout := 1 * time.Second
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	if len(errs) != 3 {
+		t.Errorf("Expected 3 errors, got %d", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout, but timed out")
+	}
+}
+
+// TestShutdownListenersTimeout tests shutdownListeners when listeners take
+// longer than the timeout.
+func TestShutdownListenersTimeout(t *testing.T) {
+	shutdownFuncs := []ShutdownFunc{
+		func() error { time.Sleep(10 * time.Millisecond); return nil },
+		func() error { time.Sleep(200 * time.Millisecond); return nil }, // exceeds timeout
+		func() error { time.Sleep(10 * time.Millisecond); return nil },
+	}
+
+	timeout := 50 * time.Millisecond
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	// Should have timed out but still collected errors from fast listeners
+	if !timedOut {
+		t.Error("Expected timeout, but did not time out")
+	}
+	// No errors in this case (all listeners return nil), but timeout should be set
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors (all returned nil), got %d", len(errs))
+	}
+}
+
+// TestShutdownListenersRaceCondition verifies that errors are correctly collected
+// even when listeners have slow error reporting after completing their work.
+// This addresses the race condition Copilot identified in PR #993.
+func TestShutdownListenersRaceCondition(t *testing.T) {
+	// Simulate slow error send after shutdown completes
+	shutdownFuncs := []ShutdownFunc{
+		func() error {
+			time.Sleep(10 * time.Millisecond)
+			// Simulate slow error channel send
+			return errors.New("delayed error 1")
+		},
+		func() error {
+			time.Sleep(10 * time.Millisecond)
+			return errors.New("delayed error 2")
+		},
+	}
+
+	timeout := 1 * time.Second
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	// Both errors should be collected despite the delay
+	if len(errs) != 2 {
+		t.Errorf("Expected 2 errors, got %d - race condition not fixed", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout, but timed out")
+	}
+}
+
+// TestShutdownListenersEmpty tests shutdownListeners with no listeners.
+func TestShutdownListenersEmpty(t *testing.T) {
+	shutdownFuncs := []ShutdownFunc{}
+
+	timeout := 1 * time.Second
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors, got %d", len(errs))
+	}
+	if timedOut {
+		t.Error("Expected no timeout, but timed out")
+	}
+}
+
+// TestShutdownListenersTimeoutWithError tests that errors are collected
+// even when timeout occurs.
+func TestShutdownListenersTimeoutWithError(t *testing.T) {
+	shutdownFuncs := []ShutdownFunc{
+		func() error { return errors.New("fast error") },
+		func() error { time.Sleep(200 * time.Millisecond); return nil }, // exceeds timeout
+	}
+
+	timeout := 50 * time.Millisecond
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	if !timedOut {
+		t.Error("Expected timeout, but did not time out")
+	}
+	// The fast error should still be collected
+	if len(errs) != 1 {
+		t.Errorf("Expected 1 error from fast listener, got %d", len(errs))
+	}
+}
 
 // TestShutdownWaitGroupDoubleDoneWouldPanic demonstrates that calling Done()
 // twice on a WaitGroup with counter 1 would panic (negative counter).
@@ -40,197 +192,4 @@ func TestShutdownWaitGroupDoubleDoneWouldPanic(t *testing.T) {
 	}()
 
 	wg.Done() // This should panic
-}
-
-// TestShutdownErrorCollection verifies that shutdown errors are collected
-// instead of causing immediate exit.
-func TestShutdownErrorCollection(t *testing.T) {
-	numListeners := 3
-	errCh := make(chan error, numListeners)
-	doneCh := make(chan struct{}, numListeners)
-
-	results := []struct {
-		hasError bool
-	}{
-		{hasError: false},
-		{hasError: true},
-		{hasError: false},
-	}
-
-	for i, result := range results {
-		go func(idx int, hasError bool) {
-			if hasError {
-				errCh <- &testShutdownError{msg: "listener failed"}
-			}
-			// Signal completion AFTER potential error send (like listener_manager.go)
-			doneCh <- struct{}{}
-		}(i, result.hasError)
-	}
-
-	// Wait for all goroutines to complete (like listener_manager.go pattern)
-	for i := 0; i < numListeners; i++ {
-		<-doneCh
-	}
-
-	// Drain errors using labeled break pattern from listener_manager.go
-	var shutdownErrors []error
-drainErrors:
-	for {
-		select {
-		case err := <-errCh:
-			shutdownErrors = append(shutdownErrors, err)
-		default:
-			break drainErrors
-		}
-	}
-
-	if len(shutdownErrors) != 1 {
-		t.Errorf("Expected 1 shutdown error, got %d", len(shutdownErrors))
-	}
-}
-
-// TestShutdownTimeoutHandling verifies timeout handling pattern
-func TestShutdownTimeoutHandling(t *testing.T) {
-	numListeners := 2
-	doneCh := make(chan struct{}, numListeners)
-
-	timeout := 100 * time.Millisecond
-
-	// Listener 1 completes quickly
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		doneCh <- struct{}{}
-	}()
-
-	// Listener 2 takes longer than timeout
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		doneCh <- struct{}{}
-	}()
-
-	// Use the pattern from listener_manager.go
-	allDone := make(chan struct{})
-	go func() {
-		for i := 0; i < numListeners; i++ {
-			select {
-			case <-doneCh:
-				// listener completed
-			case <-time.After(5 * time.Second):
-				// individual listener stuck (not expected in this test)
-			}
-		}
-		close(allDone)
-	}()
-
-	select {
-	case <-allDone:
-		t.Log("All shutdowns completed before timeout")
-	case <-time.After(timeout):
-		t.Log("Shutdown timeout reached (expected behavior)")
-	}
-
-	// Wait for remaining listener to complete (cleanup)
-	<-allDone
-}
-
-// TestShutdownRaceConditionFix verifies that errors are correctly collected
-// even when wg.Done() is called before the error is sent to errCh.
-// This is the race condition that Copilot identified in PR #993.
-func TestShutdownRaceConditionFix(t *testing.T) {
-	numListeners := 2
-	errCh := make(chan error, numListeners)
-	doneCh := make(chan struct{}, numListeners)
-	wg := &sync.WaitGroup{}
-	wg.Add(numListeners)
-
-	// Simulate the pattern from listener.ShutDown() where wg.Done() is called
-	// in a defer before returning (and before listener_manager.go can send error)
-	for i := 0; i < numListeners; i++ {
-		go func(idx int) {
-			// Simulate ShutDown behavior: wg.Done() in defer
-			defer wg.Done()
-
-			// Simulate an error during shutdown
-			time.Sleep(10 * time.Millisecond)
-			// At this point, wg.Done() has been called (WaitGroup reaches 0)
-			// but we haven't yet returned to listener_manager.go's goroutine
-
-			// In the fixed implementation, listener_manager.go waits for doneCh
-			// which is sent AFTER the error is sent
-			if idx == 0 {
-				errCh <- &testShutdownError{msg: "shutdown error 1"}
-			}
-			if idx == 1 {
-				errCh <- &testShutdownError{msg: "shutdown error 2"}
-			}
-			// Signal completion AFTER error send
-			doneCh <- struct{}{}
-		}(i)
-	}
-
-	// Wait for all listener goroutines to complete (the fixed pattern)
-	allDone := make(chan struct{})
-	go func() {
-		for i := 0; i < numListeners; i++ {
-			<-doneCh
-		}
-		close(allDone)
-	}()
-
-	// Wait with timeout
-	select {
-	case <-allDone:
-		t.Log("All listeners completed")
-	case <-time.After(1 * time.Second):
-		t.Fatal("Timeout waiting for listeners")
-	}
-
-	// Drain errors
-	var shutdownErrors []error
-drainLoop:
-	for {
-		select {
-		case err := <-errCh:
-			shutdownErrors = append(shutdownErrors, err)
-		default:
-			break drainLoop
-		}
-	}
-
-	// Both errors should be collected despite the race condition
-	if len(shutdownErrors) != 2 {
-		t.Errorf("Expected 2 shutdown errors, got %d - race condition not fixed", len(shutdownErrors))
-	}
-}
-
-// TestLabeledBreakPattern verifies the labeled break pattern for draining channel
-func TestLabeledBreakPattern(t *testing.T) {
-	ch := make(chan int, 3)
-	ch <- 1
-	ch <- 2
-	ch <- 3
-
-	var collected []int
-drainLoop:
-	for {
-		select {
-		case v := <-ch:
-			collected = append(collected, v)
-		default:
-			break drainLoop // This breaks the for loop, not just the select
-		}
-	}
-
-	if len(collected) != 3 {
-		t.Errorf("Expected to collect 3 values, got %d", len(collected))
-	}
-}
-
-// testShutdownError is a simple error type for testing
-type testShutdownError struct {
-	msg string
-}
-
-func (e *testShutdownError) Error() string {
-	return e.msg
 }
