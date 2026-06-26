@@ -149,19 +149,15 @@ func watchConfigAndReload() {
 		backoffMultiplier = 2.0
 	)
 
-	backoff := initialBackoff
-	retries := 0
-
 	for {
+		backoff := initialBackoff
+		retries := 0
+
+		// Try to establish watch with retry
 		ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
-		if err != nil {
+		for err != nil && retries < maxRetries {
 			retries++
 			logger.Errorf("watch config error %q (retry %d/%d)", err, retries, maxRetries)
-
-			if retries >= maxRetries {
-				logger.Errorf("max retries reached for watch config, giving up")
-				return
-			}
 
 			// Wait with backoff before retrying
 			time.Sleep(backoff)
@@ -169,12 +165,16 @@ func watchConfigAndReload() {
 			if backoff > maxBackoff {
 				backoff = maxBackoff
 			}
-			continue
+
+			// Retry establishing watch
+			ch, err = adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
 		}
 
-		// Reset backoff and retry count on successful watch
-		backoff = initialBackoff
-		retries = 0
+		// Check if we failed to establish watch after max retries
+		if err != nil {
+			logger.Errorf("max retries reached for watch config, giving up")
+			return
+		}
 
 		// Process watch events
 		for range ch {
@@ -195,10 +195,8 @@ func watchConfigAndReload() {
 			}
 		}
 
-		// Channel closed, log and restart watch with initial backoff
+		// Channel closed, log and restart watch
 		logger.Info("watch channel closed, restarting watch")
-		backoff = initialBackoff
-		retries = 0
 	}
 }
 
