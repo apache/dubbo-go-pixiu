@@ -113,7 +113,7 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		}
 
 		// Execute shutdown coordination (extracted for testability)
-		shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout)
+		shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
 
 		// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
 		for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
@@ -138,7 +138,9 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 // It returns a slice of errors from failed shutdowns and a boolean indicating
 // whether the shutdown timed out before all listeners completed.
 // This function is extracted from gracefulShutdownInit for testability.
-func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]error, bool) {
+// The perListenerTimeout parameter controls how long we wait for each individual
+// listener goroutine before considering it stuck (default 5 seconds in production).
+func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration, perListenerTimeout time.Duration) ([]error, bool) {
 	if len(shutdownFuncs) == 0 {
 		return nil, false
 	}
@@ -171,7 +173,7 @@ func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]e
 			select {
 			case <-doneCh:
 				// listener goroutine completed
-			case <-time.After(5 * time.Second):
+			case <-time.After(perListenerTimeout):
 				// Individual listener stuck, continue anyway
 				logger.Warn("Individual listener shutdown stuck")
 			}
@@ -202,6 +204,11 @@ drainErrors:
 
 	return shutdownErrors, timedOut
 }
+
+// defaultPerListenerTimeout is the default timeout for each individual listener
+// during graceful shutdown. If a listener takes longer than this, we continue
+// with other listeners but log a warning.
+const defaultPerListenerTimeout = 5 * time.Second
 
 func resolveListenerName(c *model.Listener) string {
 	return c.Address.SocketAddress.Address + "-" + strconv.Itoa(c.Address.SocketAddress.Port) + "-" + c.ProtocolStr
