@@ -25,6 +25,8 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/spf13/cobra"
 )
 
@@ -63,20 +65,21 @@ var (
 	startGatewayCmd = &cobra.Command{
 		Use:   "start",
 		Short: "Start gateway",
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			initDefaultValue()
 
 			err := deploy.initialize()
 			if err != nil {
-				panic(err)
+				return errors.Wrap(err, "failed to initialize gateway")
 			}
+			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
-
+		RunE: func(cmd *cobra.Command, args []string) error {
 			err := deploy.start()
 			if err != nil {
-				panic(err)
+				return errors.Wrap(err, "failed to start gateway")
 			}
+			return nil
 		},
 	}
 )
@@ -134,7 +137,7 @@ func (d *DefaultDeployer) start() error {
 
 func (d *DefaultDeployer) stop() error {
 	// TODO implement me
-	panic("implement me")
+	return errors.New("stop not implemented")
 }
 
 // initDefaultValue If not set both in args and env, set default values
