@@ -48,12 +48,11 @@ type server interface {
 }
 
 // RunServer start server
-func RunServer() {
+func RunServer() error {
 	// load config
 	vp, err := Viper()
 	if err != nil {
-		fmt.Printf("load config error: %v\n", err)
-		return
+		return fmt.Errorf("load config error: %w", err)
 	}
 	global.VP = vp
 	global.LOG = Zap()
@@ -88,4 +87,5 @@ func RunServer() {
 	})
 
 	wg.Wait()
+	return nil
 }

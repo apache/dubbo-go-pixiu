@@ -90,7 +90,6 @@ func StartxDsServer() error {
 	// Create the config that we'll serve to Envoy
 	config := GenerateSnapshotPixiu()
 	if err := config.Consistent(); err != nil {
-		logger.Errorf("config inconsistency: %+v\n%+v", config, err)
 		return fmt.Errorf("config inconsistency: %w", err)
 	}
 
@@ -143,31 +142,63 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 }
 
 func watchConfigAndReload() {
-	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
+	const (
+		maxRetries      = 5
+		initialBackoff  = 1 * time.Second
+		maxBackoff      = 30 * time.Second
+		backoffMultiplier = 2.0
+	)
 
-	if err != nil {
-		logger.Errorf("watch config error %q", err)
-		// Log the error and return - don't panic in background goroutine
-		// The server should continue running with existing config
-		return
-	}
+	backoff := initialBackoff
+	retries := 0
 
-	for range ch {
-		logger.Info("get etcd config change")
-		// Create the config that we'll serve to Envoy
-		config := GenerateSnapshotPixiu()
-		if err := config.Consistent(); err != nil {
-			logger.Errorf("config inconsistency: %+v\n%+v", config, err)
-			// Don't exit the process - continue running with previous valid config
+	for {
+		ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
+		if err != nil {
+			retries++
+			logger.Errorf("watch config error %q (retry %d/%d)", err, retries, maxRetries)
+
+			if retries >= maxRetries {
+				logger.Errorf("max retries reached for watch config, giving up")
+				return
+			}
+
+			// Wait with backoff before retrying
+			time.Sleep(backoff)
+			backoff = time.Duration(float64(backoff) * backoffMultiplier)
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
 			continue
 		}
 
-		// Add the config to the snaphost
-		if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
-			logger.Errorf("config error %q for %+v", err, config)
-			// Don't exit the process - continue running with previous valid config
-			continue
+		// Reset backoff and retry count on successful watch
+		backoff = initialBackoff
+		retries = 0
+
+		// Process watch events
+		for range ch {
+			logger.Info("get etcd config change")
+			// Create the config that we'll serve to Envoy
+			config := GenerateSnapshotPixiu()
+			if err := config.Consistent(); err != nil {
+				logger.Errorf("config inconsistency: %+v\n%+v", config, err)
+				// Don't exit the process - continue running with previous valid config
+				continue
+			}
+
+			// Add the config to the snaphost
+			if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
+				logger.Errorf("config error %q for %+v", err, config)
+				// Don't exit the process - continue running with previous valid config
+				continue
+			}
 		}
+
+		// Channel closed, log and restart watch with initial backoff
+		logger.Info("watch channel closed, restarting watch")
+		backoff = initialBackoff
+		retries = 0
 	}
 }
 

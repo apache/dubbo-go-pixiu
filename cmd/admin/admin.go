@@ -18,6 +18,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -48,27 +49,38 @@ var (
 			"(appKey authorization, interface authority, online and offline). \n" +
 			"(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo",
 		Version: config2.Version,
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			initDefaultValue()
+			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			_, err := config2.LoadAPIConfigFromFile(configPath)
 			if err != nil {
-				logger.Errorf("load admin config  error:%+v", err)
+				return fmt.Errorf("load admin config error: %w", err)
 			}
-			Start()
+			// Start server in a goroutine
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- Start()
+			}()
 			// gracefully shutdown
 			sigint := make(chan os.Signal, 1)
 			signal.Notify(sigint, os.Interrupt)
-			<-sigint
-			Stop()
+			select {
+			case <-sigint:
+				Stop()
+				return nil
+			case err := <-errCh:
+				Stop()
+				return err
+			}
 		},
 	}
 )
 
 // Start start init etcd client and start admin http server
-func Start() {
-	core.RunServer()
+func Start() error {
+	return core.RunServer()
 }
 
 func Stop() {
@@ -100,6 +112,8 @@ func initDefaultValue() {
 func main() {
 	app := getRootCmd()
 
-	// ignore error so we don't exit non-zero and break gfmrun README example tests
-	_ = app.Execute()
+	if err := app.Execute(); err != nil {
+		logger.Errorf("command failed: %v", err)
+		os.Exit(1)
+	}
 }

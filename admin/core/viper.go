@@ -56,7 +56,7 @@ func Viper(path ...string) (*viper.Viper, error) {
 	v.SetConfigType("yaml")
 	err := v.ReadInConfig()
 	if err != nil {
-		return nil, fmt.Errorf("fatal error config file: %s", err)
+		return nil, fmt.Errorf("fatal error config file: %w", err)
 	}
 	v.WatchConfig()
 
