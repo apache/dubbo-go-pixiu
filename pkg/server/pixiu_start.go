@@ -20,7 +20,6 @@ package server
 import (
 	"net/http"
 	"strconv"
-	"sync"
 )
 
 import (
@@ -35,8 +34,6 @@ var server *Server
 
 // PX is Pixiu start struct
 type Server struct {
-	startWG sync.WaitGroup
-
 	listenerManager *ListenerManager
 	clusterManager  *ClusterManager
 	adapterManager  *AdapterManager
@@ -85,8 +82,6 @@ func (s *Server) GetTraceDriverManager() *tracing.TraceDriverManager {
 func (s *Server) Start() {
 	conf := config.GetBootstrap()
 
-	s.startWG.Add(1)
-
 	defer func() {
 		if re := recover(); re != nil {
 			logger.Error(re)
@@ -118,9 +113,7 @@ func (s *Server) Start() {
 
 // NewServer create server
 func NewServer() *Server {
-	return &Server{
-		startWG: sync.WaitGroup{},
-	}
+	return &Server{}
 }
 
 func Start(bs *model.Bootstrap) {
@@ -129,7 +122,9 @@ func Start(bs *model.Bootstrap) {
 	server = NewServer()
 	server.initialize(bs)
 	server.Start()
-	server.startWG.Wait()
+	// Block forever; the process exits on OS signals (default behavior),
+	// or via ListenerManager.gracefulShutdownInit when graceful shutdown is enabled.
+	select {}
 }
 
 func GetServer() *Server {
