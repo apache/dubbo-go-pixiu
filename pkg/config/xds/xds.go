@@ -71,7 +71,7 @@ func (a *Xds) createApiManager(config *model.ApiConfigSource,
 		}
 		client, err := apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType, apiclient.WithIstioService(dubboServices...))
 		if err != nil {
-			logger.Errorf("create envoy grpc api client error: %v", err)
+			logger.Errorf("create envoy grpc api client error: %+v", err)
 			return nil
 		}
 		return client
@@ -121,8 +121,13 @@ func (a *Xds) Start() {
 
 	// lds fetch just run on init phase.
 	if a.dynamicResourceMg.GetLds() != nil {
+		discoverApi := a.createApiManager(a.dynamicResourceMg.GetLds(), a.dynamicResourceMg.GetNode(), constant.ListenerType)
+		if discoverApi == nil {
+			logger.Errorf("failed to create LDS API manager")
+			return
+		}
 		a.lds = &LdsManager{
-			DiscoverApi: a.createApiManager(a.dynamicResourceMg.GetLds(), a.dynamicResourceMg.GetNode(), constant.ListenerType),
+			DiscoverApi: discoverApi,
 			listenerMg:  a.listenerMg,
 		}
 		if err := a.lds.Delta(); err != nil {
@@ -131,12 +136,17 @@ func (a *Xds) Start() {
 	}
 	// catch the ongoing cds config change.
 	if a.dynamicResourceMg.GetCds() != nil {
+		discoverApi := a.createApiManager(a.dynamicResourceMg.GetCds(), a.dynamicResourceMg.GetNode(), constant.ClusterType)
+		if discoverApi == nil {
+			logger.Errorf("failed to create CDS API manager")
+			return
+		}
 		a.cds = &CdsManager{
-			DiscoverApi: a.createApiManager(a.dynamicResourceMg.GetCds(), a.dynamicResourceMg.GetNode(), constant.ClusterType),
+			DiscoverApi: discoverApi,
 			clusterMg:   a.clusterMg,
 		}
 		if err := a.cds.Delta(); err != nil {
-			logger.Errorf("can not fetch lds")
+			logger.Errorf("can not fetch cds err is %+v", err)
 		}
 	}
 

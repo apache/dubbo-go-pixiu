@@ -103,7 +103,7 @@ type (
 
 func (g *AggGrpcApiClient) init() error {
 	if len(g.config.ClusterName) == 0 {
-		return errors.New("should config one cluster at least")
+		return errors.New("cluster name is required: at least one cluster must be configured in ApiConfigSource")
 	}
 	//todo implement multiple grpc api services
 	if len(g.config.ClusterName) > 1 {
@@ -112,7 +112,6 @@ func (g *AggGrpcApiClient) init() error {
 	cluster, err := g.grpcMg.GetGrpcCluster(g.config.ClusterName[0])
 
 	if err != nil {
-		logger.Errorf("get cluster for init error. error=%v", err)
 		return errors.Wrap(err, "get cluster for init error")
 	}
 	conn, err := cluster.GetConnection()

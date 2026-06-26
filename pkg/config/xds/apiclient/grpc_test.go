@@ -35,6 +35,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
@@ -151,4 +152,45 @@ func TestGRPCCluster_GetConnect(t *testing.T) {
 	assert.NoError(err)
 	state = connectivity.Shutdown
 	assert.False(g.IsAlive())
+}
+
+func TestCreateEnvoyGrpcApiClient_EmptyClusterName(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Test with empty cluster name - should return error without panic
+	config := &model.ApiConfigSource{
+		ClusterName: []string{}, // Empty cluster name
+	}
+	node := &model.Node{}
+	exitCh := make(chan struct{})
+
+	client, err := CreateEnvoyGrpcApiClient(config, node, exitCh, constant.ListenerType)
+	assert := require.New(t)
+	assert.Error(err)
+	assert.Contains(err.Error(), "cluster name is required")
+	assert.Nil(client)
+}
+
+func TestCreateEnvoyGrpcApiClient_ClusterNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	clusterMg.EXPECT().HasCluster("non-existent-cluster").Return(false)
+
+	// Initialize the global grpc manager with mock
+	Init(clusterMg)
+
+	config := &model.ApiConfigSource{
+		ClusterName: []string{"non-existent-cluster"},
+	}
+	node := &model.Node{}
+	exitCh := make(chan struct{})
+
+	client, err := CreateEnvoyGrpcApiClient(config, node, exitCh, constant.ClusterType)
+	assert := require.New(t)
+	assert.Error(err)
+	assert.Contains(err.Error(), "get cluster for init error")
+	assert.Nil(client)
 }
