@@ -135,10 +135,7 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 	registerServer(grpcServer, srv)
 
 	logger.Infof("management server listening on %d\n", port)
-	if err = grpcServer.Serve(lis); err != nil {
-		return nil
-	}
-	return nil
+	return grpcServer.Serve(lis)
 }
 
 func watchConfigAndReload() {

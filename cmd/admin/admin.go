@@ -54,7 +54,7 @@ var (
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := config2.LoadAPIConfigFromFile(configPath)
+			_, err := config2.LoadAPIConfigFromFile(apiConfigPath)
 			if err != nil {
 				return fmt.Errorf("load admin config error: %w", err)
 			}
