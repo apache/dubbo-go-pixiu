@@ -110,10 +110,17 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for k := range md {
-			dubboAttachment[k] = md.Get(k)[0]
+			values := md.Get(k)
+			if len(values) == 0 {
+				return nil, errors.Errorf("empty metadata value for key: %s", k)
+			}
+			dubboAttachment[k] = values[0]
 		}
 	}
-	interfaceName := dubboAttachment[constant.InterfaceKey].(string)
+	interfaceName, ok := dubboAttachment[constant.InterfaceKey].(string)
+	if !ok {
+		return nil, errors.Errorf("missing or invalid interface key in metadata: expected string, got %T", dubboAttachment[constant.InterfaceKey])
+	}
 
 	ra, err := dcm.routerCoordinator.RouteByPathAndName(interfaceName, methodName)
 
