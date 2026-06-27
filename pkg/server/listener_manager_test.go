@@ -369,7 +369,7 @@ type mockSlowListenerService struct {
 }
 
 func (m *mockSlowListenerService) Start() error { return nil }
-func (m *mockSlowListenerService) Close() error  { return nil }
+func (m *mockSlowListenerService) Close() error { return nil }
 func (m *mockSlowListenerService) ShutDown(wg any) error {
 	time.Sleep(m.duration)
 	if w, ok := wg.(*sync.WaitGroup); ok && w != nil {
