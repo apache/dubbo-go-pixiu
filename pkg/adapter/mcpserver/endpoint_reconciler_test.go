@@ -51,7 +51,7 @@ func (s *recordingEndpointSink) SetEndpoint(clusterName string, endpoint *model.
 	})
 }
 
-func (s *recordingEndpointSink) DeleteEndpoint(clusterName string, endpointID string) {
+func (s *recordingEndpointSink) DeleteEndpoint(clusterName, endpointID string) {
 	s.ops = append(s.ops, endpointOp{
 		action:  "delete",
 		cluster: clusterName,

@@ -33,7 +33,7 @@ import (
 
 type endpointSink interface {
 	SetEndpoint(clusterName string, endpoint *model.Endpoint)
-	DeleteEndpoint(clusterName string, endpointID string)
+	DeleteEndpoint(clusterName, endpointID string)
 }
 
 type clusterManagerEndpointSink struct{}
@@ -42,7 +42,7 @@ func (clusterManagerEndpointSink) SetEndpoint(clusterName string, endpoint *mode
 	server.GetClusterManager().SetEndpoint(clusterName, endpoint)
 }
 
-func (clusterManagerEndpointSink) DeleteEndpoint(clusterName string, endpointID string) {
+func (clusterManagerEndpointSink) DeleteEndpoint(clusterName, endpointID string) {
 	server.GetClusterManager().DeleteEndpoint(clusterName, endpointID)
 }
 
