@@ -48,6 +48,18 @@ func buildComposite(t *testing.T, cfg *model.RouterConfig) (*CompositeSelector, 
 	return cs, store
 }
 
+// tenantPolicyConfig returns a fail-closed config whose rules isolate the
+// "acme" and "globex" tenants to their own single-tag allow lists.
+func tenantPolicyConfig() *model.RouterConfig {
+	return &model.RouterConfig{
+		Fallback: FallbackFailClosed,
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
+			{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"globex"}},
+		}},
+	}
+}
+
 func tenantTools() []model.ToolConfig {
 	return []model.ToolConfig{
 		toolWithMeta("acme_read", &model.ToolMeta{Tags: []string{"acme"}}),
@@ -124,13 +136,7 @@ func TestComposite_EnforceOnCallAllowsInPlan(t *testing.T) {
 }
 
 func TestComposite_AuthorizeCallRecomputeReceiptBindsCommittedPlan(t *testing.T) {
-	cfg := &model.RouterConfig{
-		Fallback: FallbackFailClosed,
-		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
-			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
-			{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"globex"}},
-		}},
-	}
+	cfg := tenantPolicyConfig()
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
@@ -704,13 +710,7 @@ func TestComposite_AuthorizeCallAllowsAfterStaleRecompute(t *testing.T) {
 }
 
 func TestComposite_IdentityIsolatedCache(t *testing.T) {
-	cfg := &model.RouterConfig{
-		Fallback: FallbackFailClosed,
-		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
-			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
-			{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"globex"}},
-		}},
-	}
+	cfg := tenantPolicyConfig()
 	cs, store := buildComposite(t, cfg)
 	defer store.Stop()
 
