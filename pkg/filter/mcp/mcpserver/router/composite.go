@@ -59,6 +59,7 @@ type CompositeSelector struct {
 	defaultBundle   string
 	configHash      string
 	progressiveHash string
+	visibleFP       VisibleFingerprintFunc
 }
 
 // CompositeOptions configures a CompositeSelector. The builder populates it.
@@ -73,6 +74,7 @@ type CompositeOptions struct {
 	DefaultBundle string
 	ConfigHash    string
 	RouterID      string
+	VisibleFP     VisibleFingerprintFunc
 }
 
 // NewCompositeSelector assembles the pipeline from validated options.
@@ -91,6 +93,10 @@ func NewCompositeSelector(opts CompositeOptions) (*CompositeSelector, error) {
 	if log == nil {
 		log = NewDecisionLogger(0, false)
 	}
+	visibleFP := opts.VisibleFP
+	if visibleFP == nil {
+		visibleFP = DefaultVisibleFingerprint
+	}
 	return &CompositeSelector{
 		policy:          opts.Policy,
 		workflow:        opts.Workflow,
@@ -103,6 +109,7 @@ func NewCompositeSelector(opts CompositeOptions) (*CompositeSelector, error) {
 		defaultBundle:   opts.DefaultBundle,
 		configHash:      opts.ConfigHash,
 		progressiveHash: progressiveConfigHash(opts.Progressive),
+		visibleFP:       visibleFP,
 	}, nil
 }
 
@@ -244,33 +251,28 @@ func (p *selectionPipeline) selected() bool {
 
 func (c *CompositeSelector) newSelectionPlan(sc SelectionContext, candidates []model.ToolConfig, version, identityHash string, pipeline *selectionPipeline) *SelectionPlan {
 	plan := &SelectionPlan{
-		SessionID:        sc.SessionID,
-		ToolNames:        toolNames(pipeline.tools),
-		VisibleToolNames: visibleToolNames(pipeline.tools),
-		Mode:             ModeSelected,
-		Outcome:          pipeline.outcome,
-		StageCounts:      pipeline.stageCounts,
-		Reasons:          pipeline.traces,
-		Version:          version,
-		CreatedAt:        time.Now().UnixNano(),
-		IdentityHash:     identityHash,
-		ProgressiveHash:  c.progressiveHash,
-		ConfigHash:       c.configHash,
-		CatalogVersion:   c.catalogVersion(candidates, sc.CatalogVersion),
-		Expanded:         pipeline.expanded,
+		SessionID:          sc.SessionID,
+		ToolNames:          toolNames(pipeline.tools),
+		VisibleToolNames:   visibleToolNames(pipeline.tools),
+		VisibleFingerprint: c.visibleFP(pipeline.tools),
+		Mode:               ModeSelected,
+		Outcome:            pipeline.outcome,
+		StageCounts:        pipeline.stageCounts,
+		Reasons:            pipeline.traces,
+		Version:            version,
+		CreatedAt:          time.Now().UnixNano(),
+		IdentityHash:       identityHash,
+		ProgressiveHash:    c.progressiveHash,
+		ConfigHash:         c.configHash,
+		CatalogVersion:     c.catalogVersion(candidates, sc.CatalogVersion),
+		Expanded:           pipeline.expanded,
 	}
 	plan.toolSet = toolNameSet(plan.ToolNames)
 	return plan
 }
 
 func (c *CompositeSelector) storeSelectionPlan(key PlanKey, plan *SelectionPlan, sc SelectionContext) (*SelectionPlan, error) {
-	if err := c.store.Set(key, plan, sc); err != nil {
-		return nil, err
-	}
-	if stored, ok := c.store.Get(key); ok {
-		return stored, nil
-	}
-	return nil, ErrSessionPlanStale
+	return c.store.Commit(key, plan, sc)
 }
 
 // RefreshPlan recomputes a plan from a cloned store context and commits it only
@@ -368,6 +370,7 @@ func (c *CompositeSelector) applyFallback(sc SelectionContext, allowed []model.T
 		plan.Mode = ModeFailClosed
 		plan.ToolNames = nil
 		plan.VisibleToolNames = []string{}
+		plan.VisibleFingerprint = c.visibleFP(nil)
 		plan.toolSet = nil
 		return plan
 	}
@@ -380,6 +383,7 @@ func (c *CompositeSelector) applyFallback(sc SelectionContext, allowed []model.T
 		return plan
 	}
 	plan.ToolNames, plan.VisibleToolNames = fallbackBundleToolNames(allowed, bundle)
+	plan.VisibleFingerprint = c.visibleFP(filterToolsByName(allowed, plan.VisibleToolNames))
 	plan.toolSet = toolNameSet(plan.ToolNames)
 	return plan
 }
@@ -404,6 +408,23 @@ func fallbackBundleToolNames(allowed []model.ToolConfig, bundle map[string]struc
 		}
 	}
 	return toolNames, visibleToolNames
+}
+
+func filterToolsByName(tools []model.ToolConfig, names []string) []model.ToolConfig {
+	if len(tools) == 0 || len(names) == 0 {
+		return nil
+	}
+	keep := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		keep[name] = struct{}{}
+	}
+	out := make([]model.ToolConfig, 0, len(names))
+	for _, tool := range tools {
+		if _, ok := keep[tool.Name]; ok {
+			out = append(out, tool)
+		}
+	}
+	return out
 }
 
 func toolVisible(t model.ToolConfig) bool {
@@ -433,17 +454,12 @@ func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionConte
 		RouterID:        c.routerID,
 	})
 	if stale {
-		plan, err := c.Select(ctx, sc, candidates)
+		receipt, err := c.recomputeAndIssueReceipt(ctx, key, identityHash, sc, candidates, expectedVersion)
 		if err != nil {
 			recordCallDenied("stale_plan_recompute_failed")
 			return nil, ErrToolNotAuthorized
 		}
-		receipt, err = c.store.IssueReceipt(key, sc.Requested, plan, c.routerID)
-		if err != nil {
-			recordCallDenied("receipt_failed")
-			return nil, ErrToolNotAuthorized
-		}
-		return &receipt, nil
+		return receipt, nil
 	}
 	if err == nil {
 		return &receipt, nil
@@ -452,12 +468,36 @@ func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionConte
 	return nil, ErrToolNotAuthorized
 }
 
+func (c *CompositeSelector) recomputeAndIssueReceipt(_ context.Context, key PlanKey, identityHash string, sc SelectionContext, candidates []model.ToolConfig, version string) (*AuthorizationReceipt, error) {
+	start := time.Now()
+	plan := c.computeSelectionPlan(key, identityHash, sc, candidates, version)
+	committedPlan, receipt, err := c.store.CommitAndIssueReceipt(key, plan, sc, sc.Requested, c.routerID)
+	if err != nil {
+		return nil, err
+	}
+	result := "ok"
+	if outcomeAllowsFallback(committedPlan.Outcome) {
+		result = "fallback"
+		recordFallback(committedPlan.Outcome)
+	}
+	c.recordSelectionResult(result, committedPlan, candidates, start)
+	c.log.Log(sc, committedPlan, len(candidates))
+	return &receipt, nil
+}
+
 // RecordCallSuccess counts completed tool calls for progressive disclosure.
 func (c *CompositeSelector) RecordCallSuccess(_ context.Context, receipt AuthorizationReceipt) (CallSuccessResult, error) {
 	if c.progressive == nil {
 		return CallSuccessResult{}, nil
 	}
 	return c.store.RecordCallSuccess(receipt, c.progressive.expandAfter), nil
+}
+
+func (c *CompositeSelector) FinalizeReceipt(_ context.Context, receipt AuthorizationReceipt, outcome ReceiptOutcome) (CallSuccessResult, error) {
+	if c.progressive == nil {
+		return c.store.FinalizeReceipt(receipt, outcome, 0), nil
+	}
+	return c.store.FinalizeReceipt(receipt, outcome, c.progressive.expandAfter), nil
 }
 
 // version combines the static config hash with a fingerprint of the candidate

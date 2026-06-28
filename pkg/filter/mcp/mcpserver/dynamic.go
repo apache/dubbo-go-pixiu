@@ -69,6 +69,7 @@ type DynamicConsumer struct {
 	selector       router.ToolSelector
 	plans          *router.SessionPlanStore
 	governance     bool
+	runtimeID      string
 
 	// Tool configuration management grouped by server
 	mu            sync.RWMutex
@@ -84,6 +85,18 @@ func NewDynamicConsumer(reg *ToolRegistry, sm *transport.SessionManager, sseHand
 		serverConfigs:  make(map[string]*ServerToolConfig),
 		debounceTime:   DefaultDebounceTime,
 	}
+}
+
+func (d *DynamicConsumer) RuntimeID() string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.runtimeID
+}
+
+func (d *DynamicConsumer) setRuntimeID(id string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.runtimeID = id
 }
 
 func (d *DynamicConsumer) SetGovernance(selector router.ToolSelector, plans *router.SessionPlanStore) {
@@ -361,7 +374,7 @@ func (d *DynamicConsumer) sessionsWithChangedVisibleSet() map[string]struct{} {
 		if !committed {
 			continue
 		}
-		if !sameStrings(item.Plan.VisibleNames(), plan.VisibleNames()) {
+		if item.Plan.VisibleFingerprint != plan.VisibleFingerprint {
 			changed[item.Key.SessionID] = struct{}{}
 		}
 	}
@@ -372,16 +385,4 @@ func (d *DynamicConsumer) governanceEnabled() bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	return d.governance
-}
-
-func sameStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

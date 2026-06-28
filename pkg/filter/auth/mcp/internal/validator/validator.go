@@ -123,6 +123,12 @@ type Validator struct {
 	cancel    context.CancelFunc
 }
 
+// ValidationResult is the project-owned output of token validation. Callers
+// outside this package must not depend on the concrete JWT implementation.
+type ValidationResult struct {
+	Claims map[string]any
+}
+
 // providerInfo contains the provider configuration and its JWKS loader
 type providerInfo struct {
 	config Provider
@@ -267,8 +273,8 @@ func (v *Validator) buildLoaderFromJWKS(jwks string) (JWKSLoader, error) {
 	}
 }
 
-// Validate validates a JWT token using the specified provider
-func (v *Validator) Validate(providerName, tokenString string) (jwt.Token, error) {
+// Validate validates a JWT token using the specified provider.
+func (v *Validator) Validate(providerName, tokenString string) (*ValidationResult, error) {
 	v.mu.RLock()
 	provider, exists := v.providers[providerName]
 	v.mu.RUnlock()
@@ -322,7 +328,51 @@ func (v *Validator) Validate(providerName, tokenString string) (jwt.Token, error
 		return nil, ValidationError{Code: code, Message: msg, Err: err}
 	}
 
-	return token, nil
+	return &ValidationResult{Claims: tokenClaims(token)}, nil
+}
+
+func tokenClaims(tok jwt.Token) map[string]any {
+	if tok == nil {
+		return nil
+	}
+	keys := tok.Keys()
+	claims := make(map[string]any, len(keys))
+	for _, k := range keys {
+		var value any
+		if err := tok.Get(k, &value); err == nil {
+			claims[k] = cloneClaim(value)
+		}
+	}
+	return claims
+}
+
+func cloneClaim(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		cp := make(map[string]any, len(v))
+		for k, item := range v {
+			cp[k] = cloneClaim(item)
+		}
+		return cp
+	case []any:
+		cp := make([]any, len(v))
+		for i := range v {
+			cp[i] = cloneClaim(v[i])
+		}
+		return cp
+	case []string:
+		cp := make([]string, len(v))
+		copy(cp, v)
+		return cp
+	case map[string]string:
+		cp := make(map[string]string, len(v))
+		for k, item := range v {
+			cp[k] = item
+		}
+		return cp
+	default:
+		return v
+	}
 }
 
 // Provider returns the provider configuration by name

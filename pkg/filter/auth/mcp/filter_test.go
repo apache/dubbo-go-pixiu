@@ -25,6 +25,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -262,6 +264,48 @@ func TestMCPAuth_Success_RemoveAuthorizationHeader(t *testing.T) {
 	}
 	if v := hc.Request.Header.Get(constant.Authorization); v != "" {
 		t.Fatalf("Authorization header not removed on success")
+	}
+}
+
+func TestMCPAuth_SuccessStoresValidatedClaimsWithoutJWTDependency(t *testing.T) {
+	secret := []byte("secret123")
+	ff := buildFactoryWithHS256(t, secret)
+
+	token := makeHS256JWT(t, secret, "https://issuer.example.com", "mcp-aud", "read write")
+	hc, rr := newHttpContext(http.MethodGet, "/api/hello", "mcp.example.com")
+	hc.RouteEntry(&model.RouteAction{Cluster: "protected-cluster"})
+	hc.Request.Header.Set("Authorization", "Bearer "+token)
+
+	chain := dgpfilter.NewDefaultFilterChain()
+	_ = ff.PrepareFilterChain(hc, chain)
+	chain.OnDecode(hc)
+
+	if rr.Code != 0 && rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status code: %d", rr.Code)
+	}
+	claims, ok := hc.Params[constant.MCPAuthClaimsParamKey].(map[string]any)
+	if !ok {
+		t.Fatalf("validated claims missing from context params: %#v", hc.Params)
+	}
+	if claims["iss"] != "https://issuer.example.com" {
+		t.Fatalf("iss claim = %#v", claims["iss"])
+	}
+	if claims["scope"] != "read write" {
+		t.Fatalf("scope claim = %#v", claims["scope"])
+	}
+}
+
+func TestFilterPackageDoesNotImportJWXJWT(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("caller file unavailable")
+	}
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(file), "filter.go"))
+	if err != nil {
+		t.Fatalf("read filter.go: %v", err)
+	}
+	if strings.Contains(string(data), "github.com/lestrrat-go/jwx/v3/jwt") {
+		t.Fatalf("filter.go must not import the concrete JWT implementation")
 	}
 }
 

@@ -20,7 +20,6 @@ package mcpserver
 import (
 	"context"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -34,7 +33,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 func init() {
@@ -63,6 +61,8 @@ type (
 		controller registry.Controller
 		ctx        context.Context
 		cancel     context.CancelFunc
+		endpoints  *endpointReconciler
+		sink       mcpserver.ServerPublicationSink
 		mu         sync.RWMutex
 	}
 
@@ -83,8 +83,9 @@ func (p *Plugin) Kind() string {
 // CreateAdapter returns the mcp server adapter
 func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
 	return &Adapter{
-		id:  a.ID,
-		cfg: &AdapterConfig{Registries: make(map[string]model.Registry)},
+		id:        a.ID,
+		cfg:       &AdapterConfig{Registries: make(map[string]model.Registry)},
+		endpoints: newEndpointReconciler(clusterManagerEndpointSink{}),
 	}, nil
 }
 
@@ -157,47 +158,18 @@ func (a *Adapter) Apply() error {
 			continue
 		}
 
+		reconciler := a.endpoints
+		if reconciler == nil {
+			reconciler = newEndpointReconciler(clusterManagerEndpointSink{})
+			a.endpoints = reconciler
+		}
+		registryName := k
+		sink, err := a.bindPublicationSink()
+		if err != nil {
+			logger.Infof("[dubbo-go-pixiu] mcp adapter registry %s has no bound runtime publication sink: %v", registryName, err)
+		}
 		onChange := func(serverId string, cfg *model.McpServerConfig) {
-			if cfg == nil {
-				return
-			}
-
-			if serverId == "" {
-				serverId = "default"
-			}
-
-			// 1) apply tools dynamically to registry for filter usage
-			if dc, err := mcpserver.DynamicConsumerForSingleRuntime(); err == nil {
-				if err := dc.ApplyMcpServerConfigByServer(serverId, cfg); err != nil {
-					logger.Errorf("[dubbo-go-pixiu] mcp adapter apply server %s config error: %v", serverId, err)
-				}
-			} else {
-				logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s without a unique dynamic consumer: %v", serverId, err)
-			}
-			// 2) register endpoint for each tool using BackendURL (host:port) into cluster named by tool.Name
-			for _, tool := range cfg.Tools {
-				if tool.BackendURL == "" {
-					continue
-				}
-				result, err := util.ParseHostPortFromURL(tool.BackendURL)
-				if err != nil {
-					logger.Errorf("[dubbo-go-pixiu] mcp adapter failed to parse BackendURL '%s' for tool '%s': %v",
-						tool.BackendURL, tool.Name, err)
-					continue
-				}
-				if result.UsedFallback {
-					logger.Warnf("[dubbo-go-pixiu] mcp adapter using fallback for tool '%s' with BackendURL '%s': %s",
-						tool.Name, tool.BackendURL, result.FallbackInfo)
-				}
-				endpointID := result.Host + ":" + strconv.Itoa(result.Port)
-				server.GetClusterManager().SetEndpoint(tool.Cluster, &model.Endpoint{
-					ID: endpointID,
-					Address: model.SocketAddress{
-						Address: result.Host,
-						Port:    result.Port,
-					},
-				})
-			}
+			a.applyServerConfigEvent(reconciler, sink, registryName, serverId, cfg)
 		}
 
 		// build controller via provider-agnostic factory
@@ -210,6 +182,53 @@ func (a *Adapter) Apply() error {
 	}
 
 	return nil
+}
+
+func (a *Adapter) applyServerConfigEvent(reconciler *endpointReconciler, sink mcpserver.ServerPublicationSink, registryName, serverId string, cfg *model.McpServerConfig) {
+	if serverId == "" {
+		serverId = "default"
+	}
+
+	// Apply catalog and endpoints through one desired-state publication path. If
+	// no runtime target is bound, skip the entire update so authorization catalog
+	// and cluster endpoints cannot diverge.
+	if sink == nil {
+		logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s without a bound runtime publication sink", serverId)
+		return
+	}
+	runtimeID := sink.RuntimeID()
+	if runtimeID == "" {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter update received from server %s but publication sink has no runtime id", serverId)
+		return
+	}
+	if err := reconciler.ValidateServerConfig(runtimeID, registryName, serverId, cfg); err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter validate endpoints for server %s error: %v", serverId, err)
+		return
+	}
+	if err := sink.ApplyMcpServerConfigByServer(serverId, cfg); err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter apply server %s config error: %v", serverId, err)
+		return
+	}
+	if err := reconciler.ApplyServerConfig(runtimeID, registryName, serverId, cfg); err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter reconcile endpoints for server %s error: %v", serverId, err)
+	}
+}
+
+func (a *Adapter) bindPublicationSink() (mcpserver.ServerPublicationSink, error) {
+	if a.sink != nil && a.sink.RuntimeID() != "" {
+		return a.sink, nil
+	}
+	sink, err := mcpserver.ServerPublicationSinkForSingleRuntime()
+	if err != nil {
+		a.sink = nil
+		return nil, err
+	}
+	if sink.RuntimeID() == "" {
+		a.sink = nil
+		return nil, mcpserver.ErrDynamicConsumerUnavailable
+	}
+	a.sink = sink
+	return sink, nil
 }
 
 // Config returns the config of the adapter

@@ -26,10 +26,6 @@ import (
 )
 
 import (
-	"github.com/lestrrat-go/jwx/v3/jwt"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
@@ -160,7 +156,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	// Validate token using provider derived from issuer
-	tok, err := f.state.validator.Validate(providerName, token)
+	result, err := f.state.validator.Validate(providerName, token)
 	if err != nil {
 		// Map validator.ValidationError if possible
 		verr := validator.ValidationError{}
@@ -183,34 +179,17 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	// Propagate validated claims to downstream filters (e.g. the MCP tool
 	// router) via the shared context params. This is the only authoritative
 	// source of identity for routing decisions.
-	if claims := tokenClaims(tok); len(claims) > 0 {
+	if result != nil && len(result.Claims) > 0 {
 		if hc.Params == nil {
 			hc.Params = make(map[string]any)
 		}
-		hc.Params[constant.MCPAuthClaimsParamKey] = claims
+		hc.Params[constant.MCPAuthClaimsParamKey] = result.Claims
 	}
 
 	// remove Authorization header to avoid leaking token to downstream services
 	hc.Request.Header.Del(constant.Authorization)
 
 	return filter.Continue
-}
-
-// tokenClaims extracts a JWT's claims into a plain map for downstream consumers.
-// It returns nil for a nil token.
-func tokenClaims(tok jwt.Token) map[string]any {
-	if tok == nil {
-		return nil
-	}
-	keys := tok.Keys()
-	claims := make(map[string]any, len(keys))
-	for _, k := range keys {
-		var v any
-		if err := tok.Get(k, &v); err == nil {
-			claims[k] = v
-		}
-	}
-	return claims
 }
 
 // unauthorized writes 401 with WWW-Authenticate including resource metadata URL

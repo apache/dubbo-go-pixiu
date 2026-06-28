@@ -24,6 +24,8 @@ import (
 )
 
 import (
+	"github.com/lestrrat-go/jwx/v3/jwt"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -141,6 +143,22 @@ func TestValidationError_Error(t *testing.T) {
 
 	expected := "invalid_token: token is expired"
 	assert.Equal(t, expected, err.Error())
+}
+
+func TestTokenClaimsDefensiveCopy(t *testing.T) {
+	tok := jwt.New()
+	require.NoError(t, tok.Set("sub", "subject-1"))
+	require.NoError(t, tok.Set("nested", map[string]any{
+		"roles": []any{"reader"},
+	}))
+
+	claims := tokenClaims(tok)
+	claims["sub"] = "mutated"
+	claims["nested"].(map[string]any)["roles"].([]any)[0] = "admin"
+
+	fresh := tokenClaims(tok)
+	assert.Equal(t, "subject-1", fresh["sub"])
+	assert.Equal(t, "reader", fresh["nested"].(map[string]any)["roles"].([]any)[0])
 }
 
 func TestProvider_Configuration(t *testing.T) {

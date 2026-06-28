@@ -24,6 +24,8 @@ package router
 import (
 	"context"
 	"errors"
+	"hash/fnv"
+	"strconv"
 	"sync/atomic"
 )
 
@@ -101,22 +103,45 @@ type StageCount struct {
 
 // SelectionPlan is the final result of one selection, bound to a session.
 type SelectionPlan struct {
-	SessionID        string                `json:"session_id"`
-	ToolNames        []string              `json:"tool_names"`                   // authorized tool names, stable order
-	VisibleToolNames []string              `json:"visible_tool_names,omitempty"` // tools/list names; nil means same as ToolNames
-	Mode             string                `json:"mode"`                         // ModeSelected | ModeFallbackBundle | ModeFailClosed
-	Outcome          string                `json:"outcome,omitempty"`            // SelectionOutcome*
-	StageCounts      map[string]StageCount `json:"stage_counts,omitempty"`
-	Reasons          []DecisionTrace       `json:"reasons,omitempty"`  // bounded dropped-tool samples
-	Version          string                `json:"version"`            // metadata snapshot version (registry + config hash)
-	CreatedAt        int64                 `json:"created_at"`         // unix nano
-	IdentityHash     string                `json:"-"`                  // validated-claims fingerprint, never logged
-	ProgressiveHash  string                `json:"-"`                  // progressive config fingerprint
-	ConfigHash       string                `json:"-"`                  // normalized authorization config fingerprint
-	CatalogVersion   string                `json:"-"`                  // immutable catalog version used for this plan
-	Generation       uint64                `json:"-"`                  // monotonic per-session plan generation
-	Expanded         bool                  `json:"expanded,omitempty"` // progressive state for tests/log-free inspection
-	toolSet          map[string]struct{}   `json:"-"`
+	SessionID          string                `json:"session_id"`
+	ToolNames          []string              `json:"tool_names"`                   // authorized tool names, stable order
+	VisibleToolNames   []string              `json:"visible_tool_names,omitempty"` // tools/list names; nil means same as ToolNames
+	VisibleFingerprint string                `json:"-"`                            // tools/list visible definition fingerprint
+	Mode               string                `json:"mode"`                         // ModeSelected | ModeFallbackBundle | ModeFailClosed
+	Outcome            string                `json:"outcome,omitempty"`            // SelectionOutcome*
+	StageCounts        map[string]StageCount `json:"stage_counts,omitempty"`
+	Reasons            []DecisionTrace       `json:"reasons,omitempty"`  // bounded dropped-tool samples
+	Version            string                `json:"version"`            // metadata snapshot version (registry + config hash)
+	CreatedAt          int64                 `json:"created_at"`         // unix nano
+	IdentityHash       string                `json:"-"`                  // validated-claims fingerprint, never logged
+	ProgressiveHash    string                `json:"-"`                  // progressive config fingerprint
+	ConfigHash         string                `json:"-"`                  // normalized authorization config fingerprint
+	CatalogVersion     string                `json:"-"`                  // immutable catalog version used for this plan
+	Generation         uint64                `json:"-"`                  // monotonic per-session plan generation
+	Expanded           bool                  `json:"expanded,omitempty"` // progressive state for tests/log-free inspection
+	toolSet            map[string]struct{}   `json:"-"`
+}
+
+// VisibleFingerprintFunc hashes the client-visible tools/list definition for a
+// selected tool set. The MCP server layer injects the implementation that uses
+// the exact mcp-go response projection; router keeps a small default for tests
+// and non-server callers without importing the protocol package.
+type VisibleFingerprintFunc func([]model.ToolConfig) string
+
+func DefaultVisibleFingerprint(tools []model.ToolConfig) string {
+	return VisibleToolNamesFingerprint(visibleToolNames(tools))
+}
+
+func VisibleToolNamesFingerprint(names []string) string {
+	if len(names) == 0 {
+		return "00000000"
+	}
+	h := fnv.New64a()
+	for _, name := range names {
+		_, _ = h.Write([]byte(name))
+		_, _ = h.Write([]byte{0})
+	}
+	return strconv.FormatUint(h.Sum64(), 16)
 }
 
 // Contains reports whether the plan authorizes the named tool.
@@ -189,10 +214,23 @@ type CallSuccessResult struct {
 	Transitioned bool
 }
 
+type ReceiptOutcome int
+
+const (
+	ReceiptSucceeded ReceiptOutcome = iota
+	ReceiptAborted
+)
+
 // CallSuccessRecorder is implemented by selectors that track successful
 // tools/call completions separately from authorization checks.
 type CallSuccessRecorder interface {
 	RecordCallSuccess(ctx context.Context, receipt AuthorizationReceipt) (CallSuccessResult, error)
+}
+
+// ReceiptFinalizer is implemented by selectors that can release an issued
+// receipt on both successful and failed tools/call completion paths.
+type ReceiptFinalizer interface {
+	FinalizeReceipt(ctx context.Context, receipt AuthorizationReceipt, outcome ReceiptOutcome) (CallSuccessResult, error)
 }
 
 // AuthorizationReceipt binds one tools/call authorization to the plan and

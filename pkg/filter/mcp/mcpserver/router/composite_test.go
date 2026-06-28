@@ -123,6 +123,45 @@ func TestComposite_EnforceOnCallAllowsInPlan(t *testing.T) {
 	assert.ErrorIs(t, authorizeCall(cs, context.Background(), SelectionContext{SessionID: "s1", Requested: "ghost"}, tools), ErrToolNotAuthorized)
 }
 
+func TestComposite_AuthorizeCallRecomputeReceiptBindsCommittedPlan(t *testing.T) {
+	cfg := &model.RouterConfig{
+		Fallback: FallbackFailClosed,
+		Policy: model.PolicyConfig{Rules: []model.PolicyRule{
+			{Name: "acme", When: model.PolicyMatch{Claim: "tenant", Equals: "acme"}, AllowTags: []string{"acme"}},
+			{Name: "globex", When: model.PolicyMatch{Claim: "tenant", Equals: "globex"}, AllowTags: []string{"globex"}},
+		}},
+	}
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	tools := []model.ToolConfig{
+		toolWithMeta("acme_read", &model.ToolMeta{Tags: []string{"acme"}}),
+		toolWithMeta("globex_read", &model.ToolMeta{Tags: []string{"globex"}}),
+	}
+
+	_, err := cs.Select(context.Background(), SelectionContext{SessionID: "s1", Tenant: "globex", Claims: map[string]any{"tenant": "globex"}}, tools)
+	require.NoError(t, err)
+
+	acmeReceipt, err := cs.AuthorizeCall(context.Background(), SelectionContext{
+		SessionID: "s1",
+		Tenant:    "acme",
+		Claims:    map[string]any{"tenant": "acme"},
+		Requested: "acme_read",
+	}, tools)
+	require.NoError(t, err)
+	require.NotNil(t, acmeReceipt)
+	assert.Equal(t, "acme_read", acmeReceipt.ToolName)
+
+	_, err = cs.Select(context.Background(), SelectionContext{SessionID: "s1", Tenant: "globex", Claims: map[string]any{"tenant": "globex"}}, tools)
+	require.NoError(t, err)
+
+	got, ok := store.Get(cs.planKey("s1"))
+	require.True(t, ok)
+	assert.Equal(t, []string{"globex_read"}, got.ToolNames)
+	assert.NotEqual(t, got.IdentityHash, acmeReceipt.IdentityHash)
+	assert.Equal(t, CallSuccessResult{}, store.FinalizeReceipt(*acmeReceipt, ReceiptSucceeded, 1), "receipt from acme generation must not advance the later globex plan")
+}
+
 func TestComposite_HiddenDiscoveryStillAuthorized(t *testing.T) {
 	cfg := testRouterConfig()
 	cs, store := buildComposite(t, cfg)

@@ -206,9 +206,14 @@ func (f *FilterFactory) configureSelector() error {
 	if !f.runtime.governanceEnabled {
 		return nil
 	}
-	selector, err := router.Build(f.cfg.Router, f.runtime.plans)
+	selector, err := router.BuildWithOptions(f.cfg.Router, f.runtime.plans, router.BuildOptions{
+		VisibleFP: visibleToolsFingerprint,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to build mcp tool router: %v", err)
+	}
+	if _, ok := selector.(router.ReceiptFinalizer); !ok {
+		return fmt.Errorf("failed to build mcp tool router: selector does not support receipt finalization")
 	}
 	f.runtime.selector = selector
 	f.runtime.dynamic.SetGovernance(selector, f.runtime.plans)

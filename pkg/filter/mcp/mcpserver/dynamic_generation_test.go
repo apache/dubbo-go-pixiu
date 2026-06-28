@@ -40,7 +40,7 @@ func newDynamicRefreshFixture(t *testing.T, cfg *model.RouterConfig, tools []mod
 	require.NoError(t, registry.ReplaceAllTools(tools))
 	sm := transport.NewSessionManager()
 	store := router.NewSessionPlanStore()
-	selector, err := router.Build(cfg, store)
+	selector, err := router.BuildWithOptions(cfg, store, router.BuildOptions{VisibleFP: visibleToolsFingerprint})
 	require.NoError(t, err)
 	session, err := sm.CreateSession()
 	require.NoError(t, err)
@@ -152,4 +152,48 @@ func TestDynamicSessionDeletionCallbacksAreIdempotent(t *testing.T) {
 	sm.RemoveSession(session.ID)
 	sm.RemoveSession(session.ID)
 	assert.Equal(t, 0, store.Len())
+}
+
+func TestDynamicChangedVisibleDefinitionDetectsDescriptionChange(t *testing.T) {
+	tool := createTestToolConfig("tool", "old description")
+	registry, sm, store, selector, session := newDynamicRefreshFixture(t, &model.RouterConfig{}, []model.ToolConfig{tool})
+	defer sm.Stop()
+	defer store.Stop()
+
+	oldPlan := selectPlanForSession(t, registry, selector, session, nil)
+	require.NotEmpty(t, oldPlan.VisibleFingerprint)
+
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+	consumer.SetGovernance(selector, store)
+	consumer.SetDebounceTime(0)
+
+	tool.Description = "new description"
+	_, err := consumer.applyServerTools("server-a", []model.ToolConfig{tool})
+	require.NoError(t, err)
+
+	changed := consumer.sessionsWithChangedVisibleSet()
+	_, ok := changed[session.ID]
+	assert.True(t, ok, "same tool name with changed tools/list definition must notify")
+}
+
+func TestDynamicChangedVisibleDefinitionIgnoresBackendOnlyChange(t *testing.T) {
+	tool := createTestToolConfig("tool", "description")
+	tool.BackendURL = "http://127.0.0.1:8080"
+	registry, sm, store, selector, session := newDynamicRefreshFixture(t, &model.RouterConfig{}, []model.ToolConfig{tool})
+	defer sm.Stop()
+	defer store.Stop()
+
+	selectPlanForSession(t, registry, selector, session, nil)
+
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+	consumer.SetGovernance(selector, store)
+	consumer.SetDebounceTime(0)
+
+	tool.BackendURL = "http://127.0.0.1:9090"
+	_, err := consumer.applyServerTools("server-a", []model.ToolConfig{tool})
+	require.NoError(t, err)
+
+	changed := consumer.sessionsWithChangedVisibleSet()
+	_, ok := changed[session.ID]
+	assert.False(t, ok, "backend-only changes must not trigger tools/list_changed")
 }

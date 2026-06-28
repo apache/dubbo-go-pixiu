@@ -143,21 +143,29 @@ func (s *SessionPlanStore) Get(key PlanKey) (*SelectionPlan, bool) {
 	return clonePlan(e.plan, true), true
 }
 
-// Set stores or replaces the plan for its session. Successful-call state is
+// Commit stores or replaces the plan for its session and returns the
+// authoritative clone committed under the store lock. Successful-call state is
 // preserved only while the verified identity and progressive config hashes are
 // unchanged; identity/config changes reset progressive disclosure.
-func (s *SessionPlanStore) Set(key PlanKey, plan *SelectionPlan, sc SelectionContext) error {
+func (s *SessionPlanStore) Commit(key PlanKey, plan *SelectionPlan, sc SelectionContext) (*SelectionPlan, error) {
 	stored := clonePlan(plan, false)
 	if err := validatePlanWrite(key, stored, sc); err != nil {
-		return err
+		return nil, err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.sessionActiveLocked(sc) {
-		return ErrSessionPlanNotActive
+		return nil, ErrSessionPlanNotActive
 	}
-	_, err := s.setLocked(key, stored, sc, true)
+	return s.setLocked(key, stored, sc, true)
+}
+
+// Set stores or replaces the plan for its session. It is retained for callers
+// that do not need the committed clone; new authorization paths should use
+// Commit or CommitAndIssueReceipt.
+func (s *SessionPlanStore) Set(key PlanKey, plan *SelectionPlan, sc SelectionContext) error {
+	_, err := s.Commit(key, plan, sc)
 	return err
 }
 
@@ -345,6 +353,33 @@ func (s *SessionPlanStore) IssueReceiptForVersion(req ReceiptVersionRequest) (Au
 	return e.issueReceipt(req.Key, req.Requested, req.RouterID), false, nil
 }
 
+// CommitAndIssueReceipt atomically publishes a recomputed plan and issues a
+// receipt from that exact committed generation.
+func (s *SessionPlanStore) CommitAndIssueReceipt(key PlanKey, plan *SelectionPlan, sc SelectionContext, requested, routerID string) (*SelectionPlan, AuthorizationReceipt, error) {
+	stored := clonePlan(plan, false)
+	if err := validatePlanWrite(key, stored, sc); err != nil {
+		return nil, AuthorizationReceipt{}, err
+	}
+	if requested == "" {
+		return nil, AuthorizationReceipt{}, ErrToolNotAuthorized
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.sessionActiveLocked(sc) {
+		return nil, AuthorizationReceipt{}, ErrSessionPlanNotActive
+	}
+	committed, err := s.setLocked(key, stored, sc, true)
+	if err != nil {
+		return nil, AuthorizationReceipt{}, err
+	}
+	e, ok := s.entries[key]
+	if !ok || e.plan == nil || !e.plan.Contains(requested) {
+		return nil, AuthorizationReceipt{}, ErrToolNotAuthorized
+	}
+	return committed, e.issueReceipt(key, requested, routerID), nil
+}
+
 func (e *sessionEntry) issueReceipt(key PlanKey, requested, routerID string) AuthorizationReceipt {
 	e.nextReceiptID++
 	if e.activeReceipts == nil {
@@ -366,19 +401,20 @@ func (e *sessionEntry) issueReceipt(key PlanKey, requested, routerID string) Aut
 	}
 }
 
-// RecordCallSuccess records a successful tool call and returns whether this
-// call crossed the progressive threshold. The threshold update and transition
-// check happen under one lock, so concurrent calls can observe at most one
-// transition.
-func (s *SessionPlanStore) RecordCallSuccess(receipt AuthorizationReceipt, expandAfter int) CallSuccessResult {
+// FinalizeReceipt releases a non-replayable receipt. Success advances
+// progressive state; abort only frees the in-flight capability.
+func (s *SessionPlanStore) FinalizeReceipt(receipt AuthorizationReceipt, outcome ReceiptOutcome, expandAfter int) CallSuccessResult {
 	key := NewPlanKey(receipt.RouterInstanceID, receipt.SessionID)
-	if !key.valid() || receipt.ToolName == "" || expandAfter <= 0 || receipt.ReceiptID == 0 || receipt.state == nil {
+	if !key.valid() || receipt.ToolName == "" || receipt.ReceiptID == 0 || receipt.state == nil {
 		return CallSuccessResult{}
 	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	return s.finalizeReceiptLocked(key, receipt, outcome, expandAfter)
+}
+
+func (s *SessionPlanStore) finalizeReceiptLocked(key PlanKey, receipt AuthorizationReceipt, outcome ReceiptOutcome, expandAfter int) CallSuccessResult {
 	e, ok := s.entries[key]
 	if !ok || e.plan == nil ||
 		e.generation != receipt.PlanGeneration ||
@@ -393,6 +429,9 @@ func (s *SessionPlanStore) RecordCallSuccess(receipt AuthorizationReceipt, expan
 		return CallSuccessResult{}
 	}
 	delete(e.activeReceipts, receipt.ReceiptID)
+	if outcome != ReceiptSucceeded || expandAfter <= 0 {
+		return CallSuccessResult{}
+	}
 	e.callCount++
 
 	result := CallSuccessResult{Count: e.callCount}
@@ -405,6 +444,17 @@ func (s *SessionPlanStore) RecordCallSuccess(receipt AuthorizationReceipt, expan
 		e.activeReceipts = nil
 	}
 	return result
+}
+
+// RecordCallSuccess records a successful tool call and returns whether this
+// call crossed the progressive threshold. The threshold update and transition
+// check happen under one lock, so concurrent calls can observe at most one
+// transition.
+func (s *SessionPlanStore) RecordCallSuccess(receipt AuthorizationReceipt, expandAfter int) CallSuccessResult {
+	if expandAfter <= 0 {
+		return CallSuccessResult{}
+	}
+	return s.FinalizeReceipt(receipt, ReceiptSucceeded, expandAfter)
 }
 
 // CallState returns progressive state for the current identity/config pair.

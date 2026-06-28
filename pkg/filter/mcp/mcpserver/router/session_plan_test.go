@@ -102,6 +102,77 @@ func TestSessionPlanStore_SetGet(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestSessionPlanStore_CommitReturnsCurrentCommittedPlan(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	committedA, err := s.Commit(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"a"},
+		Version:         "version-a",
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, SelectionContext{SessionID: key.SessionID})
+	require.NoError(t, err)
+
+	_, err = s.Commit(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"b"},
+		Version:         "version-b",
+		IdentityHash:    "identity-b",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, SelectionContext{SessionID: key.SessionID})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"a"}, committedA.ToolNames)
+	assert.Equal(t, "identity-a", committedA.IdentityHash)
+	got, ok := s.Get(key)
+	require.True(t, ok)
+	assert.Equal(t, []string{"b"}, got.ToolNames)
+	assert.Equal(t, "identity-b", got.IdentityHash)
+}
+
+func TestSessionPlanStore_CommitAndIssueReceiptUsesCommittedPlan(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	committed, receipt, err := s.CommitAndIssueReceipt(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"a"},
+		Version:         "version-a",
+		IdentityHash:    "identity-a",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, SelectionContext{SessionID: key.SessionID}, "a", key.RouterID)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"a"}, committed.ToolNames)
+	assert.Equal(t, committed.Generation, receipt.PlanGeneration)
+	assert.Equal(t, "identity-a", receipt.IdentityHash)
+	assert.Equal(t, 1, activeReceiptCountForTest(s, key))
+
+	_, err = s.Commit(key, &SelectionPlan{
+		SessionID:       "s1",
+		ToolNames:       []string{"b"},
+		Version:         "version-b",
+		IdentityHash:    "identity-b",
+		ConfigHash:      "config-a",
+		CatalogVersion:  "catalog-a",
+		ProgressiveHash: "progressive-a",
+	}, SelectionContext{SessionID: key.SessionID})
+	require.NoError(t, err)
+
+	assert.Equal(t, CallSuccessResult{}, s.FinalizeReceipt(receipt, ReceiptSucceeded, 1))
+	assert.Equal(t, int64(0), s.CallCount(key), "stale receipt from prior generation must not advance new plan")
+}
+
 func TestSessionPlanStore_IssueReceiptAllowsEquivalentGenerationRefresh(t *testing.T) {
 	s := newTestPlanStore(10)
 	defer s.Stop()
@@ -353,6 +424,64 @@ func TestSessionPlanStore_RecordCallSuccessIgnoresUnknownOrOutsidePlan(t *testin
 	assert.Equal(t, int64(0), s.CallCount(key))
 }
 
+func TestSessionPlanStore_FinalizeReceiptAbortReleasesWithoutProgress(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	receipt := issueReceiptForTest(t, s, key, "a")
+	assert.Equal(t, 1, activeReceiptCountForTest(s, key))
+
+	assert.Equal(t, CallSuccessResult{}, s.FinalizeReceipt(receipt, ReceiptAborted, 1))
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+	assert.Equal(t, int64(0), s.CallCount(key))
+	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(receipt, 1), "aborted receipt must not be replayable")
+}
+
+func TestSessionPlanStore_FinalizeReceiptSuccessReleasesAndProgresses(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	receipt := issueReceiptForTest(t, s, key, "a")
+
+	assert.Equal(t, CallSuccessResult{Count: 1, Transitioned: true}, s.FinalizeReceipt(receipt, ReceiptSucceeded, 1))
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+	assert.Equal(t, int64(1), s.CallCount(key))
+	assert.Equal(t, CallSuccessResult{}, s.FinalizeReceipt(receipt, ReceiptSucceeded, 1), "finalize must be idempotent for progress")
+	assert.Equal(t, int64(1), s.CallCount(key))
+}
+
+func TestSessionPlanStore_FinalizeReceiptWithoutProgressiveStillReleases(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	receipt := issueReceiptForTest(t, s, key, "a")
+
+	assert.Equal(t, CallSuccessResult{}, s.FinalizeReceipt(receipt, ReceiptSucceeded, 0))
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+	assert.Equal(t, int64(0), s.CallCount(key))
+}
+
+func TestSessionPlanStore_FinalizeReceiptAbortManyFailuresDoesNotLeak(t *testing.T) {
+	s := newTestPlanStore(10)
+	defer s.Stop()
+
+	key := testPlanKey("s1")
+	require.NoError(t, s.Set(key, &SelectionPlan{SessionID: "s1", ToolNames: []string{"a"}}, SelectionContext{SessionID: key.SessionID}))
+	for i := 0; i < 10000; i++ {
+		receipt := issueReceiptForTest(t, s, key, "a")
+		s.FinalizeReceipt(receipt, ReceiptAborted, 1)
+	}
+
+	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
+	assert.Equal(t, int64(0), s.CallCount(key))
+}
+
 func TestSessionPlanStore_ReceiptBookkeepingBoundedAfterManyCompletions(t *testing.T) {
 	s := newTestPlanStore(10)
 	defer s.Stop()
@@ -393,7 +522,7 @@ func TestSessionPlanStore_ConcurrentReceiptCompletionCountsOnce(t *testing.T) {
 	assert.Equal(t, CallSuccessResult{}, s.RecordCallSuccess(receipt, 10))
 }
 
-func TestSessionPlanStore_UnfinishedReceiptStaysActiveUntilPlanLifecycleEnds(t *testing.T) {
+func TestSessionPlanStore_AbortOneReceiptDoesNotConsumeAnother(t *testing.T) {
 	s := newTestPlanStore(10)
 	defer s.Stop()
 
@@ -403,10 +532,11 @@ func TestSessionPlanStore_UnfinishedReceiptStaysActiveUntilPlanLifecycleEnds(t *
 	assert.Equal(t, 1, activeReceiptCountForTest(s, key))
 
 	other := issueReceiptForTest(t, s, key, "a")
-	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(other, 10))
-	assert.Equal(t, 1, activeReceiptCountForTest(s, key), "unfinished receipt must not be removed by another completion")
+	assert.Equal(t, 2, activeReceiptCountForTest(s, key))
+	assert.Equal(t, CallSuccessResult{}, s.FinalizeReceipt(receipt, ReceiptAborted, 10))
+	assert.Equal(t, 1, activeReceiptCountForTest(s, key), "aborting one receipt must not remove another in-flight call")
 
-	assert.Equal(t, CallSuccessResult{Count: 2}, s.RecordCallSuccess(receipt, 10))
+	assert.Equal(t, CallSuccessResult{Count: 1}, s.RecordCallSuccess(other, 10))
 	assert.Equal(t, 0, activeReceiptCountForTest(s, key))
 }
 

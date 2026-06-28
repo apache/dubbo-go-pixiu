@@ -24,6 +24,10 @@ import (
 	"sync/atomic"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+)
+
 var (
 	runtimeIndexMu   sync.RWMutex
 	runtimeIndex     = map[string]*RuntimeState{}
@@ -34,6 +38,14 @@ var (
 var ErrDynamicConsumerUnavailable = errors.New("mcp dynamic consumer unavailable")
 var ErrDynamicConsumerAmbiguous = errors.New("multiple mcp dynamic consumers registered")
 
+// ServerPublicationSink is the dynamic registry publication target owned by one
+// MCP runtime. Registry adapters bind to this sink once instead of discovering a
+// runtime on every event.
+type ServerPublicationSink interface {
+	RuntimeID() string
+	ApplyMcpServerConfigByServer(serverId string, cfg *model.McpServerConfig) error
+}
+
 func registerRuntime(runtime *RuntimeState) string {
 	if runtime == nil {
 		return ""
@@ -42,6 +54,9 @@ func registerRuntime(runtime *RuntimeState) string {
 	runtimeIndexMu.Lock()
 	runtimeIndex[id] = runtime
 	runtimeIndexMu.Unlock()
+	if runtime.dynamic != nil {
+		runtime.dynamic.setRuntimeID(id)
+	}
 	return id
 }
 
@@ -50,8 +65,12 @@ func unregisterRuntime(id string) {
 		return
 	}
 	runtimeIndexMu.Lock()
+	runtime := runtimeIndex[id]
 	delete(runtimeIndex, id)
 	runtimeIndexMu.Unlock()
+	if runtime != nil && runtime.dynamic != nil {
+		runtime.dynamic.setRuntimeID("")
+	}
 }
 
 // Stop releases all runtime-owned state. It does not affect other MCP filters.
@@ -88,6 +107,13 @@ func DynamicConsumerForSingleRuntime() (*DynamicConsumer, error) {
 		return nil, ErrDynamicConsumerAmbiguous
 	}
 	return nil, ErrDynamicConsumerUnavailable
+}
+
+// ServerPublicationSinkForSingleRuntime returns the publication sink for the
+// only registered runtime. It is a compatibility bridge for the process-global
+// registry adapter; callers must treat ambiguous runtime state as no target.
+func ServerPublicationSinkForSingleRuntime() (ServerPublicationSink, error) {
+	return DynamicConsumerForSingleRuntime()
 }
 
 // GetOrInitDynamicConsumer preserves the legacy registry-center entry point.

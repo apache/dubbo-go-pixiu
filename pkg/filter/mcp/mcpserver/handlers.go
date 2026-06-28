@@ -18,10 +18,13 @@
 package mcpserver
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -112,9 +115,18 @@ func (f *MCPServerFilter) handleInitialize(ctx *MCPContext, req mcp.JSONRPCReque
 
 	response := f.responseBuilder.Success(req.ID, result)
 
-	// Per MCP spec: assign a session ID at initialization time for Streamable HTTP transport
-	// This enables clients to use the session for SSE-based responses
-	session, err := f.sessionManager.CreateSession()
+	// Per MCP spec: assign a session ID at initialization time for Streamable HTTP transport.
+	// Governance mode rejects client-supplied IDs to avoid session fixation; legacy
+	// non-governance mode preserves the existing behavior of reusing a valid ID.
+	var (
+		session *transport.MCPSession
+		err     error
+	)
+	if f.governanceEnabled {
+		session, err = f.sessionManager.CreateSession()
+	} else {
+		session, _, err = f.sessionManager.EnsureSession(ctx.SessionID())
+	}
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to create session: %v", err)
 		return f.errorHandler.SendInternalError(ctx, req.ID, "failed to create session")
@@ -175,17 +187,20 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 		}
 	}
 
-	tools := make([]mcp.Tool, 0, len(toolCfgs))
-
-	// Build tools using mcp-go API for standard compliance
-	for _, toolCfg := range toolCfgs {
-		tools = append(tools, f.buildMCPTool(toolCfg))
-	}
+	tools := f.buildMCPTools(toolCfgs)
 
 	// Build standard MCP tools list response using mcp-go structures
 	result := mcp.NewListToolsResult(tools, "")
 
 	return f.responseBuilder.Success(req.ID, result), nil
+}
+
+func (f *MCPServerFilter) buildMCPTools(toolCfgs []model.ToolConfig) []mcp.Tool {
+	tools := make([]mcp.Tool, 0, len(toolCfgs))
+	for _, toolCfg := range toolCfgs {
+		tools = append(tools, f.buildMCPTool(toolCfg))
+	}
+	return tools
 }
 
 func (f *MCPServerFilter) buildMCPTool(toolCfg model.ToolConfig) mcp.Tool {
@@ -206,6 +221,42 @@ func (f *MCPServerFilter) buildMCPTool(toolCfg model.ToolConfig) mcp.Tool {
 	}
 
 	return mcp.NewTool(toolCfg.Name, toolOptions...)
+}
+
+func visibleToolsFingerprint(tools []model.ToolConfig) string {
+	mcpTools := (&MCPServerFilter{}).buildMCPTools(discoverableToolConfigs(tools))
+	if len(mcpTools) == 0 {
+		return router.VisibleToolNamesFingerprint(nil)
+	}
+	items := make([]string, 0, len(mcpTools))
+	for _, tool := range mcpTools {
+		data, err := json.Marshal(tool)
+		if err != nil {
+			data = []byte(tool.Name)
+		}
+		items = append(items, string(data))
+	}
+	sort.Strings(items)
+	hash := sha256.New()
+	for _, item := range items {
+		_, _ = hash.Write([]byte(item))
+		_, _ = hash.Write([]byte{0})
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func discoverableToolConfigs(tools []model.ToolConfig) []model.ToolConfig {
+	if len(tools) == 0 {
+		return nil
+	}
+	out := make([]model.ToolConfig, 0, len(tools))
+	for _, tool := range tools {
+		if tool.Meta != nil && tool.Meta.DiscoveryVisibility != nil && !*tool.Meta.DiscoveryVisibility {
+			continue
+		}
+		out = append(out, tool)
+	}
+	return out
 }
 
 func (f *MCPServerFilter) routerSessionValid(ctx *MCPContext) bool {
@@ -496,6 +547,12 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 		}
 		ctx.SetAuthorizationReceipt(receipt)
 	}
+	receiptForwarded := false
+	defer func() {
+		if !receiptForwarded {
+			f.finalizeAuthorizationReceipt(ctx, router.ReceiptAborted)
+		}
+	}()
 
 	toolConfig, exists := snapshot.lookup(params.Name)
 	if !exists {
@@ -524,6 +581,7 @@ func (f *MCPServerFilter) handleToolCall(ctx *MCPContext, req mcp.JSONRPCRequest
 	ctx.Route = &model.RouteAction{
 		Cluster: toolConfig.Cluster,
 	}
+	receiptForwarded = true
 
 	// Continue to next filter for backend forwarding
 	return filter.Continue
@@ -610,6 +668,7 @@ func (f *MCPServerFilter) handleToolCallResponse(ctx *MCPContext) filter.FilterS
 	requestID := ctx.McpRequestID()
 	if requestID == nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server missing request ID for tool call response")
+		f.finalizeAuthorizationReceipt(ctx, router.ReceiptAborted)
 		return filter.Continue
 	}
 
@@ -617,6 +676,7 @@ func (f *MCPServerFilter) handleToolCallResponse(ctx *MCPContext) filter.FilterS
 	responseBody, statusCode, err := f.extractBackendResponse(ctx)
 	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to extract backend response: %v", err)
+		f.finalizeAuthorizationReceipt(ctx, router.ReceiptAborted)
 		return f.errorHandler.SendToolCallError(ctx, requestID, "failed to process backend response")
 	}
 
@@ -650,18 +710,20 @@ func (f *MCPServerFilter) extractBackendResponse(ctx *MCPContext) ([]byte, int, 
 func (f *MCPServerFilter) processToolCallResponse(ctx *MCPContext, requestID any, responseBody []byte, statusCode int) filter.FilterStatus {
 	if f.governanceEnabled && !f.routerSessionValid(ctx) {
 		logger.Warnf("[dubbo-go-pixiu] mcp tool router rejected tool response for invalid session")
+		f.finalizeAuthorizationReceipt(ctx, router.ReceiptAborted)
 		return f.errorHandler.SendToolCallError(ctx, requestID, "MCP session invalidated during request")
 	}
 	// Check for backend errors
 	if statusCode >= 400 {
 		logger.Errorf("[dubbo-go-pixiu] mcp server backend returned error status: %d", statusCode)
+		f.finalizeAuthorizationReceipt(ctx, router.ReceiptAborted)
 		return f.errorHandler.SendToolCallError(ctx, requestID, fmt.Sprintf("backend error: %d", statusCode))
 	}
 
 	// Build successful response using ToolCallSuccess method
 	content := strings.TrimSpace(string(responseBody))
 	mcpResponse := f.responseBuilder.ToolCallSuccess(requestID, content)
-	transitioned := f.recordToolCallSuccess(ctx)
+	transitioned := f.finalizeAuthorizationReceipt(ctx, router.ReceiptSucceeded)
 	status := f.sendMCPResponse(ctx, mcpResponse)
 	if transitioned {
 		f.notifyToolsListChanged(ctx.SessionID())
@@ -669,21 +731,24 @@ func (f *MCPServerFilter) processToolCallResponse(ctx *MCPContext, requestID any
 	return status
 }
 
-func (f *MCPServerFilter) recordToolCallSuccess(ctx *MCPContext) bool {
+func (f *MCPServerFilter) finalizeAuthorizationReceipt(ctx *MCPContext, outcome router.ReceiptOutcome) bool {
 	if !f.governanceEnabled {
-		return false
-	}
-	recorder, ok := f.selector.(router.CallSuccessRecorder)
-	if !ok {
 		return false
 	}
 	receipt := ctx.AuthorizationReceipt()
 	if receipt == nil {
 		return false
 	}
-	result, err := recorder.RecordCallSuccess(ctx.Ctx, *receipt)
+	finalizer, ok := f.selector.(router.ReceiptFinalizer)
+	if !ok {
+		logger.Errorf("[dubbo-go-pixiu] mcp tool router cannot finalize authorization receipt: selector does not implement ReceiptFinalizer")
+		ctx.SetAuthorizationReceipt(nil)
+		return false
+	}
+	result, err := finalizer.FinalizeReceipt(ctx.Ctx, *receipt, outcome)
+	ctx.SetAuthorizationReceipt(nil)
 	if err != nil {
-		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to record successful tool call: %v", err)
+		logger.Warnf("[dubbo-go-pixiu] mcp tool router failed to finalize authorization receipt: %v", err)
 		return false
 	}
 	if !result.Transitioned {

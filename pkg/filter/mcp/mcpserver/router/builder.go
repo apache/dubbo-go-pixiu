@@ -40,6 +40,14 @@ var routerInstanceCounter uint64
 // Configuration errors (invalid regex, unknown default bundle) fail fast so a
 // broken policy chain never silently degrades to the wrong default.
 func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, error) {
+	return BuildWithOptions(cfg, store, BuildOptions{})
+}
+
+type BuildOptions struct {
+	VisibleFP VisibleFingerprintFunc
+}
+
+func BuildWithOptions(cfg *model.RouterConfig, store *SessionPlanStore, buildOpts BuildOptions) (ToolSelector, error) {
 	cfg = normalizeConfig(cfg)
 	if store == nil {
 		return nil, fmt.Errorf("router session plan store is nil")
@@ -71,6 +79,7 @@ func Build(cfg *model.RouterConfig, store *SessionPlanStore) (ToolSelector, erro
 		DefaultBundle: cfg.DefaultBundle,
 		ConfigHash:    cfgHash,
 		RouterID:      newRouterInstanceID(cfgHash),
+		VisibleFP:     buildOpts.VisibleFP,
 	}
 
 	wf, err := buildWorkflowSelector(cfg, &opts)

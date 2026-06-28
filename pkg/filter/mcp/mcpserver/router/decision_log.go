@@ -48,14 +48,15 @@ func NewDecisionLogger(sampleRate float64, detailLogging bool) *DecisionLogger {
 
 // decisionRecord is the JSON shape emitted to the log.
 type decisionRecord struct {
-	Event         string         `json:"event"`
-	Method        string         `json:"method"`
-	PlanVersion   string         `json:"plan_version"`
-	Candidates    int            `json:"candidates"`
-	Selected      int            `json:"selected"`
-	Mode          string         `json:"mode"`
-	Stages        map[string]int `json:"stages,omitempty"`
-	DeniedSamples []string       `json:"denied_samples,omitempty"`
+	Event          string         `json:"event"`
+	Method         string         `json:"method"`
+	CatalogVersion string         `json:"catalog_version,omitempty"`
+	ConfigVersion  string         `json:"config_version,omitempty"`
+	Candidates     int            `json:"candidates"`
+	Selected       int            `json:"selected"`
+	Mode           string         `json:"mode"`
+	Stages         map[string]int `json:"stages,omitempty"`
+	DeniedSamples  []string       `json:"denied_samples,omitempty"`
 }
 
 // Log emits a decision record for the given selection, subject to sampling.
@@ -78,13 +79,14 @@ func (d *DecisionLogger) Log(sc SelectionContext, plan *SelectionPlan, candidate
 
 func (d *DecisionLogger) record(sc SelectionContext, plan *SelectionPlan, candidates int) decisionRecord {
 	rec := decisionRecord{
-		Event:       "mcp_router_decision",
-		Method:      sc.Method,
-		PlanVersion: plan.Version,
-		Candidates:  candidates,
-		Selected:    len(plan.ToolNames),
-		Mode:        plan.Mode,
-		Stages:      stageDropCountsFromPlan(plan),
+		Event:          "mcp_router_decision",
+		Method:         sc.Method,
+		CatalogVersion: plan.CatalogVersion,
+		ConfigVersion:  plan.ConfigHash,
+		Candidates:     candidates,
+		Selected:       len(plan.ToolNames),
+		Mode:           plan.Mode,
+		Stages:         stageDropCountsFromPlan(plan),
 	}
 	if d.detailLogging {
 		rec.DeniedSamples = deniedSamples(plan.Reasons)

@@ -117,7 +117,7 @@ func TestWorkflowSelector_InvalidMatchFailsFast(t *testing.T) {
 
 func TestWorkflowSelector_BundleLookupTrimsName(t *testing.T) {
 	ws, err := NewWorkflowSelector([]model.WorkflowConfig{
-		{Name: " support ", Tools: []string{"search"}},
+		{Name: " support ", Tools: []string{" search "}},
 	})
 	require.NoError(t, err)
 
@@ -125,6 +125,33 @@ func TestWorkflowSelector_BundleLookupTrimsName(t *testing.T) {
 	require.True(t, ok)
 	_, hasSearch := bundle["search"]
 	assert.True(t, hasSearch)
+}
+
+func TestWorkflowSelector_EmptyToolFailsFast(t *testing.T) {
+	_, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: "support", Tools: []string{"search", "  "}},
+	})
+
+	assert.ErrorContains(t, err, "workflow \"support\": tool at index 1 is empty")
+}
+
+func TestWorkflowSelector_DuplicateToolAfterTrimFailsFast(t *testing.T) {
+	_, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: "support", Tools: []string{"search", " search "}},
+	})
+
+	assert.ErrorContains(t, err, "workflow \"support\": duplicate tool \"search\" at index 1")
+}
+
+func TestWorkflowSelector_ExplicitEmptyBundleStillAllowed(t *testing.T) {
+	ws, err := NewWorkflowSelector([]model.WorkflowConfig{
+		{Name: "empty"},
+	})
+	require.NoError(t, err)
+
+	bundle, ok := ws.bundleTools("empty")
+	require.True(t, ok)
+	assert.Empty(t, bundle)
 }
 
 func TestWorkflowSelector_FirstMatchWins(t *testing.T) {

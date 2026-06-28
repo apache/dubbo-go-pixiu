@@ -30,6 +30,9 @@ import (
 
 import (
 	"github.com/mark3labs/mcp-go/mcp"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 import (
@@ -277,6 +280,33 @@ func TestInitialize_NoRouterAllowsSuppliedSessionHeader(t *testing.T) {
 	if recorder.Header().Get(constant.HeaderKeyMCPSessionId) == "" {
 		t.Fatal("initialize should return a server-issued session")
 	}
+}
+
+func TestInitialize_NoRouterReusesExistingSuppliedSessionHeader(t *testing.T) {
+	mcpFilter := createNoRouterTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	existing, err := mcpFilter.sessionManager.CreateSession()
+	require.NoError(t, err)
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`
+	req := httptest.NewRequest(constant.Post, "/mcp", strings.NewReader(body))
+	req.Header.Set(constant.HeaderKeyMCPSessionId, existing.ID)
+	recorder := httptest.NewRecorder()
+	ctx := NewMCPContext(createTestContext(req, recorder))
+	ctx.ParseAndSetSessionHeader()
+	ctx.SetMCPMethod(string(mcp.MethodInitialize))
+	ctx.SetMCPRequestID(mcp.NewRequestId(int64(1)))
+
+	status := mcpFilter.handleInitialize(ctx, mcp.JSONRPCRequest{
+		Request: mcp.Request{Method: string(mcp.MethodInitialize)},
+		ID:      mcp.NewRequestId(int64(1)),
+	})
+
+	require.Equal(t, filter.Stop, status)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, existing.ID, recorder.Header().Get(constant.HeaderKeyMCPSessionId))
+	assert.Equal(t, 1, mcpFilter.sessionManager.ActiveSessionCount())
 }
 
 func TestMaintainSSEPipe_ContextCancellationDetachesStream(t *testing.T) {

@@ -72,16 +72,35 @@ func NewWorkflowSelector(cfgs []model.WorkflowConfig) (*WorkflowSelector, error)
 		if err != nil {
 			return nil, fmt.Errorf("workflow %q: %w", name, err)
 		}
+		tools, err := compileWorkflowTools(name, c.Tools)
+		if err != nil {
+			return nil, err
+		}
 		cw := compiledWorkflow{
 			name:    name,
 			when:    m,
-			tools:   toSet(c.Tools),
+			tools:   tools,
 			hasWhen: !m.alwaysMatches(),
 		}
 		ws.workflows = append(ws.workflows, cw)
 		ws.byName[name] = cw
 	}
 	return ws, nil
+}
+
+func compileWorkflowTools(workflowName string, raw []string) (map[string]struct{}, error) {
+	tools := make(map[string]struct{}, len(raw))
+	for i, value := range raw {
+		name := strings.TrimSpace(value)
+		if name == "" {
+			return nil, fmt.Errorf("workflow %q: tool at index %d is empty", workflowName, i)
+		}
+		if _, exists := tools[name]; exists {
+			return nil, fmt.Errorf("workflow %q: duplicate tool %q at index %d", workflowName, name, i)
+		}
+		tools[name] = struct{}{}
+	}
+	return tools, nil
 }
 
 // Filter keeps only tools belonging to the first matching workflow bundle.

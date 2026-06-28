@@ -60,6 +60,20 @@ func TestSelectionPlan_VisibleNamesDefaultsToAuthorizedNames(t *testing.T) {
 	assert.Nil(t, nilPlan.VisibleNames())
 }
 
+func TestDefaultVisibleFingerprintUsesVisibleNamesOnly(t *testing.T) {
+	a := model.ToolConfig{Name: "a", Description: "A"}
+	b := model.ToolConfig{Name: "b", Description: "B"}
+	hidden := false
+	hiddenTool := model.ToolConfig{Name: "hidden", Meta: &model.ToolMeta{DiscoveryVisibility: &hidden}}
+
+	assert.Equal(t,
+		DefaultVisibleFingerprint([]model.ToolConfig{a, b}),
+		DefaultVisibleFingerprint([]model.ToolConfig{a, b, hiddenTool}))
+	assert.NotEqual(t,
+		DefaultVisibleFingerprint([]model.ToolConfig{a, b}),
+		DefaultVisibleFingerprint([]model.ToolConfig{b, a}))
+}
+
 func TestBuild_NilConfigRequiresStore(t *testing.T) {
 	s, err := Build(nil, nil)
 	assert.Error(t, err)

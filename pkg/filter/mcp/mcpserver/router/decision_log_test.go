@@ -74,10 +74,12 @@ func TestDecisionLogger_ShouldSample(t *testing.T) {
 func TestDecisionLogger_LogEmitsWithoutPanic(t *testing.T) {
 	d := NewDecisionLogger(1.0, false)
 	plan := &SelectionPlan{
-		SessionID: "s1",
-		ToolNames: []string{"a"},
-		Mode:      ModeSelected,
-		Version:   "v1",
+		SessionID:      "s1",
+		ToolNames:      []string{"a"},
+		Mode:           ModeSelected,
+		Version:        "identity-derived-v1",
+		CatalogVersion: "catalog-v1",
+		ConfigHash:     "config-v1",
 		Reasons: []DecisionTrace{
 			{Tool: "b", Stage: StagePolicy, Detail: "deny_tag:x"},
 		},
@@ -87,10 +89,12 @@ func TestDecisionLogger_LogEmitsWithoutPanic(t *testing.T) {
 
 func TestDecisionLogger_RecordOmitsDeniedSamplesUnlessDecisionDetailLogging(t *testing.T) {
 	plan := &SelectionPlan{
-		SessionID: "s1",
-		ToolNames: []string{"a"},
-		Mode:      ModeSelected,
-		Version:   "v1",
+		SessionID:      "s1",
+		ToolNames:      []string{"a"},
+		Mode:           ModeSelected,
+		Version:        "identity-derived-v1",
+		CatalogVersion: "catalog-v1",
+		ConfigHash:     "config-v1",
 		Reasons: []DecisionTrace{
 			{Tool: "b", Stage: StagePolicy},
 		},
@@ -105,10 +109,13 @@ func TestDecisionLogger_RecordOmitsDeniedSamplesUnlessDecisionDetailLogging(t *t
 
 func TestDecisionLogger_RecordDoesNotSerializeIdentityOrPayload(t *testing.T) {
 	plan := &SelectionPlan{
-		SessionID: "raw-session-id",
-		ToolNames: []string{"allowed"},
-		Mode:      ModeSelected,
-		Version:   "metadata-version",
+		SessionID:      "raw-session-id",
+		ToolNames:      []string{"allowed"},
+		Mode:           ModeSelected,
+		Version:        "identity-fnv-abcd",
+		CatalogVersion: "catalog-version",
+		ConfigHash:     "config-version",
+		IdentityHash:   "identity-fnv",
 		Reasons: []DecisionTrace{
 			{Tool: "hidden_tool", Stage: StagePolicy, Rule: "tenant-rule", Detail: "no_allow_tag"},
 		},
@@ -130,16 +137,18 @@ func TestDecisionLogger_RecordDoesNotSerializeIdentityOrPayload(t *testing.T) {
 	data, err := json.Marshal(normal)
 	assert.NoError(t, err)
 	text := string(data)
-	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token", "hidden_tool", "tenant-rule"} {
+	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token", "hidden_tool", "tenant-rule", "identity-fnv", "identity-fnv-abcd", "plan_version"} {
 		assert.False(t, strings.Contains(text, forbidden), "default decision log leaked %q: %s", forbidden, text)
 	}
+	assert.Contains(t, text, "catalog-version")
+	assert.Contains(t, text, "config-version")
 
 	detailed := NewDecisionLogger(1.0, true).record(sc, plan, 2)
 	data, err = json.Marshal(detailed)
 	assert.NoError(t, err)
 	text = string(data)
 	assert.Contains(t, text, "hidden_tool")
-	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token"} {
+	for _, forbidden := range []string{"raw-session-id", "tenant-acme", "subject-123", "agent-client", "secret-token", "identity-fnv", "identity-fnv-abcd", "plan_version"} {
 		assert.False(t, strings.Contains(text, forbidden), "decision detail logging leaked identity %q: %s", forbidden, text)
 	}
 }

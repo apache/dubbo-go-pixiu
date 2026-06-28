@@ -20,6 +20,7 @@ package mcpserver
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"testing"
@@ -47,6 +48,8 @@ type stubSelector struct {
 	selectCalled        bool
 	authorizeCandidates []model.ToolConfig
 	recordSuccessCalls  []router.AuthorizationReceipt
+	finalizedReceipts   []router.AuthorizationReceipt
+	finalizedOutcomes   []router.ReceiptOutcome
 }
 
 func (s *stubSelector) Select(_ context.Context, sc router.SelectionContext, candidates []model.ToolConfig) (*router.SelectionPlan, error) {
@@ -73,6 +76,16 @@ func (s *stubSelector) AuthorizeCall(_ context.Context, sc router.SelectionConte
 }
 
 func (s *stubSelector) RecordCallSuccess(_ context.Context, receipt router.AuthorizationReceipt) (router.CallSuccessResult, error) {
+	s.recordSuccessCalls = append(s.recordSuccessCalls, receipt)
+	return router.CallSuccessResult{Count: int64(len(s.recordSuccessCalls))}, nil
+}
+
+func (s *stubSelector) FinalizeReceipt(_ context.Context, receipt router.AuthorizationReceipt, outcome router.ReceiptOutcome) (router.CallSuccessResult, error) {
+	s.finalizedReceipts = append(s.finalizedReceipts, receipt)
+	s.finalizedOutcomes = append(s.finalizedOutcomes, outcome)
+	if outcome != router.ReceiptSucceeded {
+		return router.CallSuccessResult{}, nil
+	}
 	s.recordSuccessCalls = append(s.recordSuccessCalls, receipt)
 	return router.CallSuccessResult{Count: int64(len(s.recordSuccessCalls))}, nil
 }
@@ -161,6 +174,99 @@ func TestFilterByPlan_UsesVisibleToolNames(t *testing.T) {
 	assert.Equal(t, "visible", out[0].Name)
 }
 
+func TestVisibleToolsFingerprintTracksActualToolsListProjection(t *testing.T) {
+	base := model.ToolConfig{
+		Name:        "tool",
+		Description: "desc",
+		Cluster:     "cluster-a",
+		BackendURL:  "http://127.0.0.1:8080",
+		Request:     model.RequestConfig{Method: "GET", Path: "/v1/{id}"},
+		Args: []model.ArgConfig{{
+			Name:        "id",
+			Type:        "string",
+			In:          "path",
+			Description: "identifier",
+			Required:    true,
+			Enum:        []string{"a", "b"},
+			Default:     "a",
+		}},
+		Meta: &model.ToolMeta{Risk: "low"},
+	}
+	baseFP := visibleToolsFingerprint([]model.ToolConfig{base})
+
+	descriptionChanged := base
+	descriptionChanged.Description = "changed"
+	assert.NotEqual(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{descriptionChanged}))
+
+	schemaChanged := base
+	schemaChanged.Args = append([]model.ArgConfig(nil), base.Args...)
+	schemaChanged.Args[0].Type = "number"
+	assert.NotEqual(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{schemaChanged}))
+
+	requiredChanged := base
+	requiredChanged.Args = append([]model.ArgConfig(nil), base.Args...)
+	requiredChanged.Args[0].Required = false
+	assert.NotEqual(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{requiredChanged}))
+
+	defaultChanged := base
+	defaultChanged.Args = append([]model.ArgConfig(nil), base.Args...)
+	defaultChanged.Args[0].Default = "b"
+	assert.NotEqual(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{defaultChanged}))
+
+	enumChanged := base
+	enumChanged.Args = append([]model.ArgConfig(nil), base.Args...)
+	enumChanged.Args[0].Enum = []string{"a", "c"}
+	assert.NotEqual(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{enumChanged}))
+
+	pathOnlyChanged := base
+	pathOnlyChanged.Request.Path = "/v2/{id}"
+	assert.Equal(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{pathOnlyChanged}), "fingerprint follows tools/list projection, not backend path templates")
+
+	backendChanged := base
+	backendChanged.BackendURL = "http://127.0.0.1:9090"
+	backendChanged.Cluster = "cluster-b"
+	backendChanged.Meta = &model.ToolMeta{Risk: "high", Tags: []string{"internal"}}
+	assert.Equal(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{backendChanged}))
+
+	hidden := false
+	hiddenTool := base
+	hiddenTool.Name = "hidden"
+	hiddenTool.Meta = &model.ToolMeta{DiscoveryVisibility: &hidden}
+	assert.Equal(t, baseFP, visibleToolsFingerprint([]model.ToolConfig{base, hiddenTool}))
+}
+
+func TestVisibleToolsFingerprintMatchesToolsListToolJSON(t *testing.T) {
+	tool := createTestToolConfig("tool", "desc")
+	tool.Args = []model.ArgConfig{{
+		Name:        "id",
+		Type:        "string",
+		Description: "identifier",
+		Required:    true,
+	}}
+	f := createTestFilter(t)
+	result := buildToolsListResult(t, f, []model.ToolConfig{tool})
+	require.Len(t, result.Tools, 1)
+
+	got, err := json.Marshal(result.Tools[0])
+	require.NoError(t, err)
+	rebuilt := (&MCPServerFilter{}).buildMCPTools([]model.ToolConfig{tool})
+	require.Len(t, rebuilt, 1)
+	want, err := json.Marshal(rebuilt[0])
+	require.NoError(t, err)
+
+	assert.JSONEq(t, string(want), string(got))
+	assert.Equal(t, visibleToolsFingerprint([]model.ToolConfig{tool}), visibleToolsFingerprint([]model.ToolConfig{tool}))
+}
+
+func TestVisibleToolsFingerprintIgnoresToolOrder(t *testing.T) {
+	a := createTestToolConfig("a", "A")
+	b := createTestToolConfig("b", "B")
+
+	assert.Equal(t,
+		visibleToolsFingerprint([]model.ToolConfig{a, b}),
+		visibleToolsFingerprint([]model.ToolConfig{b, a}))
+}
+
 func TestBuildSelectionContext_PopulatesFields(t *testing.T) {
 	req := httptest.NewRequest("POST", "/mcp", nil)
 	ctx := NewMCPContext(createTestContext(req, httptest.NewRecorder()))
@@ -222,6 +328,46 @@ func TestFilterFactory_ConfiguredRouterInitializesGovernanceState(t *testing.T) 
 	assert.True(t, factory.runtime.governanceEnabled)
 	assert.NotNil(t, factory.runtime.selector)
 	assert.NotNil(t, factory.runtime.plans)
+	assert.NotEmpty(t, factory.runtime.dynamic.RuntimeID())
+}
+
+func TestRuntimePublicationSinkBinding(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+		Tools:      []model.ToolConfig{createTestToolConfig("alpha", "A")},
+	}
+	factory := &FilterFactory{cfg: cfg}
+	require.NoError(t, factory.Apply())
+
+	sink, err := ServerPublicationSinkForSingleRuntime()
+	require.NoError(t, err)
+	assert.Same(t, factory.runtime.dynamic, sink)
+	assert.Equal(t, factory.runtime.id, sink.RuntimeID())
+
+	factory.runtime.Stop()
+	assert.Empty(t, sink.RuntimeID())
+}
+
+func TestRuntimePublicationSinkAmbiguousWhenMultipleRuntimes(t *testing.T) {
+	ResetGlobalState()
+	defer ResetGlobalState()
+
+	cfg := &model.McpServerConfig{
+		ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"},
+		Endpoint:   "/mcp",
+	}
+	factoryA := &FilterFactory{cfg: cfg}
+	require.NoError(t, factoryA.Apply())
+	factoryB := &FilterFactory{cfg: cfg}
+	require.NoError(t, factoryB.Apply())
+
+	sink, err := ServerPublicationSinkForSingleRuntime()
+	assert.ErrorIs(t, err, ErrDynamicConsumerAmbiguous)
+	assert.Nil(t, sink)
 }
 
 func TestFilterFactory_InvalidToolRiskFailsFast(t *testing.T) {
@@ -495,6 +641,31 @@ func TestToolCall_SelectorAllowsAuthorized(t *testing.T) {
 	assert.Equal(t, "get_user", sel.authorizeCandidates[0].Name)
 }
 
+func TestToolCall_LookupFailureAfterAuthorizationAbortsReceipt(t *testing.T) {
+	f := createTestFilter(t)
+	sel := &stubSelector{}
+	f.selector = sel
+	require.NoError(t, f.registry.ReplaceAllTools(nil))
+
+	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsCall)}}
+	req.ID = mcp.NewRequestId(int64(18))
+	req.Params = map[string]any{"name": "missing_tool", "arguments": map[string]any{}}
+
+	httpReq := httptest.NewRequest("POST", "/mcp", nil)
+	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+	ctx.SetMCPRequestID(req.ID)
+	session, _ := f.sessionManager.CreateSession()
+	require.NoError(t, f.plans.ActivateSession(session.ID, session.Generation))
+	ctx.SetValidatedSession(session)
+
+	status := f.handleToolCall(ctx, req)
+
+	assert.Equal(t, filter.Stop, status)
+	require.Equal(t, []router.ReceiptOutcome{router.ReceiptAborted}, sel.finalizedOutcomes)
+	require.Len(t, sel.finalizedReceipts, 1)
+	assert.Equal(t, "missing_tool", sel.finalizedReceipts[0].ToolName)
+}
+
 func TestProcessToolCallResponse_BackendErrorDoesNotRecordSuccess(t *testing.T) {
 	f := createTestFilter(t)
 	sel := &stubSelector{}
@@ -508,11 +679,13 @@ func TestProcessToolCallResponse_BackendErrorDoesNotRecordSuccess(t *testing.T) 
 	session, _ := f.sessionManager.CreateSession()
 	require.NoError(t, f.plans.ActivateSession(session.ID, session.Generation))
 	ctx.SetValidatedSession(session)
+	ctx.SetAuthorizationReceipt(&router.AuthorizationReceipt{SessionID: session.ID, ToolName: "get_user", PlanGeneration: 1, ReceiptID: 1})
 
 	status := f.processToolCallResponse(ctx, reqID, []byte("backend failed"), 500)
 
 	assert.Equal(t, filter.Stop, status)
 	assert.Empty(t, sel.recordSuccessCalls)
+	require.Equal(t, []router.ReceiptOutcome{router.ReceiptAborted}, sel.finalizedOutcomes)
 }
 
 func TestProcessToolCallResponse_SuccessRecordsToolCall(t *testing.T) {
@@ -536,4 +709,6 @@ func TestProcessToolCallResponse_SuccessRecordsToolCall(t *testing.T) {
 	require.Len(t, sel.recordSuccessCalls, 1)
 	assert.Equal(t, session.ID, sel.recordSuccessCalls[0].SessionID)
 	assert.Equal(t, "get_user", sel.recordSuccessCalls[0].ToolName)
+	require.Equal(t, []router.ReceiptOutcome{router.ReceiptSucceeded}, sel.finalizedOutcomes)
+	assert.Nil(t, ctx.AuthorizationReceipt())
 }
