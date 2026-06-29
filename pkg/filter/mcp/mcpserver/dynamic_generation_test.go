@@ -197,3 +197,32 @@ func TestDynamicChangedVisibleDefinitionIgnoresBackendOnlyChange(t *testing.T) {
 	_, ok := changed[session.ID]
 	assert.False(t, ok, "backend-only changes must not trigger tools/list_changed")
 }
+
+func TestDynamicDistinctFingerprintWithinDebounceRefreshesPlanAndNotification(t *testing.T) {
+	oldTool := createTestToolConfig("old", "old")
+	registry, sm, store, selector, session := newDynamicRefreshFixture(t, &model.RouterConfig{}, []model.ToolConfig{oldTool})
+	defer sm.Stop()
+	defer store.Stop()
+
+	oldPlan := selectPlanForSession(t, registry, selector, session, nil)
+	require.Equal(t, []string{"old"}, oldPlan.ToolNames)
+
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+	consumer.SetGovernance(selector, store)
+	consumer.SetDebounceTime(DefaultDebounceTime)
+
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("server-a", createTestMcpServerConfig([]model.ToolConfig{oldTool})))
+	newTool := createTestToolConfig("new", "new")
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("server-a", createTestMcpServerConfig([]model.ToolConfig{newTool})))
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	assert.Equal(t, "new", tools[0].Name)
+
+	got, ok := store.Get(singlePlanContext(t, store).Key)
+	require.True(t, ok)
+	assert.Equal(t, []string{"new"}, got.ToolNames)
+
+	_, pending := session.PendingToolsListChangedVersion()
+	assert.True(t, pending, "distinct update should mark tools/list_changed for the refreshed session")
+}

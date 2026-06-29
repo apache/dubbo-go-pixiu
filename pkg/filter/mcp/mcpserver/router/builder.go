@@ -18,9 +18,6 @@
 package router
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -28,6 +25,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/fingerprint"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -242,11 +240,10 @@ func configHash(cfg *model.RouterConfig) (string, error) {
 	authCfg := cfg.DeepCopy()
 	authCfg.Audit = model.AuditConfig{}
 	authCfg.Session = model.RouterSessionConfig{}
-	data, err := json.Marshal(authCfg)
+	sum, err := fingerprint.JSONStable(authCfg)
 	if err != nil {
 		logger.Warnf("[dubbo-go-pixiu] mcp router config hash failed")
 		return "", fmt.Errorf("router config hash failed: %w", err)
 	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:8]), nil
+	return sum[:16], nil
 }

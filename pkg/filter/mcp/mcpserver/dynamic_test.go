@@ -414,7 +414,7 @@ func TestDebounceFeatures(t *testing.T) {
 		assert.Equal(t, 1, info["server_count"])
 	})
 
-	t.Run("Time debounce - skip rapid calls", func(t *testing.T) {
+	t.Run("Time debounce - distinct fingerprint applies rapid calls", func(t *testing.T) {
 		registry := NewToolRegistry()
 		sm := transport.NewSessionManager()
 		defer sm.Stop()
@@ -435,12 +435,12 @@ func TestDebounceFeatures(t *testing.T) {
 		require.Len(t, tools, 1)
 		assert.Equal(t, "tool1", tools[0].Name)
 
-		// Immediate second application - should be debounced
+		// Immediate second application with a different fingerprint must not be debounced.
 		err = consumer.ApplyMcpServerConfigByServer("default", config2)
 		assert.NoError(t, err)
 		tools = registry.ListTools()
 		require.Len(t, tools, 1)
-		assert.Equal(t, "tool1", tools[0].Name, "Should still have first tool due to time debounce")
+		assert.Equal(t, "tool2", tools[0].Name, "distinct fingerprint update must not be swallowed by debounce")
 	})
 
 	t.Run("Empty configuration handling", func(t *testing.T) {

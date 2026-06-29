@@ -19,16 +19,13 @@ package router
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"hash/fnv"
-	"io"
 	"sort"
-	"strconv"
 	"time"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/fingerprint"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -148,13 +145,13 @@ func (c *CompositeSelector) Select(_ context.Context, sc SelectionContext, candi
 	plan := c.computeSelectionPlan(key, identityHash, sc, candidates, version)
 	plan, err = c.storeSelectionPlan(key, plan, sc)
 	if err != nil {
-		recordFallback("plan_persistence_failed")
+		recordFallback(MetricFallbackPlanPersistenceFailed)
 		return nil, err
 	}
 
-	result := "ok"
+	result := MetricSelectionResultOK
 	if outcomeAllowsFallback(plan.Outcome) {
-		result = "fallback"
+		result = MetricSelectionResultFallback
 		recordFallback(plan.Outcome)
 	}
 
@@ -170,7 +167,7 @@ func (c *CompositeSelector) cachedSelectionPlan(key PlanKey, version string, can
 		return nil, false
 	}
 	elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
-	recordSelection("cached", cached.Mode, len(candidates), len(cached.ToolNames), elapsedMS)
+	recordSelection(MetricSelectionResultCached, cached.Mode, len(candidates), len(cached.ToolNames), elapsedMS)
 	return cached, true
 }
 
@@ -290,13 +287,13 @@ func (c *CompositeSelector) RefreshPlan(_ context.Context, base SessionPlanConte
 	committedPlan, committed, err := c.store.SetIfCurrent(base, plan)
 	if err != nil || !committed {
 		if err != nil {
-			recordFallback("plan_persistence_failed")
+			recordFallback(MetricFallbackPlanPersistenceFailed)
 		}
 		return nil, committed, err
 	}
-	result := "ok"
+	result := MetricSelectionResultOK
 	if outcomeAllowsFallback(committedPlan.Outcome) {
-		result = "fallback"
+		result = MetricSelectionResultFallback
 		recordFallback(committedPlan.Outcome)
 	}
 	c.recordSelectionResult(result, committedPlan, candidates, start)
@@ -337,12 +334,12 @@ func (c *CompositeSelector) HandleSelectionFailure(_ context.Context, sc Selecti
 	plan.CatalogVersion = c.catalogVersion(candidates, sc.CatalogVersion)
 	plan, err = c.storeSelectionPlan(key, plan, sc)
 	if err != nil {
-		recordFallback("plan_persistence_failed")
+		recordFallback(MetricFallbackPlanPersistenceFailed)
 		return nil, err
 	}
 
 	elapsedMS := float64(time.Since(start).Microseconds()) / 1000.0
-	recordSelection("fallback", plan.Mode, len(candidates), len(plan.ToolNames), elapsedMS)
+	recordSelection(MetricSelectionResultFallback, plan.Mode, len(candidates), len(plan.ToolNames), elapsedMS)
 	recordFallback(SelectionOutcomeInternalError)
 	c.log.Log(sc, plan, len(candidates))
 	return plan, nil
@@ -383,52 +380,31 @@ func (c *CompositeSelector) applyFallback(sc SelectionContext, allowed []model.T
 		return plan
 	}
 	plan.ToolNames, plan.VisibleToolNames = fallbackBundleToolNames(allowed, bundle)
-	plan.VisibleFingerprint = c.visibleFP(filterToolsByName(allowed, plan.VisibleToolNames))
+	plan.VisibleFingerprint = c.visibleFP(NewToolCatalogView(allowed).PickOrdered(plan.VisibleToolNames))
 	plan.toolSet = toolNameSet(plan.ToolNames)
 	return plan
 }
 
-func (c *CompositeSelector) defaultBundleTools() (map[string]struct{}, bool) {
+func (c *CompositeSelector) defaultBundleTools() (StringSet, bool) {
 	if c.bundles == nil || c.defaultBundle == "" {
 		return nil, false
 	}
 	return c.bundles.bundleTools(c.defaultBundle)
 }
 
-func fallbackBundleToolNames(allowed []model.ToolConfig, bundle map[string]struct{}) ([]string, []string) {
+func fallbackBundleToolNames(allowed []model.ToolConfig, bundle StringSet) ([]string, []string) {
 	toolNames := make([]string, 0, len(allowed))
 	visibleToolNames := make([]string, 0, len(allowed))
 	for _, t := range allowed {
-		if _, in := bundle[t.Name]; !in {
+		if !bundle.Contains(t.Name) {
 			continue
 		}
 		toolNames = append(toolNames, t.Name)
-		if toolVisible(t) {
+		if IsToolDiscoverable(t) {
 			visibleToolNames = append(visibleToolNames, t.Name)
 		}
 	}
 	return toolNames, visibleToolNames
-}
-
-func filterToolsByName(tools []model.ToolConfig, names []string) []model.ToolConfig {
-	if len(tools) == 0 || len(names) == 0 {
-		return nil
-	}
-	keep := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		keep[name] = struct{}{}
-	}
-	out := make([]model.ToolConfig, 0, len(names))
-	for _, tool := range tools {
-		if _, ok := keep[tool.Name]; ok {
-			out = append(out, tool)
-		}
-	}
-	return out
-}
-
-func toolVisible(t model.ToolConfig) bool {
-	return t.Meta == nil || t.Meta.DiscoveryVisibility == nil || *t.Meta.DiscoveryVisibility
 }
 
 // AuthorizeCall enforces that the requested tool is part of the current session
@@ -438,7 +414,7 @@ func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionConte
 	key := c.planKey(sc.SessionID)
 	identityHash, err := identityFingerprint(sc)
 	if err != nil {
-		recordCallDenied("identity_hash_error")
+		recordCallDenied(MetricCallDeniedIdentityHashError)
 		return nil, ErrToolNotAuthorized
 	}
 	catalogVersion := c.catalogVersion(candidates, sc.CatalogVersion)
@@ -456,7 +432,7 @@ func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionConte
 	if stale {
 		receipt, err := c.recomputeAndIssueReceipt(ctx, key, identityHash, sc, candidates, expectedVersion)
 		if err != nil {
-			recordCallDenied("stale_plan_recompute_failed")
+			recordCallDenied(MetricCallDeniedStalePlanRecomputeFail)
 			return nil, ErrToolNotAuthorized
 		}
 		return receipt, nil
@@ -464,7 +440,7 @@ func (c *CompositeSelector) AuthorizeCall(ctx context.Context, sc SelectionConte
 	if err == nil {
 		return &receipt, nil
 	}
-	recordCallDenied("not_in_plan")
+	recordCallDenied(MetricCallDeniedNotInPlan)
 	return nil, ErrToolNotAuthorized
 }
 
@@ -475,9 +451,9 @@ func (c *CompositeSelector) recomputeAndIssueReceipt(_ context.Context, key Plan
 	if err != nil {
 		return nil, err
 	}
-	result := "ok"
+	result := MetricSelectionResultOK
 	if outcomeAllowsFallback(committedPlan.Outcome) {
-		result = "fallback"
+		result = MetricSelectionResultFallback
 		recordFallback(committedPlan.Outcome)
 	}
 	c.recordSelectionResult(result, committedPlan, candidates, start)
@@ -505,27 +481,21 @@ func (c *CompositeSelector) FinalizeReceipt(_ context.Context, receipt Authoriza
 // invalidate when the registry, tool definitions, identity/policy inputs, or
 // the expansion threshold changes.
 func (c *CompositeSelector) version(candidates []model.ToolConfig, identityHash, sessionID, catalogVersion string) string {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte("catalog:"))
-	_, _ = h.Write([]byte(c.catalogVersion(candidates, catalogVersion)))
-	_, _ = h.Write([]byte{0})
-
-	_, _ = h.Write([]byte("identity:"))
-	_, _ = h.Write([]byte(identityHash))
-	_, _ = h.Write([]byte{0})
+	b := fingerprint.NewBuilder()
+	b.AddString("catalog:" + c.catalogVersion(candidates, catalogVersion))
+	b.AddString("identity:" + identityHash)
 
 	// Include progressive expansion state so crossing the threshold invalidates cache.
 	if c.progressive != nil {
 		_, expanded := c.store.CallState(c.planKey(sessionID), identityHash, c.progressiveHash)
 		if expanded {
-			_, _ = h.Write([]byte("expanded"))
+			b.AddString("expanded")
 		} else {
-			_, _ = h.Write([]byte("initial"))
+			b.AddString("initial")
 		}
-		_, _ = h.Write([]byte{0})
 	}
 
-	return c.configHash + ":" + strconv.FormatUint(h.Sum64(), 16)
+	return c.configHash + ":" + b.SumShort(16)
 }
 
 func (c *CompositeSelector) catalogVersion(candidates []model.ToolConfig, catalogVersion string) string {
@@ -543,22 +513,17 @@ func (c *CompositeSelector) planKey(sessionID string) PlanKey {
 }
 
 func identityFingerprint(sc SelectionContext) (string, error) {
-	h := fnv.New64a()
-	if err := writeClaimsFingerprint(h, sc); err != nil {
-		return "", err
-	}
-	return strconv.FormatUint(h.Sum64(), 16), nil
+	return ClaimsFingerprint(sc)
 }
 
 func progressiveConfigHash(g *ProgressiveGate) string {
 	if g == nil {
 		return ""
 	}
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(g.initialBundle))
-	_, _ = h.Write([]byte{0})
-	_, _ = h.Write([]byte(strconv.Itoa(g.expandAfter)))
-	return strconv.FormatUint(h.Sum64(), 16)
+	b := fingerprint.NewBuilder()
+	b.AddString(g.initialBundle)
+	b.AddString(fmt.Sprintf("%d", g.expandAfter))
+	return b.SumShort(16)
 }
 
 func recordStageCount(counts map[string]StageCount, stage string, input, output int) {
@@ -572,45 +537,6 @@ func outcomeAllowsFallback(outcome string) bool {
 	return outcome == SelectionOutcomeNoMatch || outcome == SelectionOutcomeInternalError
 }
 
-// writeClaimsFingerprint folds every validated claim into the plan version so
-// policies and workflows that match arbitrary claim keys cannot reuse another
-// claim set's plan. Only the final hash is exposed on SelectionPlan.Version.
-func writeClaimsFingerprint(h io.Writer, sc SelectionContext) error {
-	if sc.UserID != "" {
-		_, _ = h.Write([]byte("sub:"))
-		_, _ = h.Write([]byte(sc.UserID))
-		_, _ = h.Write([]byte{0})
-	}
-	if sc.Tenant != "" {
-		_, _ = h.Write([]byte("tenant:"))
-		_, _ = h.Write([]byte(sc.Tenant))
-		_, _ = h.Write([]byte{0})
-	}
-	if len(sc.Claims) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(sc.Claims))
-	for k := range sc.Claims {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		if (k == "sub" && sc.UserID != "") || (k == "tenant" && sc.Tenant != "") {
-			continue
-		}
-		_, _ = h.Write([]byte("claim:"))
-		_, _ = h.Write([]byte(k))
-		_, _ = h.Write([]byte("="))
-		data, err := json.Marshal(sc.Claims[k])
-		if err != nil {
-			return fmt.Errorf("claim %q is not JSON-canonicalizable: %w", k, err)
-		}
-		_, _ = h.Write(data)
-		_, _ = h.Write([]byte{0})
-	}
-	return nil
-}
-
 func legacyCatalogVersion(candidates []model.ToolConfig) string {
 	prints := make([]string, len(candidates))
 	for i, t := range candidates {
@@ -618,20 +544,11 @@ func legacyCatalogVersion(candidates []model.ToolConfig) string {
 	}
 	sort.Strings(prints)
 
-	h := fnv.New64a()
-	for _, p := range prints {
-		_, _ = h.Write([]byte(p))
-		_, _ = h.Write([]byte{0})
-	}
-	return strconv.FormatUint(h.Sum64(), 16)
+	return fingerprint.StringsOrdered(prints)[:16]
 }
 
 // legacyToolFingerprint is used only when a direct test or external caller
 // invokes the selector without a registry snapshot version.
 func legacyToolFingerprint(t model.ToolConfig) string {
-	data, err := json.Marshal(t)
-	if err != nil {
-		return fmt.Sprintf("%#v", t)
-	}
-	return string(data)
+	return fingerprint.JSONStableOrFallback(t)
 }

@@ -29,12 +29,10 @@ const policyRuleErrorFormat = "policy rule %q: %w"
 
 // ValidateTools validates routing metadata on configured tools.
 func ValidateTools(tools []model.ToolConfig) error {
-	seen := make(map[string]struct{}, len(tools))
-	for i, tool := range tools {
-		if _, ok := seen[tool.Name]; ok {
-			return fmt.Errorf("duplicate tool name %q at index %d", tool.Name, i)
-		}
-		seen[tool.Name] = struct{}{}
+	if err := ValidateUniqueNames(tools); err != nil {
+		return err
+	}
+	for _, tool := range tools {
 		if tool.Meta == nil {
 			continue
 		}
@@ -88,8 +86,8 @@ func riskLevel(risk string) int {
 type compiledRule struct {
 	name      string
 	when      *matcher
-	allowTags map[string]struct{}
-	denyTags  map[string]struct{}
+	allowTags StringSet
+	denyTags  StringSet
 	maxRisk   int // 0 = no limit
 }
 
@@ -116,8 +114,8 @@ func NewPolicyFilter(cfg model.PolicyConfig) (*PolicyFilter, error) {
 		rules = append(rules, compiledRule{
 			name:      r.Name,
 			when:      m,
-			allowTags: toSet(r.AllowTags),
-			denyTags:  toSet(r.DenyTags),
+			allowTags: NewStringSet(r.AllowTags),
+			denyTags:  NewStringSet(r.DenyTags),
 			maxRisk:   maxRisk,
 		})
 	}
@@ -188,12 +186,12 @@ func denyReason(rules []compiledRule, tool model.ToolConfig) (string, string) {
 	for _, r := range rules {
 		// Deny tags take precedence: a single match blocks the tool.
 		for tag := range r.denyTags {
-			if _, has := tags[tag]; has {
+			if tags.Contains(tag) {
 				return r.name, "deny_tag:" + tag
 			}
 		}
 		// Allow tags, when present, require at least one intersection.
-		if len(r.allowTags) > 0 && !intersects(tags, r.allowTags) {
+		if len(r.allowTags) > 0 && !tags.Intersects(r.allowTags) {
 			return r.name, "no_allow_tag"
 		}
 		// Risk ceiling.
@@ -205,11 +203,11 @@ func denyReason(rules []compiledRule, tool model.ToolConfig) (string, string) {
 }
 
 // toolTags returns the tool's tag set, empty if the tool has no Meta.
-func toolTags(tool model.ToolConfig) map[string]struct{} {
+func toolTags(tool model.ToolConfig) StringSet {
 	if tool.Meta == nil {
 		return nil
 	}
-	return toSet(tool.Meta.Tags)
+	return NewStringSet(tool.Meta.Tags)
 }
 
 // toolRisk returns the tool's declared risk, defaulting to low.
@@ -218,28 +216,4 @@ func toolRisk(tool model.ToolConfig) string {
 		return "low"
 	}
 	return tool.Meta.Risk
-}
-
-func toSet(items []string) map[string]struct{} {
-	if len(items) == 0 {
-		return nil
-	}
-	s := make(map[string]struct{}, len(items))
-	for _, item := range items {
-		s[item] = struct{}{}
-	}
-	return s
-}
-
-func intersects(a, b map[string]struct{}) bool {
-	// Iterate the smaller set for efficiency.
-	if len(a) > len(b) {
-		a, b = b, a
-	}
-	for k := range a {
-		if _, ok := b[k]; ok {
-			return true
-		}
-	}
-	return false
 }

@@ -40,7 +40,7 @@ func (f *MCPServerFilter) buildSelectionContext(ctx *MCPContext, method, request
 	}
 
 	if claims := mcpAuthClaims(ctx); claims != nil {
-		sc.Claims = claims
+		sc.Claims = router.CloneClaims(claims)
 		sc.UserID = claimStr(claims, "sub")
 		sc.Tenant = claimStr(claims, "tenant")
 	}
@@ -78,18 +78,7 @@ func filterByPlan(toolCfgs []model.ToolConfig, plan *router.SelectionPlan) []mod
 	if plan == nil {
 		return toolCfgs
 	}
-	byName := make(map[string]model.ToolConfig, len(toolCfgs))
-	for _, t := range toolCfgs {
-		byName[t.Name] = t
-	}
-	visibleNames := plan.VisibleNames()
-	out := make([]model.ToolConfig, 0, len(visibleNames))
-	for _, name := range visibleNames {
-		if t, ok := byName[name]; ok {
-			out = append(out, t)
-		}
-	}
-	return out
+	return router.NewToolCatalogView(toolCfgs).PickOrdered(plan.VisibleNames())
 }
 
 func (f *MCPServerFilter) handleSelectionFailure(ctx *MCPContext, sc router.SelectionContext, candidates []model.ToolConfig, cause error) ([]model.ToolConfig, error) {

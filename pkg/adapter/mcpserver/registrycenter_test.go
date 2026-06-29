@@ -57,10 +57,13 @@ func TestAdapterBindPublicationSinkRequiresRuntime(t *testing.T) {
 }
 
 func TestAdapterApplyServerConfigEventNoBoundSinkDoesNothing(t *testing.T) {
+	filtermcp.ResetGlobalState()
+	defer filtermcp.ResetGlobalState()
+
 	a := &Adapter{}
 	reconciler := newEndpointReconciler(&recordingEndpointSink{})
 
-	a.applyServerConfigEvent(reconciler, nil, "nacos", "server-a", &model.McpServerConfig{
+	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
 		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
 	})
 
@@ -72,9 +75,31 @@ func TestAdapterApplyServerConfigEventUsesBoundRuntime(t *testing.T) {
 	sink := &testPublicationSink{runtimeID: "runtime-1"}
 	a := &Adapter{sink: sink}
 
-	a.applyServerConfigEvent(reconciler, sink, "nacos", "server-a", &model.McpServerConfig{
+	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
 		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
 	})
 
 	assert.Equal(t, 1, sink.applied)
+}
+
+func TestAdapterApplyServerConfigEventResolvesSinkLazily(t *testing.T) {
+	filtermcp.ResetGlobalState()
+	defer filtermcp.ResetGlobalState()
+
+	reconciler := newEndpointReconciler(&recordingEndpointSink{})
+	a := &Adapter{}
+
+	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	})
+	assert.Empty(t, reconciler.published)
+
+	sink := &testPublicationSink{runtimeID: "runtime-1"}
+	a.sink = sink
+	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	})
+
+	assert.Equal(t, 1, sink.applied)
+	assert.NotEmpty(t, reconciler.published)
 }

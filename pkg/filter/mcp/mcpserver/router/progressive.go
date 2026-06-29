@@ -65,7 +65,7 @@ func (g *ProgressiveGate) Apply(tools []model.ToolConfig, expanded bool) ([]mode
 	kept := make([]model.ToolConfig, 0, len(bundle))
 	var traces []DecisionTrace
 	for _, t := range tools {
-		if _, in := bundle[t.Name]; in {
+		if bundle.Contains(t.Name) {
 			kept = append(kept, t)
 		} else {
 			if len(traces) < maxDecisionTraceSamples {
@@ -81,7 +81,7 @@ func (g *ProgressiveGate) Apply(tools []model.ToolConfig, expanded bool) ([]mode
 }
 
 // bundleSet resolves the initial bundle name to its tool-name set.
-func (g *ProgressiveGate) bundleSet() (map[string]struct{}, bool) {
+func (g *ProgressiveGate) bundleSet() (StringSet, bool) {
 	if g.workflow == nil || g.initialBundle == "" {
 		return nil, false
 	}

@@ -49,6 +49,24 @@ const (
 	metricsSubsystem = "mcp_tool_router"
 )
 
+const (
+	MetricSelectionResultOK       = "ok"
+	MetricSelectionResultCached   = "cached"
+	MetricSelectionResultFallback = "fallback"
+
+	MetricLatencyStagePipeline = "pipeline"
+	MetricLatencyStageCacheHit = "cache_hit"
+
+	MetricFallbackPlanPersistenceFailed = "plan_persistence_failed"
+
+	MetricCallDeniedIdentityHashError      = "identity_hash_error"
+	MetricCallDeniedStalePlanRecomputeFail = "stale_plan_recompute_failed"
+	MetricCallDeniedNotInPlan              = "not_in_plan"
+
+	MetricPlanEvictedExplicit   = "explicit"
+	MetricPlanEvictedSessionEnd = "session_end"
+)
+
 // initMetrics registers the metric collectors exactly once. promauto registers
 // against the default registry; AlreadyRegisteredError is impossible here
 // because of the sync.Once guard, but using promauto keeps it consistent with
@@ -122,9 +140,9 @@ func recordSelection(result, mode string, candidates, selected int, totalMS floa
 		return
 	}
 	selectTotal.WithLabelValues(result, mode).Inc()
-	stage := "pipeline"
-	if result == "cached" {
-		stage = "cache_hit"
+	stage := MetricLatencyStagePipeline
+	if result == MetricSelectionResultCached {
+		stage = MetricLatencyStageCacheHit
 	}
 	selectionLatency.WithLabelValues(stage).Observe(totalMS)
 	candidatesCount.Observe(float64(candidates))

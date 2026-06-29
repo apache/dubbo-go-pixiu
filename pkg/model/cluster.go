@@ -22,6 +22,10 @@ import (
 	"fmt"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
+)
+
 const generatedEndpointIDPrefix = "pixiu-generated-endpoint-"
 
 const (
@@ -206,7 +210,7 @@ func CloneEndpoints(endpoints []*Endpoint) []*Endpoint {
 // back into the runtime snapshot.
 //
 // Cost: O(depth) — LLMMeta.RetryPolicy.Config is recursively cloned via
-// cloneAnyMap, which allocates per nested map/slice. The request path
+// copyutil.CloneJSONLike, which allocates per nested map/slice. The request path
 // should clone at most once per pick (typically when returning the chosen
 // endpoint to the caller); avoid CloneEndpoint inside per-iteration loops
 // over a snapshot's endpoint slice. Use HealthyEndpointsForPick to scan
@@ -231,14 +235,7 @@ func cloneSocketAddress(address SocketAddress) SocketAddress {
 }
 
 func cloneMetadata(metadata map[string]string) map[string]string {
-	if metadata == nil {
-		return nil
-	}
-	cloned := make(map[string]string, len(metadata))
-	for key, value := range metadata {
-		cloned[key] = value
-	}
-	return cloned
+	return copyutil.CloneStringMap(metadata)
 }
 
 func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
@@ -246,44 +243,6 @@ func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
 		return nil
 	}
 	cloned := *meta
-	cloned.RetryPolicy.Config = cloneAnyMap(meta.RetryPolicy.Config)
+	cloned.RetryPolicy.Config = copyutil.CloneStringAnyMap(meta.RetryPolicy.Config)
 	return &cloned
-}
-
-func cloneAnyMap(input map[string]any) map[string]any {
-	if input == nil {
-		return nil
-	}
-	cloned := make(map[string]any, len(input))
-	for key, value := range input {
-		cloned[key] = cloneAnyValue(value)
-	}
-	return cloned
-}
-
-func cloneAnyValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return cloneAnyMap(typed)
-	case []any:
-		cloned := make([]any, len(typed))
-		for i, item := range typed {
-			cloned[i] = cloneAnyValue(item)
-		}
-		return cloned
-	case []string:
-		return append([]string(nil), typed...)
-	case []int:
-		return append([]int(nil), typed...)
-	case []int64:
-		return append([]int64(nil), typed...)
-	case []float64:
-		return append([]float64(nil), typed...)
-	case []bool:
-		return append([]bool(nil), typed...)
-	case map[string]string:
-		return cloneMetadata(typed)
-	default:
-		return value
-	}
 }

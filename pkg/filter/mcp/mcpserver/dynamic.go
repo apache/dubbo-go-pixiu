@@ -160,7 +160,7 @@ func (d *DynamicConsumer) applyServerTools(serverId string, tools []model.ToolCo
 		result.SkippedReason = serverConfigApplySkippedUnchanged
 		return result, nil
 	}
-	if elapsed, ok := d.serverConfigDebounceElapsed(existingConfig, now); ok {
+	if elapsed, ok := d.serverConfigDebounceElapsed(existingConfig, result.Fingerprint, now); ok {
 		result.SkippedReason = serverConfigApplySkippedDebounce
 		result.Elapsed = elapsed
 		return result, nil
@@ -188,8 +188,11 @@ func (d *DynamicConsumer) applyServerTools(serverId string, tools []model.ToolCo
 	return result, nil
 }
 
-func (d *DynamicConsumer) serverConfigDebounceElapsed(existingConfig *ServerToolConfig, now time.Time) (time.Duration, bool) {
+func (d *DynamicConsumer) serverConfigDebounceElapsed(existingConfig *ServerToolConfig, fingerprint string, now time.Time) (time.Duration, bool) {
 	if existingConfig == nil || existingConfig.LastApplied.IsZero() {
+		return 0, false
+	}
+	if existingConfig.Fingerprint != fingerprint {
 		return 0, false
 	}
 	elapsed := now.Sub(existingConfig.LastApplied)
@@ -349,7 +352,7 @@ func (d *DynamicConsumer) notifyToolsListChanged() {
 	logger.Infof("[dubbo-go-pixiu] mcp server marked tools/list_changed notification for %d sessions, flushed %d online sessions", markedCount, flushedCount)
 }
 
-func (d *DynamicConsumer) sessionsWithChangedVisibleSet() map[string]struct{} {
+func (d *DynamicConsumer) sessionsWithChangedVisibleSet() router.StringSet {
 	d.mu.RLock()
 	governance := d.governance
 	selector := d.selector
@@ -363,7 +366,7 @@ func (d *DynamicConsumer) sessionsWithChangedVisibleSet() map[string]struct{} {
 		return nil
 	}
 	snapshot := d.registry.toolCatalogSnapshotUnsafe()
-	changed := make(map[string]struct{})
+	changed := make(router.StringSet)
 	for _, item := range plans.SessionPlanContexts() {
 		item.Context.CatalogVersion = snapshot.Version
 		plan, committed, err := refresher.RefreshPlan(context.Background(), item, snapshot.orderedToolsUnsafe())

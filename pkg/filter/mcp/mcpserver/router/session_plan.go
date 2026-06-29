@@ -22,6 +22,10 @@ import (
 	"sync"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
+)
+
 // PlanKey isolates cached plan state by router instance and MCP session.
 type PlanKey struct {
 	RouterID  string
@@ -263,7 +267,7 @@ type SessionPlanContext struct {
 
 // Delete removes one router instance's plan and progressive state.
 func (s *SessionPlanStore) Delete(key PlanKey) {
-	s.delete(key, "explicit")
+	s.delete(key, MetricPlanEvictedExplicit)
 }
 
 func (s *SessionPlanStore) delete(key PlanKey, reason string) {
@@ -297,7 +301,7 @@ func (s *SessionPlanStore) DeleteSession(sessionID string) {
 	}
 	delete(s.activeSessions, sessionID)
 	for i := 0; i < removed; i++ {
-		recordPlanEvicted("session_end")
+		recordPlanEvicted(MetricPlanEvictedSessionEnd)
 	}
 	if removed > 0 {
 		s.publishActiveLocked()
@@ -557,12 +561,7 @@ func clonePlan(plan *SelectionPlan, includeReasons bool) *SelectionPlan {
 }
 
 func copyStrings(values []string) []string {
-	if values == nil {
-		return nil
-	}
-	cp := make([]string, len(values))
-	copy(cp, values)
-	return cp
+	return copyutil.CloneStringSlice(values)
 }
 
 func copyDecisionTraces(values []DecisionTrace) []DecisionTrace {
@@ -587,40 +586,6 @@ func copyStageCounts(values map[string]StageCount) map[string]StageCount {
 
 func cloneSelectionContext(sc SelectionContext) SelectionContext {
 	cp := sc
-	if sc.Claims != nil {
-		cp.Claims = make(map[string]any, len(sc.Claims))
-		for k, v := range sc.Claims {
-			cp.Claims[k] = cloneAny(v)
-		}
-	}
+	cp.Claims = copyutil.CloneStringAnyMap(sc.Claims)
 	return cp
-}
-
-func cloneAny(value any) any {
-	switch v := value.(type) {
-	case map[string]any:
-		cp := make(map[string]any, len(v))
-		for k, item := range v {
-			cp[k] = cloneAny(item)
-		}
-		return cp
-	case []any:
-		cp := make([]any, len(v))
-		for i := range v {
-			cp[i] = cloneAny(v[i])
-		}
-		return cp
-	case []string:
-		cp := make([]string, len(v))
-		copy(cp, v)
-		return cp
-	case map[string]string:
-		cp := make(map[string]string, len(v))
-		for k, item := range v {
-			cp[k] = item
-		}
-		return cp
-	default:
-		return v
-	}
 }

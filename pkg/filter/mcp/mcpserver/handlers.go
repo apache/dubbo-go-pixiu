@@ -18,13 +18,10 @@
 package mcpserver
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 )
 
@@ -43,15 +40,6 @@ import (
 )
 
 const (
-	inPath  = "path"
-	inQuery = "query"
-	inBody  = "body"
-
-	typeString  = "string"
-	typeInteger = "integer"
-	typeNumber  = "number"
-	typeBoolean = "boolean"
-
 	toolsListChangedMethod = "notifications/tools/list_changed"
 )
 
@@ -187,76 +175,12 @@ func (f *MCPServerFilter) buildToolsListResponseObject(ctx *MCPContext, req mcp.
 		}
 	}
 
-	tools := f.buildMCPTools(toolCfgs)
+	tools := BuildMCPTools(toolCfgs)
 
 	// Build standard MCP tools list response using mcp-go structures
 	result := mcp.NewListToolsResult(tools, "")
 
 	return f.responseBuilder.Success(req.ID, result), nil
-}
-
-func (f *MCPServerFilter) buildMCPTools(toolCfgs []model.ToolConfig) []mcp.Tool {
-	tools := make([]mcp.Tool, 0, len(toolCfgs))
-	for _, toolCfg := range toolCfgs {
-		tools = append(tools, f.buildMCPTool(toolCfg))
-	}
-	return tools
-}
-
-func (f *MCPServerFilter) buildMCPTool(toolCfg model.ToolConfig) mcp.Tool {
-	toolOptions := []mcp.ToolOption{
-		mcp.WithDescription(toolCfg.Description),
-	}
-
-	for _, arg := range toolCfg.Args {
-		opts := f.buildToolParameterOptions(&arg)
-		switch arg.Type {
-		case typeString:
-			toolOptions = append(toolOptions, mcp.WithString(arg.Name, opts...))
-		case typeInteger, typeNumber:
-			toolOptions = append(toolOptions, mcp.WithNumber(arg.Name, opts...))
-		case typeBoolean:
-			toolOptions = append(toolOptions, mcp.WithBoolean(arg.Name, opts...))
-		}
-	}
-
-	return mcp.NewTool(toolCfg.Name, toolOptions...)
-}
-
-func visibleToolsFingerprint(tools []model.ToolConfig) string {
-	mcpTools := (&MCPServerFilter{}).buildMCPTools(discoverableToolConfigs(tools))
-	if len(mcpTools) == 0 {
-		return router.VisibleToolNamesFingerprint(nil)
-	}
-	items := make([]string, 0, len(mcpTools))
-	for _, tool := range mcpTools {
-		data, err := json.Marshal(tool)
-		if err != nil {
-			data = []byte(tool.Name)
-		}
-		items = append(items, string(data))
-	}
-	sort.Strings(items)
-	hash := sha256.New()
-	for _, item := range items {
-		_, _ = hash.Write([]byte(item))
-		_, _ = hash.Write([]byte{0})
-	}
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func discoverableToolConfigs(tools []model.ToolConfig) []model.ToolConfig {
-	if len(tools) == 0 {
-		return nil
-	}
-	out := make([]model.ToolConfig, 0, len(tools))
-	for _, tool := range tools {
-		if tool.Meta != nil && tool.Meta.DiscoveryVisibility != nil && !*tool.Meta.DiscoveryVisibility {
-			continue
-		}
-		out = append(out, tool)
-	}
-	return out
 }
 
 func (f *MCPServerFilter) routerSessionValid(ctx *MCPContext) bool {
@@ -272,39 +196,7 @@ func (f *MCPServerFilter) routerSessionValid(ctx *MCPContext) bool {
 
 // buildToolParameterOptions builds the mcp.PropertyOption slice for a given tool argument
 func (f *MCPServerFilter) buildToolParameterOptions(arg *model.ArgConfig) []mcp.PropertyOption {
-	opts := []mcp.PropertyOption{mcp.Description(arg.Description)}
-
-	if arg.Required {
-		opts = append(opts, mcp.Required())
-	}
-
-	if arg.Default != nil {
-		switch arg.Type {
-		case typeString:
-			if defaultStr, ok := arg.Default.(string); ok {
-				opts = append(opts, mcp.DefaultString(defaultStr))
-			}
-		case typeInteger, typeNumber:
-			switch defaultVal := arg.Default.(type) {
-			case float64:
-				opts = append(opts, mcp.DefaultNumber(defaultVal))
-			case int:
-				opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
-			case int64:
-				opts = append(opts, mcp.DefaultNumber(float64(defaultVal)))
-			}
-		case typeBoolean:
-			if defaultBool, ok := arg.Default.(bool); ok {
-				opts = append(opts, mcp.DefaultBool(defaultBool))
-			}
-		}
-	}
-
-	if len(arg.Enum) > 0 && arg.Type == typeString {
-		opts = append(opts, mcp.Enum(arg.Enum...))
-	}
-
-	return opts
+	return BuildToolParameterOptions(arg)
 }
 
 // handleResourcesList handles the resources/list method

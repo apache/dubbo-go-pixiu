@@ -31,7 +31,7 @@ import (
 type compiledWorkflow struct {
 	name    string
 	when    *matcher
-	tools   map[string]struct{}
+	tools   StringSet
 	hasWhen bool
 }
 
@@ -88,8 +88,8 @@ func NewWorkflowSelector(cfgs []model.WorkflowConfig) (*WorkflowSelector, error)
 	return ws, nil
 }
 
-func compileWorkflowTools(workflowName string, raw []string) (map[string]struct{}, error) {
-	tools := make(map[string]struct{}, len(raw))
+func compileWorkflowTools(workflowName string, raw []string) (StringSet, error) {
+	tools := make(StringSet, len(raw))
 	for i, value := range raw {
 		name := strings.TrimSpace(value)
 		if name == "" {
@@ -118,7 +118,7 @@ func (w *WorkflowSelector) filter(tools []model.ToolConfig, sc SelectionContext)
 	kept := make([]model.ToolConfig, 0, len(matched.tools))
 	var traces []DecisionTrace
 	for _, tool := range tools {
-		if _, in := matched.tools[tool.Name]; in {
+		if matched.tools.Contains(tool.Name) {
 			kept = append(kept, tool)
 		} else {
 			if len(traces) < maxDecisionTraceSamples {
@@ -156,7 +156,7 @@ func (w *WorkflowSelector) hasMatchableWorkflows() bool {
 
 // bundleTools returns the tool-name set for a named workflow bundle, used by
 // fallback and progressive disclosure. The second return is false if unknown.
-func (w *WorkflowSelector) bundleTools(name string) (map[string]struct{}, bool) {
+func (w *WorkflowSelector) bundleTools(name string) (StringSet, bool) {
 	wf, ok := w.byName[strings.TrimSpace(name)]
 	if !ok {
 		return nil, false

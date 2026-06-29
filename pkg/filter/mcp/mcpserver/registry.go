@@ -18,11 +18,7 @@
 package mcpserver
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -32,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/fingerprint"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -296,20 +292,9 @@ func toolCatalogFingerprint(tools []model.ToolConfig) string {
 
 	items := make([]string, len(tools))
 	for i, tool := range tools {
-		data, err := json.Marshal(tool)
-		if err != nil {
-			data = []byte(fmt.Sprintf("%#v", tool))
-		}
-		items[i] = string(data)
+		items[i] = fingerprint.JSONStableOrFallback(tool)
 	}
-	sort.Strings(items)
-
-	hash := sha256.New()
-	for _, item := range items {
-		_, _ = hash.Write([]byte(item))
-		_, _ = hash.Write([]byte{0})
-	}
-	return hex.EncodeToString(hash.Sum(nil))[:8]
+	return fingerprint.StringsSorted(items)[:8]
 }
 
 // ListResources lists all resources
@@ -326,67 +311,7 @@ func (r *ToolRegistry) ListResources() []model.ResourceConfig {
 
 // ToMCPTools converts tool configurations to tool list
 func (r *ToolRegistry) ToMCPTools() ([]map[string]any, error) {
-	tools := r.ListTools()
-	mcpTools := make([]map[string]any, 0, len(tools))
-
-	for _, tool := range tools {
-		// Build tool according to MCP protocol specification
-		mcpTool := map[string]any{
-			"name":        tool.Name,
-			"description": tool.Description,
-			"inputSchema": r.convertToInputSchema(tool),
-		}
-		mcpTools = append(mcpTools, mcpTool)
-	}
-
-	return mcpTools, nil
-}
-
-// convertToInputSchema converts tool parameters to MCP inputSchema format
-func (r *ToolRegistry) convertToInputSchema(tool model.ToolConfig) map[string]any {
-	allParams, err := tool.GetAllParameters()
-	if err != nil {
-		logger.Errorf("failed to get parameters for tool %s: %v", tool.Name, err)
-		return map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
-		}
-	}
-
-	properties := make(map[string]any)
-	required := make([]string, 0)
-
-	for _, param := range allParams {
-		propSchema := map[string]any{
-			"type":        param.Type,
-			"description": param.Description,
-		}
-
-		if len(param.Enum) > 0 {
-			propSchema["enum"] = param.Enum
-		}
-
-		if param.Default != nil {
-			propSchema["default"] = param.Default
-		}
-
-		properties[param.Name] = propSchema
-
-		if param.Required {
-			required = append(required, param.Name)
-		}
-	}
-
-	schema := map[string]any{
-		"type":       "object",
-		"properties": properties,
-	}
-
-	if len(required) > 0 {
-		schema["required"] = required
-	}
-
-	return schema
+	return BuildMCPToolMaps(r.ListTools())
 }
 
 // ToMCPResources converts resource configurations to MCP resource list using mcp-go structures

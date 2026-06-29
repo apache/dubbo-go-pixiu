@@ -22,6 +22,10 @@ import (
 	"time"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
+)
+
 // McpServerConfig MCP Server Filter configuration
 type McpServerConfig struct {
 	ServerInfo        ServerInfo               `yaml:"server_info" json:"server_info"`
@@ -453,18 +457,13 @@ func deepCopyWorkflows(workflows []WorkflowConfig) []WorkflowConfig {
 
 func (w WorkflowConfig) deepCopy() WorkflowConfig {
 	cp := w
-	cp.Tools = copyStringSlice(w.Tools)
-	cp.When.In = copyStringSlice(w.When.In)
+	cp.Tools = copyutil.CloneStringSlice(w.Tools)
+	cp.When.In = copyutil.CloneStringSlice(w.When.In)
 	return cp
 }
 
 func copyStringSlice(values []string) []string {
-	if values == nil {
-		return nil
-	}
-	cp := make([]string, len(values))
-	copy(cp, values)
-	return cp
+	return copyutil.CloneStringSlice(values)
 }
 
 // deepCopy returns an independent copy of a PolicyRule.
@@ -489,12 +488,7 @@ func (config *RequestConfig) DeepCopy() *RequestConfig {
 		return nil
 	}
 	cpConfig := *config
-	if config.Headers != nil {
-		cpConfig.Headers = make(map[string]string, len(config.Headers))
-		for k, v := range config.Headers {
-			cpConfig.Headers[k] = v
-		}
-	}
+	cpConfig.Headers = copyutil.CloneStringMap(config.Headers)
 
 	return &cpConfig
 }
@@ -506,43 +500,11 @@ func (config *ArgConfig) DeepCopy() *ArgConfig {
 		return nil
 	}
 	cpConfig := *config
-	cpConfig.Default = deepCopyAny(config.Default)
+	cpConfig.Default = copyutil.CloneJSONLike(config.Default)
 	if config.Enum != nil {
-		cpConfig.Enum = make([]string, len(config.Enum))
-		copy(cpConfig.Enum, config.Enum)
+		cpConfig.Enum = copyutil.CloneStringSlice(config.Enum)
 	}
 	return &cpConfig
-}
-
-func deepCopyAny(value any) any {
-	switch v := value.(type) {
-	case nil:
-		return nil
-	case map[string]any:
-		cp := make(map[string]any, len(v))
-		for k, item := range v {
-			cp[k] = deepCopyAny(item)
-		}
-		return cp
-	case []any:
-		cp := make([]any, len(v))
-		for i := range v {
-			cp[i] = deepCopyAny(v[i])
-		}
-		return cp
-	case []string:
-		cp := make([]string, len(v))
-		copy(cp, v)
-		return cp
-	case map[string]string:
-		cp := make(map[string]string, len(v))
-		for k, item := range v {
-			cp[k] = item
-		}
-		return cp
-	default:
-		return v
-	}
 }
 
 // DeepCopy returns a new independent copy of Config

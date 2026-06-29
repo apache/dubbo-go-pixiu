@@ -164,12 +164,8 @@ func (a *Adapter) Apply() error {
 			a.endpoints = reconciler
 		}
 		registryName := k
-		sink, err := a.bindPublicationSink()
-		if err != nil {
-			logger.Infof("[dubbo-go-pixiu] mcp adapter registry %s has no bound runtime publication sink: %v", registryName, err)
-		}
 		onChange := func(serverId string, cfg *model.McpServerConfig) {
-			a.applyServerConfigEvent(reconciler, sink, registryName, serverId, cfg)
+			a.applyServerConfigEvent(reconciler, registryName, serverId, cfg)
 		}
 
 		// build controller via provider-agnostic factory
@@ -184,7 +180,7 @@ func (a *Adapter) Apply() error {
 	return nil
 }
 
-func (a *Adapter) applyServerConfigEvent(reconciler *endpointReconciler, sink mcpserver.ServerPublicationSink, registryName, serverId string, cfg *model.McpServerConfig) {
+func (a *Adapter) applyServerConfigEvent(reconciler *endpointReconciler, registryName, serverId string, cfg *model.McpServerConfig) {
 	if serverId == "" {
 		serverId = "default"
 	}
@@ -192,6 +188,11 @@ func (a *Adapter) applyServerConfigEvent(reconciler *endpointReconciler, sink mc
 	// Apply catalog and endpoints through one desired-state publication path. If
 	// no runtime target is bound, skip the entire update so authorization catalog
 	// and cluster endpoints cannot diverge.
+	sink, err := a.bindPublicationSink()
+	if err != nil {
+		logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s without a bound runtime publication sink: %v", serverId, err)
+		return
+	}
 	if sink == nil {
 		logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s without a bound runtime publication sink", serverId)
 		return

@@ -38,6 +38,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -340,39 +341,10 @@ func tokenClaims(tok jwt.Token) map[string]any {
 	for _, k := range keys {
 		var value any
 		if err := tok.Get(k, &value); err == nil {
-			claims[k] = cloneClaim(value)
+			claims[k] = copyutil.CloneJSONLike(value)
 		}
 	}
 	return claims
-}
-
-func cloneClaim(value any) any {
-	switch v := value.(type) {
-	case map[string]any:
-		cp := make(map[string]any, len(v))
-		for k, item := range v {
-			cp[k] = cloneClaim(item)
-		}
-		return cp
-	case []any:
-		cp := make([]any, len(v))
-		for i := range v {
-			cp[i] = cloneClaim(v[i])
-		}
-		return cp
-	case []string:
-		cp := make([]string, len(v))
-		copy(cp, v)
-		return cp
-	case map[string]string:
-		cp := make(map[string]string, len(v))
-		for k, item := range v {
-			cp[k] = item
-		}
-		return cp
-	default:
-		return v
-	}
 }
 
 // Provider returns the provider configuration by name

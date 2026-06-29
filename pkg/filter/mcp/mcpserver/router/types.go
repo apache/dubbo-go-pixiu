@@ -24,8 +24,6 @@ package router
 import (
 	"context"
 	"errors"
-	"hash/fnv"
-	"strconv"
 	"sync/atomic"
 )
 
@@ -119,7 +117,7 @@ type SelectionPlan struct {
 	CatalogVersion     string                `json:"-"`                  // immutable catalog version used for this plan
 	Generation         uint64                `json:"-"`                  // monotonic per-session plan generation
 	Expanded           bool                  `json:"expanded,omitempty"` // progressive state for tests/log-free inspection
-	toolSet            map[string]struct{}   `json:"-"`
+	toolSet            StringSet             `json:"-"`
 }
 
 // VisibleFingerprintFunc hashes the client-visible tools/list definition for a
@@ -129,19 +127,14 @@ type SelectionPlan struct {
 type VisibleFingerprintFunc func([]model.ToolConfig) string
 
 func DefaultVisibleFingerprint(tools []model.ToolConfig) string {
-	return VisibleToolNamesFingerprint(visibleToolNames(tools))
+	return VisibleToolNamesFingerprint(DiscoverableToolNames(tools))
 }
 
 func VisibleToolNamesFingerprint(names []string) string {
 	if len(names) == 0 {
 		return "00000000"
 	}
-	h := fnv.New64a()
-	for _, name := range names {
-		_, _ = h.Write([]byte(name))
-		_, _ = h.Write([]byte{0})
-	}
-	return strconv.FormatUint(h.Sum64(), 16)
+	return stableStringsFingerprint(names)[:16]
 }
 
 // Contains reports whether the plan authorizes the named tool.
@@ -259,34 +252,16 @@ func (s *receiptState) consume() bool {
 
 // toolNames extracts the stable ordered name slice from a candidate set.
 func toolNames(tools []model.ToolConfig) []string {
-	names := make([]string, len(tools))
-	for i, t := range tools {
-		names[i] = t.Name
-	}
-	return names
+	return NewToolCatalogView(tools).Names()
 }
 
-func toolNameSet(names []string) map[string]struct{} {
-	if len(names) == 0 {
-		return nil
-	}
-	set := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		set[name] = struct{}{}
-	}
-	return set
+func toolNameSet(names []string) StringSet {
+	return NewStringSet(names)
 }
 
 // visibleToolNames extracts the tools/list view from a candidate set. Tools
 // with meta.discovery_visibility=false remain authorized in the plan but are
 // intentionally omitted from discovery.
 func visibleToolNames(tools []model.ToolConfig) []string {
-	names := make([]string, 0, len(tools))
-	for _, t := range tools {
-		if t.Meta != nil && t.Meta.DiscoveryVisibility != nil && !*t.Meta.DiscoveryVisibility {
-			continue
-		}
-		names = append(names, t.Name)
-	}
-	return names
+	return DiscoverableToolNames(tools)
 }
