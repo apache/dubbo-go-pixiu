@@ -168,7 +168,7 @@ func TestDynamicChangedVisibleDefinitionDetectsDescriptionChange(t *testing.T) {
 	consumer.SetDebounceTime(0)
 
 	tool.Description = "new description"
-	_, err := consumer.applyServerTools("server-a", []model.ToolConfig{tool})
+	_, err := consumer.applyServerTools(NewServerSource(DefaultRegistryName, "server-a"), []model.ToolConfig{tool})
 	require.NoError(t, err)
 
 	changed := consumer.sessionsWithChangedVisibleSet()
@@ -190,7 +190,7 @@ func TestDynamicChangedVisibleDefinitionIgnoresBackendOnlyChange(t *testing.T) {
 	consumer.SetDebounceTime(0)
 
 	tool.BackendURL = "http://127.0.0.1:9090"
-	_, err := consumer.applyServerTools("server-a", []model.ToolConfig{tool})
+	_, err := consumer.applyServerTools(NewServerSource(DefaultRegistryName, "server-a"), []model.ToolConfig{tool})
 	require.NoError(t, err)
 
 	changed := consumer.sessionsWithChangedVisibleSet()

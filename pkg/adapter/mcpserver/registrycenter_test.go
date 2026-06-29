@@ -18,14 +18,20 @@
 package mcpserver
 
 import (
+	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/registry"
 	filtermcp "github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -33,6 +39,25 @@ import (
 type testPublicationSink struct {
 	runtimeID string
 	applied   int
+	removed   int
+	bySource  []filtermcp.ServerSource
+	err       error
+}
+
+type testController struct {
+	runCount   atomic.Int32
+	closeCount atomic.Int32
+}
+
+func (c *testController) Run(ctx context.Context, _ time.Duration) error {
+	c.runCount.Add(1)
+	<-ctx.Done()
+	return nil
+}
+
+func (c *testController) Close() error {
+	c.closeCount.Add(1)
+	return nil
 }
 
 func (s *testPublicationSink) RuntimeID() string {
@@ -41,7 +66,27 @@ func (s *testPublicationSink) RuntimeID() string {
 
 func (s *testPublicationSink) ApplyMcpServerConfigByServer(_ string, _ *model.McpServerConfig) error {
 	s.applied++
+	return s.err
+}
+
+func (s *testPublicationSink) ApplyMcpServerConfigBySource(source filtermcp.ServerSource, _ *model.McpServerConfig) error {
+	s.applied++
+	s.bySource = append(s.bySource, source.Normalize())
+	return s.err
+}
+
+func (s *testPublicationSink) RemoveAllMcpServerConfigs() error {
+	s.removed++
 	return nil
+}
+
+func withPublicationSinkLookup(t *testing.T, fn func() (filtermcp.ServerPublicationSink, error)) {
+	t.Helper()
+	old := serverPublicationSinkForSingleRuntime
+	serverPublicationSinkForSingleRuntime = fn
+	t.Cleanup(func() {
+		serverPublicationSinkForSingleRuntime = old
+	})
 }
 
 func TestAdapterBindPublicationSinkRequiresRuntime(t *testing.T) {
@@ -60,46 +105,210 @@ func TestAdapterApplyServerConfigEventNoBoundSinkDoesNothing(t *testing.T) {
 	filtermcp.ResetGlobalState()
 	defer filtermcp.ResetGlobalState()
 
-	a := &Adapter{}
-	reconciler := newEndpointReconciler(&recordingEndpointSink{})
+	sink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(sink)}
 
-	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
 		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
 	})
 
-	assert.Empty(t, reconciler.published)
+	assert.Empty(t, a.endpoints.published)
+	assert.Empty(t, sink.ops)
 }
 
 func TestAdapterApplyServerConfigEventUsesBoundRuntime(t *testing.T) {
-	reconciler := newEndpointReconciler(&recordingEndpointSink{})
 	sink := &testPublicationSink{runtimeID: "runtime-1"}
-	a := &Adapter{sink: sink}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(endpointSink)}
 
-	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
 		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
 	})
 
 	assert.Equal(t, 1, sink.applied)
+	assert.Equal(t, []filtermcp.ServerSource{filtermcp.NewServerSource("nacos", "server-a")}, sink.bySource)
+	require.Len(t, endpointSink.ops, 1)
+	assert.Equal(t, "mcp/nacos/server-a/tool", endpointSink.ops[0].id)
+}
+
+func TestAdapterApplyBeforeRuntimeThenEventAfterRuntimePublishes(t *testing.T) {
+	runtimeErr := filtermcp.ErrDynamicConsumerUnavailable
+	publishedSink := &testPublicationSink{runtimeID: "runtime-1"}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		if runtimeErr != nil {
+			return nil, runtimeErr
+		}
+		return publishedSink, nil
+	})
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(endpointSink)}
+
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "before", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	})
+	assert.Empty(t, endpointSink.ops)
+	assert.Equal(t, 0, publishedSink.applied)
+
+	runtimeErr = nil
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "after", Cluster: "cluster", BackendURL: "http://127.0.0.1:8081"}},
+	})
+
+	require.Len(t, endpointSink.ops, 1)
+	assert.Equal(t, "mcp/nacos/server-a/after", endpointSink.ops[0].id)
+	assert.Equal(t, 1, publishedSink.applied)
+}
+
+func TestAdapterApplyServerConfigEventAmbiguousRuntimeFailsClosed(t *testing.T) {
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return nil, filtermcp.ErrDynamicConsumerAmbiguous
+	})
+
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(endpointSink)}
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	})
+
+	assert.Empty(t, endpointSink.ops)
+}
+
+func TestAdapterApplyServerConfigEventValidationFailsAtomically(t *testing.T) {
+	sink := &testPublicationSink{runtimeID: "runtime-1"}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(endpointSink)}
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "bad", Cluster: "cluster", BackendURL: "://bad-url"}},
+	})
+
+	assert.Empty(t, endpointSink.ops)
+	assert.Equal(t, 0, sink.applied)
+}
+
+func TestAdapterApplyServerConfigEventCatalogFailureSkipsEndpoints(t *testing.T) {
+	sink := &testPublicationSink{runtimeID: "runtime-1", err: errors.New("boom")}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{
+		endpoints: newEndpointReconciler(endpointSink),
+	}
+
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	})
+
+	assert.Empty(t, endpointSink.ops)
+	assert.Equal(t, 1, sink.applied)
+}
+
+func TestAdapterTombstoneRemovesCatalogAndEndpoints(t *testing.T) {
+	sink := &testPublicationSink{runtimeID: "runtime-1"}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(endpointSink)}
+
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	})
+	a.applyServerConfigEvent("nacos", "server-a", nil)
+
+	require.Len(t, endpointSink.ops, 2)
+	assert.Equal(t, "set", endpointSink.ops[0].action)
+	assert.Equal(t, "delete", endpointSink.ops[1].action)
+	assert.Equal(t, endpointSink.ops[0].id, endpointSink.ops[1].id)
+	assert.Equal(t, 2, sink.applied)
+	assert.Empty(t, a.publishedSources)
+}
+
+func TestAdapterStopRemovesPublishedDynamicState(t *testing.T) {
+	sink := &testPublicationSink{runtimeID: "runtime-1"}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{
+		controllers:      map[string]registry.Controller{},
+		endpoints:        newEndpointReconciler(endpointSink),
+		publishedSources: map[string]filtermcp.ServerSource{},
+	}
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	})
+	require.Len(t, endpointSink.ops, 1)
+
+	a.Stop()
+
+	require.Len(t, endpointSink.ops, 2)
+	assert.Equal(t, "delete", endpointSink.ops[1].action)
+	assert.Equal(t, 1, sink.removed)
+}
+
+func TestAdapterStartStopManagesAllControllers(t *testing.T) {
+	ctrlA := &testController{}
+	ctrlB := &testController{}
+	sink := &testPublicationSink{runtimeID: "runtime-1"}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+	a := &Adapter{
+		controllers: map[string]registry.Controller{
+			"registry-a": ctrlA,
+			"registry-b": ctrlB,
+		},
+		endpoints: newEndpointReconciler(&recordingEndpointSink{}),
+	}
+
+	a.Start()
+	require.Eventually(t, func() bool {
+		return ctrlA.runCount.Load() == 1 && ctrlB.runCount.Load() == 1
+	}, time.Second, 10*time.Millisecond)
+
+	a.Stop()
+
+	assert.Equal(t, int32(1), ctrlA.closeCount.Load())
+	assert.Equal(t, int32(1), ctrlB.closeCount.Load())
+	assert.Equal(t, 1, sink.removed)
 }
 
 func TestAdapterApplyServerConfigEventResolvesSinkLazily(t *testing.T) {
 	filtermcp.ResetGlobalState()
 	defer filtermcp.ResetGlobalState()
 
-	reconciler := newEndpointReconciler(&recordingEndpointSink{})
-	a := &Adapter{}
+	runtimeErr := filtermcp.ErrDynamicConsumerUnavailable
+	sink := &testPublicationSink{runtimeID: "runtime-1"}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		if runtimeErr != nil {
+			return nil, runtimeErr
+		}
+		return sink, nil
+	})
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(endpointSink)}
 
-	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
 		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
 	})
-	assert.Empty(t, reconciler.published)
+	assert.Empty(t, a.endpoints.published)
+	assert.Empty(t, endpointSink.ops)
 
-	sink := &testPublicationSink{runtimeID: "runtime-1"}
-	a.sink = sink
-	a.applyServerConfigEvent(reconciler, "nacos", "server-a", &model.McpServerConfig{
+	runtimeErr = nil
+	a.applyServerConfigEvent("nacos", "server-a", &model.McpServerConfig{
 		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
 	})
 
 	assert.Equal(t, 1, sink.applied)
-	assert.NotEmpty(t, reconciler.published)
+	assert.NotEmpty(t, a.endpoints.published)
+	assert.NotEmpty(t, endpointSink.ops)
 }

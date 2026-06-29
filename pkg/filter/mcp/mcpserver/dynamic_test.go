@@ -471,6 +471,32 @@ func TestDebounceFeatures(t *testing.T) {
 	})
 }
 
+func TestDynamicConsumerSourceIdentitySeparatesRegistries(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+
+	err := consumer.ApplyMcpServerConfigBySource(NewServerSource("registry1", "serverA"), createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("tool-r1", "R1"),
+	}))
+	require.NoError(t, err)
+
+	err = consumer.ApplyMcpServerConfigBySource(NewServerSource("registry2", "serverA"), createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("tool-r2", "R2"),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"tool-r1", "tool-r2"}, toolConfigNames(registry.ListTools()))
+	require.Len(t, consumer.serverConfigs, 2)
+	assert.Contains(t, consumer.serverConfigs, NewServerSource("registry1", "serverA"))
+	assert.Contains(t, consumer.serverConfigs, NewServerSource("registry2", "serverA"))
+
+	err = consumer.ApplyMcpServerConfigBySource(NewServerSource("registry1", "serverA"), nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"tool-r2"}, toolConfigNames(registry.ListTools()))
+}
+
 func TestDebounceConfiguration(t *testing.T) {
 	registry := NewToolRegistry()
 	sm := transport.NewSessionManager()

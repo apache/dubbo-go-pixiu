@@ -39,11 +39,14 @@ var ErrDynamicConsumerUnavailable = errors.New("mcp dynamic consumer unavailable
 var ErrDynamicConsumerAmbiguous = errors.New("multiple mcp dynamic consumers registered")
 
 // ServerPublicationSink is the dynamic registry publication target owned by one
-// MCP runtime. Registry adapters bind to this sink once instead of discovering a
-// runtime on every event.
+// MCP runtime. Dynamic registry publication intentionally supports one runtime
+// only; a process with zero or multiple runtimes has no unambiguous target and
+// must fail closed.
 type ServerPublicationSink interface {
 	RuntimeID() string
 	ApplyMcpServerConfigByServer(serverId string, cfg *model.McpServerConfig) error
+	ApplyMcpServerConfigBySource(source ServerSource, cfg *model.McpServerConfig) error
+	RemoveAllMcpServerConfigs() error
 }
 
 func registerRuntime(runtime *RuntimeState) string {

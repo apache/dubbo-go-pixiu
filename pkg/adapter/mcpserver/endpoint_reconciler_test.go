@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	filtermcp "github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -70,15 +71,16 @@ func endpointTool(name, cluster, backendURL string) model.ToolConfig {
 func TestEndpointReconcilerBackendURLChangeReplacesStableOwnerEndpoint(t *testing.T) {
 	sink := &recordingEndpointSink{}
 	r := newEndpointReconciler(sink)
+	source := filtermcp.NewServerSource("nacos", "server-a")
 
-	err := r.ApplyServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err := r.ApplyServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster-a", "http://127.0.0.1:8080"),
 	))
 	require.NoError(t, err)
 	require.Len(t, sink.ops, 1)
 	firstID := sink.ops[0].id
 
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err = r.ApplyServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster-a", "http://127.0.0.1:9090"),
 	))
 	require.NoError(t, err)
@@ -92,34 +94,34 @@ func TestEndpointReconcilerBackendURLChangeReplacesStableOwnerEndpoint(t *testin
 func TestEndpointReconcilerToolAndServerDeletion(t *testing.T) {
 	sink := &recordingEndpointSink{}
 	r := newEndpointReconciler(sink)
-	owner := endpointOwner{runtimeID: "runtime-1", registry: "nacos", serverID: "server-a"}
+	source := filtermcp.NewServerSource("nacos", "server-a")
 
-	err := r.ApplyServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err := r.ApplyServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("a", "cluster-a", "http://127.0.0.1:8080"),
 		endpointTool("b", "cluster-b", "http://127.0.0.1:8081"),
 	))
 	require.NoError(t, err)
 	require.Len(t, sink.ops, 2)
-	idA := stableEndpointID(owner, "a")
-	idB := stableEndpointID(owner, "b")
+	idA := stableEndpointID(source, "a")
+	idB := stableEndpointID(source, "b")
 	assert.ElementsMatch(t, []endpointOp{
 		{action: "set", cluster: "cluster-a", id: idA, address: "127.0.0.1:8080"},
 		{action: "set", cluster: "cluster-b", id: idB, address: "127.0.0.1:8081"},
 	}, sink.ops)
 
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err = r.ApplyServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("a", "cluster-a", "http://127.0.0.1:8080"),
 	))
 	require.NoError(t, err)
 	require.Len(t, sink.ops, 3)
 	assert.Equal(t, endpointOp{action: "delete", cluster: "cluster-b", id: idB}, sink.ops[2])
 
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-a", nil)
+	err = r.ApplyServerConfig(source, nil)
 	require.NoError(t, err)
 	require.Len(t, sink.ops, 4)
 	assert.Equal(t, endpointOp{action: "delete", cluster: "cluster-a", id: idA}, sink.ops[3])
 
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-a", nil)
+	err = r.ApplyServerConfig(source, nil)
 	require.NoError(t, err)
 	assert.Len(t, sink.ops, 4, "repeated tombstone must be idempotent")
 }
@@ -128,11 +130,11 @@ func TestEndpointReconcilerSharedAddressDifferentOwners(t *testing.T) {
 	sink := &recordingEndpointSink{}
 	r := newEndpointReconciler(sink)
 
-	err := r.ApplyServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err := r.ApplyServerConfig(filtermcp.NewServerSource("nacos", "server-a"), mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster", "http://127.0.0.1:8080"),
 	))
 	require.NoError(t, err)
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-b", mcpConfigWithEndpointTools(
+	err = r.ApplyServerConfig(filtermcp.NewServerSource("nacos", "server-b"), mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster", "http://127.0.0.1:8080"),
 	))
 	require.NoError(t, err)
@@ -140,30 +142,71 @@ func TestEndpointReconcilerSharedAddressDifferentOwners(t *testing.T) {
 	require.Len(t, sink.ops, 2)
 	assert.NotEqual(t, sink.ops[0].id, sink.ops[1].id)
 
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-a", nil)
+	err = r.ApplyServerConfig(filtermcp.NewServerSource("nacos", "server-a"), nil)
 	require.NoError(t, err)
 	require.Len(t, sink.ops, 3)
 	assert.Equal(t, sink.ops[0].id, sink.ops[2].id)
 	assert.NotEqual(t, sink.ops[1].id, sink.ops[2].id)
 }
 
-func TestEndpointReconcilerInvalidDesiredDoesNotMutatePublishedState(t *testing.T) {
+func TestEndpointReconcilerSameServerIDDifferentRegistriesDoNotCollide(t *testing.T) {
 	sink := &recordingEndpointSink{}
 	r := newEndpointReconciler(sink)
 
-	err := r.ApplyServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err := r.ApplyServerConfig(filtermcp.NewServerSource("registry1", "serverA"), mcpConfigWithEndpointTools(
+		endpointTool("tool", "cluster", "http://127.0.0.1:8080"),
+	))
+	require.NoError(t, err)
+	err = r.ApplyServerConfig(filtermcp.NewServerSource("registry2", "serverA"), mcpConfigWithEndpointTools(
+		endpointTool("tool", "cluster", "http://127.0.0.1:8081"),
+	))
+	require.NoError(t, err)
+
+	require.Len(t, sink.ops, 2)
+	assert.Equal(t, "mcp/registry1/serverA/tool", sink.ops[0].id)
+	assert.Equal(t, "mcp/registry2/serverA/tool", sink.ops[1].id)
+}
+
+func TestEndpointReconcilerRemoveAllDeletesPublishedEndpoints(t *testing.T) {
+	sink := &recordingEndpointSink{}
+	r := newEndpointReconciler(sink)
+
+	require.NoError(t, r.ApplyServerConfig(filtermcp.NewServerSource("nacos", "server-a"), mcpConfigWithEndpointTools(
+		endpointTool("a", "cluster-a", "http://127.0.0.1:8080"),
+	)))
+	require.NoError(t, r.ApplyServerConfig(filtermcp.NewServerSource("nacos", "server-b"), mcpConfigWithEndpointTools(
+		endpointTool("b", "cluster-b", "http://127.0.0.1:8081"),
+	)))
+	require.Len(t, sink.ops, 2)
+
+	r.RemoveAll()
+
+	require.Len(t, sink.ops, 4)
+	assert.ElementsMatch(t, []endpointOp{
+		{action: "delete", cluster: "cluster-a", id: "mcp/nacos/server-a/a"},
+		{action: "delete", cluster: "cluster-b", id: "mcp/nacos/server-b/b"},
+	}, sink.ops[2:])
+	assert.Empty(t, r.published)
+}
+
+func TestEndpointReconcilerInvalidDesiredDoesNotMutatePublishedState(t *testing.T) {
+	sink := &recordingEndpointSink{}
+	r := newEndpointReconciler(sink)
+	source := filtermcp.NewServerSource("nacos", "server-a")
+
+	err := r.ApplyServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster", "http://127.0.0.1:8080"),
 	))
 	require.NoError(t, err)
 	require.Len(t, sink.ops, 1)
 
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err = r.ApplyServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster", "://bad-url"),
 	))
 	require.Error(t, err)
 	assert.Len(t, sink.ops, 1)
 
-	err = r.ApplyServerConfig("runtime-1", "nacos", "server-a", nil)
+	err = r.ApplyServerConfig(source, nil)
 	require.NoError(t, err)
 	require.Len(t, sink.ops, 2)
 	assert.Equal(t, "delete", sink.ops[1].action)
@@ -173,14 +216,15 @@ func TestEndpointReconcilerInvalidDesiredDoesNotMutatePublishedState(t *testing.
 func TestEndpointReconcilerValidateDoesNotPublish(t *testing.T) {
 	sink := &recordingEndpointSink{}
 	r := newEndpointReconciler(sink)
+	source := filtermcp.NewServerSource("nacos", "server-a")
 
-	err := r.ValidateServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err := r.ValidateServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster", "http://127.0.0.1:8080"),
 	))
 	require.NoError(t, err)
 	assert.Empty(t, sink.ops)
 
-	err = r.ValidateServerConfig("runtime-1", "nacos", "server-a", mcpConfigWithEndpointTools(
+	err = r.ValidateServerConfig(source, mcpConfigWithEndpointTools(
 		endpointTool("tool", "cluster", "://bad-url"),
 	))
 	require.Error(t, err)

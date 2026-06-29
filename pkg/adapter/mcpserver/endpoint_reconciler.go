@@ -19,13 +19,13 @@ package mcpserver
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/mcpserver/common/util"
+	filtermcp "github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/server"
@@ -46,12 +46,6 @@ func (clusterManagerEndpointSink) DeleteEndpoint(clusterName, endpointID string)
 	server.GetClusterManager().DeleteEndpoint(clusterName, endpointID)
 }
 
-type endpointOwner struct {
-	runtimeID string
-	registry  string
-	serverID  string
-}
-
 type publishedEndpoint struct {
 	ClusterName string
 	EndpointID  string
@@ -61,7 +55,7 @@ type publishedEndpoint struct {
 type endpointReconciler struct {
 	mu        sync.Mutex
 	sink      endpointSink
-	published map[endpointOwner]map[string]publishedEndpoint
+	published map[filtermcp.ServerSource]map[string]publishedEndpoint
 }
 
 func newEndpointReconciler(sink endpointSink) *endpointReconciler {
@@ -70,16 +64,13 @@ func newEndpointReconciler(sink endpointSink) *endpointReconciler {
 	}
 	return &endpointReconciler{
 		sink:      sink,
-		published: make(map[endpointOwner]map[string]publishedEndpoint),
+		published: make(map[filtermcp.ServerSource]map[string]publishedEndpoint),
 	}
 }
 
-func (r *endpointReconciler) ApplyServerConfig(runtimeID, registryName, serverID string, cfg *model.McpServerConfig) error {
-	owner, err := normalizeEndpointOwner(runtimeID, registryName, serverID)
-	if err != nil {
-		return err
-	}
-	desired, err := buildDesiredEndpoints(owner, cfg)
+func (r *endpointReconciler) ApplyServerConfig(source filtermcp.ServerSource, cfg *model.McpServerConfig) error {
+	source = source.Normalize()
+	desired, err := buildDesiredEndpoints(source, cfg)
 	if err != nil {
 		return err
 	}
@@ -87,7 +78,7 @@ func (r *endpointReconciler) ApplyServerConfig(runtimeID, registryName, serverID
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	previous := r.published[owner]
+	previous := r.published[source]
 	for toolName, old := range previous {
 		next, ok := desired[toolName]
 		if !ok || old.ClusterName != next.ClusterName || old.EndpointID != next.EndpointID {
@@ -107,39 +98,36 @@ func (r *endpointReconciler) ApplyServerConfig(runtimeID, registryName, serverID
 	}
 
 	if len(desired) == 0 {
-		delete(r.published, owner)
+		delete(r.published, source)
 		return nil
 	}
-	r.published[owner] = clonePublishedEndpoints(desired)
+	r.published[source] = clonePublishedEndpoints(desired)
 	return nil
 }
 
-func (r *endpointReconciler) ValidateServerConfig(runtimeID, registryName, serverID string, cfg *model.McpServerConfig) error {
-	owner, err := normalizeEndpointOwner(runtimeID, registryName, serverID)
-	if err != nil {
-		return err
-	}
-	_, err = buildDesiredEndpoints(owner, cfg)
+func (r *endpointReconciler) ValidateServerConfig(source filtermcp.ServerSource, cfg *model.McpServerConfig) error {
+	_, err := buildDesiredEndpoints(source.Normalize(), cfg)
 	return err
 }
 
-func normalizeEndpointOwner(runtimeID, registryName, serverID string) (endpointOwner, error) {
-	runtimeID = strings.TrimSpace(runtimeID)
-	if runtimeID == "" {
-		return endpointOwner{}, fmt.Errorf("mcp endpoint reconcile runtime id is required")
-	}
-	registryName = strings.TrimSpace(registryName)
-	if registryName == "" {
-		registryName = "default"
-	}
-	serverID = strings.TrimSpace(serverID)
-	if serverID == "" {
-		serverID = "default"
-	}
-	return endpointOwner{runtimeID: runtimeID, registry: registryName, serverID: serverID}, nil
+func (r *endpointReconciler) RemoveSource(source filtermcp.ServerSource) {
+	_ = r.ApplyServerConfig(source, nil)
 }
 
-func buildDesiredEndpoints(owner endpointOwner, cfg *model.McpServerConfig) (map[string]publishedEndpoint, error) {
+func (r *endpointReconciler) RemoveAll() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for source, previous := range r.published {
+		for _, old := range previous {
+			r.sink.DeleteEndpoint(old.ClusterName, old.EndpointID)
+		}
+		delete(r.published, source)
+	}
+}
+
+func buildDesiredEndpoints(source filtermcp.ServerSource, cfg *model.McpServerConfig) (map[string]publishedEndpoint, error) {
+	source = source.Normalize()
 	desired := make(map[string]publishedEndpoint)
 	if cfg == nil {
 		return desired, nil
@@ -165,7 +153,7 @@ func buildDesiredEndpoints(owner endpointOwner, cfg *model.McpServerConfig) (map
 		}
 		desired[name] = publishedEndpoint{
 			ClusterName: tool.Cluster,
-			EndpointID:  stableEndpointID(owner, name),
+			EndpointID:  stableEndpointID(source, name),
 			Address: model.SocketAddress{
 				Address: result.Host,
 				Port:    result.Port,
@@ -175,10 +163,8 @@ func buildDesiredEndpoints(owner endpointOwner, cfg *model.McpServerConfig) (map
 	return desired, nil
 }
 
-func stableEndpointID(owner endpointOwner, toolName string) string {
-	return "mcp/" + sanitizeEndpointIDPart(owner.runtimeID) +
-		"/" + sanitizeEndpointIDPart(owner.registry) +
-		"/" + sanitizeEndpointIDPart(owner.serverID) +
+func stableEndpointID(source filtermcp.ServerSource, toolName string) string {
+	return "mcp/" + source.Normalize().Key() +
 		"/" + sanitizeEndpointIDPart(toolName)
 }
 
@@ -198,8 +184,7 @@ func sanitizeEndpointIDPart(value string) string {
 		case r == '-' || r == '_' || r == '.':
 			b.WriteRune(r)
 		default:
-			b.WriteString("%")
-			b.WriteString(strconv.FormatInt(int64(r), 16))
+			b.WriteString("_")
 		}
 	}
 	return b.String()
