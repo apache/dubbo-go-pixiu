@@ -18,6 +18,10 @@
 package apiconfig
 
 import (
+	"gopkg.in/yaml.v3"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -29,4 +33,37 @@ type ApiConfigConfig struct {
 	DynamicAdapter          string               `yaml:"dynamic_adapter" json:"dynamic_adapter,omitempty"`
 	OpenAPIPath             string               `yaml:"openapi_path" json:"openapi_path,omitempty"`
 	EnableOpenAPIValidation bool                 `yaml:"enable_openapi_validation" json:"enable_openapi_validation,omitempty"`
+
+	deprecatedOpenAPIPathSet             bool
+	deprecatedEnableOpenAPIValidationSet bool
+}
+
+func (c *ApiConfigConfig) UnmarshalYAML(value *yaml.Node) error {
+	type rawConfig ApiConfigConfig
+	var decoded rawConfig
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+
+	*c = ApiConfigConfig(decoded)
+	if value.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	for i := 0; i+1 < len(value.Content); i += 2 {
+		switch value.Content[i].Value {
+		case "openapi_path":
+			c.deprecatedOpenAPIPathSet = true
+		case "enable_openapi_validation":
+			c.deprecatedEnableOpenAPIValidationSet = true
+		}
+	}
+	return nil
+}
+
+func (c *ApiConfigConfig) hasDeprecatedOpenAPIConfig() bool {
+	return c.OpenAPIPath != "" ||
+		c.EnableOpenAPIValidation ||
+		c.deprecatedOpenAPIPathSet ||
+		c.deprecatedEnableOpenAPIValidationSet
 }
