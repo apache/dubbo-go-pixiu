@@ -97,11 +97,11 @@ args:
 
 ---
 
-### 智能工具路由 (`router`) 配置
+### 确定性 MCP 工具治理 (`router`) 配置
 
 当 MCP server 暴露大量工具时，每次 `tools/list` 都把全部工具发给 LLM 会导致工具过载、上下文膨胀、暴露面不可控。可选的 `router` 配置块用于启用确定性 MCP 工具治理：按 session 裁剪 `tools/list`，并在 `tools/call` 时强制校验裁剪结果。
 
-未配置 `router` 时，保持原有 MCP Server 行为。只要存在 `router` 配置块（包括 `router: {}`），治理即自动启用，并且 `tools/call` enforcement 不可关闭。
+未配置 `router` 时，保持原有 MCP Server legacy 行为。只要存在 `router` 配置块（包括 `router: {}`），治理即自动启用，默认 fallback 为 `fail_closed`，并且 `tools/call` enforcement 不可关闭。
 
 两条核心原则：
 
@@ -164,7 +164,7 @@ tools:
     meta:
       tags: ["user", "read"]
       risk: "low"                     # low | medium | high（默认 low）
-      discovery_visibility: true      # false => 不在 tools/list 暴露；仅在被选中且授权时可调用
+      discovery_visibility: true      # false => 不在 tools/list 暴露；不是授权控制
 ```
 
 #### 流水线阶段
@@ -197,7 +197,7 @@ tools:
 
 对不在 session plan 内的工具发起 `tools/call` 会返回 tool-call 错误。授权前，路由器会用当前 claims、router 配置版本和实时工具目录重新校验 plan；过期 plan 会重算，而不会被当作长期授权凭证。完全跳过 `tools/list` 的客户端没有已提交 plan，会以固定授权失败语义被拒绝。
 
-配置了 `meta.discovery_visibility: false` 的工具会从 plan 的 `visible_tool_names` / `tools/list` 视图中隐藏；但只要它被 policy、workflow 或 progressive 阶段选中，仍保留在授权用的 `tool_names` 集合中，因此已知工具名的客户端仍可调用。这个能力用于降低 discovery 噪音，而不是作为授权拒绝手段。
+配置了 `meta.discovery_visibility: false` 的工具会从 plan 的 `visible_tool_names` / `tools/list` 视图中隐藏，但该字段不是授权控制。只要 hidden tool 在 policy、workflow 或 progressive 阶段后仍保留在 session plan 的授权 `tool_names` 集合中，已知工具名的客户端仍可通过 `tools/call` 调用它。
 
 #### MCP Session 与工具列表通知
 
@@ -210,6 +210,8 @@ Initialize response 会声明 `ServerCapabilities.tools.listChanged=true`。这�
 #### 动态工具更新
 
 Nacos 动态更新当前只支持工具目录变化。包含 `router` 配置块的动态 text detail 会被明确拒绝，避免 Pixiu 在“新工具目录 + 旧 router policy”的不一致状态下运行。成功发布工具目录后会原子替换当前目录。启用治理时，Pixiu 会基于实际可见工具集合变化重算受影响 session，并只为可见集合发生变化的 session 标记 `notifications/tools/list_changed`；在线 session 立即通知，离线 session 在 SSE reconnect 后通知。
+
+动态 registry publication 当前只绑定进程内唯一一个 MCP runtime。没有 runtime 时，更新会跳过并 fail closed；同一进程存在多个 MCP runtime 时，发布目标不明确，也会 fail closed，而不会猜测目标。动态 registry publication 不会热更新 router policy；修改 policy 仍需要重建 MCP filter/runtime。
 
 #### 可观测性
 

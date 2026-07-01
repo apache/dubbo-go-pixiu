@@ -58,6 +58,11 @@ type endpointReconciler struct {
 	published map[filtermcp.ServerSource]map[string]publishedEndpoint
 }
 
+type endpointReconcilePlan struct {
+	source  filtermcp.ServerSource
+	desired map[string]publishedEndpoint
+}
+
 func newEndpointReconciler(sink endpointSink) *endpointReconciler {
 	if sink == nil {
 		sink = clusterManagerEndpointSink{}
@@ -69,12 +74,29 @@ func newEndpointReconciler(sink endpointSink) *endpointReconciler {
 }
 
 func (r *endpointReconciler) ApplyServerConfig(source filtermcp.ServerSource, cfg *model.McpServerConfig) error {
-	source = source.Normalize()
-	desired, err := buildDesiredEndpoints(source, cfg)
+	plan, err := r.PrepareServerConfig(source, cfg)
 	if err != nil {
 		return err
 	}
+	r.ApplyPlan(plan)
+	return nil
+}
 
+func (r *endpointReconciler) PrepareServerConfig(source filtermcp.ServerSource, cfg *model.McpServerConfig) (endpointReconcilePlan, error) {
+	source = source.Normalize()
+	desired, err := buildDesiredEndpoints(source, cfg)
+	if err != nil {
+		return endpointReconcilePlan{}, err
+	}
+	return endpointReconcilePlan{source: source, desired: desired}, nil
+}
+
+func (r *endpointReconciler) ApplyPlan(plan endpointReconcilePlan) {
+	source := plan.source.Normalize()
+	desired := plan.desired
+	if desired == nil {
+		desired = make(map[string]publishedEndpoint)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -99,10 +121,9 @@ func (r *endpointReconciler) ApplyServerConfig(source filtermcp.ServerSource, cf
 
 	if len(desired) == 0 {
 		delete(r.published, source)
-		return nil
+		return
 	}
 	r.published[source] = clonePublishedEndpoints(desired)
-	return nil
 }
 
 func (r *endpointReconciler) ValidateServerConfig(source filtermcp.ServerSource, cfg *model.McpServerConfig) error {

@@ -20,6 +20,7 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,11 +43,19 @@ type testPublicationSink struct {
 	removed   int
 	bySource  []filtermcp.ServerSource
 	err       error
+	onApply   func(source filtermcp.ServerSource, cfg *model.McpServerConfig)
 }
 
 type testController struct {
 	runCount   atomic.Int32
 	closeCount atomic.Int32
+}
+
+type concurrentPublicationSink struct {
+	runtimeID string
+	mu        sync.Mutex
+	applied   int
+	removed   int
 }
 
 func (c *testController) Run(ctx context.Context, _ time.Duration) error {
@@ -69,15 +78,49 @@ func (s *testPublicationSink) ApplyMcpServerConfigByServer(_ string, _ *model.Mc
 	return s.err
 }
 
-func (s *testPublicationSink) ApplyMcpServerConfigBySource(source filtermcp.ServerSource, _ *model.McpServerConfig) error {
+func (s *testPublicationSink) ApplyMcpServerConfigBySource(source filtermcp.ServerSource, cfg *model.McpServerConfig) error {
 	s.applied++
 	s.bySource = append(s.bySource, source.Normalize())
+	if s.onApply != nil {
+		s.onApply(source.Normalize(), cfg)
+	}
 	return s.err
 }
 
 func (s *testPublicationSink) RemoveAllMcpServerConfigs() error {
 	s.removed++
 	return nil
+}
+
+func (s *concurrentPublicationSink) RuntimeID() string {
+	return s.runtimeID
+}
+
+func (s *concurrentPublicationSink) ApplyMcpServerConfigByServer(_ string, _ *model.McpServerConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.applied++
+	return nil
+}
+
+func (s *concurrentPublicationSink) ApplyMcpServerConfigBySource(_ filtermcp.ServerSource, _ *model.McpServerConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.applied++
+	return nil
+}
+
+func (s *concurrentPublicationSink) RemoveAllMcpServerConfigs() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.removed++
+	return nil
+}
+
+func (s *concurrentPublicationSink) counts() (int, int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.applied, s.removed
 }
 
 func withPublicationSinkLookup(t *testing.T, fn func() (filtermcp.ServerPublicationSink, error)) {
@@ -190,6 +233,30 @@ func TestAdapterApplyServerConfigEventValidationFailsAtomically(t *testing.T) {
 
 	assert.Empty(t, endpointSink.ops)
 	assert.Equal(t, 0, sink.applied)
+}
+
+func TestAdapterApplyServerConfigEventUsesPreparedEndpointPlan(t *testing.T) {
+	sink := &testPublicationSink{runtimeID: "runtime-1"}
+	sink.onApply = func(_ filtermcp.ServerSource, cfg *model.McpServerConfig) {
+		cfg.Tools[0].BackendURL = "://mutated-after-catalog-apply"
+	}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+
+	endpointSink := &recordingEndpointSink{}
+	a := &Adapter{endpoints: newEndpointReconciler(endpointSink)}
+	cfg := &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	}
+
+	a.applyServerConfigEvent("nacos", "server-a", cfg)
+
+	assert.Equal(t, 1, sink.applied)
+	require.Len(t, endpointSink.ops, 1)
+	assert.Equal(t, "set", endpointSink.ops[0].action)
+	assert.Equal(t, "127.0.0.1:8080", endpointSink.ops[0].address)
+	assert.NotEmpty(t, a.publishedSources, "source is tracked only after catalog and endpoint desired state are both committed")
 }
 
 func TestAdapterApplyServerConfigEventCatalogFailureSkipsEndpoints(t *testing.T) {
@@ -311,4 +378,49 @@ func TestAdapterApplyServerConfigEventResolvesSinkLazily(t *testing.T) {
 	assert.Equal(t, 1, sink.applied)
 	assert.NotEmpty(t, a.endpoints.published)
 	assert.NotEmpty(t, endpointSink.ops)
+}
+
+func TestAdapterApplyStopAndRegistryEventConcurrent(t *testing.T) {
+	sink := &concurrentPublicationSink{runtimeID: "runtime-1"}
+	withPublicationSinkLookup(t, func() (filtermcp.ServerPublicationSink, error) {
+		return sink, nil
+	})
+
+	a := &Adapter{
+		id:               "adapter-test",
+		cfg:              &AdapterConfig{Registries: map[string]model.Registry{}},
+		controllers:      map[string]registry.Controller{},
+		endpoints:        newEndpointReconciler(&recordingEndpointSink{}),
+		publishedSources: map[string]filtermcp.ServerSource{},
+	}
+	cfg := &model.McpServerConfig{
+		Tools: []model.ToolConfig{{Name: "tool", Cluster: "cluster", BackendURL: "http://127.0.0.1:8080"}},
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 25)
+	for i := 0; i < 25; i++ {
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			a.applyServerConfigEvent("nacos", "server-a", cfg)
+		}()
+		go func() {
+			defer wg.Done()
+			errCh <- a.Apply()
+		}()
+		go func() {
+			defer wg.Done()
+			a.Stop()
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	applied, removed := sink.counts()
+	assert.Greater(t, applied, 0)
+	assert.Greater(t, removed, 0)
 }

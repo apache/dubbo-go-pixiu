@@ -168,6 +168,33 @@ func TestComposite_AuthorizeCallRecomputeReceiptBindsCommittedPlan(t *testing.T)
 	assert.Equal(t, CallSuccessResult{}, store.FinalizeReceipt(*acmeReceipt, ReceiptSucceeded, 1), "receipt from acme generation must not advance the later globex plan")
 }
 
+func TestComposite_AuthorizeCallRecomputesStalePlanOnCatalogVersionChange(t *testing.T) {
+	cfg := testRouterConfig()
+	cs, store := buildComposite(t, cfg)
+	defer store.Stop()
+
+	_, err := cs.Select(context.Background(), SelectionContext{
+		SessionID:      "s1",
+		CatalogVersion: "catalog-v1",
+	}, testTools("a"))
+	require.NoError(t, err)
+
+	receipt, err := cs.AuthorizeCall(context.Background(), SelectionContext{
+		SessionID:      "s1",
+		Requested:      "b",
+		CatalogVersion: "catalog-v2",
+	}, testTools("a", "b"))
+	require.NoError(t, err)
+	require.NotNil(t, receipt)
+	assert.Equal(t, "b", receipt.ToolName)
+	assert.Equal(t, "catalog-v2", receipt.CatalogVersion)
+
+	got, ok := store.Get(cs.planKey("s1"))
+	require.True(t, ok)
+	assert.ElementsMatch(t, []string{"a", "b"}, got.ToolNames)
+	assert.Equal(t, "catalog-v2", got.CatalogVersion)
+}
+
 func TestComposite_HiddenDiscoveryStillAuthorized(t *testing.T) {
 	cfg := testRouterConfig()
 	cs, store := buildComposite(t, cfg)

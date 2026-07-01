@@ -325,6 +325,64 @@ func TestPostRouterMissingSessionReturns400(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestToolsListPlanStoreFullFailsClosed(t *testing.T) {
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+
+	reg := NewToolRegistry()
+	require.NoError(t, reg.ReplaceAllTools([]model.ToolConfig{
+		createTestToolConfig("ping", "ping"),
+		createTestToolConfig("pong", "pong"),
+	}))
+	store := router.NewSessionPlanStoreWithOptions(router.SessionPlanStoreOptions{MaxEntries: 1})
+	defer store.Stop()
+	sm.AddSessionRemovedHandler(store.DeleteSession)
+	sel, err := router.Build(&model.RouterConfig{Fallback: router.FallbackFailClosed}, store)
+	require.NoError(t, err)
+
+	f := &MCPServerFilter{
+		cfg:               &model.McpServerConfig{ServerInfo: model.ServerInfo{Name: "Test", Version: "1.0.0"}, Endpoint: "/mcp", Router: &model.RouterConfig{}},
+		registry:          reg,
+		errorHandler:      NewErrorHandler(),
+		responseBuilder:   NewResponseBuilder(),
+		sessionManager:    sm,
+		plans:             store,
+		sseHandler:        transport.NewSSEHandler(sm),
+		contentNegotiator: transport.NewContentNegotiator(),
+		selector:          sel,
+		governanceEnabled: true,
+	}
+
+	first, err := sm.CreateSession()
+	require.NoError(t, err)
+	second, err := sm.CreateSession()
+	require.NoError(t, err)
+	require.NoError(t, store.ActivateSession(first.ID, first.Generation))
+	require.NoError(t, store.ActivateSession(second.ID, second.Generation))
+
+	firstCtx := NewMCPContext(createTestContext(httptest.NewRequest(http.MethodPost, "/mcp", nil), httptest.NewRecorder()))
+	firstCtx.SetSessionID(first.ID)
+	firstCtx.SetValidatedSession(first)
+	firstReq := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsList)}}
+	firstReq.ID = mcp.NewRequestId(int64(1))
+	_, err = f.buildToolsListResponseObject(firstCtx, firstReq)
+	require.NoError(t, err)
+	require.Equal(t, 1, store.Len())
+
+	httpReq := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	ctx := NewMCPContext(createTestContext(httpReq, httptest.NewRecorder()))
+	ctx.SetSessionID(second.ID)
+	ctx.SetValidatedSession(second)
+	req := mcp.JSONRPCRequest{Request: mcp.Request{Method: string(mcp.MethodToolsList)}}
+	req.ID = mcp.NewRequestId(int64(2))
+
+	resp, err := f.buildToolsListResponseObject(ctx, req)
+
+	assert.ErrorIs(t, err, router.ErrPlanStoreFull)
+	assert.Zero(t, resp)
+	assert.Equal(t, 1, store.Len())
+}
+
 func buildToolsListForSession(t *testing.T, f *MCPServerFilter, sessionID string) []string {
 	t.Helper()
 

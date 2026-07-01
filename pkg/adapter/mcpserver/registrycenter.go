@@ -280,7 +280,8 @@ func (a *Adapter) applyServerConfigEvent(registryName, serverId string, cfg *mod
 		return
 	}
 
-	if err := reconciler.ValidateServerConfig(source, cfg); err != nil {
+	endpointPlan, err := reconciler.PrepareServerConfig(source, cfg)
+	if err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp adapter validate endpoints for source %s error: %v", source, err)
 		return
 	}
@@ -288,10 +289,7 @@ func (a *Adapter) applyServerConfigEvent(registryName, serverId string, cfg *mod
 		logger.Errorf("[dubbo-go-pixiu] mcp adapter apply source %s config error: %v", source, err)
 		return
 	}
-	if err := reconciler.ApplyServerConfig(source, cfg); err != nil {
-		logger.Errorf("[dubbo-go-pixiu] mcp adapter reconcile endpoints for source %s error: %v", source, err)
-		return
-	}
+	reconciler.ApplyPlan(endpointPlan)
 	a.trackPublishedSource(source)
 }
 

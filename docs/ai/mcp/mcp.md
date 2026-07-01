@@ -97,11 +97,11 @@ Each argument object contains the following fields:
 
 ---
 
-### Intelligent Tool Routing (`router`) Configuration
+### Deterministic MCP Tool Governance (`router`) Configuration
 
 When an MCP server exposes a large catalog of tools, sending all of them to an LLM on every `tools/list` causes tool overload, context bloat, and an uncontrolled exposure surface. The optional `router` block enables deterministic MCP tool governance: it trims `tools/list` per session and enforces the trimmed set at `tools/call`.
 
-Omitting the `router` block preserves the existing MCP server behavior. When the router block is present, including `router: {}`, governance is enabled and `tools/call` enforcement cannot be disabled.
+Omitting the `router` block preserves the existing legacy MCP server behavior. When the router block is present, including `router: {}`, governance is enabled, the default fallback is `fail_closed`, and `tools/call` enforcement cannot be disabled.
 
 Two principles shape the design:
 
@@ -164,7 +164,7 @@ tools:
     meta:
       tags: ["user", "read"]
       risk: "low"                     # low | medium | high (default low)
-      discovery_visibility: true      # false => hidden from tools/list; callable only when selected and authorized
+      discovery_visibility: true      # false => hidden from tools/list; not an authorization control
 ```
 
 #### Pipeline Stages
@@ -197,7 +197,7 @@ Explicit empty selections stay empty: policy denial, a matched workflow with no 
 
 A `tools/call` for a tool not in the session's plan is rejected with a tool-call error. The router re-validates the plan against the current claims, router config version, and live tool catalog before authorizing the call, so stale plans are recomputed instead of treated as long-lived credentials. A client that skips `tools/list` entirely has no committed plan and is denied with the same fixed authorization failure surface as any tool outside the current plan.
 
-Tools with `meta.discovery_visibility: false` are omitted from the plan's `visible_tool_names` / `tools/list` view but remain in the authorized `tool_names` set when selected by policy, workflow, or progressive stages. This supports hidden-but-callable tools for clients that already know the tool name while keeping discovery quieter.
+Tools with `meta.discovery_visibility: false` are omitted from the plan's `visible_tool_names` / `tools/list` view, but this field is not an authorization control. If a hidden tool remains in the session plan's authorized `tool_names` set after policy, workflow, or progressive stages, a client that already knows the tool name can still call it through `tools/call`.
 
 #### MCP Sessions and Tool-List Notifications
 
@@ -210,6 +210,8 @@ The initialize response advertises `ServerCapabilities.tools.listChanged=true`. 
 #### Dynamic Tool Updates
 
 Nacos dynamic updates currently support tool catalog changes only. A dynamic text detail containing a `router` section is rejected so Pixiu does not run with a new tool catalog and stale router policy. A successful catalog update publishes the tool catalog atomically. When governance is enabled, Pixiu recomputes affected session plans and marks `notifications/tools/list_changed` only for sessions whose visible tool set changed; online sessions are notified immediately and offline sessions are notified after SSE reconnect.
+
+Dynamic registry publication is currently bound to exactly one MCP runtime per process. If no runtime exists, updates are skipped and fail closed. If multiple MCP runtimes exist in the same process, publication is ambiguous and fails closed instead of guessing a target. Dynamic registry publication does not hot-update router policy; changing policy still requires rebuilding the MCP filter/runtime.
 
 #### Observability
 
