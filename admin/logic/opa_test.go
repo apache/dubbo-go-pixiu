@@ -19,6 +19,7 @@ package logic
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,6 +38,38 @@ func setBootstrap(t *testing.T, b *adminconfig.AdminBootstrap) {
 	prev := adminconfig.Bootstrap
 	adminconfig.Bootstrap = b
 	t.Cleanup(func() { adminconfig.Bootstrap = prev })
+}
+
+func setOPAHTTPClient(t *testing.T, client *http.Client) {
+	t.Helper()
+	prev := opaHTTPClient
+	opaHTTPClient = client
+	t.Cleanup(func() {
+		opaHTTPClient = prev
+		client.CloseIdleConnections()
+	})
+}
+
+func directOPAHTTPClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	return &http.Client{
+		Transport: transport,
+		Timeout:   opaHTTPClientFallbackTimeout,
+	}
+}
+
+func startLoopbackHTTPServer(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen on 127.0.0.1:0: %v", err)
+	}
+	srv := httptest.NewUnstartedServer(handler)
+	srv.Listener = listener
+	srv.Start()
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func TestGetOPATimeout_FallsBackToDefaultWhenUnset(t *testing.T) {
@@ -102,11 +135,12 @@ type recordedRequest struct {
 // responds with `status` and `body` (body may be empty).
 func startMockOPA(t *testing.T, status int, body string) (*httptest.Server, *[]recordedRequest, *sync.Mutex) {
 	t.Helper()
+	setOPAHTTPClient(t, directOPAHTTPClient())
 	var (
 		mu   sync.Mutex
 		recs []recordedRequest
 	)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := startLoopbackHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
 		mu.Lock()
 		recs = append(recs, recordedRequest{
@@ -122,7 +156,6 @@ func startMockOPA(t *testing.T, status int, body string) (*httptest.Server, *[]r
 			_, _ = w.Write([]byte(body))
 		}
 	}))
-	t.Cleanup(srv.Close)
 	return srv, &recs, &mu
 }
 
@@ -226,11 +259,11 @@ func TestBizDeleteOPAPolicy_NotFoundIsNil(t *testing.T) {
 // context, rather than being ignored in favor of DefaultOPAPolicyTimeout (8s)
 // or opaHTTPClient.Timeout (30s).
 func TestOPARequestTimeout_HonorsConfig(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	setOPAHTTPClient(t, directOPAHTTPClient())
+	srv := startLoopbackHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second) // far longer than configured timeout
 		w.WriteHeader(http.StatusOK)
 	}))
-	t.Cleanup(srv.Close)
 
 	setBootstrap(t, &adminconfig.AdminBootstrap{
 		OPA: adminconfig.OPAConfig{RequestTimeout: 200 * time.Millisecond},

@@ -277,6 +277,9 @@ func TestOPARoutes_PutFormOverridesAndBearer(t *testing.T) {
 	}
 
 	recs := m.records()
+	if len(recs) != 1 {
+		t.Fatalf("expected 1 call to OPA, got %d", len(recs))
+	}
 	if recs[0].path != "/v1/policies/override-id" {
 		t.Errorf("override failed: path=%s", recs[0].path)
 	}
@@ -319,6 +322,9 @@ func TestOPARoutes_DeleteRoute(t *testing.T) {
 		t.Fatalf("status %d body=%s", w.Code, w.Body.String())
 	}
 	recs := m.records()
+	if len(recs) != 1 {
+		t.Fatalf("expected 1 call to OPA, got %d", len(recs))
+	}
 	if recs[0].method != http.MethodDelete || recs[0].path != "/v1/policies/from-config" {
 		t.Errorf("wrong call: %+v", recs[0])
 	}

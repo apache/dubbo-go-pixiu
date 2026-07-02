@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -248,9 +249,13 @@ func installAdminRouterWithRegoMock(t *testing.T, m *regoMockOPA, opaCfg adminco
 // adminPutPolicy uses the real /config/api/opa/policy PUT route, signed with
 // the same JWT key the middleware reads. The full request travels through
 // gin → JWT middleware → controller → logic → mock OPA, just like in prod.
-func adminPutPolicy(t *testing.T, r *gin.Engine, policyID, content string) {
+func adminPutPolicy(t *testing.T, r *gin.Engine, m *regoMockOPA, policyID, content string) {
 	t.Helper()
-	fields := map[string]string{"content": content}
+	before := len(m.recordedPUTs())
+	fields := map[string]string{
+		"content":    content,
+		"server_url": m.URL(),
+	}
 	if policyID != "" {
 		fields["policy_id"] = policyID
 	}
@@ -266,16 +271,31 @@ func adminPutPolicy(t *testing.T, r *gin.Engine, policyID, content string) {
 	if !strings.Contains(w.Body.String(), "Update Success") {
 		t.Fatalf("admin PUT expected Update Success, got %s", w.Body.String())
 	}
+
+	puts := m.recordedPUTs()
+	if len(puts) != before+1 {
+		t.Fatalf("admin PUT did not reach mock OPA: before=%d after=%d calls=%+v", before, len(puts), puts)
+	}
+	if policyID != "" && puts[len(puts)-1].path != "/v1/policies/"+policyID {
+		t.Fatalf("admin PUT reached wrong OPA policy path: want %s got %s", "/v1/policies/"+policyID, puts[len(puts)-1].path)
+	}
 }
 
 // adminDeletePolicy hits DELETE /config/api/opa/policy.
-func adminDeletePolicy(t *testing.T, r *gin.Engine, policyID string) {
+func adminDeletePolicy(t *testing.T, r *gin.Engine, serverURL, policyID string) {
 	t.Helper()
-	url := "/config/api/opa/policy"
-	if policyID != "" {
-		url = url + "?policy_id=" + policyID
+	target := "/config/api/opa/policy"
+	query := url.Values{}
+	if serverURL != "" {
+		query.Set("server_url", serverURL)
 	}
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
+	if policyID != "" {
+		query.Set("policy_id", policyID)
+	}
+	if len(query) > 0 {
+		target = target + "?" + query.Encode()
+	}
+	req := httptest.NewRequest(http.MethodDelete, target, nil)
 	req.Header.Set("token", signToken(t))
 	w := doReq(t, r, req)
 	if w.Code != http.StatusOK {
@@ -381,7 +401,7 @@ func TestE2E_AllowedThroughFullChain(t *testing.T) {
 		RequestTimeout: 2 * time.Second,
 	})
 
-	adminPutPolicy(t, r, e2ePolicyID, allowGETPolicy)
+	adminPutPolicy(t, r, mock, e2ePolicyID, allowGETPolicy)
 
 	// Verify the PUT actually reached OPA (full admin chain works).
 	puts := mock.recordedPUTs()
@@ -410,7 +430,7 @@ func TestE2E_DeniedThroughFullChain(t *testing.T) {
 		PolicyID:       e2ePolicyID,
 		RequestTimeout: 2 * time.Second,
 	})
-	adminPutPolicy(t, r, e2ePolicyID, allowGETPolicy)
+	adminPutPolicy(t, r, mock, e2ePolicyID, allowGETPolicy)
 
 	gw := buildGatewayFilter(t, mock.URL(), e2eDecisionPath, 2000)
 	status, ctx := driveGatewayRequest(t, gw, http.MethodPost, "/anything", nil)
@@ -433,7 +453,7 @@ func TestE2E_DefaultDenyForAllRequests(t *testing.T) {
 		PolicyID:       e2ePolicyID,
 		RequestTimeout: 2 * time.Second,
 	})
-	adminPutPolicy(t, r, e2ePolicyID, denyAllPolicy)
+	adminPutPolicy(t, r, mock, e2ePolicyID, denyAllPolicy)
 	gw := buildGatewayFilter(t, mock.URL(), e2eDecisionPath, 2000)
 
 	cases := []struct {
@@ -469,7 +489,7 @@ func TestE2E_PolicyHotReload(t *testing.T) {
 	gw := buildGatewayFilter(t, mock.URL(), e2eDecisionPath, 2000)
 
 	// v1: only GET allowed.
-	adminPutPolicy(t, r, e2ePolicyID, allowGETPolicy)
+	adminPutPolicy(t, r, mock, e2ePolicyID, allowGETPolicy)
 	if status, _ := driveGatewayRequest(t, gw, http.MethodGet, "/", nil); status != filter.Continue {
 		t.Fatalf("v1: GET should be allowed, got %v", status)
 	}
@@ -478,7 +498,7 @@ func TestE2E_PolicyHotReload(t *testing.T) {
 	}
 
 	// v2: flip — only POST allowed.
-	adminPutPolicy(t, r, e2ePolicyID, `package pixiu.authz
+	adminPutPolicy(t, r, mock, e2ePolicyID, `package pixiu.authz
 import future.keywords.if
 default allow := false
 allow if input.method == "POST"
@@ -501,7 +521,7 @@ func TestE2E_DeleteCausesMissingResultFailClosed(t *testing.T) {
 		PolicyID:       e2ePolicyID,
 		RequestTimeout: 2 * time.Second,
 	})
-	adminPutPolicy(t, r, e2ePolicyID, allowGETPolicy)
+	adminPutPolicy(t, r, mock, e2ePolicyID, allowGETPolicy)
 	gw := buildGatewayFilter(t, mock.URL(), e2eDecisionPath, 2000)
 
 	// Sanity: allowed before delete.
@@ -509,7 +529,7 @@ func TestE2E_DeleteCausesMissingResultFailClosed(t *testing.T) {
 		t.Fatalf("pre-delete: GET should be allowed, got %v", status)
 	}
 
-	adminDeletePolicy(t, r, e2ePolicyID)
+	adminDeletePolicy(t, r, mock.URL(), e2ePolicyID)
 
 	status, ctx := driveGatewayRequest(t, gw, http.MethodGet, "/", nil)
 	if status != filter.Stop {
@@ -530,7 +550,7 @@ func TestE2E_HeaderBasedAllowDeny(t *testing.T) {
 		PolicyID:       e2ePolicyID,
 		RequestTimeout: 2 * time.Second,
 	})
-	adminPutPolicy(t, r, e2ePolicyID, headerRolePolicy)
+	adminPutPolicy(t, r, mock, e2ePolicyID, headerRolePolicy)
 	gw := buildGatewayFilter(t, mock.URL(), e2eDecisionPath, 2000)
 
 	t.Run("admin header allowed", func(t *testing.T) {
@@ -569,7 +589,7 @@ func TestE2E_GatewayTimeoutFailClosed(t *testing.T) {
 		PolicyID:       e2ePolicyID,
 		RequestTimeout: 2 * time.Second,
 	})
-	adminPutPolicy(t, r, e2ePolicyID, allowGETPolicy)
+	adminPutPolicy(t, r, mock, e2ePolicyID, allowGETPolicy)
 
 	// 200ms delay on decision; 50ms filter timeout → must time out.
 	mock.decisionDelay = 200 * time.Millisecond
@@ -608,7 +628,7 @@ import future.keywords.if
 default allow := false
 allow if input.method == "GET"
 `
-	adminPutPolicy(t, r, overrideID, overridePackage)
+	adminPutPolicy(t, r, mock, overrideID, overridePackage)
 
 	puts := mock.recordedPUTs()
 	if len(puts) != 1 || puts[0].path != "/v1/policies/"+overrideID {
