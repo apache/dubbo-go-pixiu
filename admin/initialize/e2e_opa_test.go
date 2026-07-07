@@ -80,9 +80,9 @@ type regoMockOPA struct {
 
 func newRegoMockOPA(t *testing.T) *regoMockOPA {
 	t.Helper()
+	useDirectHTTPTransport(t)
 	m := &regoMockOPA{policies: map[string]string{}}
-	m.srv = httptest.NewServer(http.HandlerFunc(m.handle))
-	t.Cleanup(m.srv.Close)
+	m.srv = startLoopbackHTTPServer(t, http.HandlerFunc(m.handle))
 	return m
 }
 

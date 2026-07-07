@@ -76,9 +76,9 @@ type mockOPA struct {
 
 func newMockOPA(t *testing.T) *mockOPA {
 	t.Helper()
+	useDirectHTTPTransport(t)
 	m := &mockOPA{policies: map[string]string{}}
-	m.srv = httptest.NewServer(http.HandlerFunc(m.handle))
-	t.Cleanup(m.srv.Close)
+	m.srv = startLoopbackHTTPServer(t, http.HandlerFunc(m.handle))
 	return m
 }
 
@@ -334,11 +334,10 @@ func TestOPARoutes_DeleteRoute(t *testing.T) {
 // Slow mock + 200ms config → ~200ms-ish elapsed and a context-deadline error
 // surfaces in the response body.
 func TestOPARoutes_RequestTimeoutThroughFullChain(t *testing.T) {
-	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	slow := startLoopbackHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
-	t.Cleanup(slow.Close)
 
 	// Use newMockOPA only to satisfy installRouter's signature; override URL.
 	m := newMockOPA(t)
