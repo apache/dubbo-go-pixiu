@@ -129,17 +129,9 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 	// Parse the token string into jwt's Token structure pointer
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, j.keyFunc)
 	if err != nil {
-		if ve, ok := err.(jwt.ValidationError); ok {
-			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-				return nil, TokenMalformed
-			} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
-				return nil, TokenExpired
-			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-				return nil, TokenNotValidYet
-			} else {
-				return nil, TokenInvalid
-			}
-		}
+		// jwt returns *ValidationError; errors.As matches both value and pointer
+		// forms so the expiry/malformed branches below are actually reached.
+		return nil, j.classify(err)
 	}
 	// Parse the claims information in the token and verify the original user data, make the following types of assertions
 	//, and convert token.Claims into a specific user-defined Claims structure
@@ -150,20 +142,50 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 }
 
 // Update token
+//
+// RefreshToken reissues a token whose only problem is expiration. It deliberately
+// does not mutate the package-global jwt.TimeFunc (the previous implementation did,
+// which leaked the frozen clock to ParseToken on the parse-failure path and raced
+// with concurrent ParseToken/RefreshToken calls). Instead it parses normally and,
+// when the sole validation failure is expiration, reuses the parsed claims with a
+// fresh expiration time. Any other failure (malformed token, bad signature,
+// non-HMAC algorithm, not-valid-yet, etc.) is rejected just like ParseToken does.
 func (j *JWT) RefreshToken(tokenString string) (string, error) {
-	// Expiration time verification
-	jwt.TimeFunc = func() time.Time {
-		return time.Unix(0, 0)
-	}
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, j.keyFunc)
 	if err != nil {
-		return "", err
+		// A token that is otherwise valid but past its ExpiresAt is exactly what
+		// refresh exists to handle. Only the expired bit is tolerated; any other
+		// validation failure is reported with the same semantics as ParseToken.
+		var ve *jwt.ValidationError
+		if !errors.As(err, &ve) || ve.Errors != jwt.ValidationErrorExpired {
+			return "", j.classify(err)
+		}
 	}
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		jwt.TimeFunc = time.Now
-		// Set token expiration time
-		claims.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
-		return j.CreateToken(*claims)
+
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok {
+		return "", TokenInvalid
 	}
-	return "", TokenInvalid
+	// Set token expiration time
+	claims.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
+	return j.CreateToken(*claims)
+}
+
+// classify maps a raw parse error onto the package sentinel errors, mirroring the
+// mapping ParseToken performs so that both entry points report consistently.
+func (j *JWT) classify(err error) error {
+	var ve *jwt.ValidationError
+	if !errors.As(err, &ve) {
+		return TokenInvalid
+	}
+	switch {
+	case ve.Errors&jwt.ValidationErrorMalformed != 0:
+		return TokenMalformed
+	case ve.Errors&jwt.ValidationErrorExpired != 0:
+		return TokenExpired
+	case ve.Errors&jwt.ValidationErrorNotValidYet != 0:
+		return TokenNotValidYet
+	default:
+		return TokenInvalid
+	}
 }
