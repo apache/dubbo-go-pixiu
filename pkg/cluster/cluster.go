@@ -197,6 +197,7 @@ type EndpointSnapshot struct {
 	healthyByAddress     map[string]bool
 	lbPolicy             model.LbPolicyType
 	consistentHashOnce   sync.Once
+	consistentHashMu     sync.RWMutex
 	consistentHash       model.LbConsistentHashView
 	consistentHashConfig model.ConsistentHash
 }
@@ -248,6 +249,7 @@ func newEndpointSnapshot(config *model.ClusterConfig, previous *EndpointSnapshot
 		healthy := endpointSnapshotHealth(snapshotEndpoint, address, previous, inheritRuntimeHealth)
 		snapshot.addEndpoint(snapshotEndpoint, address, healthy)
 	}
+	snapshot.reuseHealthyConsistentHashFrom(previous)
 	return snapshot
 }
 
@@ -395,7 +397,34 @@ func (s *EndpointSnapshot) HealthyConsistentHash() model.LbConsistentHashView {
 		return nil
 	}
 	s.consistentHashOnce.Do(s.rebuildConsistentHash)
+	return s.cachedHealthyConsistentHash()
+}
+
+func (s *EndpointSnapshot) cachedHealthyConsistentHash() model.LbConsistentHashView {
+	if s == nil {
+		return nil
+	}
+	s.consistentHashMu.RLock()
+	defer s.consistentHashMu.RUnlock()
 	return s.consistentHash
+}
+
+func (s *EndpointSnapshot) seedHealthyConsistentHash(hash model.LbConsistentHashView) {
+	if s == nil || hash == nil {
+		return
+	}
+	s.consistentHashOnce.Do(func() {
+		s.storeHealthyConsistentHash(hash)
+	})
+}
+
+func (s *EndpointSnapshot) storeHealthyConsistentHash(hash model.LbConsistentHashView) {
+	if s == nil || hash == nil {
+		return
+	}
+	s.consistentHashMu.Lock()
+	defer s.consistentHashMu.Unlock()
+	s.consistentHash = hash
 }
 
 // PickHealthyEndpoint gives request-path selectors a read-only view of healthy
@@ -545,5 +574,57 @@ func (s *EndpointSnapshot) rebuildConsistentHash() {
 	if !ok {
 		return
 	}
-	s.consistentHash = model.ReadOnlyConsistentHash(newConsistentHash(s.consistentHashConfig, s.healthy))
+	hash := model.ReadOnlyConsistentHash(newConsistentHash(s.consistentHashConfig, s.healthy))
+	s.storeHealthyConsistentHash(hash)
+}
+
+func (s *EndpointSnapshot) reuseHealthyConsistentHashFrom(previous *EndpointSnapshot) {
+	if !canReuseHealthyConsistentHash(previous, s) {
+		return
+	}
+	s.seedHealthyConsistentHash(previous.cachedHealthyConsistentHash())
+}
+
+func canReuseHealthyConsistentHash(previous, next *EndpointSnapshot) bool {
+	if previous == nil || next == nil {
+		return false
+	}
+	if previous.lbPolicy != next.lbPolicy {
+		return false
+	}
+	if _, ok := model.ConsistentHashInitMap[next.lbPolicy]; !ok {
+		return false
+	}
+	if !sameConsistentHashConfig(previous.consistentHashConfig, next.consistentHashConfig) {
+		return false
+	}
+	return sameHealthyEndpointsForConsistentHash(previous, next)
+}
+
+func sameConsistentHashConfig(a, b model.ConsistentHash) bool {
+	return a.ReplicaNum == b.ReplicaNum &&
+		a.MaxVnodeNum == b.MaxVnodeNum &&
+		a.MaglevTableSize == b.MaglevTableSize
+}
+
+func sameHealthyEndpointsForConsistentHash(previous, next *EndpointSnapshot) bool {
+	if previous == nil || next == nil {
+		return false
+	}
+	if len(previous.healthy) != len(next.healthy) {
+		return false
+	}
+	for i := range previous.healthy {
+		if !sameEndpointHostForConsistentHash(previous.healthy[i], next.healthy[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameEndpointHostForConsistentHash(a, b *model.Endpoint) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Address.Address == b.Address.Address && a.Address.Port == b.Address.Port
 }
