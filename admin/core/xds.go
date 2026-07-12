@@ -83,7 +83,9 @@ func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
 }
 
 // StartxDsServer RunXDSServerWithCache starts an xDS server at the gi.ven port.
-func StartxDsServer() error {
+// The server runs until ctx is canceled (e.g. when the admin HTTP server fails
+// to start) or Serve returns an error; in either case it stops gracefully.
+func StartxDsServer(ctx context.Context) error {
 	// Create a snaphost
 	snaphost = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
 
@@ -95,19 +97,18 @@ func StartxDsServer() error {
 
 	// Add the config to the snaphost
 	if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
-		logger.Errorf("config error %q for %+v", err, config)
 		return fmt.Errorf("set snapshot error: %w", err)
 	}
 
 	go watchConfigAndReload()
 
 	// Run the xDS server
-	ctx := context.Background()
 	srv := envoyServer.NewServer(ctx, snaphost, nil)
 	return runXDSServer(ctx, srv, port)
 }
 
-// runXDSServer starts an xDS server at the given port.
+// runXDSServer starts an xDS server at the given port. It returns the Serve
+// error, or stops the server gracefully when ctx is canceled.
 func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error {
 	// gRPC golang library sets a very small upper bound for the number gRPC/h2
 	// streams over a single TCP connection. If a proxy multiplexes requests over
@@ -135,7 +136,19 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 	registerServer(grpcServer, srv)
 
 	logger.Infof("management server listening on %d\n", port)
-	return grpcServer.Serve(lis)
+
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- grpcServer.Serve(lis)
+	}()
+
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+		grpcServer.GracefulStop()
+		return <-serveErr
+	}
 }
 
 func watchConfigAndReload() {

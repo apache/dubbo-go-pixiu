@@ -61,7 +61,7 @@ var (
 			// Start server in a goroutine
 			errCh := make(chan error, 1)
 			go func() {
-				errCh <- Start()
+				errCh <- Start(configPath)
 			}()
 			// gracefully shutdown
 			sigint := make(chan os.Signal, 1)
@@ -79,8 +79,8 @@ var (
 )
 
 // Start start init etcd client and start admin http server
-func Start() error {
-	return core.RunServer()
+func Start(configPath string) error {
+	return core.RunServer(configPath)
 }
 
 func Stop() {

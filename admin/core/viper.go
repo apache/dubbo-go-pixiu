@@ -18,7 +18,6 @@
 package core
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,24 +34,21 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/utils"
 )
 
-func Viper(path ...string) (*viper.Viper, error) {
-	var config string
-	if len(path) == 0 {
-		flag.StringVar(&config, "c", "", "choose config file.")
-		flag.Parse()
-		if config == "" {
-			if configEnv := os.Getenv(utils.ConfigEnv); configEnv == "" {
-				config = utils.ConfigFile
-			} else {
-				config = configEnv
-			}
+// Viper loads the admin config from configPath. When configPath is empty, the
+// GVA_CONFIG env var is consulted, falling back to the default config file name.
+// The path is taken from the caller (the admin CLI's --config flag) rather than
+// parsed here, so an explicitly specified config file is never silently ignored.
+func Viper(configPath string) (*viper.Viper, error) {
+	if configPath == "" {
+		if configEnv := os.Getenv(utils.ConfigEnv); configEnv != "" {
+			configPath = configEnv
+		} else {
+			configPath = utils.ConfigFile
 		}
-	} else {
-		config = path[0]
 	}
 
 	v := viper.New()
-	v.SetConfigFile(config)
+	v.SetConfigFile(configPath)
 	v.SetConfigType("yaml")
 	err := v.ReadInConfig()
 	if err != nil {
