@@ -22,7 +22,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/IBM/sarama"
 )
 
