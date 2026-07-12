@@ -70,7 +70,7 @@ func TestShutdownListenersNoErrors(t *testing.T) {
 	}
 
 	timeout := 1 * time.Second
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	if len(errs) != 0 {
 		t.Errorf("Expected no errors, got %d: %v", len(errs), errs)
@@ -91,7 +91,7 @@ func TestShutdownListenersWithErrors(t *testing.T) {
 	}
 
 	timeout := 1 * time.Second
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	if len(errs) != 1 {
 		t.Errorf("Expected 1 error, got %d", len(errs))
@@ -114,7 +114,7 @@ func TestShutdownListenersAllErrors(t *testing.T) {
 	}
 
 	timeout := 1 * time.Second
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	if len(errs) != 3 {
 		t.Errorf("Expected 3 errors, got %d", len(errs))
@@ -134,7 +134,7 @@ func TestShutdownListenersTimeout(t *testing.T) {
 	}
 
 	timeout := 50 * time.Millisecond
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	// Should have timed out but still collected errors from fast listeners
 	if !timedOut {
@@ -164,7 +164,7 @@ func TestShutdownListenersRaceCondition(t *testing.T) {
 	}
 
 	timeout := 1 * time.Second
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	// Both errors should be collected despite the delay
 	if len(errs) != 2 {
@@ -180,7 +180,7 @@ func TestShutdownListenersEmpty(t *testing.T) {
 	shutdownFuncs := []ShutdownFunc{}
 
 	timeout := 1 * time.Second
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	if len(errs) != 0 {
 		t.Errorf("Expected no errors, got %d", len(errs))
@@ -199,7 +199,7 @@ func TestShutdownListenersTimeoutWithError(t *testing.T) {
 	}
 
 	timeout := 50 * time.Millisecond
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	if !timedOut {
 		t.Error("Expected timeout, but did not time out")
@@ -229,30 +229,50 @@ func TestShutdownWaitGroupDoubleDoneWouldPanic(t *testing.T) {
 	wg.Done() // This should panic
 }
 
-// TestShutdownListenersStuckListener tests that shutdownListeners handles
-// individual listeners that get stuck (exceed the per-listener timeout).
-func TestShutdownListenersStuckListener(t *testing.T) {
-	// Use a short per-listener timeout for testing
-	perListenerTimeout := 100 * time.Millisecond
-	// Create a listener that will get stuck
+// TestShutdownListenersSlowListenerWithinBudget verifies the P0 fix from
+// PR #993: a listener that is slow but still within the configured overall
+// timeout must be allowed to run to completion. There is no per-listener
+// deadline that could consider it "done" early and trigger a premature exit.
+func TestShutdownListenersSlowListenerWithinBudget(t *testing.T) {
+	// One slow listener plus a fast one. The slow listener takes a meaningful
+	// amount of time but stays well under the overall budget.
 	shutdownFuncs := []ShutdownFunc{
 		func() error { return nil }, // fast listener
 		func() error {
-			// This listener blocks longer than perListenerTimeout
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(150 * time.Millisecond)
 			return nil
 		},
 	}
 
-	// Use a timeout longer than perListenerTimeout so we can observe the stuck behavior
+	// Overall budget comfortably larger than the slow listener's runtime.
 	timeout := 300 * time.Millisecond
-	errs, timedOut := shutdownListeners(shutdownFuncs, timeout, perListenerTimeout)
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
-	// Should not timeout because overall timeout is longer than listener sleep
+	// Should not timeout because the slow listener finishes within the budget.
 	if timedOut {
-		t.Error("Did not expect overall timeout")
+		t.Error("Did not expect overall timeout for listeners within budget")
 	}
 	// No errors because listeners return nil
+	if len(errs) != 0 {
+		t.Errorf("Expected no errors, got %d", len(errs))
+	}
+}
+
+// TestShutdownListenersSingleListenerWithinBudget verifies the P0 scenario
+// directly: a single listener whose runtime exceeds what a fixed per-listener
+// timeout would have allowed, but is within the configured overall timeout,
+// must not be cut short.
+func TestShutdownListenersSingleListenerWithinBudget(t *testing.T) {
+	shutdownFuncs := []ShutdownFunc{
+		func() error { time.Sleep(150 * time.Millisecond); return nil },
+	}
+
+	timeout := 300 * time.Millisecond
+	errs, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	if timedOut {
+		t.Error("Did not expect overall timeout for a listener within budget")
+	}
 	if len(errs) != 0 {
 		t.Errorf("Expected no errors, got %d", len(errs))
 	}

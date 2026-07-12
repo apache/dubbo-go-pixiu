@@ -23,6 +23,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -132,7 +133,7 @@ func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Dura
 	}
 
 	// Execute shutdown coordination
-	shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout, defaultPerListenerTimeout)
+	shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
 	// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
 	for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
@@ -147,19 +148,25 @@ func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Dura
 // shutdownListeners coordinates the shutdown of multiple listeners.
 // It returns a slice of errors from failed shutdowns and a boolean indicating
 // whether the shutdown timed out before all listeners completed.
-// This function is extracted from gracefulShutdownInit for testability.
-// The perListenerTimeout parameter controls how long we wait for each individual
-// listener goroutine before considering it stuck (default 5 seconds in production).
-func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration, perListenerTimeout time.Duration) ([]error, bool) {
+//
+// The overall timeout is the sole bound on how long we wait for listeners: it
+// must honor the user-configured graceful-shutdown budget. We deliberately do
+// NOT impose a shorter per-listener deadline. A fixed per-listener timeout
+// would let a single slow listener be considered "done" early and cause the
+// caller to os.Exit(0) and interrupt the graceful shutdown of listeners that
+// are still within their allowed time (P0 review feedback on PR #993).
+func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]error, bool) {
 	if len(shutdownFuncs) == 0 {
 		return nil, false
 	}
 
-	// Create error collection channel with capacity for all listeners
+	// Error channel is buffered so a slow send never blocks the worker goroutine.
 	errCh := make(chan error, len(shutdownFuncs))
-	// Create done channel to track completion of each listener goroutine
+	// doneCh is signalled by each worker AFTER its error (if any) has been sent,
+	// so receiving all doneCh signals guarantees every error is already queued.
 	doneCh := make(chan struct{}, len(shutdownFuncs))
 
+	var completed int32
 	// Start shutdown for all listeners
 	for _, shutdownFunc := range shutdownFuncs {
 		go func(fn ShutdownFunc) {
@@ -168,25 +175,19 @@ func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration, perL
 				logger.Errorf("Shutdown Error: %+v", err)
 				errCh <- err
 			}
-			// Signal that this goroutine has completed (after potential error send)
+			atomic.AddInt32(&completed, 1)
+			// Signal that this goroutine has completed (after the error send).
 			doneCh <- struct{}{}
 		}(shutdownFunc)
 	}
 
-	// Wait for all listener goroutines to complete or timeout
-	// We use doneCh instead of relying solely on WaitGroup because:
-	// - listener.ShutDown() calls wg.Done() before returning
-	// - this ensures we wait until error is sent to errCh
+	// Wait for every listener to finish, bounded only by the overall timeout.
+	// There is no per-listener deadline: a listener that is slow but still
+	// within the configured budget must be allowed to run to completion.
 	allDone := make(chan struct{})
 	go func() {
 		for i := 0; i < len(shutdownFuncs); i++ {
-			select {
-			case <-doneCh:
-				// listener goroutine completed
-			case <-time.After(perListenerTimeout):
-				// Individual listener stuck, continue anyway
-				logger.Warn("Individual listener shutdown stuck")
-			}
+			<-doneCh
 		}
 		close(allDone)
 	}()
@@ -198,9 +199,13 @@ func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration, perL
 		logger.Info("All listeners shut down gracefully")
 	case <-time.After(timeout):
 		timedOut = true
+		unfinished := int32(len(shutdownFuncs)) - atomic.LoadInt32(&completed)
+		logger.Warnf("Shutdown timed out after %s; %d of %d listener(s) did not finish gracefully",
+			timeout, unfinished, len(shutdownFuncs))
 	}
 
-	// Drain any remaining errors from the channel (non-blocking)
+	// Drain any queued errors (non-blocking). After allDone this is complete
+	// and safe (all sends are done); after a timeout it is best-effort.
 	var shutdownErrors []error
 drainErrors:
 	for {
@@ -214,11 +219,6 @@ drainErrors:
 
 	return shutdownErrors, timedOut
 }
-
-// defaultPerListenerTimeout is the default timeout for each individual listener
-// during graceful shutdown. If a listener takes longer than this, we continue
-// with other listeners but log a warning.
-const defaultPerListenerTimeout = 5 * time.Second
 
 func resolveListenerName(c *model.Listener) string {
 	return c.Address.SocketAddress.Address + "-" + strconv.Itoa(c.Address.SocketAddress.Port) + "-" + c.ProtocolStr
