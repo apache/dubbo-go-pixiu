@@ -26,12 +26,16 @@ import (
 	"strconv"
 	"testing"
 	"time"
+)
 
-	"github.com/stretchr/testify/assert"
-
+import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoyServer "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/admin/global"
 	"github.com/apache/dubbo-go-pixiu/admin/utils"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
