@@ -162,7 +162,7 @@ func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]e
 
 	// Error channel is buffered so a slow send never blocks the worker goroutine.
 	errCh := make(chan error, len(shutdownFuncs))
-	// doneCh is signalled by each worker AFTER its error (if any) has been sent,
+	// doneCh is signaled by each worker AFTER its error (if any) has been sent,
 	// so receiving all doneCh signals guarantees every error is already queued.
 	doneCh := make(chan struct{}, len(shutdownFuncs))
 
