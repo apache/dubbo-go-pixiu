@@ -128,8 +128,7 @@ func (d *DefaultDeployer) initialize() error {
 }
 
 func (d *DefaultDeployer) start() error {
-	server.Start(d.bootstrap)
-	return nil
+	return server.Start(d.bootstrap)
 }
 
 func (d *DefaultDeployer) stop() error {

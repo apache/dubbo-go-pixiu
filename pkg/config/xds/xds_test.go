@@ -111,9 +111,10 @@ func TestAdapter_createApiManager(t *testing.T) {
 	ada := Xds{
 		clusterMg: clusterMg,
 	}
-	ada.Start()
-	api := ada.createApiManager(&apiConfig, &node, constant.ClusterType)
+	require.NoError(t, ada.Start())
+	api, err := ada.createApiManager(&apiConfig, &node, constant.ClusterType)
 	assert := require.New(t)
+	assert.NoError(err)
 	assert.NotNil(api)
 }
 
@@ -132,14 +133,14 @@ func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
 	tests := []struct {
 		name        string
 		apiConfig   *model.ApiConfigSource
-		expectNil   bool
+		expectErr   bool
 		description string
 	}{
 		{
 			name:        "nil config",
 			apiConfig:   nil,
-			expectNil:   true,
-			description: "should return nil for nil config",
+			expectErr:   false,
+			description: "should return (nil, nil) for nil config (not configured is not an error)",
 		},
 		{
 			name: "empty cluster name - GRPC type",
@@ -148,8 +149,8 @@ func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
 				APITypeStr:  "GRPC",
 				ClusterName: []string{}, // Empty
 			},
-			expectNil:   true,
-			description: "should return nil for empty cluster name in GRPC type",
+			expectErr:   true,
+			description: "should return error for empty cluster name in GRPC type",
 		},
 		{
 			name: "unsupported API type",
@@ -158,8 +159,8 @@ func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
 				APITypeStr:  "INVALID",
 				ClusterName: []string{"cluster-1"},
 			},
-			expectNil:   true,
-			description: "should return nil for unsupported API type",
+			expectErr:   true,
+			description: "should return error for unsupported API type",
 		},
 	}
 
@@ -170,12 +171,14 @@ func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
 				exitCh:    make(chan struct{}),
 			}
 
-			api := ada.createApiManager(tt.apiConfig, node, constant.ClusterType)
+			api, err := ada.createApiManager(tt.apiConfig, node, constant.ClusterType)
 			assert := require.New(t)
-			if tt.expectNil {
+			if tt.expectErr {
+				assert.Error(err, tt.description)
 				assert.Nil(api, tt.description)
 			} else {
-				assert.NotNil(api, tt.description)
+				assert.NoError(err, tt.description)
+				assert.Nil(api, tt.description)
 			}
 		})
 	}
@@ -190,20 +193,21 @@ func TestAdapter_Start_NilApiManager(t *testing.T) {
 
 	apiclient.Init(clusterMg)
 
-	// Setup mocks to trigger error scenarios
-	// Start() will call GetLds() first at line 128
-	drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
-		APIType:     model.ApiTypeGRPC,
-		ClusterName: []string{}, // Empty - will cause createApiManager to return nil
-	})
-	// Then it calls GetLds() again at line 129 (inside createApiManager call)
-	drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
-		APIType:     model.ApiTypeGRPC,
-		ClusterName: []string{},
-	})
-	// Then it calls GetNode() at line 129
-	drm.EXPECT().GetNode().Return(&model.Node{})
-	// After discoverApi == nil, it returns early and doesn't call GetCds()
+	// LDS configured but with an empty cluster name -> createApiManager returns an error.
+	// Start() calls GetLds() once for the nil-check, then again inside createApiManager.
+	gomock.InOrder(
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{}, // Empty - will cause createApiManager to return an error
+		}),
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
+	// CDS is not configured, so its block is skipped after the nil-check.
+	drm.EXPECT().GetCds().Return(nil)
 
 	ada := &Xds{
 		clusterMg:         clusterMg,
@@ -211,13 +215,13 @@ func TestAdapter_Start_NilApiManager(t *testing.T) {
 		exitCh:            make(chan struct{}),
 	}
 
-	// Start should handle nil DiscoverApi gracefully without panic
-	ada.Start()
-
-	// Verify that lds was not created because createApiManager returned nil
+	// Start must surface the LDS init failure instead of silently returning (fail-fast).
+	err := ada.Start()
 	assert := require.New(t)
-	assert.Nil(ada.lds)
-	assert.Nil(ada.cds) // Should also be nil because Start() returned early
+	assert.Error(err)
+	assert.Contains(err.Error(), "LDS")
+	assert.Nil(ada.lds) // not created because createApiManager failed
+	assert.Nil(ada.cds) // not configured
 }
 
 func TestAdapter_Start_CdsNilApiManager(t *testing.T) {
@@ -229,22 +233,22 @@ func TestAdapter_Start_CdsNilApiManager(t *testing.T) {
 
 	apiclient.Init(clusterMg)
 
-	// Setup LDS to skip (nil config)
+	// LDS not configured.
 	drm.EXPECT().GetLds().Return(nil)
 
-	// Setup CDS to fail
-	// Start() will call GetCds() at line 143
-	drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
-		APIType:     model.ApiTypeGRPC,
-		ClusterName: []string{}, // Empty - will cause createApiManager to return nil
-	})
-	// Then it calls GetCds() again at line 144 (inside createApiManager call)
-	drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
-		APIType:     model.ApiTypeGRPC,
-		ClusterName: []string{},
-	})
-	// Then it calls GetNode() at line 144
-	drm.EXPECT().GetNode().Return(&model.Node{})
+	// CDS configured but with an empty cluster name -> createApiManager returns an error.
+	// Start() calls GetCds() once for the nil-check, then again inside createApiManager.
+	gomock.InOrder(
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{}, // Empty - will cause createApiManager to return an error
+		}),
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
 
 	ada := &Xds{
 		clusterMg:         clusterMg,
@@ -252,11 +256,64 @@ func TestAdapter_Start_CdsNilApiManager(t *testing.T) {
 		exitCh:            make(chan struct{}),
 	}
 
-	// Start should handle nil DiscoverApi gracefully without panic
-	ada.Start()
-
-	// Verify that cds was not created because createApiManager returned nil
+	// Start must surface the CDS init failure (fail-fast).
+	err := ada.Start()
 	assert := require.New(t)
-	assert.Nil(ada.lds) // Should be nil because GetLds() returned nil
-	assert.Nil(ada.cds) // Should be nil because discoverApi was nil
+	assert.Error(err)
+	assert.Contains(err.Error(), "CDS")
+	assert.Nil(ada.lds) // not configured
+	assert.Nil(ada.cds) // not created because createApiManager failed
+}
+
+// TestAdapter_Start_LdsAndCdsIndependentErrors verifies the core P0 fix: an LDS init failure
+// must NOT skip CDS initialization. Both are attempted, and the returned error reports both.
+func TestAdapter_Start_LdsAndCdsIndependentErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	drm := mocks.NewMockDynamicResourceManager(ctrl)
+
+	apiclient.Init(clusterMg)
+
+	// LDS configured with an empty cluster name -> fails.
+	gomock.InOrder(
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
+	// CDS also configured with an empty cluster name -> fails too, proving it was attempted
+	// despite the LDS failure.
+	gomock.InOrder(
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
+
+	ada := &Xds{
+		clusterMg:         clusterMg,
+		dynamicResourceMg: drm,
+		exitCh:            make(chan struct{}),
+	}
+
+	err := ada.Start()
+	assert := require.New(t)
+	assert.Error(err)
+	// Both LDS and CDS failures are present in the joined error.
+	assert.Contains(err.Error(), "LDS")
+	assert.Contains(err.Error(), "CDS")
+	assert.Nil(ada.lds)
+	assert.Nil(ada.cds)
 }

@@ -47,14 +47,19 @@ type Server struct {
 	traceDriverManager    *tracing.TraceDriverManager
 }
 
-func (s *Server) initialize(bs *model.Bootstrap) {
+func (s *Server) initialize(bs *model.Bootstrap) error {
 	s.clusterManager = CreateDefaultClusterManager(bs)
 	s.routerManager = CreateDefaultRouterManager(s, bs)
 	s.apiConfigManager = CreateDefaultApiConfigManager(s, bs)
 	s.adapterManager = CreateDefaultAdapterManager(s, bs)
 	s.listenerManager = CreateDefaultListenerManager(bs)
-	s.dynamicResourceManger = createDynamicResourceManger(bs)
+	drm, err := createDynamicResourceManger(bs)
+	if err != nil {
+		return err
+	}
+	s.dynamicResourceManger = drm
 	s.traceDriverManager = tracing.CreateDefaultTraceDriverManager(bs)
+	return nil
 }
 
 func (s *Server) GetClusterManager() *ClusterManager {
@@ -123,13 +128,16 @@ func NewServer() *Server {
 	}
 }
 
-func Start(bs *model.Bootstrap) {
+func Start(bs *model.Bootstrap) error {
 	logger.Infof("[dubbo-go-pixiu] start by config : %+v", bs)
 	// global variable
 	server = NewServer()
-	server.initialize(bs)
+	if err := server.initialize(bs); err != nil {
+		return err
+	}
 	server.Start()
 	server.startWG.Wait()
+	return nil
 }
 
 func GetServer() *Server {

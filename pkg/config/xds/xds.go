@@ -18,11 +18,14 @@
 package xds
 
 import (
+	stderr "errors"
 	"sync"
 )
 
 import (
 	"github.com/mitchellh/mapstructure"
+
+	"github.com/pkg/errors"
 )
 
 import (
@@ -55,34 +58,30 @@ type (
 
 func (a *Xds) createApiManager(config *model.ApiConfigSource,
 	node *model.Node,
-	resourceType apiclient.ResourceTypeName) DiscoverApi {
+	resourceType apiclient.ResourceTypeName) (DiscoverApi, error) {
 	if config == nil {
-		return nil
+		return nil, nil
 	}
 
 	switch config.APIType {
 	case model.ApiTypeGRPC:
 		client, err := apiclient.CreateGrpExtensionApiClient(config, node, a.exitCh, resourceType)
 		if err != nil {
-			logger.Errorf("create grpc extension api client error: %+v", err)
-			return nil
+			return nil, errors.Wrap(err, "create grpc extension api client")
 		}
-		return client
+		return client, nil
 	case model.ApiTypeIstioGRPC:
 		dubboServices, err := a.readDubboServiceFromListener()
 		if err != nil {
-			logger.Errorf("can not read listener. %v", err)
-			return nil
+			return nil, errors.Wrap(err, "read dubbo service from listener")
 		}
 		client, err := apiclient.CreateEnvoyGrpcApiClient(config, node, a.exitCh, resourceType, apiclient.WithIstioService(dubboServices...))
 		if err != nil {
-			logger.Errorf("create envoy grpc api client error: %+v", err)
-			return nil
+			return nil, errors.Wrap(err, "create envoy grpc api client")
 		}
-		return client
+		return client, nil
 	default:
-		logger.Errorf("un-support the api type %s", config.APITypeStr)
-		return nil
+		return nil, errors.Errorf("un-support the api type %s", config.APITypeStr)
 	}
 }
 
@@ -117,44 +116,51 @@ func (a *Xds) readDubboServiceFromListener() ([]string, error) {
 	return dubboServices, nil
 }
 
-func (a *Xds) Start() {
+func (a *Xds) Start() error {
 	if a.dynamicResourceMg == nil { // if dm is nil, then config not initialized.
 		logger.Infof("can not get dynamic resource manager. maybe the config has not initialized")
-		return
+		return nil
 	}
 	apiclient.Init(a.clusterMg)
 
+	// lds and cds are independent dynamic resource watches: a failure in one must not skip the
+	// other's initialization. Collect each error and fail startup if any occurred, so a missing
+	// config or xDS connection failure surfaces to the caller instead of leaving the process in a
+	// false-healthy state with parts of the dynamic config unavailable.
+	var errs []error
+
 	// lds fetch just run on init phase.
 	if a.dynamicResourceMg.GetLds() != nil {
-		discoverApi := a.createApiManager(a.dynamicResourceMg.GetLds(), a.dynamicResourceMg.GetNode(), constant.ListenerType)
-		if discoverApi == nil {
-			logger.Errorf("failed to create LDS API manager")
-			return
-		}
-		a.lds = &LdsManager{
-			DiscoverApi: discoverApi,
-			listenerMg:  a.listenerMg,
-		}
-		if err := a.lds.Delta(); err != nil {
-			logger.Errorf("can not fetch lds err is %+v", err)
+		discoverApi, err := a.createApiManager(a.dynamicResourceMg.GetLds(), a.dynamicResourceMg.GetNode(), constant.ListenerType)
+		if err != nil {
+			errs = append(errs, errors.Wrap(err, "create LDS api manager"))
+		} else {
+			a.lds = &LdsManager{
+				DiscoverApi: discoverApi,
+				listenerMg:  a.listenerMg,
+			}
+			if err := a.lds.Delta(); err != nil {
+				errs = append(errs, errors.Wrap(err, "fetch lds"))
+			}
 		}
 	}
 	// catch the ongoing cds config change.
 	if a.dynamicResourceMg.GetCds() != nil {
-		discoverApi := a.createApiManager(a.dynamicResourceMg.GetCds(), a.dynamicResourceMg.GetNode(), constant.ClusterType)
-		if discoverApi == nil {
-			logger.Errorf("failed to create CDS API manager")
-			return
-		}
-		a.cds = &CdsManager{
-			DiscoverApi: discoverApi,
-			clusterMg:   a.clusterMg,
-		}
-		if err := a.cds.Delta(); err != nil {
-			logger.Errorf("can not fetch cds err is %+v", err)
+		discoverApi, err := a.createApiManager(a.dynamicResourceMg.GetCds(), a.dynamicResourceMg.GetNode(), constant.ClusterType)
+		if err != nil {
+			errs = append(errs, errors.Wrap(err, "create CDS api manager"))
+		} else {
+			a.cds = &CdsManager{
+				DiscoverApi: discoverApi,
+				clusterMg:   a.clusterMg,
+			}
+			if err := a.cds.Delta(); err != nil {
+				errs = append(errs, errors.Wrap(err, "fetch cds"))
+			}
 		}
 	}
 
+	return stderr.Join(errs...)
 }
 
 func (a *Xds) Stop() {
@@ -163,8 +169,9 @@ func (a *Xds) Stop() {
 }
 
 var (
-	client Client
-	once   sync.Once
+	client   Client
+	startErr error
+	once     sync.Once
 )
 
 // Client xds client
@@ -173,7 +180,10 @@ type Client interface {
 }
 
 // StartXdsClient create XdsClient and run. only one xds client create at first(singleton)
-func StartXdsClient(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) Client {
+func StartXdsClient(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) (Client, error) {
+	// Note: on first-call failure once.Do still completes, leaving client == nil, so subsequent
+	// calls return (nil, nil). This is acceptable because the caller fails the whole startup on
+	// the first error and never reaches a second call.
 	once.Do(func() {
 		xdsClient := &Xds{
 			listenerMg:        listenerMg,
@@ -181,9 +191,16 @@ func StartXdsClient(listenerMg controls.ListenerManager, clusterMg controls.Clus
 			dynamicResourceMg: drm,
 			exitCh:            make(chan struct{}),
 		}
-		xdsClient.Start()
+		if err := xdsClient.Start(); err != nil {
+			client = nil
+			startErr = err
+			return
+		}
 		client = xdsClient
 	})
 
-	return client
+	if client == nil {
+		return nil, startErr
+	}
+	return client, nil
 }
