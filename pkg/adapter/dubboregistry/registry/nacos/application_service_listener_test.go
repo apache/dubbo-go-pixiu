@@ -20,8 +20,11 @@ package nacos
 import (
 	"strconv"
 	"testing"
+)
 
+import (
 	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
+
 	"github.com/stretchr/testify/assert"
 )
 
