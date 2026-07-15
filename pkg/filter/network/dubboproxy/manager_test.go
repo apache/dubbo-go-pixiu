@@ -20,13 +20,17 @@ package dubboproxy
 import (
 	"context"
 	"testing"
+)
 
-	"github.com/stretchr/testify/assert"
-
+import (
 	"dubbo.apache.org/dubbo-go/v3/protocol/invocation"
 
 	"github.com/dubbogo/grpc-go/metadata"
 
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 

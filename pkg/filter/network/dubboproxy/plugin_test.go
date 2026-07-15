@@ -19,9 +19,13 @@ package dubboproxy
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
+)
 
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
