@@ -163,10 +163,10 @@ func (m *mockRPCStream) Context() context.Context {
 	return context.Background()
 }
 
-func (m *mockRPCStream) SendMsg(msg interface{}) error {
+func (m *mockRPCStream) SendMsg(msg any) error {
 	return nil
 }
 
-func (m *mockRPCStream) RecvMsg(msg interface{}) error {
+func (m *mockRPCStream) RecvMsg(msg any) error {
 	return nil
 }
