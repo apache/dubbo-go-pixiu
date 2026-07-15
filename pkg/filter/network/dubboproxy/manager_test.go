@@ -81,7 +81,7 @@ func TestDubboProxyConnectionManager_OnData_ValidTypePassesTypeCheck(t *testing.
 	// Create valid RPCInvocation
 	invoc := invocation.NewRPCInvocationWithOptions(
 		invocation.WithMethodName("testMethod"),
-		invocation.WithArguments([]interface{}{}),
+		invocation.WithArguments([]any{}),
 	)
 
 	// OnData should not panic on type assertion (the key fix in this PR)
@@ -111,7 +111,7 @@ func TestDubboProxyConnectionManager_OnTripleData_EmptyMetadataValue(t *testing.
 	}
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 
-	result, err := dcm.OnTripleData(ctx, "testMethod", []interface{}{})
+	result, err := dcm.OnTripleData(ctx, "testMethod", []any{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "empty metadata value for key: test-key")
@@ -127,7 +127,7 @@ func TestDubboProxyConnectionManager_OnTripleData_MissingInterfaceKey(t *testing
 	md := metadata.Pairs("some-key", "some-value")
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 
-	result, err := dcm.OnTripleData(ctx, "testMethod", []interface{}{})
+	result, err := dcm.OnTripleData(ctx, "testMethod", []any{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "missing or invalid interface key")
@@ -146,7 +146,7 @@ func TestDubboProxyConnectionManager_OnTripleData_InvalidInterfaceKeyType(t *tes
 	}
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 
-	result, err := dcm.OnTripleData(ctx, "testMethod", []interface{}{})
+	result, err := dcm.OnTripleData(ctx, "testMethod", []any{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	// Should get empty metadata value error
@@ -162,7 +162,7 @@ func TestDubboProxyConnectionManager_OnTripleData_NoMetadata(t *testing.T) {
 	// Create context without metadata
 	ctx := context.Background()
 
-	result, err := dcm.OnTripleData(ctx, "testMethod", []interface{}{})
+	result, err := dcm.OnTripleData(ctx, "testMethod", []any{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "missing or invalid interface key")
@@ -199,7 +199,7 @@ func TestDubboProxyConnectionManager_OnTripleData_ValidMetadataTypeCheckPasses(t
 
 	// OnTripleData should not panic on type assertions (the fix in this PR)
 	// It will return an error about route not found, which is acceptable
-	result, err := dcm.OnTripleData(ctx, "testMethod", []interface{}{})
+	result, err := dcm.OnTripleData(ctx, "testMethod", []any{})
 
 	// The key assertion: we get a proper error, not a panic
 	// Type assertions passed, so we should not see "missing or invalid interface key" error

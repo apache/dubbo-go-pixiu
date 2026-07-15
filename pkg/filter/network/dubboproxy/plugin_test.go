@@ -73,7 +73,7 @@ func TestPlugin_CreateFilter_InvalidConfigType(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid config type")
 
 	// Test with wrong type - map
-	filter, err = p.CreateFilter(map[string]interface{}{"key": "value"})
+	filter, err = p.CreateFilter(map[string]any{"key": "value"})
 	assert.Error(t, err)
 	assert.Nil(t, filter)
 	assert.Contains(t, err.Error(), "invalid config type")
