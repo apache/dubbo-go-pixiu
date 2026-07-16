@@ -58,6 +58,14 @@ func (client *NacosClient) Unsubscribe(param *vo.SubscribeParam) error {
 	return client.namingClient.Unsubscribe(param)
 }
 
+// Close releases the underlying v2 naming client. The v2 client holds a gRPC
+// connection and internal retry goroutines that survive Unsubscribe; this
+// delegates to the SDK's CloseClient (which is idempotent via an internal
+// isClosed guard) so Stop/Apply does not leak the connection after shutdown.
+func (client *NacosClient) Close() {
+	client.namingClient.CloseClient()
+}
+
 func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {
 	configMap := make(map[string]any, 2)
 	addresses := strings.Split(config.Address, ",")

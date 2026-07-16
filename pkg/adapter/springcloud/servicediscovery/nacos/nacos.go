@@ -43,7 +43,7 @@ import (
 type nacosServiceDiscovery struct {
 	targetService []string
 	//descriptor    string
-	client      *nacos.NacosClient
+	client      nacosNamingClient
 	config      *model.RemoteConfig
 	listener    servicediscovery.ServiceEventListener
 	instanceMap map[string]servicediscovery.ServiceInstance
@@ -51,6 +51,18 @@ type nacosServiceDiscovery struct {
 	cacheLock       sync.Mutex
 	callbackFlagMap cache.ConcurrentMap
 	//done      chan struct{}
+}
+
+// nacosNamingClient is the subset of the Nacos naming client API used by
+// nacosServiceDiscovery. *nacos.NacosClient satisfies it in production; tests
+// inject a mock so they can assert on lifecycle (e.g. that Close is invoked
+// on unsubscribe). Mirrors the v2 INamingClient surface this adapter calls.
+type nacosNamingClient interface {
+	GetAllServicesInfo(param vo.GetAllServiceInfoParam) (xdsmodel.ServiceList, error)
+	SelectInstances(param vo.SelectInstancesParam) ([]xdsmodel.Instance, error)
+	Subscribe(param *vo.SubscribeParam) error
+	Unsubscribe(param *vo.SubscribeParam) error
+	Close()
 }
 
 func (n *nacosServiceDiscovery) Subscribe() error {
@@ -99,6 +111,10 @@ func (n *nacosServiceDiscovery) Unsubscribe() error {
 		}
 		_ = n.client.Unsubscribe(subscribeParam)
 	}
+	// v2 clients hold a gRPC connection and internal retry goroutines that
+	// survive Unsubscribe; close the naming client to release them on stop.
+	// CloseClient is idempotent, so a repeated Stop is safe.
+	n.client.Close()
 	return nil
 }
 

@@ -47,6 +47,7 @@ type mockNacosClient struct {
 	subscribeCallback    func(services []nacosModel.Instance, err error)
 	subscribedServices   map[string]struct{}
 	unsubscribedServices map[string]struct{}
+	closeClientCount     int
 }
 
 func newMockNacosClient() *mockNacosClient {
@@ -81,7 +82,18 @@ func (m *mockNacosClient) ServerHealthy() bool {
 	return true
 }
 
-func (m *mockNacosClient) CloseClient() {}
+func (m *mockNacosClient) CloseClient() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.closeClientCount++
+}
+
+// closeClientCalls returns the number of times CloseClient was invoked.
+func (m *mockNacosClient) closeClientCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.closeClientCount
+}
 
 type mockAdapterListener struct {
 	mu               sync.Mutex
@@ -549,4 +561,32 @@ func TestLifecycle(t *testing.T) {
 	assert.NotPanics(t, func() {
 		l.Close()
 	})
+}
+
+// TestDoUnsubscribeClosesClient locks in the v2 close path: DoUnsubscribe must
+// close the naming client (CloseClient) in addition to stopping the listener,
+// otherwise the gRPC connection and internal retry goroutines outlive shutdown.
+// See AlexStocks' [P1] review on PR #982.
+func TestDoUnsubscribeClosesClient(t *testing.T) {
+	client := newMockNacosClient()
+	adapterListener := newMockAdapterListener()
+	regConf := &model.Registry{Group: "test_group", Namespace: "test_namespace"}
+
+	reg, err := newNacosRegistryWithClient(*regConf, client, adapterListener)
+	assert.NoError(t, err)
+
+	// Start the background watcher so the close path has a goroutine to drain.
+	reg.DoSubscribe()
+	// Give the watcher a moment to perform its initial discovery pass.
+	time.Sleep(50 * time.Millisecond)
+
+	assert.Equal(t, 0, client.closeClientCalls(), "client must not be closed before unsubscribe")
+
+	assert.NotPanics(t, func() {
+		err := reg.DoUnsubscribe()
+		assert.NoError(t, err)
+	})
+
+	assert.Equal(t, 1, client.closeClientCalls(),
+		"DoUnsubscribe must close the naming client to release the v2 gRPC connection")
 }

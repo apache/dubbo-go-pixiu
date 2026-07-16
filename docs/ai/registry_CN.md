@@ -8,6 +8,18 @@
 
 服务发现的核心机制是：您的 LLM 服务作为一个**Nacos 实例**进行注册，并在注册时提供一组特定的**元数据**。LLM 网关会监听 Nacos 中的服务变更，读取这些元数据，并将其动态地转换为一个功能齐全的网关 `endpoint` 配置。
 
+> **Nacos 服务端要求（v2 SDK）**
+>
+> Pixiu 的 Nacos 集成使用 **Nacos Go SDK v2**，与 **Nacos 1.x 服务端不兼容**。要求使用 **Nacos 2.x 服务端（建议 2.2.0 或更高版本）**。
+>
+> v2 客户端通过 **gRPC** 与服务端通信。除了你配置的主端口（HTTP/API 端口，默认 `8848`）外，客户端还会建立 **gRPC 端口 = 主端口 + 1000**（默认 `9848`）。当 Nacos 前面存在防火墙、容器端口映射或反向代理时，**两个 TCP 端口都必须可达**：
+>
+> - `8848/TCP` —— Nacos 主端口（HTTP 控制台 + API；即你在 `address` 中填写的端口）
+> - `9848/TCP` —— gRPC 端口（由主端口 + 1000 推导而来，供 v2 客户端使用）
+>
+> 如果只开放 `8848`，即使地址看起来正确，网关在运行期也会连接失败。详见官方[2.0 兼容性说明](https://nacos.io/en-us/docs/v2/upgrading/2.0.0-compatibility.html)。
+
+
 一个基本的 Nacos 注册请求包含以下关键信息：
 
 - **`ServiceName`**: 您的服务集合的名称 (例如, `deepseek-service`)。
@@ -143,7 +155,7 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 func main() {

@@ -23,6 +23,8 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -144,4 +146,51 @@ func TestDefaultConfigLoad_LoadConfigs(t *testing.T) {
 			logger.Infof("config of Bootstrap load by nacos : %v", string(conf))
 		})
 	}
+}
+
+// closeCountingConfigClient is a ConfigClient stand-in that records Close
+// calls so the shutdown path can be asserted without a live Nacos server.
+type closeCountingConfigClient struct {
+	closeCount int
+}
+
+func (c *closeCountingConfigClient) LoadConfig(properties map[string]any) (string, error) {
+	return "", nil
+}
+
+func (c *closeCountingConfigClient) ListenConfig(properties map[string]any) error {
+	return nil
+}
+
+func (c *closeCountingConfigClient) ViewConfig() *model.Bootstrap {
+	return nil
+}
+
+func (c *closeCountingConfigClient) Close() {
+	c.closeCount++
+}
+
+// TestDefaultConfigLoad_Close verifies the v2 close path is wired through the
+// Load interface: Close must forward to the underlying ConfigClient so the
+// Nacos v2 gRPC connection is released on shutdown. See AlexStocks' [P1]
+// review on PR #982.
+func TestDefaultConfigLoad_Close(t *testing.T) {
+	client := &closeCountingConfigClient{}
+	d := &DefaultConfigLoad{configClient: client}
+
+	assert.Equal(t, 0, client.closeCount, "client must not be closed before Close")
+
+	d.Close()
+
+	assert.Equal(t, 1, client.closeCount, "Close must forward to the underlying config client")
+
+	// Close must be safe to call again (idempotent shutdown path).
+	assert.NotPanics(t, func() { d.Close() })
+}
+
+// TestDefaultConfigLoad_Close_NilClient ensures Close is a no-op when no
+// remote config center is configured (NewConfigLoad returns nil load).
+func TestDefaultConfigLoad_Close_NilClient(t *testing.T) {
+	d := &DefaultConfigLoad{}
+	assert.NotPanics(t, func() { d.Close() })
 }

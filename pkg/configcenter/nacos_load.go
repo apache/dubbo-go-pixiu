@@ -160,3 +160,14 @@ func (n *NacosConfig) ViewConfig() *model.Bootstrap {
 	defer n.mu.Unlock()
 	return n.remoteConfig
 }
+
+// Close releases the Nacos v2 config client. The v2 client holds a gRPC
+// connection and internal goroutines that survive config unlisten; this
+// delegates to the SDK's CloseClient (idempotent via an internal isClosed
+// guard) so the gateway's shutdown path does not leak the connection.
+func (n *NacosConfig) Close() {
+	if n.client == nil {
+		return
+	}
+	n.client.CloseClient()
+}

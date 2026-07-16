@@ -18,22 +18,28 @@
 package nacos
 
 import (
+	"sync"
 	"testing"
 )
 
 import (
 	"github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/springcloud/servicediscovery"
+	pixiumodel "github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func TestCallback_ServiceNameWithGroupPrefix(t *testing.T) {
-	// Test the @@ prefix stripping logic in Callback
-	// This tests the new code path where ServiceName contains "DEFAULT_GROUP@@service-name"
+	// Drive the production Callback (not a copy of the separator logic) and
+	// assert the @@ group prefix is stripped from ServiceName before the
+	// instance reaches the listener. The mock records the ServiceInstance it
+	// receives so this fails if the prefix handling is removed, broken, or
+	// never wired through to the listener.
 
 	tests := []struct {
 		name        string
@@ -64,24 +70,31 @@ func TestCallback_ServiceNameWithGroupPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Simulate the strings.Cut logic used in Callback
-			serviceName := tt.serviceName
-			if _, after, ok := cutServiceName(serviceName, "@@"); ok {
-				serviceName = after
+			mockListener := &mockServiceEventListener{}
+			nsd := &nacosServiceDiscovery{
+				listener:    mockListener,
+				instanceMap: make(map[string]servicediscovery.ServiceInstance),
 			}
-			assert.Equal(t, tt.expected, serviceName)
+
+			services := []model.Instance{
+				{
+					Ip:          "192.168.1.1",
+					Port:        8080,
+					ServiceName: tt.serviceName,
+					Enable:      true,
+					Healthy:     true,
+				},
+			}
+
+			nsd.Callback(services, nil)
+
+			names := mockListener.addedServiceNames()
+			if assert.Len(t, names, 1, "Callback should forward exactly one instance") {
+				assert.Equal(t, tt.expected, names[0],
+					"ServiceName should have the @@ group prefix stripped by Callback")
+			}
 		})
 	}
-}
-
-// cutServiceName mimics strings.Cut for testing purposes
-func cutServiceName(s, sep string) (before, after string, found bool) {
-	for i := 0; i+len(sep) <= len(s); i++ {
-		if s[i:i+len(sep)] == sep {
-			return s[:i], s[i+len(sep):], true
-		}
-	}
-	return s, "", false
 }
 
 func TestFromInstanceToServiceInstance(t *testing.T) {
@@ -160,10 +173,12 @@ func TestCallback_DisabledInstance(t *testing.T) {
 
 // Mock implementation of ServiceEventListener
 type mockServiceEventListener struct {
-	serviceNames []string
-	addCount     int
-	delCount     int
-	updateCount  int
+	serviceNames   []string
+	addCount       int
+	delCount       int
+	updateCount    int
+	mu             sync.Mutex
+	addedInstances []servicediscovery.ServiceInstance
 }
 
 func (m *mockServiceEventListener) GetServiceNames() []string {
@@ -171,7 +186,10 @@ func (m *mockServiceEventListener) GetServiceNames() []string {
 }
 
 func (m *mockServiceEventListener) OnAddServiceInstance(instance *servicediscovery.ServiceInstance) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.addCount++
+	m.addedInstances = append(m.addedInstances, *instance)
 }
 
 func (m *mockServiceEventListener) OnDeleteServiceInstance(instance *servicediscovery.ServiceInstance) {
@@ -180,4 +198,91 @@ func (m *mockServiceEventListener) OnDeleteServiceInstance(instance *servicedisc
 
 func (m *mockServiceEventListener) OnUpdateServiceInstance(instance *servicediscovery.ServiceInstance) {
 	m.updateCount++
+}
+
+// addedServiceNames returns the ServiceName of each instance reported via
+// OnAddServiceInstance, in arrival order.
+func (m *mockServiceEventListener) addedServiceNames() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	names := make([]string, 0, len(m.addedInstances))
+	for _, inst := range m.addedInstances {
+		names = append(names, inst.ServiceName)
+	}
+	return names
+}
+
+// mockNamingClient is a stand-in for *nacos.NacosClient satisfying the
+// nacosNamingClient interface, so tests can assert on lifecycle without a real
+// gRPC connection.
+type mockNamingClient struct {
+	mu             sync.Mutex
+	subscribed     map[string]struct{}
+	unsubscribed   map[string]struct{}
+	closeClientCnt int
+}
+
+func newMockNamingClient() *mockNamingClient {
+	return &mockNamingClient{
+		subscribed:   make(map[string]struct{}),
+		unsubscribed: make(map[string]struct{}),
+	}
+}
+
+func (m *mockNamingClient) GetAllServicesInfo(param vo.GetAllServiceInfoParam) (model.ServiceList, error) {
+	return model.ServiceList{}, nil
+}
+
+func (m *mockNamingClient) SelectInstances(param vo.SelectInstancesParam) ([]model.Instance, error) {
+	return nil, nil
+}
+
+func (m *mockNamingClient) Subscribe(param *vo.SubscribeParam) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.subscribed[param.ServiceName] = struct{}{}
+	return nil
+}
+
+func (m *mockNamingClient) Unsubscribe(param *vo.SubscribeParam) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unsubscribed[param.ServiceName] = struct{}{}
+	return nil
+}
+
+func (m *mockNamingClient) Close() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.closeClientCnt++
+}
+
+func (m *mockNamingClient) closeCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.closeClientCnt
+}
+
+// TestUnsubscribeClosesClient locks in the v2 close path: Unsubscribe must
+// close the naming client in addition to unsubscribing, otherwise the gRPC
+// connection and internal retry goroutines outlive shutdown. See AlexStocks'
+// [P1] review on PR #982.
+func TestUnsubscribeClosesClient(t *testing.T) {
+	client := newMockNamingClient()
+	listener := &mockServiceEventListener{serviceNames: []string{"service-A"}}
+	nsd := &nacosServiceDiscovery{
+		client:      client,
+		config:      &pixiumodel.RemoteConfig{Group: "DEFAULT_GROUP"},
+		listener:    listener,
+		instanceMap: make(map[string]servicediscovery.ServiceInstance),
+	}
+
+	assert.Equal(t, 0, client.closeCalls(), "client must not be closed before unsubscribe")
+
+	err := nsd.Unsubscribe()
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, client.closeCalls(),
+		"Unsubscribe must close the naming client to release the v2 gRPC connection")
+	assert.Contains(t, client.unsubscribed, "service-A", "Unsubscribe must unsubscribe configured services first")
 }
