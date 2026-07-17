@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"time"
 )
@@ -84,32 +83,32 @@ func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
 }
 
 // StartxDsServer RunXDSServerWithCache starts an xDS server at the gi.ven port.
-func StartxDsServer() error {
+// The server runs until ctx is canceled (e.g. when the admin HTTP server fails
+// to start) or Serve returns an error; in either case it stops gracefully.
+func StartxDsServer(ctx context.Context) error {
 	// Create a snaphost
 	snaphost = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
 
 	// Create the config that we'll serve to Envoy
 	config := GenerateSnapshotPixiu()
 	if err := config.Consistent(); err != nil {
-		logger.Errorf("config inconsistency: %+v\n%+v", config, err)
-		os.Exit(1)
+		return fmt.Errorf("config inconsistency: %w", err)
 	}
 
 	// Add the config to the snaphost
 	if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
-		logger.Errorf("config error %q for %+v", err, config)
-		os.Exit(1)
+		return fmt.Errorf("set snapshot error: %w", err)
 	}
 
 	go watchConfigAndReload()
 
 	// Run the xDS server
-	ctx := context.Background()
 	srv := envoyServer.NewServer(ctx, snaphost, nil)
 	return runXDSServer(ctx, srv, port)
 }
 
-// runXDSServer starts an xDS server at the given port.
+// runXDSServer starts an xDS server at the given port. It returns the Serve
+// error, or stops the server gracefully when ctx is canceled.
 func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error {
 	// gRPC golang library sets a very small upper bound for the number gRPC/h2
 	// streams over a single TCP connection. If a proxy multiplexes requests over
@@ -137,34 +136,77 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 	registerServer(grpcServer, srv)
 
 	logger.Infof("management server listening on %d\n", port)
-	if err = grpcServer.Serve(lis); err != nil {
-		return nil
+
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- grpcServer.Serve(lis)
+	}()
+
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+		grpcServer.GracefulStop()
+		return <-serveErr
 	}
-	return nil
 }
 
 func watchConfigAndReload() {
-	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
+	const (
+		maxRetries        = 5
+		initialBackoff    = 1 * time.Second
+		maxBackoff        = 30 * time.Second
+		backoffMultiplier = 2.0
+	)
 
-	if err != nil {
-		logger.Errorf("watch config error %q", err)
-		panic(err)
-	}
+	for {
+		backoff := initialBackoff
+		retries := 0
 
-	for range ch {
-		logger.Info("get etcd config change")
-		// Create the config that we'll serve to Envoy
-		config := GenerateSnapshotPixiu()
-		if err := config.Consistent(); err != nil {
-			logger.Errorf("config inconsistency: %+v\n%+v", config, err)
-			os.Exit(1)
+		// Try to establish watch with retry
+		ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
+		for err != nil && retries < maxRetries {
+			retries++
+			logger.Errorf("watch config error %q (retry %d/%d)", err, retries, maxRetries)
+
+			// Wait with backoff before retrying
+			time.Sleep(backoff)
+			backoff = time.Duration(float64(backoff) * backoffMultiplier)
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+
+			// Retry establishing watch
+			ch, err = adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
 		}
 
-		// Add the config to the snaphost
-		if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
-			logger.Errorf("config error %q for %+v", err, config)
-			os.Exit(1)
+		// Check if we failed to establish watch after max retries
+		if err != nil {
+			logger.Errorf("max retries reached for watch config, giving up")
+			return
 		}
+
+		// Process watch events
+		for range ch {
+			logger.Info("get etcd config change")
+			// Create the config that we'll serve to Envoy
+			config := GenerateSnapshotPixiu()
+			if err := config.Consistent(); err != nil {
+				logger.Errorf("config inconsistency: %+v\n%+v", config, err)
+				// Don't exit the process - continue running with previous valid config
+				continue
+			}
+
+			// Add the config to the snaphost
+			if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
+				logger.Errorf("config error %q for %+v", err, config)
+				// Don't exit the process - continue running with previous valid config
+				continue
+			}
+		}
+
+		// Channel closed, log and restart watch
+		logger.Info("watch channel closed, restarting watch")
 	}
 }
 
