@@ -51,11 +51,15 @@ type serviceListener struct {
 	exit            chan struct{}
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
+	watchOnce       sync.Once
 }
 
 // WatchAndHandle todo WatchAndHandle is useless for service listener
 func (z *serviceListener) WatchAndHandle() {
-	panic("implement me")
+	// WatchAndHandle is not used by service listener; subscription uses Callback instead.
+	z.watchOnce.Do(func() {
+		logger.Warnf("serviceListener: WatchAndHandle not implemented")
+	})
 }
 
 // newNacosSrvListener creates a new zk service listener

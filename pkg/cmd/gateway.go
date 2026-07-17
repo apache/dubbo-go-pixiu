@@ -133,8 +133,9 @@ func (d *DefaultDeployer) start() error {
 }
 
 func (d *DefaultDeployer) stop() error {
-	// TODO implement me
-	panic("implement me")
+	// TODO: implement graceful shutdown
+	logger.Warnf("[DefaultDeployer] stop is not implemented, skipping graceful shutdown")
+	return nil
 }
 
 // initDefaultValue If not set both in args and env, set default values
