@@ -37,13 +37,13 @@ func TestNotifyToolsListChanged(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 	sm := GetOrInitSessionManager()
 
 	// Create session with SSE pipe
-	session, _ := sm.EnsureSession("")
+	session, _ := sm.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.PipeWriter = pipeWriter
+	_, _ = session.AttachStream(pipeWriter)
 	defer pipeReader.Close()
 	defer pipeWriter.Close()
 
@@ -84,7 +84,7 @@ func TestNotifyToolsListChanged_MultipleSessions(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 	sm := GetOrInitSessionManager()
 
 	// Create multiple sessions with pipes
@@ -94,9 +94,9 @@ func TestNotifyToolsListChanged_MultipleSessions(t *testing.T) {
 	notificationChs := make([]chan string, numSessions)
 
 	for i := 0; i < numSessions; i++ {
-		session, _ := sm.EnsureSession("")
+		session, _ := sm.CreateSession()
 		pipeReader, pipeWriter := io.Pipe()
-		session.PipeWriter = pipeWriter
+		_, _ = session.AttachStream(pipeWriter)
 		readers[i] = pipeReader
 		writers[i] = pipeWriter
 		defer pipeReader.Close()
@@ -141,7 +141,7 @@ func TestNotifyToolsListChanged_NoActiveSessions(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 
 	// Apply config without any active sessions
 	config := createTestMcpServerConfig([]model.ToolConfig{
@@ -160,12 +160,12 @@ func TestNotifyToolsListChanged_DisconnectedSession(t *testing.T) {
 	ResetGlobalState()
 	defer ResetGlobalState()
 
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 	sm := GetOrInitSessionManager()
 
 	// Create session but don't attach pipe
-	_, _ = sm.EnsureSession("")
-	// session.PipeWriter is nil
+	session, _ := sm.CreateSession()
+	// session has no SSE pipe, so the update should be coalesced as pending.
 
 	// Apply config
 	config := createTestMcpServerConfig([]model.ToolConfig{
@@ -178,4 +178,6 @@ func TestNotifyToolsListChanged_DisconnectedSession(t *testing.T) {
 
 	// Should handle disconnected session gracefully (logged as warning)
 	// No panic or error
+	_, pending := session.PendingToolsListChangedVersion()
+	assert.True(t, pending)
 }

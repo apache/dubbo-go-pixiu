@@ -19,6 +19,7 @@ package main
 
 import (
 	_ "net/http/pprof"
+	"os"
 	"strconv"
 	"time"
 )
@@ -37,8 +38,9 @@ import (
 func main() {
 	app := getRootCmd()
 
-	// ignore error so we don't exit non-zero and break gfmrun README example tests
-	_ = app.Execute()
+	if err := app.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func getRootCmd() *cobra.Command {

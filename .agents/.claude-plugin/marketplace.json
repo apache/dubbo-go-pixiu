@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dubbo-go-pixiu-agent-skills",
+  "description": "Agent skills bundled with Apache dubbo-go-pixiu for gateway users",
+  "owner": {
+    "name": "Apache Dubbo"
+  },
+  "plugins": [
+    {
+      "name": "dubbo-go-pixiu",
+      "description": "AI skills for Apache dubbo-go-pixiu users — HTTP/Network filters, HTTP-to-Dubbo routing, LLM gateway, and MCP gateway configuration.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/apache/dubbo-go-pixiu.git",
+        "path": ".agents"
+      },
+      "homepage": "https://github.com/apache/dubbo-go-pixiu/tree/main/.agents"
+    }
+  ]
+}

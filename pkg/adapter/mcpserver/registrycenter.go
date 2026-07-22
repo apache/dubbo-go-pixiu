@@ -20,7 +20,6 @@ package mcpserver
 import (
 	"context"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -34,7 +33,6 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 func init() {
@@ -44,6 +42,8 @@ func init() {
 var (
 	_ adapter.AdapterPlugin = new(Plugin)
 	_ adapter.Adapter       = new(Adapter)
+
+	serverPublicationSinkForSingleRuntime = mcpserver.ServerPublicationSinkForSingleRuntime
 )
 
 type (
@@ -57,13 +57,15 @@ type (
 
 	// Adapter to monitor mcp services on registry center
 	Adapter struct {
-		id  string
-		cfg *AdapterConfig
-		// single provider controller (provider-agnostic)
-		controller registry.Controller
-		ctx        context.Context
-		cancel     context.CancelFunc
-		mu         sync.RWMutex
+		id               string
+		cfg              *AdapterConfig
+		controllers      map[string]registry.Controller
+		ctx              context.Context
+		cancel           context.CancelFunc
+		endpoints        *endpointReconciler
+		sink             mcpserver.ServerPublicationSink
+		publishedSources map[string]mcpserver.ServerSource
+		mu               sync.RWMutex
 	}
 
 	// McpServerInfo represents an MCP server instance from service discovery
@@ -83,63 +85,103 @@ func (p *Plugin) Kind() string {
 // CreateAdapter returns the mcp server adapter
 func (p *Plugin) CreateAdapter(a *model.Adapter) (adapter.Adapter, error) {
 	return &Adapter{
-		id:  a.ID,
-		cfg: &AdapterConfig{Registries: make(map[string]model.Registry)},
+		id:               a.ID,
+		cfg:              &AdapterConfig{Registries: make(map[string]model.Registry)},
+		controllers:      make(map[string]registry.Controller),
+		endpoints:        newEndpointReconciler(clusterManagerEndpointSink{}),
+		publishedSources: make(map[string]mcpserver.ServerSource),
 	}, nil
 }
 
 // Start starts the adapter
 func (a *Adapter) Start() {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-
-	if a.controller == nil {
+	a.mu.Lock()
+	if len(a.controllers) == 0 {
+		a.mu.Unlock()
 		logger.Warnf("MCP server adapter %s start skipped: controller not initialized (call Apply first)", a.id)
 		return
 	}
 
 	if a.cancel != nil {
+		a.mu.Unlock()
 		logger.Infof("MCP server adapter %s already running", a.id)
 		return
 	}
 
 	a.ctx, a.cancel = context.WithCancel(context.Background())
-	go func() {
-		if err := a.controller.Run(a.ctx, 30*time.Second); err != nil {
-			logger.Errorf("MCP server controller run error: %v", err)
-		}
-	}()
+	ctx := a.ctx
+	controllers := cloneControllers(a.controllers)
+	a.mu.Unlock()
 
-	logger.Infof("MCP server adapter %s started successfully", a.id)
+	for registryName, ctrl := range controllers {
+		registryName, ctrl := registryName, ctrl
+		go func() {
+			if err := ctrl.Run(ctx, 30*time.Second); err != nil {
+				logger.Errorf("MCP server controller %s run error: %v", registryName, err)
+			}
+		}()
+	}
+
+	logger.Infof("MCP server adapter %s started successfully with %d controller(s)", a.id, len(controllers))
 }
 
 // Stop stops the adapter
 func (a *Adapter) Stop() {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	a.mu.Lock()
+	cancel := a.cancel
+	a.cancel = nil
+	controllers := cloneControllers(a.controllers)
+	a.ctx = nil
+	a.mu.Unlock()
 
-	if a.cancel != nil {
-		a.cancel()
-		a.cancel = nil
+	if cancel != nil {
+		cancel()
 	}
 
-	if a.controller != nil {
-		if err := a.controller.Close(); err != nil {
-			logger.Errorf("MCP server controller close error: %v", err)
+	for registryName, ctrl := range controllers {
+		if err := ctrl.Close(); err != nil {
+			logger.Errorf("MCP server controller %s close error: %v", registryName, err)
 		}
 	}
+
+	a.removeAllDynamicPublication()
 	logger.Infof("MCP server adapter %s stopped successfully", a.id)
+}
+
+func cloneControllers(in map[string]registry.Controller) map[string]registry.Controller {
+	out := make(map[string]registry.Controller, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func (a *Adapter) runController(registryName string, ctrl registry.Controller, ctx context.Context) {
+	go func() {
+		if err := ctrl.Run(ctx, 30*time.Second); err != nil {
+			logger.Errorf("MCP server controller %s run error: %v", registryName, err)
+		}
+	}()
 }
 
 // Apply inits the registries according to the configuration
 func (a *Adapter) Apply() error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	if a.endpoints == nil {
+		a.endpoints = newEndpointReconciler(clusterManagerEndpointSink{})
+	}
+	registries := make(map[string]model.Registry, len(a.cfg.Registries))
+	for k, v := range a.cfg.Registries {
+		registries[k] = v
+	}
+	running := a.cancel != nil
+	a.mu.Unlock()
 
 	// Support environment variable override for Nacos address
 	nacosAddrFromEnv := os.Getenv(constant.EnvDubbogoPixiuNacosRegistryAddress)
 
-	for k, registryConfig := range a.cfg.Registries {
+	newControllers := make(map[string]registry.Controller)
+	for k, registryConfig := range registries {
 		if nacosAddrFromEnv != "" && registryConfig.Protocol == constant.Nacos {
 			// Validate environment variable address before overriding
 			if err := util.ValidateNacosAddresses(nacosAddrFromEnv); err != nil {
@@ -157,59 +199,156 @@ func (a *Adapter) Apply() error {
 			continue
 		}
 
+		registryName := k
 		onChange := func(serverId string, cfg *model.McpServerConfig) {
-			if cfg == nil {
-				return
-			}
-
-			if serverId == "" {
-				serverId = "default"
-			}
-
-			// 1) apply tools dynamically to registry for filter usage
-			if dc := mcpserver.GetOrInitDynamicConsumer(); dc != nil {
-				if err := dc.ApplyMcpServerConfigByServer(serverId, cfg); err != nil {
-					logger.Errorf("[dubbo-go-pixiu] mcp adapter apply server %s config error: %v", serverId, err)
-				}
-			} else {
-				logger.Infof("[dubbo-go-pixiu] mcp adapter update received from server %s: tools=%d", serverId, len(cfg.Tools))
-			}
-			// 2) register endpoint for each tool using BackendURL (host:port) into cluster named by tool.Name
-			for _, tool := range cfg.Tools {
-				if tool.BackendURL == "" {
-					continue
-				}
-				result, err := util.ParseHostPortFromURL(tool.BackendURL)
-				if err != nil {
-					logger.Errorf("[dubbo-go-pixiu] mcp adapter failed to parse BackendURL '%s' for tool '%s': %v",
-						tool.BackendURL, tool.Name, err)
-					continue
-				}
-				if result.UsedFallback {
-					logger.Warnf("[dubbo-go-pixiu] mcp adapter using fallback for tool '%s' with BackendURL '%s': %s",
-						tool.Name, tool.BackendURL, result.FallbackInfo)
-				}
-				endpointID := result.Host + ":" + strconv.Itoa(result.Port)
-				server.GetClusterManager().SetEndpoint(tool.Cluster, &model.Endpoint{
-					ID: endpointID,
-					Address: model.SocketAddress{
-						Address: result.Host,
-						Port:    result.Port,
-					},
-				})
-			}
+			a.applyServerConfigEvent(registryName, serverId, cfg)
 		}
 
 		// build controller via provider-agnostic factory
 		ctrl, err := registry.BuildController(registryConfig, onChange)
 		if err != nil {
+			closeControllers(newControllers)
 			return err
 		}
-		a.controller = ctrl
+		newControllers[registryName] = ctrl
 		logger.Infof("MCP registry %s configured successfully (nacos)", k)
 	}
 
+	a.mu.Lock()
+	oldCancel := a.cancel
+	oldControllers := cloneControllers(a.controllers)
+	if oldCancel != nil {
+		oldCancel()
+	}
+	a.controllers = newControllers
+	a.cancel = nil
+	a.ctx = nil
+	if running && len(newControllers) > 0 {
+		a.ctx, a.cancel = context.WithCancel(context.Background())
+	}
+	ctx := a.ctx
+	a.mu.Unlock()
+
+	closeControllers(oldControllers)
+	a.removeAllDynamicPublication()
+
+	if running && ctx != nil {
+		for registryName, ctrl := range newControllers {
+			a.runController(registryName, ctrl, ctx)
+		}
+	}
+
 	return nil
+}
+
+func closeControllers(controllers map[string]registry.Controller) {
+	for registryName, ctrl := range controllers {
+		if err := ctrl.Close(); err != nil {
+			logger.Errorf("MCP server controller %s close error: %v", registryName, err)
+		}
+	}
+}
+
+func (a *Adapter) applyServerConfigEvent(registryName, serverId string, cfg *model.McpServerConfig) {
+	source := mcpserver.NewServerSource(registryName, serverId)
+	reconciler := a.endpointReconciler()
+
+	// Apply catalog and endpoints through one desired-state publication path. If
+	// no runtime target is bound, skip the entire update so authorization catalog
+	// and cluster endpoints cannot diverge.
+	sink, err := a.bindPublicationSink()
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter cannot bind runtime publication sink for source %s: %v", source, err)
+		return
+	}
+	if sink == nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter update received from source %s without a bound runtime publication sink", source)
+		return
+	}
+	if sink.RuntimeID() == "" {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter update received from source %s but publication sink has no runtime id", source)
+		return
+	}
+
+	if cfg == nil {
+		if err := sink.ApplyMcpServerConfigBySource(source, nil); err != nil {
+			logger.Errorf("[dubbo-go-pixiu] mcp adapter remove source %s config error: %v", source, err)
+			return
+		}
+		reconciler.RemoveSource(source)
+		a.untrackPublishedSource(source)
+		return
+	}
+
+	endpointPlan, err := reconciler.PrepareServerConfig(source, cfg)
+	if err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter validate endpoints for source %s error: %v", source, err)
+		return
+	}
+	if err := sink.ApplyMcpServerConfigBySource(source, cfg); err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter apply source %s config error: %v", source, err)
+		return
+	}
+	reconciler.ApplyPlan(endpointPlan)
+	a.trackPublishedSource(source)
+}
+
+func (a *Adapter) endpointReconciler() *endpointReconciler {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.endpoints == nil {
+		a.endpoints = newEndpointReconciler(clusterManagerEndpointSink{})
+	}
+	return a.endpoints
+}
+
+func (a *Adapter) bindPublicationSink() (mcpserver.ServerPublicationSink, error) {
+	sink, err := serverPublicationSinkForSingleRuntime()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err != nil {
+		a.sink = nil
+		return nil, err
+	}
+	if sink.RuntimeID() == "" {
+		a.sink = nil
+		return nil, mcpserver.ErrDynamicConsumerUnavailable
+	}
+	a.sink = sink
+	return sink, nil
+}
+
+func (a *Adapter) trackPublishedSource(source mcpserver.ServerSource) {
+	source = source.Normalize()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.publishedSources == nil {
+		a.publishedSources = make(map[string]mcpserver.ServerSource)
+	}
+	a.publishedSources[source.Key()] = source
+}
+
+func (a *Adapter) untrackPublishedSource(source mcpserver.ServerSource) {
+	source = source.Normalize()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.publishedSources, source.Key())
+}
+
+func (a *Adapter) removeAllDynamicPublication() {
+	sink, err := a.bindPublicationSink()
+	if err != nil {
+		logger.Infof("[dubbo-go-pixiu] mcp adapter dynamic catalog cleanup skipped: %v", err)
+	} else if err := sink.RemoveAllMcpServerConfigs(); err != nil {
+		logger.Errorf("[dubbo-go-pixiu] mcp adapter dynamic catalog cleanup error: %v", err)
+	}
+
+	reconciler := a.endpointReconciler()
+	reconciler.RemoveAll()
+
+	a.mu.Lock()
+	a.publishedSources = make(map[string]mcpserver.ServerSource)
+	a.mu.Unlock()
 }
 
 // Config returns the config of the adapter

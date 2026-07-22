@@ -1,0 +1,125 @@
+# Full Pixiu config demonstrating the MCP intelligent tool router.
+#
+# This config exposes 4 tools across 2 workflows and a tenant-isolation policy.
+# The router block below enables tool governance; tools/list is trimmed per
+# session and tools/call is enforced against the session's plan.
+#
+# Run:  dubbo-go-pixiu gateway start -c docs/ai/mcp/router-example/router.yaml
+# Then: bash docs/ai/mcp/router-example/demo.sh
+static_resources:
+  listeners:
+    - name: "net/http"
+      protocol_type: "HTTP"
+      address:
+        socket_address:
+          address: "0.0.0.0"
+          port: 8888
+      filter_chains:
+        filters:
+          - name: "dgp.filter.httpconnectionmanager"
+            config:
+              route_config:
+                routes:
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: "mock-server"
+              http_filters:
+                - name: "dgp.filter.mcp.mcpserver"
+                  config:
+                    server_info:
+                      name: "MCP Router Demo Server"
+                      version: "1.0.0"
+                      description: "Demonstrates intelligent tool routing"
+
+                    # ---- Intelligent tool router ----
+                    router:
+                      # Explicit bundle fallback; omit this field to use fail_closed.
+                      fallback: "bundle_default"
+                      default_bundle: "safe-minimal"
+                      stages:
+                        policy: true
+                        workflow: true
+                      policy:
+                        rules:
+                          # Always applies (no `when`): privileged tools are never
+                          # exposed by the normal pipeline. This works without the
+                          # auth filter because it does not depend on JWT claims.
+                          - name: "block-privileged"
+                            deny_tags: ["internal", "admin"]
+                          # Claim-based isolation. Requires the MCP auth filter to
+                          # populate the `tenant` claim; without it this rule simply
+                          # does not apply (its `when` never matches).
+                          - name: "acme-isolation"
+                            when: { claim: "tenant", equals: "acme" }
+                            allow_tags: ["acme", "shared"]
+                      workflows:
+                        # Requires the `agent_role` claim (auth filter). Without it,
+                        # no workflow auto-matches and the uniquely named bundle
+                        # stays addressable by name only (e.g. as default_bundle).
+                        - name: "support-agent"
+                          tools: ["search_kb", "create_ticket"]
+                          when: { claim: "agent_role", equals: "support" }
+                        - name: "safe-minimal"
+                          tools: ["health_check"]
+                      audit:
+                        sample_rate: 1.0
+                        decision_detail_logging: true   # include bounded denied-tool samples in decision logs
+                      session:
+                        max_entries: 10000       # default cap for in-process session plans
+
+                    tools:
+                      - name: "search_kb"
+                        description: "Search the knowledge base"
+                        cluster: "mock-server"
+                        request: { method: "GET", path: "/api/kb", timeout: "10s" }
+                        args:
+                          - name: "q"
+                            type: "string"
+                            in: "query"
+                            description: "Search query"
+                            required: true
+                        meta:
+                          tags: ["acme", "support", "read"]
+                          risk: "low"
+
+                      - name: "create_ticket"
+                        description: "Create a support ticket"
+                        cluster: "mock-server"
+                        request: { method: "POST", path: "/api/tickets", timeout: "10s" }
+                        args:
+                          - name: "subject"
+                            type: "string"
+                            in: "body"
+                            description: "Ticket subject"
+                            required: true
+                        meta:
+                          tags: ["acme", "support", "write"]
+                          risk: "medium"
+
+                      - name: "internal_dump"
+                        description: "Dump internal debug state (privileged)"
+                        cluster: "mock-server"
+                        request: { method: "GET", path: "/api/debug", timeout: "10s" }
+                        meta:
+                          tags: ["internal", "admin"]
+                          risk: "high"
+
+                      - name: "health_check"
+                        description: "Health check endpoint"
+                        cluster: "mock-server"
+                        request: { method: "GET", path: "/healthz", timeout: "5s" }
+                        meta:
+                          tags: ["shared"]
+                          risk: "low"
+
+                - name: "dgp.filter.http.httpproxy"
+
+  clusters:
+    - name: "mock-server"
+      type: "STATIC"
+      lb_policy: "ROUND_ROBIN"
+      endpoints:
+        - socket_address:
+            address: "127.0.0.1"
+            port: 8081

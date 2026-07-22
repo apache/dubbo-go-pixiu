@@ -41,7 +41,7 @@ func NewSSEHandler(sessionManager *SessionManager) *SSEHandler {
 
 // SendSSEMessage sends a message through the SSE pipe
 func (h *SSEHandler) SendSSEMessage(session *MCPSession, message any) error {
-	if session.PipeWriter == nil {
+	if !session.HasPipeWriter() {
 		return fmt.Errorf("SSE pipe not established")
 	}
 
@@ -55,17 +55,12 @@ func (h *SSEHandler) SendSSEMessage(session *MCPSession, message any) error {
 	sseData := h.FormatSSEMessage(string(messageJSON))
 
 	// Write to pipe
-	if _, err := session.PipeWriter.Write([]byte(sseData)); err != nil {
+	if err := session.WriteSSEData([]byte(sseData), time.Now()); err != nil {
 		logger.Errorf("[dubbo-go-pixiu] mcp server failed to send SSE message: %v", err)
 		return fmt.Errorf("failed to write to SSE pipe: %w", err)
 	}
 
-	// Update LastActivity using session's mutex
-	session.mu.Lock()
-	session.LastActivity = time.Now()
-	session.mu.Unlock()
-
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent SSE message to session: %s", session.ID)
+	logger.Debugf("[dubbo-go-pixiu] mcp server sent SSE message")
 	return nil
 }
 

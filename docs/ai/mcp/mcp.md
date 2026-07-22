@@ -97,6 +97,146 @@ Each argument object contains the following fields:
 
 ---
 
+### Deterministic MCP Tool Governance (`router`) Configuration
+
+When an MCP server exposes a large catalog of tools, sending all of them to an LLM on every `tools/list` causes tool overload, context bloat, and an uncontrolled exposure surface. The optional `router` block enables deterministic MCP tool governance: it trims `tools/list` per session and enforces the trimmed set at `tools/call`.
+
+Omitting the `router` block preserves the existing legacy MCP server behavior. When the router block is present, including `router: {}`, governance is enabled, the default fallback is `fail_closed`, and `tools/call` enforcement cannot be disabled.
+
+Two principles shape the design:
+
+1. **Discovery vs. execution separation** — tools are trimmed at `tools/list` *and* re-validated at `tools/call`, so a tool name learned out-of-band still cannot be invoked unless it is part of the session's plan.
+2. **Deterministic before semantic** — policy rules and workflow bundles decide authorization. No black-box model gates access.
+
+The selection pipeline runs in a fixed order; each stage is independently toggleable:
+
+```
+policy  ->  workflow  ->  progressive
+```
+
+```yaml
+- name: "dgp.filter.mcp.mcpserver"
+  config:
+    server_info: { name: "Pixiu MCP Server", version: "1.0.0" }
+    endpoint: "/mcp"
+    router:
+      fallback: "fail_closed"         # fail_closed (default) | bundle_default
+      default_bundle: "safe-minimal"  # bundle used for no-match/error fallback
+      stages:
+        policy: true                  # default true
+        workflow: true                # default true
+        progressive: false            # default false
+      policy:
+        rules:
+          - name: "tenant-isolation"
+            when: { claim: "tenant", equals: "acme" }
+            allow_tags: ["acme", "shared"]
+            deny_tags: ["internal", "admin"]
+          - name: "low-risk-for-anonymous"
+            when: { missing_claim: "sub" }
+            max_risk: "low"           # low | medium | high
+      workflows:
+        - name: "support-agent"       # workflow names must be non-empty and unique
+          tools: ["search_kb", "create_ticket", "get_user"]
+          when: { claim: "agent_role", equals: "support" }
+        - name: "safe-minimal"        # name-addressable bundle (no `when`)
+          tools: ["ping", "health_check"]
+      progressive:
+        initial_bundle: "safe-minimal"
+        expand_after_calls: 1
+      audit:
+        sample_rate: 0.0              # 0 disables decision logs; (0,1] samples
+        decision_detail_logging: false        # opt-in denied-tool samples in decision logs
+      session:
+        max_entries: 10000            # default in-process session-plan cap
+```
+
+#### Tool Metadata (`tools[].meta`)
+
+Routing stages act on optional per-tool metadata. Tools without `meta` are treated as untagged, low-risk, and visible; they still pass through policy, workflow, progressive disclosure, selector evaluation, and session-plan authorization when governance is enabled. Unknown `meta.risk` or `policy.max_risk` values are configuration errors and fail fast on startup or dynamic update.
+
+```yaml
+tools:
+  - name: "get_user"
+    description: "Get user information by ID"
+    cluster: "user-svc"
+    request: { method: "GET", path: "/api/users/{id}" }
+    meta:
+      tags: ["user", "read"]
+      risk: "low"                     # low | medium | high (default low)
+      discovery_visibility: true      # false => hidden from tools/list; not an authorization control
+```
+
+#### Pipeline Stages
+
+| Stage | What it does |
+|-------|--------------|
+| **policy** | Hard filter on JWT claims. A rule applies when its `when` clause matches; matching rules enforce `allow_tags` (keep only intersecting tags), `deny_tags` (drop any match), and `max_risk` (drop tools above the risk ceiling). |
+| **workflow** | The first workflow whose `when` clause matches keeps only that bundle's tools. Bundles without a `when` clause are name-addressable only (used by fallback / progressive). |
+| **progressive** | A fresh session sees only `initial_bundle`; after `expand_after_calls` successful completed tool calls, the full filtered set is revealed. Authorization checks and backend failures do not advance the counter. When this stage is active, `progressive.initial_bundle` is required and must reference a defined workflow bundle. |
+
+> **⚠️ Policy Rule Combination Semantics**
+> When multiple policy rules apply to a request, they are combined with **logical AND**: a tool is kept only if **every** applicable rule allows it.
+>
+> Example: If Rule A requires `allow_tags: [read]` and Rule B requires `allow_tags: [public]`, a tool must have **both** tags to pass. Satisfying only one rule is not enough.
+>
+> This defense-in-depth approach ensures that adding a new restrictive rule cannot accidentally weaken existing restrictions.
+
+`when` clauses (used by both policy rules and workflows) support: `claim` + `equals`, `claim` + `in: [...]`, `claim` + `regex`, `missing_claim`, or `claim` alone (presence check). The `sub` and `tenant` claims are promoted from the validated JWT for convenient matching. Claims come from the [MCP Auth Filter](#mcp-auth-filter-dgpfilterhttpauthmcp-configuration); without that filter in the chain, claim-based rules simply do not match. The router consumes already-validated claims and never re-validates tokens. Workflow names must be non-empty and unique because fallback and progressive disclosure address bundles by name.
+
+#### Fallback
+
+If no workflow matches, or the selector hits an internal error, the `fallback` strategy decides the outcome:
+
+- **`fail_closed`** (default): return no tools. There is intentionally no `fail_open` — a governance-layer failure must never *widen* the exposure surface.
+- **`bundle_default`**: expose the `default_bundle` workflow (intersected with the policy-allowed live catalog). `default_bundle` must be non-empty, the workflow list must exist, and the named workflow must contain at least one tool name, or the gateway fails to start.
+
+Explicit empty selections stay empty: policy denial, a matched workflow with no live tools, or a locked progressive tier with no live tools does not fall back to the default bundle.
+
+#### Enforcement at `tools/call`
+
+A `tools/call` for a tool not in the session's plan is rejected with a tool-call error. The router re-validates the plan against the current claims, router config version, and live tool catalog before authorizing the call, so stale plans are recomputed instead of treated as long-lived credentials. A client that skips `tools/list` entirely has no committed plan and is denied with the same fixed authorization failure surface as any tool outside the current plan.
+
+Tools with `meta.discovery_visibility: false` are omitted from the plan's `visible_tool_names` / `tools/list` view, but this field is not an authorization control. If a hidden tool remains in the session plan's authorized `tool_names` set after policy, workflow, or progressive stages, a client that already knows the tool name can still call it through `tools/call`.
+
+#### MCP Sessions and Tool-List Notifications
+
+When the router block is configured, `initialize` creates a fresh MCP session and returns it in `Mcp-Session-Id`. Clients must not send `Mcp-Session-Id` on `initialize`; Pixiu rejects that with `400` instead of adopting a caller-supplied ID. Later GET SSE streams require an existing session ID: a missing header returns `400`, and an unknown or expired ID returns `404`. Router-enforced POST requests (`tools/list` and `tools/call`) also require a valid session; unknown or expired IDs are never silently replaced with new sessions.
+
+The MCP session owns the router plan, progressive counter, and pending notification state. An SSE stream is only an attachment to that session: disconnecting, canceling the request context, reconnecting, or replacing the active stream does not terminate the MCP session or delete its plan. When the transport session is removed, Pixiu deletes all router-instance plans for that session.
+
+The initialize response advertises `ServerCapabilities.tools.listChanged=true`. This is a server capability; clients do not need to declare `capabilities.tools.listChanged`. When a session's visible tool set changes, Pixiu sends `notifications/tools/list_changed` as a JSON-RPC notification without an `id`. Progressive expansion after the configured successful-call threshold marks a change exactly once. If the client is offline, Pixiu keeps a bounded per-session pending version and flushes the latest change after SSE reconnect. Multiple changes may be coalesced, but the final pending change is not lost.
+
+#### Dynamic Tool Updates
+
+Nacos dynamic updates currently support tool catalog changes only. A dynamic text detail containing a `router` section is rejected so Pixiu does not run with a new tool catalog and stale router policy. A successful catalog update publishes the tool catalog atomically. When governance is enabled, Pixiu recomputes affected session plans and marks `notifications/tools/list_changed` only for sessions whose visible tool set changed; online sessions are notified immediately and offline sessions are notified after SSE reconnect.
+
+Dynamic registry publication is currently bound to exactly one MCP runtime per process. If no runtime exists, updates are skipped and fail closed. If multiple MCP runtimes exist in the same process, publication is ambiguous and fails closed instead of guessing a target. Dynamic registry publication does not hot-update router policy; changing policy still requires rebuilding the MCP filter/runtime.
+
+#### Observability
+
+When governance is enabled, Pixiu publishes Prometheus metrics under the `pixiu_mcp_tool_router_*` namespace:
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `select_total` | counter | `result` (ok/fallback/cached), `mode` |
+| `selection_latency_ms` | histogram | `stage` |
+| `candidates_count` / `selected_count` | histogram | — |
+| `fallback_total` | counter | `reason` (no_match / internal_error / plan_persistence_failed) |
+| `call_denied_total` | counter | `reason` (identity_hash_error / not_in_plan / receipt_failed / stale_plan_recompute_failed) |
+| `plan_evicted_total` | counter | `reason` (explicit / session_end) |
+| `plans_active` | gauge | — |
+
+Decision logs are off by default. Set `audit.sample_rate` to a value in `(0,1]` to emit structured, PII-safe records (`event: mcp_router_decision`) carrying counts, mode, per-stage drop tallies, and `plan_version`. Bounded denied-tool samples are included only when `audit.decision_detail_logging: true`. Even with decision detail logging active, Pixiu does not log tokens, claim values, session IDs, authorization headers, or tool arguments.
+
+There is intentionally no data-plane plan inspection endpoint. Session plans reveal authorization state, so operational debugging should rely on sampled decision logs and aggregate metrics rather than exposing per-session plan text details over the MCP listener.
+
+#### Multi-Instance Note
+
+Session plans are stored in-process. Across multiple Pixiu instances, route the same `Mcp-Session-Id` to the same instance (sticky session, e.g. a load-balancer hash on the header) so a session sees a consistent plan. This PR does not add a shared or distributed plan store.
+
+---
+
 ### MCP Auth Filter (`dgp.filter.http.auth.mcp`) Configuration
 
 This filter adds a layer of security to your MCP endpoint, ensuring that only authenticated and authorized clients can invoke the tools. It validates JWTs provided by clients against a configured identity provider.
@@ -194,7 +334,7 @@ static_resources:
                       version: "1.0.0"
                       description: "MCP Server protected by OAuth for tools demonstration"
                       instructions: "Use appropriate tokens to interact with the mock server API via MCP"
-                    
+
                     tools:
                       # Tool 1: Get a user by ID
                       - name: "get_user"
@@ -232,7 +372,7 @@ static_resources:
                             in: "body"
                             description: "User's email address"
                             required: true
-                
+
                 # Standard HTTP Proxy filter for downstream requests
                 - name: "dgp.filter.http.httpproxy"
 
