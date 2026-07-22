@@ -52,12 +52,12 @@ func (d DynamicResourceManagerImpl) GetLds() *model.ApiConfigSource {
 }
 
 // createDynamicResourceManger create dynamic resource manager or nil if not config
-func createDynamicResourceManger(bs *model.Bootstrap) DynamicResourceManager {
+func createDynamicResourceManger(bs *model.Bootstrap) (DynamicResourceManager, error) {
 	if err := validate(bs); err != nil {
-		panic(err) // settings error panic
+		return nil, err
 	}
 	if bs.DynamicResources == nil {
-		return nil
+		return nil, nil
 	}
 	m := &DynamicResourceManagerImpl{
 		config: bs.DynamicResources, // todo deep copy as immutable value
@@ -70,10 +70,13 @@ func createDynamicResourceManger(bs *model.Bootstrap) DynamicResourceManager {
 	srv := GetServer()
 	if srv == nil || srv.GetListenerManager() == nil || srv.GetClusterManager() == nil {
 		logger.Warnf("skip xds client start: server or managers not initialized")
-		return m
+		return m, nil
 	}
-	_ = xds.StartXdsClient(srv.GetListenerManager(), srv.GetClusterManager(), m) //todo graceful shutdown
-	return m
+	// todo graceful shutdown: the returned client is not retained, so Stop() is never called.
+	if _, err := xds.StartXdsClient(srv.GetListenerManager(), srv.GetClusterManager(), m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // validate validate and make apiType

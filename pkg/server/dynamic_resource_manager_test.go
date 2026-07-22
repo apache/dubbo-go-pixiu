@@ -19,8 +19,6 @@ package server
 
 import (
 	"errors"
-	"fmt"
-	"runtime/debug"
 	"testing"
 )
 
@@ -175,8 +173,8 @@ func Test_createDynamicResourceManger(t *testing.T) {
 		},
 	}
 
-	patches := gomonkey.ApplyFunc(xds.StartXdsClient, func(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) xds.Client {
-		return nil
+	patches := gomonkey.ApplyFunc(xds.StartXdsClient, func(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) (xds.Client, error) {
+		return nil, nil
 	})
 	defer patches.Reset()
 	patches.ApplyMethod(&Server{}, "GetListenerManager", func(_ *Server) *ListenerManager {
@@ -188,19 +186,7 @@ func Test_createDynamicResourceManger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			resMg, err := func() (result DynamicResourceManager, err error) {
-				defer func() {
-					panicInfo := recover()
-					err, _ = panicInfo.(error)
-					if err != nil {
-						fmt.Println(err)
-						debug.PrintStack() // NOSONAR
-					}
-				}()
-				result = createDynamicResourceManger(tt.args.bs)
-				return
-			}()
+			resMg, err := createDynamicResourceManger(tt.args.bs)
 			assert := require.New(t)
 			if tt.wantErr != nil {
 				assert.Error(err)

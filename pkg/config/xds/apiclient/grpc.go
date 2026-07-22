@@ -86,7 +86,7 @@ func Stop() {
 // CreateGrpExtensionApiClient create Grpc type ApiClient
 func CreateGrpExtensionApiClient(config *model.ApiConfigSource, node *model.Node,
 	exitCh chan struct{},
-	typeName ResourceTypeName) *GrpcExtensionApiClient {
+	typeName ResourceTypeName) (*GrpcExtensionApiClient, error) {
 	v := &GrpcExtensionApiClient{
 		config:  *config,
 		node:    node,
@@ -94,8 +94,10 @@ func CreateGrpExtensionApiClient(config *model.ApiConfigSource, node *model.Node
 		grpcMg:  grpcMg,
 		exitCh:  exitCh,
 	}
-	v.init()
-	return v
+	if err := v.init(); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 // Fetch get config data from discovery service and return Any type.
@@ -262,9 +264,9 @@ func (g *GrpcExtensionApiClient) sendInitDeltaRequest(ctx context.Context, xStat
 	return delta, nil
 }
 
-func (g *GrpcExtensionApiClient) init() {
+func (g *GrpcExtensionApiClient) init() error {
 	if len(g.config.ClusterName) == 0 {
-		panic("should config one cluster at least")
+		return errors.New("cluster name is required: at least one cluster must be configured in ApiConfigSource")
 	}
 	//todo implement multiple grpc api services
 	if len(g.config.ClusterName) > 1 {
@@ -273,14 +275,14 @@ func (g *GrpcExtensionApiClient) init() {
 	cluster, err := g.grpcMg.GetGrpcCluster(g.config.ClusterName[0])
 
 	if err != nil {
-		logger.Errorf("get cluster for init error. error=%v", err)
-		panic(err)
+		return errors.Wrap(err, "get cluster for init error")
 	}
 	conn, err := cluster.GetConnection()
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "get connection from cluster error")
 	}
 	g.xDSExtensionClient = extensionpb.NewExtensionConfigDiscoveryServiceClient(conn)
+	return nil
 }
 
 type GRPCClusterManager struct {
@@ -289,10 +291,11 @@ type GRPCClusterManager struct {
 }
 
 type GRPCCluster struct {
-	name   string //cluster name
-	config *model.ClusterConfig
-	once   sync.Once
-	conn   *grpc.ClientConn
+	name    string //cluster name
+	config  *model.ClusterConfig
+	once    sync.Once
+	conn    *grpc.ClientConn
+	initErr error // stores the first initialization error for subsequent calls
 }
 
 // GetGrpcCluster get the cluster or create it first time.
@@ -342,7 +345,7 @@ func (g *GRPCClusterManager) Close() (err error) {
 	return nil
 }
 
-func (g *GRPCCluster) GetConnection() (conn *grpc.ClientConn, err error) {
+func (g *GRPCCluster) GetConnection() (*grpc.ClientConn, error) {
 	g.once.Do(func() {
 		creds := insecure.NewCredentials()
 		//if *xdsCreds { // todo
@@ -353,25 +356,30 @@ func (g *GRPCCluster) GetConnection() (conn *grpc.ClientConn, err error) {
 		//	}
 		//}
 		if len(g.config.Endpoints) == 0 {
-			err = errors.Errorf("expect endpoint.")
+			g.initErr = errors.New("cluster has no endpoints configured")
 			return
 		}
 		endpoint := g.config.Endpoints[0].Address.GetAddress()
 		logger.Infof("to connect xds server %s ...", endpoint)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
 		defer cancel()
-		conn, err = grpc.DialContext(ctx, endpoint,
+		conn, err := grpc.DialContext(ctx, endpoint,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),
 		)
 		if err != nil {
-			err = errors.Errorf("grpc.Dial(%s) failed: %v", endpoint, err)
+			g.initErr = errors.Errorf("grpc.Dial(%s) failed: %v", endpoint, err)
 			return
 		}
 		logger.Infof("connected xds server (%s)", endpoint)
 		g.conn = conn
 	})
-	return g.conn, nil
+
+	// Return the saved error from the first initialization attempt, if any.
+	// This ensures that when LDS and CDS share an xDS cluster and the first
+	// connection fails, the second call returns the same error instead of (nil, nil),
+	// preventing panic from calling methods on a nil ClientConn.
+	return g.conn, g.initErr
 }
 
 func (g *GRPCCluster) IsAlive() (alive bool) {
