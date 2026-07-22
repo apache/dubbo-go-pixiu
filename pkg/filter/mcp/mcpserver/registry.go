@@ -20,6 +20,7 @@ package mcpserver
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 import (
@@ -27,27 +28,45 @@ import (
 )
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/fingerprint"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // ToolRegistry tool registry, thread-safe (optimized with single indexing)
 type ToolRegistry struct {
 	mu                sync.RWMutex
-	tools             map[string]model.ToolConfig
+	toolSnapshot      atomic.Value                            // *ToolCatalogSnapshot
 	resources         map[string]model.ResourceConfig         // indexed by URI
 	resourceTemplates map[string]model.ResourceTemplateConfig // indexed by name
 	prompts           map[string]model.PromptConfig
 }
 
+// ToolCatalogSnapshot is an immutable, versioned view of the tool catalog.
+// The registry publishes a fully built snapshot atomically after validation.
+type ToolCatalogSnapshot struct {
+	Version     string
+	Generation  uint64
+	Fingerprint string
+	ordered     []model.ToolConfig
+	byName      map[string]model.ToolConfig
+}
+
+// EmptyFingerprint is the stable fingerprint for an empty tool catalog.
+const EmptyFingerprint = "00000000"
+
 // NewToolRegistry creates a new tool registry
 func NewToolRegistry() *ToolRegistry {
-	return &ToolRegistry{
-		tools:             make(map[string]model.ToolConfig),
+	r := &ToolRegistry{
 		resources:         make(map[string]model.ResourceConfig),
 		resourceTemplates: make(map[string]model.ResourceTemplateConfig),
 		prompts:           make(map[string]model.PromptConfig),
 	}
+	r.toolSnapshot.Store(&ToolCatalogSnapshot{
+		Version:     "0:" + EmptyFingerprint,
+		Fingerprint: EmptyFingerprint,
+		byName:      map[string]model.ToolConfig{},
+	})
+	return r
 }
 
 // RegisterTool registers a tool
@@ -55,24 +74,37 @@ func (r *ToolRegistry) RegisterTool(tool model.ToolConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, exists := r.tools[tool.Name]; exists {
+	snap := r.snapshotUnsafe()
+	if _, exists := snap.byName[tool.Name]; exists {
 		return fmt.Errorf("tool %s already exists", tool.Name)
 	}
-
-	r.tools[tool.Name] = tool
+	next := append(snap.orderedToolsUnsafe(), *tool.DeepCopy())
+	newSnap, err := buildToolCatalogSnapshot(next, snap.Generation+1, "")
+	if err != nil {
+		return err
+	}
+	r.toolSnapshot.Store(newSnap)
 	return nil
 }
 
-// ReplaceAllTools replaces the entire tools set with the provided slice (full sync)
-func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) {
+// ReplaceAllTools replaces the entire tools set with the provided slice (full sync).
+// It validates the full replacement first and leaves the current registry
+// unchanged when duplicate names are present.
+func (r *ToolRegistry) ReplaceAllTools(tools []model.ToolConfig) error {
+	return r.replaceAllToolsWithFingerprint(tools, "")
+}
+
+func (r *ToolRegistry) replaceAllToolsWithFingerprint(tools []model.ToolConfig, fingerprint string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	newMap := make(map[string]model.ToolConfig, len(tools))
-	for _, t := range tools {
-		newMap[t.Name] = t
+	old := r.snapshotUnsafe()
+	newSnap, err := buildToolCatalogSnapshot(tools, old.Generation+1, fingerprint)
+	if err != nil {
+		return err
 	}
-	r.tools = newMap
+	r.toolSnapshot.Store(newSnap)
+	return nil
 }
 
 // RegisterResource registers a resource (indexed by URI as per MCP specification)
@@ -94,8 +126,11 @@ func (r *ToolRegistry) GetTool(name string) (model.ToolConfig, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	tool, exists := r.tools[name]
-	return tool, exists
+	tool, exists := r.snapshotUnsafe().byName[name]
+	if !exists {
+		return model.ToolConfig{}, false
+	}
+	return *tool.DeepCopy(), true
 }
 
 // GetResourceByURI gets resource configuration (by URI, O(1) lookup)
@@ -144,14 +179,122 @@ func (r *ToolRegistry) ListResourceTemplates() []model.ResourceTemplateConfig {
 
 // ListTools lists all tools
 func (r *ToolRegistry) ListTools() []model.ToolConfig {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	return r.ToolCatalogSnapshot().OrderedTools()
+}
 
-	tools := make([]model.ToolConfig, 0, len(r.tools))
-	for _, tool := range r.tools {
-		tools = append(tools, tool)
+// ToolSnapshot returns a stable ordered copy of the current tool catalog with
+// the catalog version computed on the last registry mutation.
+func (r *ToolRegistry) ToolSnapshot() ([]model.ToolConfig, string) {
+	snap := r.ToolCatalogSnapshot()
+	return snap.OrderedTools(), snap.Version
+}
+
+// ToolCatalogSnapshot returns the immutable current snapshot. Package-internal
+// hot paths may read its unexported fields without copying.
+func (r *ToolRegistry) ToolCatalogSnapshot() *ToolCatalogSnapshot {
+	return r.snapshotUnsafe().clone()
+}
+
+func (r *ToolRegistry) toolCatalogSnapshotUnsafe() *ToolCatalogSnapshot {
+	return r.snapshotUnsafe()
+}
+
+func (r *ToolRegistry) snapshotUnsafe() *ToolCatalogSnapshot {
+	snap, _ := r.toolSnapshot.Load().(*ToolCatalogSnapshot)
+	if snap == nil {
+		return &ToolCatalogSnapshot{Version: "0:" + EmptyFingerprint, Fingerprint: EmptyFingerprint, byName: map[string]model.ToolConfig{}}
 	}
-	return tools
+	return snap
+}
+
+func buildToolCatalogSnapshot(tools []model.ToolConfig, generation uint64, fingerprint string) (*ToolCatalogSnapshot, error) {
+	if fingerprint == "" {
+		fingerprint = toolCatalogFingerprint(tools)
+	}
+	ordered := make([]model.ToolConfig, len(tools))
+	byName := make(map[string]model.ToolConfig, len(tools))
+	for i := range tools {
+		t := *tools[i].DeepCopy()
+		if t.Name == "" {
+			return nil, fmt.Errorf("tool name is required at index %d", i)
+		}
+		if _, exists := byName[t.Name]; exists {
+			return nil, fmt.Errorf("duplicate tool name %q at index %d", t.Name, i)
+		}
+		ordered[i] = t
+		byName[t.Name] = t
+	}
+	return &ToolCatalogSnapshot{
+		Version:     fmt.Sprintf("%d:%s", generation, firstNonEmptyFingerprint(fingerprint)),
+		Generation:  generation,
+		Fingerprint: firstNonEmptyFingerprint(fingerprint),
+		ordered:     ordered,
+		byName:      byName,
+	}, nil
+}
+
+func firstNonEmptyFingerprint(fingerprint string) string {
+	if fingerprint == "" {
+		return EmptyFingerprint
+	}
+	return fingerprint
+}
+
+// OrderedTools returns a deep copy of the ordered catalog for callers outside
+// hot authorization paths.
+func (s *ToolCatalogSnapshot) OrderedTools() []model.ToolConfig {
+	if s == nil || len(s.ordered) == 0 {
+		return nil
+	}
+	out := make([]model.ToolConfig, len(s.ordered))
+	for i := range s.ordered {
+		out[i] = *s.ordered[i].DeepCopy()
+	}
+	return out
+}
+
+func (s *ToolCatalogSnapshot) clone() *ToolCatalogSnapshot {
+	if s == nil {
+		return &ToolCatalogSnapshot{Version: "0:" + EmptyFingerprint, Fingerprint: EmptyFingerprint, byName: map[string]model.ToolConfig{}}
+	}
+	cp := &ToolCatalogSnapshot{
+		Version:     s.Version,
+		Generation:  s.Generation,
+		Fingerprint: s.Fingerprint,
+		ordered:     s.OrderedTools(),
+		byName:      make(map[string]model.ToolConfig, len(s.byName)),
+	}
+	for name, tool := range s.byName {
+		cp.byName[name] = *tool.DeepCopy()
+	}
+	return cp
+}
+
+func (s *ToolCatalogSnapshot) orderedToolsUnsafe() []model.ToolConfig {
+	if s == nil {
+		return nil
+	}
+	return s.ordered
+}
+
+func (s *ToolCatalogSnapshot) lookup(name string) (model.ToolConfig, bool) {
+	if s == nil {
+		return model.ToolConfig{}, false
+	}
+	t, ok := s.byName[name]
+	return t, ok
+}
+
+func toolCatalogFingerprint(tools []model.ToolConfig) string {
+	if len(tools) == 0 {
+		return EmptyFingerprint
+	}
+
+	items := make([]string, len(tools))
+	for i, tool := range tools {
+		items[i] = fingerprint.JSONStableOrFallback(tool)
+	}
+	return fingerprint.StringsSorted(items)[:8]
 }
 
 // ListResources lists all resources
@@ -168,67 +311,7 @@ func (r *ToolRegistry) ListResources() []model.ResourceConfig {
 
 // ToMCPTools converts tool configurations to tool list
 func (r *ToolRegistry) ToMCPTools() ([]map[string]any, error) {
-	tools := r.ListTools()
-	mcpTools := make([]map[string]any, 0, len(tools))
-
-	for _, tool := range tools {
-		// Build tool according to MCP protocol specification
-		mcpTool := map[string]any{
-			"name":        tool.Name,
-			"description": tool.Description,
-			"inputSchema": r.convertToInputSchema(tool),
-		}
-		mcpTools = append(mcpTools, mcpTool)
-	}
-
-	return mcpTools, nil
-}
-
-// convertToInputSchema converts tool parameters to MCP inputSchema format
-func (r *ToolRegistry) convertToInputSchema(tool model.ToolConfig) map[string]any {
-	allParams, err := tool.GetAllParameters()
-	if err != nil {
-		logger.Errorf("failed to get parameters for tool %s: %v", tool.Name, err)
-		return map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
-		}
-	}
-
-	properties := make(map[string]any)
-	required := make([]string, 0)
-
-	for _, param := range allParams {
-		propSchema := map[string]any{
-			"type":        param.Type,
-			"description": param.Description,
-		}
-
-		if len(param.Enum) > 0 {
-			propSchema["enum"] = param.Enum
-		}
-
-		if param.Default != nil {
-			propSchema["default"] = param.Default
-		}
-
-		properties[param.Name] = propSchema
-
-		if param.Required {
-			required = append(required, param.Name)
-		}
-	}
-
-	schema := map[string]any{
-		"type":       "object",
-		"properties": properties,
-	}
-
-	if len(required) > 0 {
-		schema["required"] = required
-	}
-
-	return schema
+	return BuildMCPToolMaps(r.ListTools())
 }
 
 // ToMCPResources converts resource configurations to MCP resource list using mcp-go structures

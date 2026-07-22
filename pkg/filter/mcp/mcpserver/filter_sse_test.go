@@ -22,9 +22,17 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
+)
+
+import (
+	"github.com/mark3labs/mcp-go/mcp"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 import (
@@ -41,9 +49,14 @@ func TestHandleGetRequest_SSEStream(t *testing.T) {
 	mcpFilter := createTestFilter(t)
 
 	// Create GET request
+	session, err := mcpFilter.sessionManager.CreateSession()
+	if err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
 	req := httptest.NewRequest(constant.Get, "/mcp", nil)
 	req.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
 	req.Header.Set(constant.HeaderKeyMCPProtocolVersion, constant.MCPProtocolVersion20250618)
+	req.Header.Set(constant.HeaderKeyMCPSessionId, session.ID)
 
 	recorder := httptest.NewRecorder()
 	ctx := createTestContext(req, recorder)
@@ -83,17 +96,17 @@ func TestHandleGetRequest_SSEStream(t *testing.T) {
 	}
 
 	sessionID := httpResp.Header.Get(constant.HeaderKeyMCPSessionId)
-	if sessionID == "" {
-		t.Error("Mcp-Session-Id should be set")
+	if sessionID != session.ID {
+		t.Errorf("Mcp-Session-Id should be the existing session, got %q", sessionID)
 	}
 
-	// Verify session was created
+	// Verify session stream was attached
 	session, exists := mcpFilter.sessionManager.Session(sessionID)
 	if !exists {
-		t.Error("Session should be created")
+		t.Error("Session should exist")
 	}
-	if session.PipeWriter == nil {
-		t.Error("Session PipeWriter should be set")
+	if !session.HasPipeWriter() {
+		t.Error("Session SSE stream should be attached")
 	}
 
 	// Verify response body is pipe reader
@@ -135,7 +148,7 @@ func TestHandleGetRequest_ResumeExistingSession(t *testing.T) {
 	defer mcpFilter.sessionManager.Stop()
 
 	// Create first session
-	session1, _ := mcpFilter.sessionManager.EnsureSession("")
+	session1, _ := mcpFilter.sessionManager.CreateSession()
 	sessionID := session1.ID
 
 	// Create GET request with existing session ID
@@ -166,17 +179,146 @@ func TestHandleGetRequest_ResumeExistingSession(t *testing.T) {
 	}
 }
 
-func TestMaintainSSEPipe_Keepalive(t *testing.T) {
+func TestHandleGetRequest_MissingSession(t *testing.T) {
 	mcpFilter := createTestFilter(t)
 	defer mcpFilter.sessionManager.Stop()
 
-	// Create session with pipe
-	session, _ := mcpFilter.sessionManager.EnsureSession("")
-	pipeReader, pipeWriter := io.Pipe()
-	session.PipeWriter = pipeWriter
+	req := httptest.NewRequest(constant.Get, "/mcp", nil)
+	req.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	recorder := httptest.NewRecorder()
+	mcpCtx := NewMCPContext(createTestContext(req, recorder))
+	mcpCtx.ParseAndSetSessionHeader()
+	mcpCtx.ParseAndSetAcceptHeader()
 
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	status := mcpFilter.handleGetRequest(mcpCtx)
+	if status != filter.Stop {
+		t.Fatalf("expected filter.Stop, got %v", status)
+	}
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", recorder.Code)
+	}
+}
+
+func TestHandleGetRequest_UnknownSession(t *testing.T) {
+	mcpFilter := createTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	req := httptest.NewRequest(constant.Get, "/mcp", nil)
+	req.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	req.Header.Set(constant.HeaderKeyMCPSessionId, "missing")
+	recorder := httptest.NewRecorder()
+	mcpCtx := NewMCPContext(createTestContext(req, recorder))
+	mcpCtx.ParseAndSetSessionHeader()
+	mcpCtx.ParseAndSetAcceptHeader()
+
+	status := mcpFilter.handleGetRequest(mcpCtx)
+	if status != filter.Stop {
+		t.Fatalf("expected filter.Stop, got %v", status)
+	}
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", recorder.Code)
+	}
+	if mcpFilter.sessionManager.ActiveSessionCount() != 0 {
+		t.Fatalf("unknown GET created a session, count=%d", mcpFilter.sessionManager.ActiveSessionCount())
+	}
+}
+
+func TestHandleGetRequest_NoRouterMissingSessionCreatesSession(t *testing.T) {
+	mcpFilter := createNoRouterTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	req := httptest.NewRequest(constant.Get, "/mcp", nil)
+	req.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	recorder := httptest.NewRecorder()
+	ctx := createTestContext(req, recorder)
+	mcpCtx := NewMCPContext(ctx)
+	mcpCtx.ParseAndSetAcceptHeader()
+	mcpCtx.ParseAndSetSessionHeader()
+
+	status := mcpFilter.handleGetRequest(mcpCtx)
+
+	if status != filter.Stop {
+		t.Fatalf("expected filter.Stop, got %v", status)
+	}
+	if ctx.SourceResp == nil {
+		t.Fatal("SourceResp should be set")
+	}
+	httpResp := ctx.SourceResp.(*http.Response)
+	sessionID := httpResp.Header.Get(constant.HeaderKeyMCPSessionId)
+	if sessionID == "" {
+		t.Fatal("legacy GET should create a session when no router is configured")
+	}
+	if mcpFilter.sessionManager.ActiveSessionCount() != 1 {
+		t.Fatalf("expected one active session, got %d", mcpFilter.sessionManager.ActiveSessionCount())
+	}
+}
+
+func TestInitialize_NoRouterAllowsSuppliedSessionHeader(t *testing.T) {
+	mcpFilter := createNoRouterTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`
+	req := httptest.NewRequest(constant.Post, "/mcp", strings.NewReader(body))
+	req.Header.Set(constant.HeaderKeyMCPSessionId, "caller-supplied")
+	recorder := httptest.NewRecorder()
+	ctx := NewMCPContext(createTestContext(req, recorder))
+	ctx.ParseAndSetSessionHeader()
+	ctx.SetMCPMethod(string(mcp.MethodInitialize))
+	ctx.SetMCPRequestID(mcp.NewRequestId(int64(1)))
+
+	status := mcpFilter.handleInitialize(ctx, mcp.JSONRPCRequest{
+		Request: mcp.Request{Method: string(mcp.MethodInitialize)},
+		ID:      mcp.NewRequestId(int64(1)),
+	})
+
+	if status != filter.Stop {
+		t.Fatalf("expected filter.Stop, got %v", status)
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+	if recorder.Header().Get(constant.HeaderKeyMCPSessionId) == "" {
+		t.Fatal("initialize should return a server-issued session")
+	}
+}
+
+func TestInitialize_NoRouterReusesExistingSuppliedSessionHeader(t *testing.T) {
+	mcpFilter := createNoRouterTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	existing, err := mcpFilter.sessionManager.CreateSession()
+	require.NoError(t, err)
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"client","version":"1.0"},"capabilities":{}}}`
+	req := httptest.NewRequest(constant.Post, "/mcp", strings.NewReader(body))
+	req.Header.Set(constant.HeaderKeyMCPSessionId, existing.ID)
+	recorder := httptest.NewRecorder()
+	ctx := NewMCPContext(createTestContext(req, recorder))
+	ctx.ParseAndSetSessionHeader()
+	ctx.SetMCPMethod(string(mcp.MethodInitialize))
+	ctx.SetMCPRequestID(mcp.NewRequestId(int64(1)))
+
+	status := mcpFilter.handleInitialize(ctx, mcp.JSONRPCRequest{
+		Request: mcp.Request{Method: string(mcp.MethodInitialize)},
+		ID:      mcp.NewRequestId(int64(1)),
+	})
+
+	require.Equal(t, filter.Stop, status)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, existing.ID, recorder.Header().Get(constant.HeaderKeyMCPSessionId))
+	assert.Equal(t, 1, mcpFilter.sessionManager.ActiveSessionCount())
+}
+
+func TestMaintainSSEPipe_ContextCancellationDetachesStream(t *testing.T) {
+	mcpFilter := createTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	session, _ := mcpFilter.sessionManager.CreateSession()
+	pipeReader, pipeWriter := io.Pipe()
+	defer pipeReader.Close()
+	token, _ := session.AttachStream(pipeWriter)
+
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	httpCtx := &contexthttp.HttpContext{
@@ -184,44 +326,120 @@ func TestMaintainSSEPipe_Keepalive(t *testing.T) {
 	}
 	mcpCtx := NewMCPContext(httpCtx)
 
-	// Start maintainSSEPipe with very short interval for testing
-	// Note: This test uses production KeepaliveInterval (30s), so we won't actually receive keepalive in 2s
-	go mcpFilter.maintainSSEPipe(mcpCtx, session)
+	go mcpFilter.maintainSSEPipe(mcpCtx, session, token)
 
-	// Read from pipe in background
-	dataCh := make(chan string, 10)
+	cancel()
+	waitForNoPipeWriter(t, session)
+
+	_, exists := mcpFilter.sessionManager.Session(session.ID)
+	if !exists {
+		t.Error("Session should remain after context cancellation")
+	}
+	if session.HasPipeWriter() {
+		t.Error("SSE stream should be detached after context cancellation")
+	}
+}
+
+func TestHandleGetRequest_ReconnectFlushesPendingListChanged(t *testing.T) {
+	mcpFilter := createTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	session, _ := mcpFilter.sessionManager.CreateSession()
+	session.MarkToolsListChangedPending()
+
+	req := httptest.NewRequest(constant.Get, "/mcp", nil)
+	req.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	req.Header.Set(constant.HeaderKeyMCPSessionId, session.ID)
+	recorder := httptest.NewRecorder()
+	ctx := createTestContext(req, recorder)
+	mcpCtx := NewMCPContext(ctx)
+	mcpCtx.ParseAndSetSessionHeader()
+	mcpCtx.ParseAndSetAcceptHeader()
+
+	status := mcpFilter.handleGetRequest(mcpCtx)
+	if status != filter.Stop {
+		t.Fatalf("expected filter.Stop, got %v", status)
+	}
+
+	httpResp, ok := ctx.SourceResp.(*http.Response)
+	if !ok {
+		t.Fatal("SourceResp should be *http.Response")
+	}
+	buf := make([]byte, 512)
+	n, err := httpResp.Body.Read(buf)
+	if err != nil {
+		t.Fatalf("expected pending notification on reconnect: %v", err)
+	}
+	notification := string(buf[:n])
+	if !strings.Contains(notification, toolsListChangedMethod) {
+		t.Fatalf("expected tools/list_changed notification, got %q", notification)
+	}
+	if strings.Contains(notification, `"id"`) {
+		t.Fatalf("notification must not contain JSON-RPC id: %q", notification)
+	}
+}
+
+func TestHandleGetRequest_OverlappingStreamsOldDetachDoesNotClearNew(t *testing.T) {
+	mcpFilter := createTestFilter(t)
+	defer mcpFilter.sessionManager.Stop()
+
+	session, _ := mcpFilter.sessionManager.CreateSession()
+
+	ctxA, cancelA := context.WithCancel(context.Background())
+	defer cancelA()
+	reqA := httptest.NewRequest(constant.Get, "/mcp", nil)
+	reqA.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	reqA.Header.Set(constant.HeaderKeyMCPSessionId, session.ID)
+	httpCtxA := createTestContext(reqA, httptest.NewRecorder())
+	httpCtxA.Ctx = ctxA
+	mcpCtxA := NewMCPContext(httpCtxA)
+	mcpCtxA.ParseAndSetSessionHeader()
+	mcpCtxA.ParseAndSetAcceptHeader()
+	if status := mcpFilter.handleGetRequest(mcpCtxA); status != filter.Stop {
+		t.Fatalf("expected first GET to stop, got %v", status)
+	}
+
+	ctxB, cancelB := context.WithCancel(context.Background())
+	defer cancelB()
+	reqB := httptest.NewRequest(constant.Get, "/mcp", nil)
+	reqB.Header.Set(constant.HeaderKeyAccept, constant.HeaderValueTextEventStream)
+	reqB.Header.Set(constant.HeaderKeyMCPSessionId, session.ID)
+	httpCtxB := createTestContext(reqB, httptest.NewRecorder())
+	httpCtxB.Ctx = ctxB
+	mcpCtxB := NewMCPContext(httpCtxB)
+	mcpCtxB.ParseAndSetSessionHeader()
+	mcpCtxB.ParseAndSetAcceptHeader()
+	if status := mcpFilter.handleGetRequest(mcpCtxB); status != filter.Stop {
+		t.Fatalf("expected second GET to stop, got %v", status)
+	}
+
+	cancelA()
+	runtime.Gosched()
+	if !session.HasPipeWriter() {
+		t.Fatal("old stream goroutine detached the replacement stream")
+	}
+
+	respB, ok := httpCtxB.SourceResp.(*http.Response)
+	if !ok {
+		t.Fatal("second SourceResp should be *http.Response")
+	}
+	notificationCh := make(chan string, 1)
 	go func() {
-		buf := make([]byte, 1024)
-		for {
-			n, err := pipeReader.Read(buf)
-			if err != nil {
-				return
-			}
-			if n > 0 {
-				dataCh <- string(buf[:n])
-			}
+		buf := make([]byte, 512)
+		n, err := respB.Body.Read(buf)
+		if err == nil {
+			notificationCh <- string(buf[:n])
 		}
 	}()
 
-	// Wait a bit to see if we receive anything (we shouldn't with 30s interval)
+	mcpFilter.notifyToolsListChanged(session.ID)
 	select {
-	case data := <-dataCh:
-		// If we somehow received data (unlikely with 30s interval), verify it's keepalive
-		if !strings.HasPrefix(data, ":") {
-			t.Errorf("Expected keepalive comment, got: %s", data)
+	case notification := <-notificationCh:
+		if !strings.Contains(notification, toolsListChangedMethod) {
+			t.Fatalf("expected notification on replacement stream, got %q", notification)
 		}
-	case <-time.After(500 * time.Millisecond):
-		// Expected: no data yet due to 30s interval
-	}
-
-	// Cancel context to stop maintenance
-	cancel()
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify session was cleaned up
-	_, exists := mcpFilter.sessionManager.Session(session.ID)
-	if exists {
-		t.Error("Session should be removed after context cancellation")
+	case <-time.After(time.Second):
+		t.Fatal("replacement stream did not receive notification")
 	}
 }
 
@@ -230,9 +448,9 @@ func TestSendServerNotification(t *testing.T) {
 	defer mcpFilter.sessionManager.Stop()
 
 	// Create session with pipe
-	session, _ := mcpFilter.sessionManager.EnsureSession("")
+	session, _ := mcpFilter.sessionManager.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.PipeWriter = pipeWriter
+	_, _ = session.AttachStream(pipeWriter)
 	sessionID := session.ID
 
 	// Send notification in goroutine
@@ -296,9 +514,9 @@ func TestSendServerRequest(t *testing.T) {
 	defer mcpFilter.sessionManager.Stop()
 
 	// Create session with pipe
-	session, _ := mcpFilter.sessionManager.EnsureSession("")
+	session, _ := mcpFilter.sessionManager.CreateSession()
 	pipeReader, pipeWriter := io.Pipe()
-	session.PipeWriter = pipeWriter
+	_, _ = session.AttachStream(pipeWriter)
 	sessionID := session.ID
 
 	// Send request in goroutine
@@ -344,6 +562,14 @@ func TestSendServerRequest(t *testing.T) {
 // Helper functions
 
 func createTestFilter(t *testing.T) *MCPServerFilter {
+	return createTestFilterWithRouter(t, &model.RouterConfig{})
+}
+
+func createNoRouterTestFilter(t *testing.T) *MCPServerFilter {
+	return createTestFilterWithRouter(t, nil)
+}
+
+func createTestFilterWithRouter(t *testing.T, routerCfg *model.RouterConfig) *MCPServerFilter {
 	cfg := &model.McpServerConfig{
 		ServerInfo: model.ServerInfo{
 			Name:    "Test Server",
@@ -351,6 +577,7 @@ func createTestFilter(t *testing.T) *MCPServerFilter {
 		},
 		Endpoint: "/mcp",
 		Tools:    []model.ToolConfig{},
+		Router:   routerCfg,
 	}
 
 	factory := &FilterFactory{cfg: cfg}
@@ -358,18 +585,30 @@ func createTestFilter(t *testing.T) *MCPServerFilter {
 		t.Fatalf("Failed to apply filter factory: %v", err)
 	}
 
-	sessionManager := transport.NewSessionManager()
-	sseHandler := transport.NewSSEHandler(sessionManager)
-	contentNegotiator := transport.NewContentNegotiator()
-
 	return &MCPServerFilter{
 		cfg:               cfg,
-		registry:          factory.registry,
+		registry:          factory.runtime.registry,
 		errorHandler:      NewErrorHandler(),
 		responseBuilder:   NewResponseBuilder(),
-		sessionManager:    sessionManager,
-		sseHandler:        sseHandler,
-		contentNegotiator: contentNegotiator,
+		sessionManager:    factory.runtime.sessionManager,
+		plans:             factory.runtime.plans,
+		sseHandler:        factory.runtime.sseHandler,
+		contentNegotiator: transport.NewContentNegotiator(),
+		selector:          factory.runtime.selector,
+		governanceEnabled: factory.runtime.governanceEnabled,
+	}
+}
+
+func waitForNoPipeWriter(t *testing.T, session *transport.MCPSession) {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for session.HasPipeWriter() {
+		select {
+		case <-deadline:
+			t.Fatal("SSE stream was not detached")
+		default:
+			runtime.Gosched()
+		}
 	}
 }
 
