@@ -93,7 +93,6 @@ func (s *Server) Start() {
 		}
 	}()
 
-	registerOtelMetricMeter(conf.Metric)
 	s.listenerManager.StartListen()
 	s.adapterManager.Start()
 
@@ -127,6 +126,15 @@ func Start(bs *model.Bootstrap) {
 	logger.Infof("[dubbo-go-pixiu] start by config : %+v", bs)
 	// global variable
 	server = NewServer()
+
+	// Register the OTel meter provider BEFORE cluster construction so that
+	// snapshot publication metrics emitted during cluster initialization land
+	// on the real provider rather than the no-op default. Static clusters
+	// publish their initial snapshot in initialize → CreateDefaultClusterManager,
+	// and that emission is the only guaranteed recording for steady-state
+	// clusters with no health transitions.
+	registerOtelMetricMeter(bs.Metric)
+
 	server.initialize(bs)
 	server.Start()
 	server.startWG.Wait()
