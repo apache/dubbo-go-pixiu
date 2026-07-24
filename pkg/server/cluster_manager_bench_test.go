@@ -34,9 +34,10 @@ import (
 
 var (
 	// Keep benchmark results live so the compiler cannot optimize the hot path away.
-	benchmarkEndpointSink  *model.Endpoint
-	benchmarkEndpointsSink []*model.Endpoint
-	benchmarkClusterSink   *model.ClusterConfig
+	benchmarkEndpointSink       *model.Endpoint
+	benchmarkEndpointsSink      []*model.Endpoint
+	benchmarkClusterSink        *model.ClusterConfig
+	benchmarkConsistentHashSink model.LbConsistentHashView
 )
 
 type benchmarkHashPolicy string
@@ -165,6 +166,39 @@ func benchmarkHealthySnapshotAccessor(
 	}
 }
 
+func BenchmarkClusterSetEndpointMembershipChurn(b *testing.B) {
+	endpointCount := 1000
+	clusterName := "endpoint-churn"
+
+	clusterConfig := benchmarkClusterConfig(clusterName, model.LoadBalancerRoundRobin, endpointCount, 0)
+	for _, endpoint := range clusterConfig.Endpoints {
+		endpoint.Metadata = map[string]string{
+			"first":  "0",
+			"second": "0",
+			"third":  "0",
+		}
+	}
+
+	cm := testClusterManager(clusterConfig)
+	endpoints := cm.store.Config[0].Endpoints
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		endpoint := endpoints[i%len(endpoints)]
+
+		cm.SetEndpoint(clusterName, &model.Endpoint{
+			ID:      endpoint.ID,
+			Address: endpoint.Address,
+			Metadata: map[string]string{
+				"first":  fmt.Sprintf("%d", i),
+				"second": fmt.Sprintf("%d", i),
+				"third":  fmt.Sprintf("%d", i),
+			},
+		})
+	}
+}
+
 func BenchmarkClusterCompareAndSetStoreMixed(b *testing.B) {
 	cm, names := benchmarkClusterManager(128, 4, model.LoadBalancerRoundRobin)
 	readIndex := 0
@@ -251,6 +285,50 @@ func BenchmarkSetEndpoint(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		generation := (i / endpointCount) % generations
 		cm.SetEndpoint(cluster.Name, updates[generation][i%endpointCount])
+	}
+}
+
+func BenchmarkClusterConsistentHashSnapshotRefreshUnchangedHealthySet(b *testing.B) {
+	for _, lbType := range []model.LbPolicyType{model.LoadBalancerRingHashing, model.LoadBalancerMaglevHashing} {
+		for _, endpointCount := range []int{1, 32, 256, 1024} {
+			name := fmt.Sprintf("%s/endpoints=%d", lbType, endpointCount)
+			b.Run(name, func(b *testing.B) {
+				b.Run("reuse-cached-previous", func(b *testing.B) {
+					benchmarkConsistentHashSnapshotRefresh(b, lbType, endpointCount, true)
+				})
+				b.Run("rebuild-uncached-previous", func(b *testing.B) {
+					benchmarkConsistentHashSnapshotRefresh(b, lbType, endpointCount, false)
+				})
+			})
+		}
+	}
+}
+
+func benchmarkConsistentHashSnapshotRefresh(
+	b *testing.B,
+	lbType model.LbPolicyType,
+	endpointCount int,
+	previousHashBuilt bool,
+) {
+	config := benchmarkClusterConfig("consistent-hash-refresh", lbType, endpointCount, 0)
+	previous := cluster.NewCluster(config).EndpointSnapshot()
+	if previousHashBuilt {
+		benchmarkConsistentHashSink = previous.HealthyConsistentHash()
+		if benchmarkConsistentHashSink == nil {
+			b.Fatal("expected previous consistent hash")
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runtimeCluster := cluster.NewClusterWithEndpointSnapshot(config, previous)
+		next := runtimeCluster.EndpointSnapshot()
+		benchmarkConsistentHashSink = next.HealthyConsistentHash()
+	}
+	b.StopTimer()
+	if benchmarkConsistentHashSink == nil {
+		b.Fatal("expected consistent hash")
 	}
 }
 

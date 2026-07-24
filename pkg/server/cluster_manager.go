@@ -20,6 +20,7 @@ package server
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -356,35 +357,50 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(c.Name, c)})
 }
 
-// prepareClusterConfig rebuilds endpoint defaults from current endpoints and
-// invalidates the Config-level consistent hash when the policy has a registered
-// factory. The hash is only read by the legacy (non-snapshot) pick path and is
-// rebuilt lazily there via ClusterConfig.EnsureConsistentHash, so eagerly
-// rebuilding it on every AddCluster/UpdateCluster/SetEndpoint/DeleteEndpoint is
-// dead work for the common snapshot path (and expensive for large Maglev tables
-// under service-discovery churn). Setting it to nil here keeps the legacy path
-// correct after endpoint changes: the next legacy pick rebuilds from the
-// current endpoints instead of serving a stale ring. For unregistered/custom
-// policies, preserve any programmatically supplied hash because there is no
-// factory available to rebuild it later.
+// prepareClusterConfig clones operator-supplied endpoints, then rebuilds
+// endpoint defaults and invalidates the Config-level consistent hash from the
+// current endpoints. It is the external-input boundary: callers pass
+// operator-owned endpoint pointers, so it deep-clones before defaulting IDs and
+// names. Store-owned mutation paths call prepareOwnedClusterConfig instead to
+// avoid a second full clone.
 func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
+	c.Endpoints = model.CloneEndpoints(c.Endpoints)
+	s.prepareOwnedClusterConfig(c)
+}
+
+// prepareOwnedClusterConfig rebuilds endpoint defaults and invalidates the
+// Config-level consistent hash for endpoints already owned by ClusterStore.
+// Callers must not pass operator-owned endpoint pointers here; use
+// prepareClusterConfig at external input boundaries.
+//
+// The hash is only read by the legacy (non-snapshot) pick path and is rebuilt
+// lazily there via ClusterConfig.EnsureConsistentHash, so eagerly rebuilding it
+// on every AddCluster/UpdateCluster/SetEndpoint/DeleteEndpoint is dead work for
+// the common snapshot path (and expensive for large Maglev tables under
+// service-discovery churn). Setting it to nil here keeps the legacy path correct
+// after endpoint changes: the next legacy pick rebuilds from the current
+// endpoints instead of serving a stale ring. For unregistered/custom policies,
+// preserve any programmatically supplied hash because there is no factory
+// available to rebuild it later.
+func (s *ClusterStore) prepareOwnedClusterConfig(c *model.ClusterConfig) {
 	s.assembleClusterEndpoints(c)
 	if c.HasConsistentHashFactory() {
 		c.ConsistentHash.Hash = nil
 	}
 }
 
-// assembleClusterEndpoints assembles the cluster endpoints by formatting the
-// ID, name and domains for each endpoint. If endpoint.LLMMeta is not nil, the
-// assimilation of name and domain is based on the LLM provider denoted in the
-// endpoint LLMMeta. The store first deep-clones c.Endpoints, so ID/name
-// defaulting never mutates operator-supplied *model.Endpoint values.
+// assembleClusterEndpoints assembles the cluster endpoints by assigning stable
+// unique IDs and default names for each endpoint. If endpoint.LLMMeta is not nil,
+// the default endpoint name is based on the LLM provider denoted in the endpoint
+// LLMMeta. Callers choose the ownership boundary before invoking this helper:
+// external input paths clone endpoints in prepareClusterConfig, while store-owned
+// mutation paths call prepareOwnedClusterConfig to avoid a second full endpoint
+// clone before snapshot publication.
 func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
 	}
 
-	c.Endpoints = model.CloneEndpoints(c.Endpoints)
 	endpointIDs := make(map[string]struct{}, len(c.Endpoints))
 	for i, endpoint := range c.Endpoints {
 		if endpoint == nil {
@@ -654,7 +670,7 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 		s.replaceEndpointAt(clusterConfig, runtimeCluster, outcome.replaceIdx, endpoint)
 	case setEndpointAppend:
 		clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
-		s.prepareClusterConfig(clusterConfig)
+		s.prepareOwnedClusterConfig(clusterConfig)
 		runtimeCluster.RefreshEndpoints()
 		runtimeCluster.AddEndpoint(endpoint)
 	}
@@ -689,7 +705,7 @@ func (s *ClusterStore) replaceEndpointAt(
 		logSetEndpointOverwrite(clusterConfig.Name, endpoint.ID, old, endpoint)
 	}
 	clusterConfig.Endpoints[idx] = endpoint
-	s.prepareClusterConfig(clusterConfig)
+	s.prepareOwnedClusterConfig(clusterConfig)
 	runtimeCluster.RefreshEndpoints()
 	if addressChanged {
 		runtimeCluster.AddEndpoint(endpoint)
@@ -953,8 +969,8 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 	for i, e := range clusterConfig.Endpoints {
 		if e.ID == endpointID {
 			runtimeCluster.RemoveEndpoint(e)
-			clusterConfig.Endpoints = append(clusterConfig.Endpoints[:i], clusterConfig.Endpoints[i+1:]...)
-			s.prepareClusterConfig(clusterConfig)
+			clusterConfig.Endpoints = slices.Delete(clusterConfig.Endpoints, i, i+1)
+			s.prepareOwnedClusterConfig(clusterConfig)
 			runtimeCluster.RefreshEndpoints()
 			return
 		}

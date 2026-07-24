@@ -55,8 +55,8 @@ func TestFilterFactoriesShareRuntimeCooldownStore(t *testing.T) {
 		return
 	}
 
-	firstStore := firstFactory.(*FilterFactory).cooldownStore()
-	secondStore := secondFactory.(*FilterFactory).cooldownStore()
+	firstStore := firstFactory.(*FilterFactory).cooldowns
+	secondStore := secondFactory.(*FilterFactory).cooldowns
 
 	assert.NotNil(t, firstStore)
 	assert.Same(t, firstStore, secondStore)
@@ -75,6 +75,43 @@ func TestFilterFactoriesShareRuntimeCooldownStore(t *testing.T) {
 	firstExecutor.markEndpointCooldown(endpoint)
 
 	assert.True(t, secondExecutor.endpointInCooldown(endpoint))
+}
+
+func TestIndependentPluginsDoNotShareCooldownState(t *testing.T) {
+	firstPlugin := &Plugin{}
+	secondPlugin := &Plugin{}
+
+	firstFactory, err := firstPlugin.CreateFilterFactory()
+	if !assert.NoError(t, err) {
+		return
+	}
+	secondFactory, err := secondPlugin.CreateFilterFactory()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	firstStore := firstFactory.(*FilterFactory).cooldowns
+	secondStore := secondFactory.(*FilterFactory).cooldowns
+
+	assert.NotNil(t, firstStore)
+	assert.NotNil(t, secondStore)
+	assert.NotSame(t, firstStore, secondStore)
+
+	clusterName := "llm-isolated-runtime-cooldown"
+	endpoint := testLLMEndpoint("ep-1", 18189)
+	firstExecutor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   firstStore,
+	}
+	secondExecutor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   secondStore,
+	}
+
+	firstExecutor.markEndpointCooldown(endpoint)
+
+	assert.True(t, firstExecutor.endpointInCooldown(endpoint))
+	assert.False(t, secondExecutor.endpointInCooldown(endpoint))
 }
 
 func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(t *testing.T) {
@@ -410,5 +447,33 @@ func testLLMEndpoint(id string, port int) *model.Endpoint {
 			Fallback:            true,
 			HealthCheckInterval: 60000,
 		},
+	}
+}
+
+func BenchmarkCooldown_EndpointInCooldown(b *testing.B) {
+	const clusterName = "llm-cooldown-bench"
+	const endpointCount = 100
+	// Keep the cooldown TTL far longer than any -benchtime run so every
+	// iteration stays on the intended in-cooldown hot path. Otherwise entries
+	// could expire mid-benchmark and shift measurement onto the delete+log path.
+	const cooldownTTLMillis = int64(24 * time.Hour / time.Millisecond)
+	store := newCooldownStore()
+	executor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   store,
+	}
+	endpoints := make([]*model.Endpoint, endpointCount)
+	for i := range endpoints {
+		endpoint := testLLMEndpoint(fmt.Sprintf("ep-%d", i), 19000+i)
+		endpoint.LLMMeta.APIKey = fmt.Sprintf("api-key-%d", i)
+		endpoint.LLMMeta.HealthCheckInterval = cooldownTTLMillis
+		endpoints[i] = endpoint
+		store.markFailure(clusterName, endpoint, time.Now())
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		executor.endpointInCooldown(endpoints[i%endpointCount])
 	}
 }

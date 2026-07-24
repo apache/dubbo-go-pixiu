@@ -189,6 +189,8 @@ func TestClusterEndpointSnapshotExposesReadOnlyConsistentHash(t *testing.T) {
 func TestClusterEndpointSnapshotBuildsConsistentHashLazily(t *testing.T) {
 	var builds int32
 	lbPolicy := model.LbPolicyType("test-lazy-hash")
+	// Mutates the global ConsistentHashInitMap; keep usage serial
+	// and do not add t.Parallel.
 	previousInit, hadPreviousInit := model.ConsistentHashInitMap[lbPolicy]
 	model.ConsistentHashInitMap[lbPolicy] = func(_ model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
 		atomic.AddInt32(&builds, 1)
@@ -245,6 +247,152 @@ func TestClusterEndpointSnapshotBuildsConsistentHashLazily(t *testing.T) {
 	finalBuilds := atomic.LoadInt32(&builds)
 	assert.GreaterOrEqual(t, finalBuilds, firstBuilds,
 		"build count is monotonic, but per-flap rebuild count is not locked here")
+}
+
+func TestClusterEndpointSnapshotReusesConsistentHashForUnchangedHealthySet(t *testing.T) {
+	var builds int32
+	lbPolicy := registerCountingConsistentHash(t, "test-reuse-hash-unchanged", &builds)
+
+	first := testEndpoint("ep-1", "127.0.0.1", 18080)
+	second := testEndpoint("ep-2", "127.0.0.1", 18081)
+	config := testCluster("snapshot-reuse-hash-unchanged", first, second)
+	config.LbStr = lbPolicy
+	config.ConsistentHash = model.ConsistentHash{ReplicaNum: 10, MaxVnodeNum: 1023, MaglevTableSize: 521}
+
+	previous := NewCluster(config).EndpointSnapshot()
+	previousHash := previous.HealthyConsistentHash()
+	assert.NotNil(t, previousHash)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+
+	next := newEndpointSnapshot(config, previous, false)
+	assert.Equal(t, previousHash, next.HealthyConsistentHash(),
+		"equivalent snapshot should reuse the previous hash view")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds),
+		"reused snapshot must not rebuild on first access")
+}
+
+func TestClusterEndpointSnapshotDoesNotReuseConsistentHashWhenHealthChangesHealthySet(t *testing.T) {
+	var builds int32
+	lbPolicy := registerCountingConsistentHash(t, "test-reuse-hash-health-change", &builds)
+
+	first := testEndpoint("ep-1", "127.0.0.1", 18080)
+	second := testEndpoint("ep-2", "127.0.0.1", 18081)
+	config := testCluster("snapshot-reuse-hash-health-change", first, second)
+	config.LbStr = lbPolicy
+
+	previous := NewCluster(config).EndpointSnapshot()
+	assert.NotNil(t, previous.HealthyConsistentHash())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+
+	next, ok := previous.withEndpointHealthForIDs(map[string]struct{}{second.ID: {}}, false)
+	assert.True(t, ok)
+	assert.NotNil(t, next.HealthyConsistentHash())
+	assert.Equal(t, int32(2), atomic.LoadInt32(&builds),
+		"health change that changes the healthy set must force a fresh consistent hash")
+}
+
+func TestClusterEndpointSnapshotDoesNotReuseConsistentHashWhenEndpointAddressChanges(t *testing.T) {
+	var builds int32
+	lbPolicy := registerCountingConsistentHash(t, "test-reuse-hash-address-change", &builds)
+
+	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
+	config := testCluster("snapshot-reuse-hash-address-change", endpoint)
+	config.LbStr = lbPolicy
+
+	previous := NewCluster(config).EndpointSnapshot()
+	assert.NotNil(t, previous.HealthyConsistentHash())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+
+	config.Endpoints[0] = testEndpoint("ep-1", "127.0.0.2", 18080)
+	next := newEndpointSnapshot(config, previous, false)
+	assert.NotNil(t, next.HealthyConsistentHash())
+	assert.Equal(t, int32(2), atomic.LoadInt32(&builds),
+		"address change must force a fresh consistent hash")
+}
+
+func TestClusterEndpointSnapshotDoesNotReuseConsistentHashWhenEndpointCountChanges(t *testing.T) {
+	tests := []struct {
+		name      string
+		endpoints func(first, second, third *model.Endpoint) []*model.Endpoint
+	}{
+		{
+			name: "add",
+			endpoints: func(first, second, third *model.Endpoint) []*model.Endpoint {
+				return []*model.Endpoint{first, second, third}
+			},
+		},
+		{
+			name: "delete",
+			endpoints: func(first, second, third *model.Endpoint) []*model.Endpoint {
+				return []*model.Endpoint{first}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var builds int32
+			lbPolicy := registerCountingConsistentHash(t, "test-reuse-hash-count-change"+tt.name, &builds)
+
+			first := testEndpoint("ep-1", "127.0.0.1", 18080)
+			second := testEndpoint("ep-2", "127.0.0.1", 18081)
+			third := testEndpoint("ep-3", "127.0.0.1", 18082)
+			config := testCluster("snapshot-reuse-hash-count-change-"+tt.name, first, second)
+			config.LbStr = lbPolicy
+
+			previous := NewCluster(config).EndpointSnapshot()
+			assert.NotNil(t, previous.HealthyConsistentHash())
+			assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+
+			config.Endpoints = tt.endpoints(first, second, third)
+			next := newEndpointSnapshot(config, previous, false)
+			assert.NotNil(t, next.HealthyConsistentHash())
+			assert.Equal(t, int32(2), atomic.LoadInt32(&builds),
+				"count change must force a fresh consistent hash")
+		})
+	}
+}
+
+func TestClusterEndpointSnapshotDoesNotReuseConsistentHashWhenHashConfigChanges(t *testing.T) {
+	var builds int32
+	lbPolicy := registerCountingConsistentHash(t, "test-reuse-hash-config-change", &builds)
+
+	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
+	config := testCluster("snapshot-reuse-hash-config-change", endpoint)
+	config.LbStr = lbPolicy
+	config.ConsistentHash = model.ConsistentHash{ReplicaNum: 10, MaxVnodeNum: 1023, MaglevTableSize: 521}
+
+	previous := NewCluster(config).EndpointSnapshot()
+	assert.NotNil(t, previous.HealthyConsistentHash())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+
+	config.ConsistentHash.ReplicaNum = 20
+	next := newEndpointSnapshot(config, previous, false)
+	assert.NotNil(t, next.HealthyConsistentHash())
+	assert.Equal(t, int32(2), atomic.LoadInt32(&builds),
+		"hash config change must force a fresh consistent hash")
+}
+
+func TestClusterEndpointSnapshotReusesConsistentHashWhenMetadataChanges(t *testing.T) {
+	var builds int32
+	lbPolicy := registerCountingConsistentHash(t, "test-reuse-hash-metadata-change", &builds)
+
+	endpoint := testEndpoint("ep-1", "127.0.0.1", 18080)
+	endpoint.Metadata = map[string]string{"weight": "10"}
+	config := testCluster("snapshot-reuse-hash-metadata-change", endpoint)
+	config.LbStr = lbPolicy
+
+	previous := NewCluster(config).EndpointSnapshot()
+	assert.NotNil(t, previous.HealthyConsistentHash())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds))
+
+	movedWeight := testEndpoint("ep-1", "127.0.0.1", 18080)
+	movedWeight.Metadata = map[string]string{"weight": "20"}
+	config.Endpoints[0] = movedWeight
+	next := newEndpointSnapshot(config, previous, false)
+	assert.NotNil(t, next.HealthyConsistentHash())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&builds),
+		"metadata-only change with unchanged hosts must reuse the previous consistent hash instead of rebuilding")
 }
 
 func TestClusterEndpointSnapshotClonesConfigEndpointObjects(t *testing.T) {
@@ -557,6 +705,30 @@ func testSnapshotEndpointWithLLMMeta() *model.Endpoint {
 		},
 	}
 	return endpoint
+}
+
+// Mutates the global ConsistentHashInitMap; keep usage serial
+// and do not add t.Parallel.
+func registerCountingConsistentHash(t *testing.T, name string, builds *int32) model.LbPolicyType {
+	t.Helper()
+
+	lbPolicy := model.LbPolicyType(name)
+	previousInit, hadPreviousInit := model.ConsistentHashInitMap[lbPolicy]
+	model.ConsistentHashInitMap[lbPolicy] = func(_ model.ConsistentHash, endpoints []*model.Endpoint) model.LbConsistentHash {
+		atomic.AddInt32(builds, 1)
+		if len(endpoints) == 0 {
+			return countingConsistentHash{}
+		}
+		return countingConsistentHash{host: endpoints[0].GetHost()}
+	}
+	t.Cleanup(func() {
+		if hadPreviousInit {
+			model.ConsistentHashInitMap[lbPolicy] = previousInit
+			return
+		}
+		delete(model.ConsistentHashInitMap, lbPolicy)
+	})
+	return lbPolicy
 }
 
 type countingConsistentHash struct {

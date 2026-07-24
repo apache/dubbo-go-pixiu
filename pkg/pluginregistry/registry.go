@@ -46,6 +46,7 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/grpcproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/httpproxy"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/loadbalancer"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/openapi"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/proxyrewrite"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/http/remote"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/filter/llm/proxy"
