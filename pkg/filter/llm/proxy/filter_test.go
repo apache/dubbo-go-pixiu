@@ -188,7 +188,9 @@ func TestRequestExecutorEndpointInCooldownClearsExpiredCooldownFromProxyStore(t 
 		clusterName: clusterName,
 		cooldowns:   store,
 	}
-	store.markFailure(clusterName, endpoint, time.Now().Add(-time.Hour))
+	store.nowFn = func() time.Time { return time.Now().Add(-time.Hour) }
+	store.markFailure(clusterName, endpoint)
+	store.nowFn = time.Now
 
 	assert.False(t, executor.endpointInCooldown(endpoint))
 
@@ -269,7 +271,9 @@ func TestRequestExecutorCooldownSurvivesNonIdentityLLMConfigChanges(t *testing.T
 		clusterName: clusterName,
 		cooldowns:   store,
 	}
-	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-50*time.Millisecond))
+	store.nowFn = func() time.Time { return time.Now().Add(-50 * time.Millisecond) }
+	store.markFailure(clusterName, oldEndpoint)
+	store.nowFn = time.Now
 
 	assert.True(t, executor.endpointInCooldown(replacement))
 }
@@ -288,7 +292,9 @@ func TestCooldownStoreLazySweepKeepsEntryAfterEndpointIntervalExtends(t *testing
 		clusterName: clusterName,
 		cooldowns:   store,
 	}
-	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-50*time.Millisecond))
+	store.nowFn = func() time.Time { return time.Now().Add(-50 * time.Millisecond) }
+	store.markFailure(clusterName, oldEndpoint)
+	store.nowFn = time.Now
 
 	assert.True(t, executor.endpointInCooldown(replacement))
 	_, _, _ = store.lastFailureWithCurrentTTL(clusterName, activeEndpoint)
@@ -310,8 +316,10 @@ func TestCooldownStoreLazySweepRemovesExpiredChurnedEndpointEntry(t *testing.T) 
 	activeEndpoint := testLLMEndpoint("ep-2", 18086)
 	store := newCooldownStore()
 
-	store.markFailure(clusterName, oldEndpoint, time.Now().Add(-time.Hour))
-	store.markFailure(clusterName, movedEndpoint, time.Now())
+	store.nowFn = func() time.Time { return time.Now().Add(-time.Hour) }
+	store.markFailure(clusterName, oldEndpoint)
+	store.nowFn = time.Now
+	store.markFailure(clusterName, movedEndpoint)
 
 	store.mu.Lock()
 	_, oldExistsAfterMove := store.lastFailureByEndpoint[newCooldownKey(clusterName, oldEndpoint)]
@@ -336,7 +344,9 @@ func TestCooldownStoreLazySweepRemovesExpiredEndpointFromDifferentCluster(t *tes
 	activeEndpoint := testLLMEndpoint("ep-2", 18093)
 	store := newCooldownStore()
 
-	store.markFailure("old-cluster", expiredEndpoint, time.Now().Add(-time.Hour))
+	store.nowFn = func() time.Time { return time.Now().Add(-time.Hour) }
+	store.markFailure("old-cluster", expiredEndpoint)
+	store.nowFn = time.Now
 	store.mu.Lock()
 	store.lastSweep = time.Now().Add(-cooldownStoreSweepAfter - time.Millisecond)
 	store.mu.Unlock()
@@ -351,6 +361,8 @@ func TestCooldownStoreLazySweepRemovesExpiredEndpointFromDifferentCluster(t *tes
 func TestCooldownStoreEvictsOldestEntryWhenCapacityExceeded(t *testing.T) {
 	store := newCooldownStore()
 	now := time.Now()
+	current := now
+	store.nowFn = func() time.Time { return current }
 	oldestEndpoint := testLLMEndpoint("ep-0", 19000)
 
 	for i := 0; i < maxCooldownStoreEntries; i++ {
@@ -358,11 +370,13 @@ func TestCooldownStoreEvictsOldestEntryWhenCapacityExceeded(t *testing.T) {
 		if i == 0 {
 			oldestEndpoint = endpoint
 		}
-		store.markFailure("capacity-cluster", endpoint, now.Add(time.Duration(i)*time.Millisecond))
+		current = now.Add(time.Duration(i) * time.Millisecond)
+		store.markFailure("capacity-cluster", endpoint)
 	}
 
 	newestEndpoint := testLLMEndpoint("ep-new", 21000)
-	store.markFailure("capacity-cluster", newestEndpoint, now.Add(time.Hour))
+	current = now.Add(time.Hour)
+	store.markFailure("capacity-cluster", newestEndpoint)
 
 	store.mu.Lock()
 	_, oldestExists := store.lastFailureByEndpoint[newCooldownKey("capacity-cluster", oldestEndpoint)]
@@ -381,14 +395,18 @@ func TestCooldownStoreEvictsOldestEntryWhenCapacityExceeded(t *testing.T) {
 func TestCooldownStoreRefreshUpdatesRecency(t *testing.T) {
 	store := newCooldownStore()
 	now := time.Now()
+	current := now
+	store.nowFn = func() time.Time { return current }
 
 	first := testLLMEndpoint("ep-first", 19000)
 	second := testLLMEndpoint("ep-second", 19001)
-	store.markFailure("recency-cluster", first, now)
-	store.markFailure("recency-cluster", second, now.Add(time.Millisecond))
+	store.markFailure("recency-cluster", first)
+	current = now.Add(time.Millisecond)
+	store.markFailure("recency-cluster", second)
 
 	// Refresh the first endpoint so it becomes the most recently failed.
-	store.markFailure("recency-cluster", first, now.Add(2*time.Millisecond))
+	current = now.Add(2 * time.Millisecond)
+	store.markFailure("recency-cluster", first)
 
 	store.mu.Lock()
 	front := store.recencyOrder.Front().Value.(*cooldownEntry)
@@ -412,7 +430,9 @@ func TestCooldownStoreSweepRemovesMapAndListState(t *testing.T) {
 	activeEndpoint := testLLMEndpoint("ep-active", 19001)
 	store := newCooldownStore()
 
-	store.markFailure(clusterName, expiredEndpoint, time.Now().Add(-time.Hour))
+	store.nowFn = func() time.Time { return time.Now().Add(-time.Hour) }
+	store.markFailure(clusterName, expiredEndpoint)
+	store.nowFn = time.Now
 	store.mu.Lock()
 	store.lastSweep = time.Now().Add(-cooldownStoreSweepAfter - time.Millisecond)
 	store.mu.Unlock()
@@ -442,7 +462,9 @@ func TestCooldownStoreDeleteExpiredLeavesNoStaleListElement(t *testing.T) {
 		clusterName: clusterName,
 		cooldowns:   store,
 	}
-	store.markFailure(clusterName, endpoint, time.Now().Add(-time.Hour))
+	store.nowFn = func() time.Time { return time.Now().Add(-time.Hour) }
+	store.markFailure(clusterName, endpoint)
+	store.nowFn = time.Now
 
 	// endpointInCooldown observes the entry as expired and deletes it.
 	assert.False(t, executor.endpointInCooldown(endpoint))

@@ -138,6 +138,10 @@ type (
 		// moves its node to the back.
 		recencyOrder *list.List
 		lastSweep    time.Time
+		// nowFn is called inside the mutex so the recorded timestamp and the
+		// recency-list insertion order are always consistent, even under
+		// concurrent writes. Overridable in tests.
+		nowFn func() time.Time
 	}
 
 	cooldownEntry struct {
@@ -468,13 +472,14 @@ func (executor *RequestExecutor) markEndpointCooldown(endpoint *model.Endpoint) 
 	if store == nil || endpoint == nil {
 		return
 	}
-	store.markFailure(executor.clusterName, endpoint, time.Now())
+	store.markFailure(executor.clusterName, endpoint)
 }
 
 func newCooldownStore() *cooldownStore {
 	return &cooldownStore{
 		lastFailureByEndpoint: map[cooldownKey]*list.Element{},
 		recencyOrder:          list.New(),
+		nowFn:                 time.Now,
 	}
 }
 
@@ -499,12 +504,13 @@ func (s *cooldownStore) lastFailureWithCurrentTTL(clusterName string, endpoint *
 	return entry.lastFailure, entry.ttl, true
 }
 
-func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint, lastFailure time.Time) {
+func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint) {
 	if s == nil || endpoint == nil {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	lastFailure := s.nowFn()
 	key := newCooldownKey(clusterName, endpoint)
 	s.sweepExpiredIfNeededLocked(time.Now(), key)
 	ttl := endpointCooldownInterval(endpoint)
