@@ -27,7 +27,7 @@ more HTTP requests through the gateway filter and asserts the decision.
 | `TestE2E_DeleteCausesMissingResultFailClosed` | PUT then DELETE | Gateway returns 502 (matches `test_opa.md` §6.6) |
 | `TestE2E_HeaderBasedAllowDeny` | Policy on `input.headers["X-Role"]` | Title-cased header propagation works (admin/user/missing variants) |
 | `TestE2E_GatewayTimeoutFailClosed` | 200ms decision delay, 50ms gateway timeout | Returns 504, elapsed time bounded under 180ms |
-| `TestE2E_PolicyIDOverrideRoutesThroughGateway` | PUT with form-level `policy_id` override 
+| `TestE2E_PolicyIDOverrideRoutesThroughGateway` | PUT with form-level `policy_id` override | Override is stored under the requested policy ID and routed through the gateway decision path |
 
 ## Running
 

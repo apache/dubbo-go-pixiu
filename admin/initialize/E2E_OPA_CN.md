@@ -27,7 +27,8 @@
 | `TestE2E_DeleteCausesMissingResultFailClosed` | 先 PUT 再 DELETE | Gateway 返回 502（与 `test_opa.md` §6.6 一致） |
 | `TestE2E_HeaderBasedAllowDeny` | 基于 `input.headers["X-Role"]` 的策略 | 首字母大写的 header 传递正常（admin / user / 缺失 三种场景） |
 | `TestE2E_GatewayTimeoutFailClosed` | 决策延迟 200ms，gateway 超时 50ms | 返回 504，耗时被控制在 180ms 以内 |
-| `TestE2E_PolicyIDOverrideRoutesThroughGateway` | PUT 时使用 form 字段级别的 `policy_id` 覆写 
+| `TestE2E_PolicyIDOverrideRoutesThroughGateway` | PUT 时使用 form 字段级别的 `policy_id` 覆写 | 覆写后的 policy ID 会被写入 OPA，并可通过 gateway 决策路径命中 |
+
 ## 运行方式
 
 ```bash
