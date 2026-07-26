@@ -216,6 +216,41 @@ func endpointIDMaterialField(name, value string) string {
 	return fmt.Sprintf("%s:%d:%s\n", name, len(value), value)
 }
 
+// StableUniqueEndpointID resolves a stable runtime ID for one endpoint within
+// a per-cluster dedup set. The operator's explicit endpoint.ID wins unless it
+// collides with an entry already in taken; on collision it appends -2, -3, ...
+// so an operator who wrote id: foo twice sees foo and foo-2 (not
+// generated-<hash>-2). When the operator supplied no ID, GenerateEndpointID's
+// deterministic hash is the base and collisions on that base also append
+// -2, -3, ...
+//
+// The endpoint ID is the runtime health/cooldown key. Static/dynamic config
+// assembly (server.ClusterStore.assembleClusterEndpoints) and snapshot rebuild
+// (cluster.newEndpointSnapshot) must agree on it, or the same endpoint would
+// split its health state across a snapshot rebuild. Both call this so the two
+// paths can never drift.
+//
+// taken is read only: the caller records the returned ID before resolving the
+// next endpoint.
+func StableUniqueEndpointID(clusterName string, endpoint *Endpoint, taken map[string]struct{}) string {
+	baseID := ""
+	if endpoint != nil {
+		baseID = endpoint.ID
+	}
+	if baseID == "" {
+		baseID = GenerateEndpointID(clusterName, endpoint)
+	}
+	if _, exists := taken[baseID]; !exists {
+		return baseID
+	}
+	for suffix := 2; ; suffix++ {
+		candidate := fmt.Sprintf("%s-%d", baseID, suffix)
+		if _, exists := taken[candidate]; !exists {
+			return candidate
+		}
+	}
+}
+
 // CloneEndpoints returns a deep copy of endpoints. Nil input is preserved.
 func CloneEndpoints(endpoints []*Endpoint) []*Endpoint {
 	if endpoints == nil {

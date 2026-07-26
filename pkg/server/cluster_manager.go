@@ -409,10 +409,10 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 		}
 		// Endpoint IDs are runtime health keys, so keep them unique per cluster.
 		if endpoint.ID == "" {
-			endpoint.ID = nextStableEndpointID(c.Name, endpoint, endpointIDs)
+			endpoint.ID = model.StableUniqueEndpointID(c.Name, endpoint, endpointIDs)
 		} else if _, exists := endpointIDs[endpoint.ID]; exists {
 			duplicateID := endpoint.ID
-			endpoint.ID = nextStableEndpointID(c.Name, endpoint, endpointIDs)
+			endpoint.ID = model.StableUniqueEndpointID(c.Name, endpoint, endpointIDs)
 			logger.Warnf(
 				"[dubbo-go-pixiu] duplicate endpoint ID %s in cluster %s, assigned endpoint ID %s",
 				duplicateID,
@@ -427,32 +427,6 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 			endpoint.Name = fmt.Sprintf("endpoint-%d#%s", i+1, endpoint.LLMMeta.Provider)
 		} else if endpoint.Name == "" && endpoint.LLMMeta == nil {
 			endpoint.Name = fmt.Sprintf("endpoint-%d", i+1)
-		}
-	}
-}
-
-// nextStableEndpointID returns a unique endpoint ID for the cluster's dedup
-// set. If endpoint.ID is set (operator-supplied) and only collides with a
-// sibling, it appends -2, -3, ... to preserve the operator's choice. If
-// endpoint.ID is empty, it derives a deterministic generated-* base via
-// model.GenerateEndpointID and suffixes that on collision. This matches
-// uniqueSnapshotEndpointID in pkg/cluster and keeps the same dashboard/log
-// identity post-rebuild.
-func nextStableEndpointID(clusterName string, endpoint *model.Endpoint, endpointIDs map[string]struct{}) string {
-	baseID := ""
-	if endpoint != nil {
-		baseID = endpoint.ID
-	}
-	if baseID == "" {
-		baseID = model.GenerateEndpointID(clusterName, endpoint)
-	}
-	if _, exists := endpointIDs[baseID]; !exists {
-		return baseID
-	}
-	for suffix := 2; ; suffix++ {
-		candidate := fmt.Sprintf("%s-%d", baseID, suffix)
-		if _, exists := endpointIDs[candidate]; !exists {
-			return candidate
 		}
 	}
 }
@@ -818,7 +792,7 @@ func resolveSetEndpointSlotByHash(clusterName string, incoming *model.Endpoint, 
 		if endpointContentEqualForSet(e, incoming) {
 			return setEndpointOutcome{targetID: e.ID, action: setEndpointIdempotent, replaceIdx: -1}
 		}
-		suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
+		suffixedID := model.StableUniqueEndpointID(clusterName, incoming, existingEndpointIDs(existing))
 		logSetEndpointSuffix(clusterName, incomingHash, suffixedID)
 		return setEndpointOutcome{targetID: suffixedID, action: setEndpointAppend, replaceIdx: -1}
 	}
