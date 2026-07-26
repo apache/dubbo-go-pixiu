@@ -358,18 +358,35 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 }
 
 // prepareClusterConfig clones operator-supplied endpoints, then rebuilds
-// endpoint defaults and hash from current endpoints.
+// endpoint defaults and invalidates the Config-level consistent hash from the
+// current endpoints. It is the external-input boundary: callers pass
+// operator-owned endpoint pointers, so it deep-clones before defaulting IDs and
+// names. Store-owned mutation paths call prepareOwnedClusterConfig instead to
+// avoid a second full clone.
 func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
 	c.Endpoints = model.CloneEndpoints(c.Endpoints)
 	s.prepareOwnedClusterConfig(c)
 }
 
-// prepareOwnedClusterConfig rebuilds endpoint defaults and hash for endpoints
-// already owned by ClusterStore. Callers must not pass operator-owned endpoint
-// pointers here; use prepareClusterConfig at external input boundaries.
+// prepareOwnedClusterConfig rebuilds endpoint defaults and invalidates the
+// Config-level consistent hash for endpoints already owned by ClusterStore.
+// Callers must not pass operator-owned endpoint pointers here; use
+// prepareClusterConfig at external input boundaries.
+//
+// The hash is only read by the legacy (non-snapshot) pick path and is rebuilt
+// lazily there via ClusterConfig.EnsureConsistentHash, so eagerly rebuilding it
+// on every AddCluster/UpdateCluster/SetEndpoint/DeleteEndpoint is dead work for
+// the common snapshot path (and expensive for large Maglev tables under
+// service-discovery churn). Setting it to nil here keeps the legacy path correct
+// after endpoint changes: the next legacy pick rebuilds from the current
+// endpoints instead of serving a stale ring. For unregistered/custom policies,
+// preserve any programmatically supplied hash because there is no factory
+// available to rebuild it later.
 func (s *ClusterStore) prepareOwnedClusterConfig(c *model.ClusterConfig) {
 	s.assembleClusterEndpoints(c)
-	c.CreateConsistentHash()
+	if c.HasConsistentHashFactory() {
+		c.ConsistentHash.Hash = nil
+	}
 }
 
 // assembleClusterEndpoints assembles the cluster endpoints by assigning stable

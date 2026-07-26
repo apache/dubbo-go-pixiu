@@ -132,6 +132,30 @@ func (c *ClusterConfig) CreateConsistentHash() {
 	}
 }
 
+// HasConsistentHashFactory reports whether this cluster's load-balancer policy
+// can rebuild Config-level consistent-hash state from endpoints.
+func (c *ClusterConfig) HasConsistentHashFactory() bool {
+	_, ok := ConsistentHashInitMap[c.LbStr]
+	return ok
+}
+
+// EnsureConsistentHash lazily builds the Config-level consistent hash on first
+// use and reuses it afterwards. It exists only for the legacy (non-snapshot)
+// pick path: snapshot-aware balancers ignore Config.ConsistentHash.Hash and
+// read the snapshot's own healthy hash instead. Building here rather than
+// eagerly on every config mutation avoids rebuilding a large Maglev table on
+// each endpoint add/remove in high-churn discovery environments.
+//
+// Not safe for concurrent use. The legacy pick path serializes callers under
+// loadbalancer's package lock; a fresh ClusterConfig (e.g. a CloneStore copy,
+// whose Hash interface does not survive the yaml round-trip) rebuilds
+// independently on its first legacy pick.
+func (c *ClusterConfig) EnsureConsistentHash() {
+	if c.ConsistentHash.Hash == nil {
+		c.CreateConsistentHash()
+	}
+}
+
 func (e Endpoint) GetHost() string {
 	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
 }

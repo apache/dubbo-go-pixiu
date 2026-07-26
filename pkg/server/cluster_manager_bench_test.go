@@ -242,6 +242,52 @@ func BenchmarkClusterConsistentHashResolve(b *testing.B) {
 	}
 }
 
+// BenchmarkSetEndpoint measures the per-mutation cost of a registry update on a
+// Maglev cluster with a large lookup table — the metadata-only re-registration
+// a high-churn discovery environment performs on every heartbeat. Each update
+// keeps the endpoint's address fixed (no healthcheck restart) and only flips
+// metadata, so SetEndpoint takes the in-place replace path and prepareClusterConfig
+// runs on every iteration. Before this change that meant repopulating the whole
+// 65537-slot table per mutation; after it, the snapshot path skips the rebuild.
+//
+// The two metadata generations matter: SetEndpoint short-circuits to an
+// idempotent no-op when the incoming endpoint is content-equal to the slot's
+// current occupant. Alternating generations each cycle guarantees every visit
+// to a slot differs from its previous occupant, so the benchmark exercises the
+// rebuild path on every call instead of collapsing into the fast path after the
+// first cycle. Inputs are pre-built so no per-iteration input allocation leaks
+// into the measurement.
+func BenchmarkSetEndpoint(b *testing.B) {
+	const (
+		endpointCount = 64
+		generations   = 2
+	)
+	cluster := testCluster("set-endpoint-maglev", model.LoadBalancerMaglevHashing, nil)
+	cluster.ConsistentHash = model.ConsistentHash{MaglevTableSize: 65537}
+	for i := 0; i < endpointCount; i++ {
+		cluster.Endpoints = append(cluster.Endpoints, testEndpoint(fmt.Sprintf("ep-%d", i), "127.0.0.1", 20000+i))
+	}
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	updates := make([][]*model.Endpoint, generations)
+	for g := range updates {
+		updates[g] = make([]*model.Endpoint, endpointCount)
+		for i := range updates[g] {
+			endpoint := testEndpoint(fmt.Sprintf("ep-%d", i), "127.0.0.1", 20000+i)
+			endpoint.Metadata = map[string]string{"generation": fmt.Sprintf("gen-%d", g)}
+			updates[g][i] = endpoint
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		generation := (i / endpointCount) % generations
+		cm.SetEndpoint(cluster.Name, updates[generation][i%endpointCount])
+	}
+}
+
 func BenchmarkClusterConsistentHashSnapshotRefreshUnchangedHealthySet(b *testing.B) {
 	for _, lbType := range []model.LbPolicyType{model.LoadBalancerRingHashing, model.LoadBalancerMaglevHashing} {
 		for _, endpointCount := range []int{1, 32, 256, 1024} {

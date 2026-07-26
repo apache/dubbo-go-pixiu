@@ -433,6 +433,9 @@ func TestClusterManager_SetEndpointExplicitSameIDDifferentAddressRebuildsConsist
 			assert.Equal(t, "ep-1", endpoints[0].ID)
 			assert.Equal(t, "127.0.0.2", endpoints[0].Address.Address)
 
+			// The Config-level hash is built lazily on the legacy pick path now,
+			// so trigger the build before inspecting it directly.
+			cm.store.Config[0].EnsureConsistentHash()
 			hash := cm.store.Config[0].ConsistentHash.Hash
 			if !assert.NotNil(t, hash) {
 				return
@@ -481,6 +484,9 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 		assert.NotSame(t, remainingEndpoint, config.Endpoints[0])
 	}
 
+	// The Config-level hash is built lazily on the legacy pick path now,
+	// so trigger the build before inspecting it directly.
+	config.EnsureConsistentHash()
 	hash := config.ConsistentHash.Hash
 	if !assert.NotNil(t, hash) {
 		return
@@ -492,6 +498,67 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 	hosts := hostList.Hosts()
 	assert.NotContains(t, hosts, deletedHost)
 	assert.Contains(t, hosts, remainingHost)
+}
+
+// countingFixedHash is a minimal model.LbConsistentHash fixture for the
+// deferred-rebuild test; only construction is observed (via the registered
+// init func's counter), so the lookup methods are stubs.
+type countingFixedHash struct{}
+
+func (countingFixedHash) Hash(string) uint32             { return 0 }
+func (countingFixedHash) Get(string) (string, error)     { return "", nil }
+func (countingFixedHash) GetHash(uint32) (string, error) { return "", nil }
+func (countingFixedHash) Add(string)                     {}
+func (countingFixedHash) Remove(string) bool             { return false }
+
+// TestClusterManager_SetEndpointDefersConsistentHashRebuild verifies that the
+// Config-level consistent hash is no longer rebuilt eagerly on every config
+// mutation. SetEndpoint churn must trigger zero hash builds (the snapshot pick
+// path never reads Config.ConsistentHash.Hash); the hash is built lazily, once,
+// only when the legacy path calls EnsureConsistentHash.
+func TestClusterManager_SetEndpointDefersConsistentHashRebuild(t *testing.T) {
+	const deferLbPolicy model.LbPolicyType = "DeferRebuildCountingHash"
+	var buildCount int32
+	model.ConsistentHashInitMap[deferLbPolicy] = func(model.ConsistentHash, []*model.Endpoint) model.LbConsistentHash {
+		atomic.AddInt32(&buildCount, 1)
+		return countingFixedHash{}
+	}
+	defer delete(model.ConsistentHashInitMap, deferLbPolicy)
+
+	config := testCluster("defer-hash-rebuild", deferLbPolicy, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19360),
+	})
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	// Initial assembly must not build the Config-level hash.
+	assert.Equal(t, int32(0), atomic.LoadInt32(&buildCount), "AddCluster must not eagerly build the consistent hash")
+
+	for i := 0; i < 5; i++ {
+		cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19361+i))
+	}
+	assert.Equal(t, int32(0), atomic.LoadInt32(&buildCount), "SetEndpoint churn must not build the Config-level hash on the snapshot path")
+
+	stored := cm.store.Config[0]
+	stored.EnsureConsistentHash()
+	stored.EnsureConsistentHash()
+	assert.Equal(t, int32(1), atomic.LoadInt32(&buildCount), "legacy path must build the hash exactly once and reuse it")
+}
+
+func TestClusterManager_PrepareClusterConfigPreservesCustomHashWithoutFactory(t *testing.T) {
+	customHash := &countingFixedHash{}
+	config := testCluster("custom-hash-preserve", model.LbPolicyType("UnregisteredConsistentHash"), []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19370),
+	})
+	config.ConsistentHash.Hash = customHash
+
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+
+	cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19371))
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
 }
 
 func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
