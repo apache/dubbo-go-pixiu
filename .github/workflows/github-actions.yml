@@ -66,6 +66,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - name: Resolve lint base
+        id: lint_base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          if [ "$base" = "0000000000000000000000000000000000000000" ] || [ -z "$base" ]; then
+            base=""
+          else
+            git fetch --depth=1 origin "$base" 2>/dev/null || true
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
@@ -74,6 +90,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8 # NOSONAR
         with:
           version: v2.4.0
+          args: ${{ steps.lint_base.outputs.sha != '' && format('--new-from-rev={0}', steps.lint_base.outputs.sha) || '' }}
 
   unit-test:
     needs: golangci

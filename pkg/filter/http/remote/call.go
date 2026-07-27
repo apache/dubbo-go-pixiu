@@ -109,7 +109,9 @@ func (factory *FilterFactory) Apply() error {
 	if factory.conf.DubboProxyConfig == nil {
 		return errors.New("expect the dubboProxyConfig config the registries")
 	}
-	if factory.conf.DubboProxyConfig.AutoResolve != nil {
+	// AutoResolve is read intentionally to reject the deprecated field and
+	// guide users to configure integrationRequest explicitly.
+	if factory.conf.DubboProxyConfig.AutoResolve != nil { //nolint:staticcheck // SA1019: deliberately detect the removed option
 		return errors.New("dubboProxyConfig.auto_resolve is no longer supported; remove it and configure integrationRequest explicitly in the API definition")
 	}
 	initDubboClient(factory.conf.DubboProxyConfig)

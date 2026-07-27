@@ -19,6 +19,7 @@ package hotreload
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,6 +39,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+const maxReloadBodyBytes = 1 << 20 // 1 MiB
 
 var (
 	reloadMutex    sync.Mutex
@@ -69,7 +72,7 @@ func checkAuth(r *http.Request) bool {
 	// Check shared secret if configured
 	if reloadSecret != "" {
 		token := r.Header.Get("X-Reload-Token")
-		return token == reloadSecret
+		return subtle.ConstantTimeCompare([]byte(token), []byte(reloadSecret)) == 1
 	}
 
 	// If no secret configured and not localhost, deny
@@ -95,9 +98,15 @@ func (h *ReloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Try to read from body first (handles chunked encoding where ContentLength == -1)
 	// If body is empty, fallback to file reload
 	if r.Body != nil {
+		r.Body = http.MaxBytesReader(w, r.Body, maxReloadBodyBytes)
 		content, readErr := io.ReadAll(r.Body)
 
 		if readErr != nil {
+			if _, ok := readErr.(*http.MaxBytesError); ok {
+				logger.Warnf("Reload request body from %s exceeded %d bytes", r.RemoteAddr, maxReloadBodyBytes)
+				http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+				return
+			}
 			logger.Errorf("Failed to read request body: %v", readErr)
 			http.Error(w, fmt.Sprintf("Failed to read request body: %v", readErr), http.StatusBadRequest)
 			return

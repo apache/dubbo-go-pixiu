@@ -78,6 +78,36 @@ func (b *externalLikeSnapshotLoadBalancer) HandlerWithSnapshot(c PickContext, _ 
 
 var _ LoadBalancer = (*legacyLoadBalancer)(nil)
 
+// healthyByIDIndex is a test double for the snapshot's O(1) healthy-by-ID
+// lookup (satisfied in production by *cluster.EndpointSnapshot). It maps the
+// supplied healthy endpoints by ID, mirroring the snapshot's healthyEndpointByID
+// index so the recheck fast path can be exercised without importing pkg/cluster.
+type healthyByIDIndex map[string]*model.Endpoint
+
+func (h healthyByIDIndex) HealthyEndpointByIDForPick(endpointID string) *model.Endpoint {
+	return h[endpointID]
+}
+
+func newHealthyByIDIndex(endpoints []*model.Endpoint) healthyByIDIndex {
+	index := make(healthyByIDIndex, len(endpoints))
+	for _, endpoint := range endpoints {
+		if endpoint != nil && endpoint.ID != "" {
+			index[endpoint.ID] = endpoint
+		}
+	}
+	return index
+}
+
+// snapshotRecheckContext builds the PickContext the request path passes to
+// healthyEndpointFromSnapshot: the healthy slice plus the O(1) by-ID index over
+// the same endpoints, matching how cluster_manager wires a real snapshot.
+func snapshotRecheckContext(healthy []*model.Endpoint) PickContext {
+	return PickContext{
+		HealthyEndpoints: healthy,
+		HealthyByID:      newHealthyByIDIndex(healthy),
+	}
+}
+
 type blockingLegacyLoadBalancer struct {
 	entered chan int
 	release chan struct{}
@@ -407,6 +437,21 @@ func TestExternalLikeBalancerCannotOptIntoFastPaths(t *testing.T) {
 		"untrusted balancer mutation must not escape to the full snapshot endpoint")
 }
 
+func TestDefensiveSnapshotPickContextClearsHealthyByID(t *testing.T) {
+	healthy := []*model.Endpoint{
+		{ID: "ep-1", Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080}},
+	}
+	originalContext := PickContext{
+		HealthyEndpoints: healthy,
+		HealthyByID:      newHealthyByIDIndex(healthy),
+	}
+
+	defensive := defensiveSnapshotPickContext(originalContext)
+
+	assert.Nil(t, defensive.HealthyByID, "defensive context must not expose live snapshot pointers")
+	assert.NotNil(t, originalContext.HealthyByID, "original context must be unchanged")
+}
+
 func TestPickEndpointSerializesLegacyLoadBalancerHandlers(t *testing.T) {
 	harness := newLegacyPickHarness(t)
 	pickContext := newLegacyPickContext("blocking-legacy-load-balancer", "first")
@@ -609,7 +654,7 @@ func TestHealthyEndpointFromSnapshotAcceptsResolvedAddressForBlankPlaceholder(t 
 		Address: model.SocketAddress{Address: "127.0.0.1", Port: 8080},
 	}
 
-	got := healthyEndpointFromSnapshot(balancerReturn, healthyEndpoints)
+	got := healthyEndpointFromSnapshot(balancerReturn, snapshotRecheckContext(healthyEndpoints))
 	if !assert.NotNil(t, got, "balancer return with same ID as snapshot placeholder must match via wildcard") {
 		return
 	}
@@ -626,7 +671,27 @@ func TestHealthyEndpointFromSnapshotPointerFastPathReturnsClone(t *testing.T) {
 		},
 	}
 
-	got := healthyEndpointFromSnapshot(endpoint, []*model.Endpoint{endpoint})
+	// No HealthyByID index: exercise the fallback scan's pointer-equality fast
+	// path (the branch a zero-copy balancer hits when no ID index is present).
+	got := healthyEndpointFromSnapshot(endpoint, PickContext{HealthyEndpoints: []*model.Endpoint{endpoint}})
+
+	if !assert.NotNil(t, got) {
+		return
+	}
+	assert.Equal(t, endpoint, got)
+	assert.NotSame(t, endpoint, got, "request path must not return the snapshot-owned endpoint pointer")
+}
+
+func TestHealthyEndpointFromSnapshotByIDPointerFastPathReturnsClone(t *testing.T) {
+	endpoint := &model.Endpoint{
+		ID: "zero-copy-id",
+		Address: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    8080,
+		},
+	}
+
+	got := healthyEndpointFromSnapshot(endpoint, snapshotRecheckContext([]*model.Endpoint{endpoint}))
 
 	if !assert.NotNil(t, got) {
 		return
@@ -652,8 +717,66 @@ func TestHealthyEndpointFromSnapshotRejectsMismatchedRealAddress(t *testing.T) {
 		Address: model.SocketAddress{Address: "10.0.0.1", Port: 9090},
 	}
 
-	got := healthyEndpointFromSnapshot(balancerReturn, healthyEndpoints)
+	got := healthyEndpointFromSnapshot(balancerReturn, snapshotRecheckContext(healthyEndpoints))
 	assert.Nil(t, got, "real-address mismatch must not match even when IDs agree")
+}
+
+// TestHealthyEndpointFromSnapshotByIDMatchesScan locks the O(1) by-ID recheck
+// to the fallback scan: for every case, resolving through the HealthyByID index
+// must produce the same accept/reject decision as scanning HealthyEndpoints, so
+// the optimization cannot silently change which picks are admitted.
+func TestHealthyEndpointFromSnapshotByIDMatchesScan(t *testing.T) {
+	realAddr := model.SocketAddress{Address: "127.0.0.1", Port: 8080}
+	healthy := []*model.Endpoint{
+		{ID: "ep-real", Address: realAddr},
+		{ID: "ep-placeholder", Address: model.SocketAddress{Domains: []string{""}}},
+	}
+
+	cases := []struct {
+		name        string
+		ret         *model.Endpoint
+		wantMatchID string // "" means expect nil
+	}{
+		{
+			name:        "defensive copy of real endpoint matches by ID",
+			ret:         &model.Endpoint{ID: "ep-real", Address: realAddr},
+			wantMatchID: "ep-real",
+		},
+		{
+			name:        "placeholder wildcard accepts resolved address",
+			ret:         &model.Endpoint{ID: "ep-placeholder", Address: model.SocketAddress{Address: "10.0.0.9", Port: 9090}},
+			wantMatchID: "ep-placeholder",
+		},
+		{
+			name:        "same ID different real address rejected",
+			ret:         &model.Endpoint{ID: "ep-real", Address: model.SocketAddress{Address: "10.0.0.1", Port: 9090}},
+			wantMatchID: "",
+		},
+		{
+			name:        "unknown ID rejected",
+			ret:         &model.Endpoint{ID: "ep-missing", Address: realAddr},
+			wantMatchID: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			withIndex := healthyEndpointFromSnapshot(tc.ret, snapshotRecheckContext(healthy))
+			scanOnly := healthyEndpointFromSnapshot(tc.ret, PickContext{HealthyEndpoints: healthy})
+
+			if tc.wantMatchID == "" {
+				assert.Nil(t, withIndex, "by-ID recheck must reject")
+				assert.Nil(t, scanOnly, "scan must reject")
+				return
+			}
+			if assert.NotNil(t, withIndex, "by-ID recheck must accept") {
+				assert.Equal(t, tc.wantMatchID, withIndex.ID)
+			}
+			if assert.NotNil(t, scanOnly, "scan must accept") {
+				assert.Equal(t, tc.wantMatchID, scanOnly.ID)
+			}
+		})
+	}
 }
 
 func BenchmarkHealthyEndpointFromSnapshot(b *testing.B) {
@@ -670,20 +793,32 @@ func BenchmarkHealthyEndpointFromSnapshot(b *testing.B) {
 	}
 	zeroCopyEndpoint := healthyEndpoints[endpointCount-1]
 	defensiveCopyEndpoint := model.CloneEndpoint(zeroCopyEndpoint)
+	scanContext := PickContext{HealthyEndpoints: healthyEndpoints}
+	indexContext := snapshotRecheckContext(healthyEndpoints)
 
+	// Zero-copy balancers hit the pointer-equality fast path; the index does
+	// not change that branch, but measure it to confirm no regression.
 	b.Run("pointer-eq-fast-path", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if healthyEndpointFromSnapshot(zeroCopyEndpoint, healthyEndpoints) == nil {
-				b.Fatal("expected match")
-			}
-		}
+		benchmarkHealthyEndpointFromSnapshot(b, zeroCopyEndpoint, scanContext)
 	})
 
-	b.Run("identity-scan", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if healthyEndpointFromSnapshot(defensiveCopyEndpoint, healthyEndpoints) == nil {
-				b.Fatal("expected match")
-			}
-		}
+	// Non-zero-copy balancers return a cloned endpoint whose pointer is not in
+	// the snapshot slice. Without an ID index this falls through to the full
+	// O(N) sameEndpointIdentity scan; the index turns it into an O(1) lookup.
+	b.Run("identity-scan-without-index", func(b *testing.B) {
+		benchmarkHealthyEndpointFromSnapshot(b, defensiveCopyEndpoint, scanContext)
 	})
+
+	b.Run("identity-recheck-with-index", func(b *testing.B) {
+		benchmarkHealthyEndpointFromSnapshot(b, defensiveCopyEndpoint, indexContext)
+	})
+}
+
+func benchmarkHealthyEndpointFromSnapshot(b *testing.B, endpoint *model.Endpoint, context PickContext) {
+	b.Helper()
+	for i := 0; i < b.N; i++ {
+		if healthyEndpointFromSnapshot(endpoint, context) == nil {
+			b.Fatal("expected match")
+		}
+	}
 }

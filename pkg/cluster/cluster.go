@@ -18,7 +18,6 @@
 package cluster
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -101,6 +100,7 @@ func (c *Cluster) RefreshEndpointsFrom(previous *EndpointSnapshot) {
 		}
 		next := newEndpointSnapshot(c.Config, source, len(c.Config.HealthChecks) != 0)
 		if c.endpoints.CompareAndSwap(current, next) {
+			recordSnapshotPublish(c.clusterName(), next)
 			return
 		}
 	}
@@ -128,6 +128,7 @@ func (c *Cluster) UpdateEndpointHealth(endpointID, endpointAddress string, healt
 			return true
 		}
 		if c.endpoints.CompareAndSwap(current, next) {
+			recordSnapshotPublish(c.clusterName(), next)
 			return true
 		}
 	}
@@ -158,6 +159,7 @@ func (c *Cluster) UpdateEndpointAddressHealth(endpointAddress string, healthy bo
 			return true
 		}
 		if c.endpoints.CompareAndSwap(current, next) {
+			recordSnapshotPublish(c.clusterName(), next)
 			return true
 		}
 	}
@@ -197,6 +199,7 @@ type EndpointSnapshot struct {
 	healthyByAddress     map[string]bool
 	lbPolicy             model.LbPolicyType
 	consistentHashOnce   sync.Once
+	consistentHashMu     sync.RWMutex
 	consistentHash       model.LbConsistentHashView
 	consistentHashConfig model.ConsistentHash
 }
@@ -242,12 +245,13 @@ func newEndpointSnapshot(config *model.ClusterConfig, previous *EndpointSnapshot
 			continue
 		}
 		snapshotEndpoint := model.CloneEndpoint(endpoint)
-		snapshotEndpoint.ID = uniqueSnapshotEndpointID(clusterName, snapshotEndpoint, endpointIDs)
+		snapshotEndpoint.ID = model.StableUniqueEndpointID(clusterName, snapshotEndpoint, endpointIDs)
 		endpointIDs[snapshotEndpoint.ID] = struct{}{}
 		address := snapshotEndpoint.Address.GetAddress()
 		healthy := endpointSnapshotHealth(snapshotEndpoint, address, previous, inheritRuntimeHealth)
 		snapshot.addEndpoint(snapshotEndpoint, address, healthy)
 	}
+	snapshot.reuseHealthyConsistentHashFrom(previous)
 	return snapshot
 }
 
@@ -260,31 +264,6 @@ func newEndpointSnapshotIndex(endpointCount int) *EndpointSnapshot {
 		addressByID:         make(map[string]string, endpointCount),
 		healthyByID:         make(map[string]bool, endpointCount),
 		healthyByAddress:    make(map[string]bool, endpointCount),
-	}
-}
-
-// uniqueSnapshotEndpointID resolves a stable runtime ID for one endpoint in
-// the snapshot's per-cluster dedup set. The operator's explicit endpoint.ID
-// wins unless it collides; collisions append -2, -3, ... so an operator who
-// wrote id: foo twice sees foo and foo-2 (not generated-<hash>-2). When the
-// operator did not supply an ID, the deterministic hash from PR-2 is used as
-// the base and collisions on that synthesized base also append -2, -3, ...
-func uniqueSnapshotEndpointID(clusterName string, endpoint *model.Endpoint, endpointIDs map[string]struct{}) string {
-	id := ""
-	if endpoint != nil {
-		id = endpoint.ID
-	}
-	if id == "" {
-		id = model.GenerateEndpointID(clusterName, endpoint)
-	}
-	if _, exists := endpointIDs[id]; !exists {
-		return id
-	}
-	for suffix := 2; ; suffix++ {
-		candidate := fmt.Sprintf("%s-%d", id, suffix)
-		if _, exists := endpointIDs[candidate]; !exists {
-			return candidate
-		}
 	}
 }
 
@@ -395,7 +374,34 @@ func (s *EndpointSnapshot) HealthyConsistentHash() model.LbConsistentHashView {
 		return nil
 	}
 	s.consistentHashOnce.Do(s.rebuildConsistentHash)
+	return s.cachedHealthyConsistentHash()
+}
+
+func (s *EndpointSnapshot) cachedHealthyConsistentHash() model.LbConsistentHashView {
+	if s == nil {
+		return nil
+	}
+	s.consistentHashMu.RLock()
+	defer s.consistentHashMu.RUnlock()
 	return s.consistentHash
+}
+
+func (s *EndpointSnapshot) seedHealthyConsistentHash(hash model.LbConsistentHashView) {
+	if s == nil || hash == nil {
+		return
+	}
+	s.consistentHashOnce.Do(func() {
+		s.storeHealthyConsistentHash(hash)
+	})
+}
+
+func (s *EndpointSnapshot) storeHealthyConsistentHash(hash model.LbConsistentHashView) {
+	if s == nil || hash == nil {
+		return
+	}
+	s.consistentHashMu.Lock()
+	defer s.consistentHashMu.Unlock()
+	s.consistentHash = hash
 }
 
 // PickHealthyEndpoint gives request-path selectors a read-only view of healthy
@@ -445,6 +451,20 @@ func (s *EndpointSnapshot) HealthyEndpointByID(endpointID string) *model.Endpoin
 		return nil
 	}
 	return model.CloneEndpoint(s.healthyEndpointByID[endpointID])
+}
+
+// HealthyEndpointByIDForPick returns the snapshot-internal healthy endpoint for
+// endpointID without cloning, or nil when no healthy endpoint carries that ID.
+// Like HealthyEndpointsForPick, the returned endpoint is owned by the snapshot:
+// callers MUST NOT mutate or retain it past the current pick. This O(1) lookup
+// backs the request-path recheck that validates a balancer's pick by ID instead
+// of scanning the healthy slice; external callers should use HealthyEndpointByID
+// (defensive clone).
+func (s *EndpointSnapshot) HealthyEndpointByIDForPick(endpointID string) *model.Endpoint {
+	if s == nil {
+		return nil
+	}
+	return s.healthyEndpointByID[endpointID]
 }
 
 func (s *EndpointSnapshot) withEndpointHealth(
@@ -545,5 +565,57 @@ func (s *EndpointSnapshot) rebuildConsistentHash() {
 	if !ok {
 		return
 	}
-	s.consistentHash = model.ReadOnlyConsistentHash(newConsistentHash(s.consistentHashConfig, s.healthy))
+	hash := model.ReadOnlyConsistentHash(newConsistentHash(s.consistentHashConfig, s.healthy))
+	s.storeHealthyConsistentHash(hash)
+}
+
+func (s *EndpointSnapshot) reuseHealthyConsistentHashFrom(previous *EndpointSnapshot) {
+	if !canReuseHealthyConsistentHash(previous, s) {
+		return
+	}
+	s.seedHealthyConsistentHash(previous.cachedHealthyConsistentHash())
+}
+
+func canReuseHealthyConsistentHash(previous, next *EndpointSnapshot) bool {
+	if previous == nil || next == nil {
+		return false
+	}
+	if previous.lbPolicy != next.lbPolicy {
+		return false
+	}
+	if _, ok := model.ConsistentHashInitMap[next.lbPolicy]; !ok {
+		return false
+	}
+	if !sameConsistentHashConfig(previous.consistentHashConfig, next.consistentHashConfig) {
+		return false
+	}
+	return sameHealthyEndpointsForConsistentHash(previous, next)
+}
+
+func sameConsistentHashConfig(a, b model.ConsistentHash) bool {
+	return a.ReplicaNum == b.ReplicaNum &&
+		a.MaxVnodeNum == b.MaxVnodeNum &&
+		a.MaglevTableSize == b.MaglevTableSize
+}
+
+func sameHealthyEndpointsForConsistentHash(previous, next *EndpointSnapshot) bool {
+	if previous == nil || next == nil {
+		return false
+	}
+	if len(previous.healthy) != len(next.healthy) {
+		return false
+	}
+	for i := range previous.healthy {
+		if !sameEndpointHostForConsistentHash(previous.healthy[i], next.healthy[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameEndpointHostForConsistentHash(a, b *model.Endpoint) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Address.Address == b.Address.Address && a.Address.Port == b.Address.Port
 }

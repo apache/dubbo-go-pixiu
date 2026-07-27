@@ -20,6 +20,7 @@ package server
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -307,6 +308,7 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 		HealthyConsistentHash: snapshot.HealthyConsistentHash(),
 		AllEndpoints:          allEndpoints,
 		HealthyEndpoints:      healthyEndpoints,
+		HealthyByID:           snapshot,
 	}, policy)
 }
 
@@ -356,23 +358,50 @@ func (s *ClusterStore) AddCluster(c *model.ClusterConfig) {
 	stopClusters([]*cluster.Cluster{s.replaceClusterRuntime(c.Name, c)})
 }
 
-// prepareClusterConfig rebuilds endpoint defaults and hash from current endpoints.
+// prepareClusterConfig clones operator-supplied endpoints, then rebuilds
+// endpoint defaults and invalidates the Config-level consistent hash from the
+// current endpoints. It is the external-input boundary: callers pass
+// operator-owned endpoint pointers, so it deep-clones before defaulting IDs and
+// names. Store-owned mutation paths call prepareOwnedClusterConfig instead to
+// avoid a second full clone.
 func (s *ClusterStore) prepareClusterConfig(c *model.ClusterConfig) {
-	s.assembleClusterEndpoints(c)
-	c.CreateConsistentHash()
+	c.Endpoints = model.CloneEndpoints(c.Endpoints)
+	s.prepareOwnedClusterConfig(c)
 }
 
-// assembleClusterEndpoints assembles the cluster endpoints by formatting the
-// ID, name and domains for each endpoint. If endpoint.LLMMeta is not nil, the
-// assimilation of name and domain is based on the LLM provider denoted in the
-// endpoint LLMMeta. The store first deep-clones c.Endpoints, so ID/name
-// defaulting never mutates operator-supplied *model.Endpoint values.
+// prepareOwnedClusterConfig rebuilds endpoint defaults and invalidates the
+// Config-level consistent hash for endpoints already owned by ClusterStore.
+// Callers must not pass operator-owned endpoint pointers here; use
+// prepareClusterConfig at external input boundaries.
+//
+// The hash is only read by the legacy (non-snapshot) pick path and is rebuilt
+// lazily there via ClusterConfig.EnsureConsistentHash, so eagerly rebuilding it
+// on every AddCluster/UpdateCluster/SetEndpoint/DeleteEndpoint is dead work for
+// the common snapshot path (and expensive for large Maglev tables under
+// service-discovery churn). Setting it to nil here keeps the legacy path correct
+// after endpoint changes: the next legacy pick rebuilds from the current
+// endpoints instead of serving a stale ring. For unregistered/custom policies,
+// preserve any programmatically supplied hash because there is no factory
+// available to rebuild it later.
+func (s *ClusterStore) prepareOwnedClusterConfig(c *model.ClusterConfig) {
+	s.assembleClusterEndpoints(c)
+	if c.HasConsistentHashFactory() {
+		c.ConsistentHash.Hash = nil
+	}
+}
+
+// assembleClusterEndpoints assembles the cluster endpoints by assigning stable
+// unique IDs and default names for each endpoint. If endpoint.LLMMeta is not nil,
+// the default endpoint name is based on the LLM provider denoted in the endpoint
+// LLMMeta. Callers choose the ownership boundary before invoking this helper:
+// external input paths clone endpoints in prepareClusterConfig, while store-owned
+// mutation paths call prepareOwnedClusterConfig to avoid a second full endpoint
+// clone before snapshot publication.
 func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 	if c == nil {
 		return
 	}
 
-	c.Endpoints = model.CloneEndpoints(c.Endpoints)
 	endpointIDs := make(map[string]struct{}, len(c.Endpoints))
 	for i, endpoint := range c.Endpoints {
 		if endpoint == nil {
@@ -380,10 +409,10 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 		}
 		// Endpoint IDs are runtime health keys, so keep them unique per cluster.
 		if endpoint.ID == "" {
-			endpoint.ID = nextStableEndpointID(c.Name, endpoint, endpointIDs)
+			endpoint.ID = model.StableUniqueEndpointID(c.Name, endpoint, endpointIDs)
 		} else if _, exists := endpointIDs[endpoint.ID]; exists {
 			duplicateID := endpoint.ID
-			endpoint.ID = nextStableEndpointID(c.Name, endpoint, endpointIDs)
+			endpoint.ID = model.StableUniqueEndpointID(c.Name, endpoint, endpointIDs)
 			logger.Warnf(
 				"[dubbo-go-pixiu] duplicate endpoint ID %s in cluster %s, assigned endpoint ID %s",
 				duplicateID,
@@ -398,32 +427,6 @@ func (s *ClusterStore) assembleClusterEndpoints(c *model.ClusterConfig) {
 			endpoint.Name = fmt.Sprintf("endpoint-%d#%s", i+1, endpoint.LLMMeta.Provider)
 		} else if endpoint.Name == "" && endpoint.LLMMeta == nil {
 			endpoint.Name = fmt.Sprintf("endpoint-%d", i+1)
-		}
-	}
-}
-
-// nextStableEndpointID returns a unique endpoint ID for the cluster's dedup
-// set. If endpoint.ID is set (operator-supplied) and only collides with a
-// sibling, it appends -2, -3, ... to preserve the operator's choice. If
-// endpoint.ID is empty, it derives a deterministic generated-* base via
-// model.GenerateEndpointID and suffixes that on collision. This matches
-// uniqueSnapshotEndpointID in pkg/cluster and keeps the same dashboard/log
-// identity post-rebuild.
-func nextStableEndpointID(clusterName string, endpoint *model.Endpoint, endpointIDs map[string]struct{}) string {
-	baseID := ""
-	if endpoint != nil {
-		baseID = endpoint.ID
-	}
-	if baseID == "" {
-		baseID = model.GenerateEndpointID(clusterName, endpoint)
-	}
-	if _, exists := endpointIDs[baseID]; !exists {
-		return baseID
-	}
-	for suffix := 2; ; suffix++ {
-		candidate := fmt.Sprintf("%s-%d", baseID, suffix)
-		if _, exists := endpointIDs[candidate]; !exists {
-			return candidate
 		}
 	}
 }
@@ -642,7 +645,7 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 		s.replaceEndpointAt(clusterConfig, runtimeCluster, outcome.replaceIdx, endpoint)
 	case setEndpointAppend:
 		clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
-		s.prepareClusterConfig(clusterConfig)
+		s.prepareOwnedClusterConfig(clusterConfig)
 		runtimeCluster.RefreshEndpoints()
 		runtimeCluster.AddEndpoint(endpoint)
 	}
@@ -677,7 +680,7 @@ func (s *ClusterStore) replaceEndpointAt(
 		logSetEndpointOverwrite(clusterConfig.Name, endpoint.ID, old, endpoint)
 	}
 	clusterConfig.Endpoints[idx] = endpoint
-	s.prepareClusterConfig(clusterConfig)
+	s.prepareOwnedClusterConfig(clusterConfig)
 	runtimeCluster.RefreshEndpoints()
 	if addressChanged {
 		runtimeCluster.AddEndpoint(endpoint)
@@ -789,7 +792,7 @@ func resolveSetEndpointSlotByHash(clusterName string, incoming *model.Endpoint, 
 		if endpointContentEqualForSet(e, incoming) {
 			return setEndpointOutcome{targetID: e.ID, action: setEndpointIdempotent, replaceIdx: -1}
 		}
-		suffixedID := nextStableEndpointID(clusterName, incoming, existingEndpointIDs(existing))
+		suffixedID := model.StableUniqueEndpointID(clusterName, incoming, existingEndpointIDs(existing))
 		logSetEndpointSuffix(clusterName, incomingHash, suffixedID)
 		return setEndpointOutcome{targetID: suffixedID, action: setEndpointAppend, replaceIdx: -1}
 	}
@@ -941,8 +944,8 @@ func (s *ClusterStore) DeleteEndpoint(clusterName string, endpointID string) {
 	for i, e := range clusterConfig.Endpoints {
 		if e.ID == endpointID {
 			runtimeCluster.RemoveEndpoint(e)
-			clusterConfig.Endpoints = append(clusterConfig.Endpoints[:i], clusterConfig.Endpoints[i+1:]...)
-			s.prepareClusterConfig(clusterConfig)
+			clusterConfig.Endpoints = slices.Delete(clusterConfig.Endpoints, i, i+1)
+			s.prepareOwnedClusterConfig(clusterConfig)
 			runtimeCluster.RefreshEndpoints()
 			return
 		}

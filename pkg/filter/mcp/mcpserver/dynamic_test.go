@@ -18,6 +18,7 @@
 package mcpserver
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -71,6 +73,14 @@ func createTestMcpServerConfig(tools []model.ToolConfig) *model.McpServerConfig 
 	}
 }
 
+func toolConfigNames(tools []model.ToolConfig) []string {
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+	return names
+}
+
 // =============================================================================
 // Singleton Tests
 // =============================================================================
@@ -85,8 +95,8 @@ func TestSingletonInstances(t *testing.T) {
 	})
 
 	t.Run("Dynamic consumer singleton", func(t *testing.T) {
-		dynamic1 := GetOrInitDynamicConsumer()
-		dynamic2 := GetOrInitDynamicConsumer()
+		dynamic1 := getOrInitTestDynamicConsumer()
+		dynamic2 := getOrInitTestDynamicConsumer()
 		assert.Same(t, dynamic1, dynamic2)
 		assert.Same(t, dynamic1.registry, GetOrInitRegistry())
 	})
@@ -185,10 +195,169 @@ func TestApplyMcpServerConfig(t *testing.T) {
 	})
 }
 
+func TestToolRegistryListToolsPreservesReplaceOrder(t *testing.T) {
+	registry := NewToolRegistry()
+	require.NoError(t, registry.ReplaceAllTools([]model.ToolConfig{
+		createTestToolConfig("tool2", "Second tool"),
+		createTestToolConfig("tool1", "First tool"),
+		createTestToolConfig("tool3", "Third tool"),
+	}))
+
+	assert.Equal(t, []string{"tool2", "tool1", "tool3"}, toolConfigNames(registry.ListTools()))
+}
+
+func TestToolRegistryToolSnapshotVersionAdvancesOnRegistryMutation(t *testing.T) {
+	registry := NewToolRegistry()
+	_, emptyVersion := registry.ToolSnapshot()
+
+	tools := []model.ToolConfig{
+		createTestToolConfig("tool2", "Second tool"),
+		createTestToolConfig("tool1", "First tool"),
+	}
+	require.NoError(t, registry.ReplaceAllTools(tools))
+	snapshot, version1 := registry.ToolSnapshot()
+	assert.Equal(t, []string{"tool2", "tool1"}, toolConfigNames(snapshot))
+	assert.NotEqual(t, emptyVersion, version1)
+
+	require.NoError(t, registry.ReplaceAllTools([]model.ToolConfig{tools[1], tools[0]}))
+	_, version2 := registry.ToolSnapshot()
+	assert.NotEqual(t, version1, version2, "order-only registry replacements still change tools/list behavior")
+
+	tools[0].Description = "Changed"
+	require.NoError(t, registry.ReplaceAllTools(tools))
+	_, version3 := registry.ToolSnapshot()
+	assert.NotEqual(t, version2, version3)
+}
+
+func TestToolRegistryReturnsDefensiveCopies(t *testing.T) {
+	registry := NewToolRegistry()
+	visible := true
+	tool := createTestToolConfig("tool1", "First tool")
+	tool.Request.Headers = map[string]string{"x-source": "original"}
+	tool.Args[0].Enum = []string{"a", "b"}
+	tool.Args[0].Default = map[string]any{"nested": []any{"original"}}
+	tool.Meta = &model.ToolMeta{Tags: []string{"safe"}, DiscoveryVisibility: &visible}
+	require.NoError(t, registry.ReplaceAllTools([]model.ToolConfig{tool}))
+
+	got, ok := registry.GetTool("tool1")
+	require.True(t, ok)
+	got.Request.Headers["x-source"] = "mutated"
+	got.Args[0].Enum[0] = "mutated"
+	got.Args[0].Default.(map[string]any)["nested"].([]any)[0] = "mutated"
+	got.Meta.Tags[0] = "mutated"
+	*got.Meta.DiscoveryVisibility = false
+
+	again, ok := registry.GetTool("tool1")
+	require.True(t, ok)
+	assert.Equal(t, "original", again.Request.Headers["x-source"])
+	assert.Equal(t, []string{"a", "b"}, again.Args[0].Enum)
+	assert.Equal(t, "original", again.Args[0].Default.(map[string]any)["nested"].([]any)[0])
+	assert.Equal(t, []string{"safe"}, again.Meta.Tags)
+	assert.True(t, *again.Meta.DiscoveryVisibility)
+
+	snapshot := registry.ToolCatalogSnapshot()
+	snapshot.Version = "caller-mutated"
+	snapshot.Fingerprint = "bad"
+	snapshot.ordered[0].Name = "mutated"
+	next := registry.ToolCatalogSnapshot()
+	assert.NotEqual(t, "caller-mutated", next.Version)
+	assert.NotEqual(t, "bad", next.Fingerprint)
+	assert.Equal(t, "tool1", next.OrderedTools()[0].Name)
+}
+
+func TestToolRegistryConcurrentRegistersDoNotLoseUpdates(t *testing.T) {
+	registry := NewToolRegistry()
+	const writers = 100
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	errs := make(chan error, writers)
+
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			errs <- registry.RegisterTool(createTestToolConfig(fmt.Sprintf("tool-%03d", i), "tool"))
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	tools := registry.ListTools()
+	require.Len(t, tools, writers)
+	assert.Equal(t, uint64(writers), registry.ToolCatalogSnapshot().Generation)
+	seen := make(map[string]struct{}, writers)
+	for _, tool := range tools {
+		seen[tool.Name] = struct{}{}
+	}
+	for i := 0; i < writers; i++ {
+		assert.Contains(t, seen, fmt.Sprintf("tool-%03d", i))
+	}
+}
+
+func TestToolRegistryConcurrentReplaceAllPublishesWholeSnapshots(t *testing.T) {
+	registry := NewToolRegistry()
+	const writers = 40
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	errs := make(chan error, writers)
+
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			errs <- registry.ReplaceAllTools([]model.ToolConfig{
+				createTestToolConfig(fmt.Sprintf("replace-%02d-a", i), "a"),
+				createTestToolConfig(fmt.Sprintf("replace-%02d-b", i), "b"),
+			})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	snapshot := registry.ToolCatalogSnapshot()
+	require.Equal(t, uint64(writers), snapshot.Generation)
+	tools := snapshot.OrderedTools()
+	require.Len(t, tools, 2)
+	assert.Equal(t, tools[0].Name[:10], tools[1].Name[:10], "reader must see one complete replacement set")
+}
+
+func TestDynamicConsumerMergedToolsStableByServerIDAndConfigOrder(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
+	consumer.SetDebounceTime(0)
+
+	err := consumer.ApplyMcpServerConfigByServer("server-b", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("b2", "B2"),
+		createTestToolConfig("b1", "B1"),
+	}))
+	require.NoError(t, err)
+
+	err = consumer.ApplyMcpServerConfigByServer("server-a", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("a1", "A1"),
+		createTestToolConfig("a2", "A2"),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"a1", "a2", "b2", "b1"}, toolConfigNames(registry.ListTools()))
+}
+
 func TestApplyMcpServerConfigConcurrent(t *testing.T) {
 	ResetGlobalState()
 	registry := GetOrInitRegistry()
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 
 	const numGoroutines = 10
 	var wg sync.WaitGroup
@@ -245,7 +414,7 @@ func TestDebounceFeatures(t *testing.T) {
 		assert.Equal(t, 1, info["server_count"])
 	})
 
-	t.Run("Time debounce - skip rapid calls", func(t *testing.T) {
+	t.Run("Time debounce - distinct fingerprint applies rapid calls", func(t *testing.T) {
 		registry := NewToolRegistry()
 		sm := transport.NewSessionManager()
 		defer sm.Stop()
@@ -266,12 +435,12 @@ func TestDebounceFeatures(t *testing.T) {
 		require.Len(t, tools, 1)
 		assert.Equal(t, "tool1", tools[0].Name)
 
-		// Immediate second application - should be debounced
+		// Immediate second application with a different fingerprint must not be debounced.
 		err = consumer.ApplyMcpServerConfigByServer("default", config2)
 		assert.NoError(t, err)
 		tools = registry.ListTools()
 		require.Len(t, tools, 1)
-		assert.Equal(t, "tool1", tools[0].Name, "Should still have first tool due to time debounce")
+		assert.Equal(t, "tool2", tools[0].Name, "distinct fingerprint update must not be swallowed by debounce")
 	})
 
 	t.Run("Empty configuration handling", func(t *testing.T) {
@@ -300,6 +469,32 @@ func TestDebounceFeatures(t *testing.T) {
 		info := consumer.GetDebounceInfo()
 		assert.Equal(t, 1, info["server_count"])
 	})
+}
+
+func TestDynamicConsumerSourceIdentitySeparatesRegistries(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+
+	err := consumer.ApplyMcpServerConfigBySource(NewServerSource("registry1", "serverA"), createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("tool-r1", "R1"),
+	}))
+	require.NoError(t, err)
+
+	err = consumer.ApplyMcpServerConfigBySource(NewServerSource("registry2", "serverA"), createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("tool-r2", "R2"),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"tool-r1", "tool-r2"}, toolConfigNames(registry.ListTools()))
+	require.Len(t, consumer.serverConfigs, 2)
+	assert.Contains(t, consumer.serverConfigs, NewServerSource("registry1", "serverA"))
+	assert.Contains(t, consumer.serverConfigs, NewServerSource("registry2", "serverA"))
+
+	err = consumer.ApplyMcpServerConfigBySource(NewServerSource("registry1", "serverA"), nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"tool-r2"}, toolConfigNames(registry.ListTools()))
 }
 
 func TestDebounceConfiguration(t *testing.T) {
@@ -369,6 +564,173 @@ func TestFingerprintCalculation(t *testing.T) {
 	// Same tool should have same fingerprint
 	fingerprint6 := consumer.calculateFingerprint([]model.ToolConfig{tool1})
 	assert.Equal(t, fingerprint2, fingerprint6, "Same tool should have same fingerprint")
+
+	// Duplicate identities should still be order-independent because the full
+	// serialized body is part of the sort key.
+	duplicateA := createTestToolConfig("dup", "First duplicate")
+	duplicateB := createTestToolConfig("dup", "Second duplicate")
+	assert.Equal(t,
+		consumer.calculateFingerprint([]model.ToolConfig{duplicateA, duplicateB}),
+		consumer.calculateFingerprint([]model.ToolConfig{duplicateB, duplicateA}),
+		"Duplicate tool identities should still hash deterministically")
+
+	// Metadata-only changes must affect the fingerprint so dynamic updates are
+	// not skipped when routing tags/risk change.
+	toolWithLowRisk := createTestToolConfig("tool1", "First tool")
+	toolWithLowRisk.Meta = &model.ToolMeta{Risk: "low", Tags: []string{"safe"}}
+	toolWithHighRisk := createTestToolConfig("tool1", "First tool")
+	toolWithHighRisk.Meta = &model.ToolMeta{Risk: "high", Tags: []string{"admin"}}
+	assert.NotEqual(t,
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithLowRisk}),
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithHighRisk}),
+		"Meta changes should affect fingerprint")
+
+	// Request and argument shape changes also affect backend behavior and must
+	// be part of the dynamic configuration hash.
+	toolWithPathA := createTestToolConfig("tool1", "First tool")
+	toolWithPathB := createTestToolConfig("tool1", "First tool")
+	toolWithPathB.Request.Path = "/api/other/{param}"
+	assert.NotEqual(t,
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithPathA}),
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithPathB}),
+		"Request path changes should affect fingerprint")
+
+	toolWithArgA := createTestToolConfig("tool1", "First tool")
+	toolWithArgB := createTestToolConfig("tool1", "First tool")
+	toolWithArgB.Args[0].Required = false
+	assert.NotEqual(t,
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithArgA}),
+		consumer.calculateFingerprint([]model.ToolConfig{toolWithArgB}),
+		"Argument changes should affect fingerprint")
+}
+
+func TestApplyMcpServerConfig_InvalidRiskRejected(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
+	store := router.NewSessionPlanStore()
+	defer store.Stop()
+	sel, err := router.Build(&model.RouterConfig{}, store)
+	require.NoError(t, err)
+	consumer.SetGovernance(sel, store)
+
+	validTool := createTestToolConfig("tool1", "First tool")
+	validTool.Meta = &model.ToolMeta{Risk: "low"}
+	err = consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{validTool}))
+	require.NoError(t, err)
+	require.Len(t, registry.ListTools(), 1)
+
+	invalidTool := createTestToolConfig("tool2", "Second tool")
+	invalidTool.Meta = &model.ToolMeta{Risk: "hihg"}
+	err = consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{invalidTool}))
+	assert.ErrorContains(t, err, "invalid mcp tool router metadata")
+	assert.ErrorContains(t, err, "unsupported risk")
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	assert.Equal(t, "tool1", tools[0].Name)
+}
+
+func TestApplyMcpServerConfig_NoRouterSkipsGovernanceMetadataValidation(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+
+	tool := createTestToolConfig("tool1", "First tool")
+	tool.Meta = &model.ToolMeta{Risk: "legacy-risk-value"}
+	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{tool}))
+	require.NoError(t, err)
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	require.NotNil(t, tools[0].Meta)
+	assert.Equal(t, "legacy-risk-value", tools[0].Meta.Risk)
+}
+
+func TestApplyMcpServerConfig_MetadataChangeIsNotSkipped(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	sseHandler := transport.NewSSEHandler(sm)
+	consumer := NewDynamicConsumer(registry, sm, sseHandler)
+	consumer.SetDebounceTime(0)
+
+	lowRiskTool := createTestToolConfig("tool1", "First tool")
+	lowRiskTool.Meta = &model.ToolMeta{Risk: "low"}
+	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{lowRiskTool}))
+	require.NoError(t, err)
+
+	highRiskTool := createTestToolConfig("tool1", "First tool")
+	highRiskTool.Meta = &model.ToolMeta{Risk: "high"}
+	err = consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{highRiskTool}))
+	require.NoError(t, err)
+
+	tools := registry.ListTools()
+	require.Len(t, tools, 1)
+	require.NotNil(t, tools[0].Meta)
+	assert.Equal(t, "high", tools[0].Meta.Risk)
+}
+
+func TestApplyMcpServerConfig_RejectsDynamicRouterUpdateAtomically(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+
+	initial := createTestMcpServerConfig([]model.ToolConfig{createTestToolConfig("tool1", "First tool")})
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("default", initial))
+
+	routerOnly := createTestMcpServerConfig(nil)
+	routerOnly.Router = &model.RouterConfig{Fallback: router.FallbackFailClosed}
+	err := consumer.ApplyMcpServerConfigByServer("default", routerOnly)
+	assert.ErrorContains(t, err, "tool catalog changes only")
+	assert.Equal(t, []string{"tool1"}, toolConfigNames(registry.ListTools()))
+
+	toolsAndRouter := createTestMcpServerConfig([]model.ToolConfig{createTestToolConfig("tool2", "Second tool")})
+	toolsAndRouter.Router = &model.RouterConfig{Fallback: router.FallbackFailClosed}
+	err = consumer.ApplyMcpServerConfigByServer("default", toolsAndRouter)
+	assert.ErrorContains(t, err, "tool catalog changes only")
+	assert.Equal(t, []string{"tool1"}, toolConfigNames(registry.ListTools()))
+}
+
+func TestApplyMcpServerConfig_DuplicateToolRejectedAtomically(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+	consumer.SetDebounceTime(0)
+
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("safe", "Safe"),
+	})))
+
+	dupA := createTestToolConfig("dup", "First")
+	dupB := createTestToolConfig("dup", "Second")
+	dupB.Cluster = "other-cluster"
+	err := consumer.ApplyMcpServerConfigByServer("default", createTestMcpServerConfig([]model.ToolConfig{dupA, dupB}))
+	assert.ErrorContains(t, err, "duplicate tool name")
+	assert.Equal(t, []string{"safe"}, toolConfigNames(registry.ListTools()))
+}
+
+func TestApplyMcpServerConfig_DuplicateAcrossDynamicServersRejected(t *testing.T) {
+	registry := NewToolRegistry()
+	sm := transport.NewSessionManager()
+	defer sm.Stop()
+	consumer := NewDynamicConsumer(registry, sm, transport.NewSSEHandler(sm))
+	consumer.SetDebounceTime(0)
+
+	require.NoError(t, consumer.ApplyMcpServerConfigByServer("server-a", createTestMcpServerConfig([]model.ToolConfig{
+		createTestToolConfig("shared", "A"),
+	})))
+
+	toolB := createTestToolConfig("shared", "B")
+	toolB.Meta = &model.ToolMeta{Tags: []string{"other"}}
+	err := consumer.ApplyMcpServerConfigByServer("server-b", createTestMcpServerConfig([]model.ToolConfig{toolB}))
+	assert.ErrorContains(t, err, "duplicate tool name")
+	assert.Equal(t, []string{"shared"}, toolConfigNames(registry.ListTools()))
 }
 
 // =============================================================================
@@ -379,7 +741,7 @@ func TestIntegration(t *testing.T) {
 	ResetGlobalState()
 
 	registry := GetOrInitRegistry()
-	consumer := GetOrInitDynamicConsumer()
+	consumer := getOrInitTestDynamicConsumer()
 
 	// Verify initial state
 	assert.Empty(t, registry.ListTools())
