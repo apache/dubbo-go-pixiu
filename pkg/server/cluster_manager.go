@@ -43,7 +43,9 @@ type (
 	ClusterManager struct {
 		rw sync.RWMutex
 
-		store *ClusterStore
+		store                   *ClusterStore
+		endpointRemovalHandlers map[uint64]func(string, string)
+		nextEndpointHandlerID   uint64
 		//cConfig []*model.ClusterConfig
 	}
 
@@ -72,6 +74,27 @@ func (cm *ClusterManager) CloneXdsControlStore() (controls.ClusterStore, error) 
 
 func CreateDefaultClusterManager(bs *model.Bootstrap) *ClusterManager {
 	return &ClusterManager{store: newClusterStore(bs)}
+}
+
+// AddEndpointRemovalHandler registers a callback invoked after an endpoint is
+// removed. The returned function unregisters the callback.
+func (cm *ClusterManager) AddEndpointRemovalHandler(handler func(string, string)) func() {
+	if handler == nil {
+		return func() {}
+	}
+	cm.rw.Lock()
+	if cm.endpointRemovalHandlers == nil {
+		cm.endpointRemovalHandlers = make(map[uint64]func(string, string))
+	}
+	cm.nextEndpointHandlerID++
+	id := cm.nextEndpointHandlerID
+	cm.endpointRemovalHandlers[id] = handler
+	cm.rw.Unlock()
+	return func() {
+		cm.rw.Lock()
+		delete(cm.endpointRemovalHandlers, id)
+		cm.rw.Unlock()
+	}
 }
 
 func newClusterStore(bs *model.Bootstrap) *ClusterStore {
@@ -142,10 +165,27 @@ func (cm *ClusterManager) SetEndpoint(clusterName string, endpoint *model.Endpoi
 
 func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) {
 	cm.rw.Lock()
-	defer cm.rw.Unlock()
-
+	var endpointAddress string
+	if clusterConfig := cm.store.findClusterConfig(clusterName); clusterConfig != nil {
+		for _, endpoint := range clusterConfig.Endpoints {
+			if endpoint != nil && endpoint.ID == endpointID {
+				endpointAddress = endpoint.Address.GetAddress()
+				break
+			}
+		}
+	}
 	cm.store.IncreaseVersion()
 	cm.store.DeleteEndpoint(clusterName, endpointID)
+	handlers := make([]func(string, string), 0, len(cm.endpointRemovalHandlers))
+	for _, handler := range cm.endpointRemovalHandlers {
+		handlers = append(handlers, handler)
+	}
+	cm.rw.Unlock()
+	if endpointAddress != "" {
+		for _, handler := range handlers {
+			handler(clusterName, endpointAddress)
+		}
+	}
 }
 
 func (cm *ClusterManager) CloneStore() (*ClusterStore, error) {

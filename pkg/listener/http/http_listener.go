@@ -49,7 +49,8 @@ type (
 	// ListenerService the facade of a listener
 	HttpListenerService struct {
 		listener.BaseListenerService
-		srv *http.Server
+		srv      *http.Server
+		filterMu sync.RWMutex
 	}
 
 	// DefaultHttpListener
@@ -83,7 +84,22 @@ func (ls *HttpListenerService) Start() error {
 }
 
 func (ls *HttpListenerService) Close() error {
-	return ls.srv.Close()
+	serverErr := error(nil)
+	if ls.srv != nil {
+		serverErr = ls.srv.Close()
+	}
+	filterErr := error(nil)
+	ls.filterMu.Lock()
+	filterChain := ls.FilterChain
+	ls.FilterChain = nil
+	ls.filterMu.Unlock()
+	if filterChain != nil {
+		filterErr = filterChain.Close()
+	}
+	if serverErr != nil {
+		return serverErr
+	}
+	return filterErr
 }
 
 func (ls *HttpListenerService) ShutDown(wg any) error {
@@ -96,13 +112,30 @@ func (ls *HttpListenerService) ShutDown(wg any) error {
 		cancel()
 		wg.(*sync.WaitGroup).Done()
 	}()
-	return ls.srv.Shutdown(ctx)
+	serverErr := ls.srv.Shutdown(ctx)
+	filterErr := error(nil)
+	ls.filterMu.Lock()
+	filterChain := ls.FilterChain
+	ls.FilterChain = nil
+	ls.filterMu.Unlock()
+	if filterChain != nil {
+		filterErr = filterChain.Close()
+	}
+	if serverErr != nil {
+		return serverErr
+	}
+	return filterErr
 }
 
 func (ls *HttpListenerService) Refresh(c model.Listener) error {
-	// There is no need to lock here for now, as there is at most one NetworkFilter
 	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
+	ls.filterMu.Lock()
+	old := ls.FilterChain
 	ls.FilterChain = fc
+	ls.filterMu.Unlock()
+	if old != nil {
+		return old.Close()
+	}
 	return nil
 }
 
@@ -175,7 +208,12 @@ func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.ls.FilterChain.ServeHTTP(w, r)
+	s.ls.filterMu.RLock()
+	filterChain := s.ls.FilterChain
+	if filterChain != nil {
+		filterChain.ServeHTTP(w, r)
+	}
+	s.ls.filterMu.RUnlock()
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {

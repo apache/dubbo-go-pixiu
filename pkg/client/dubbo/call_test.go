@@ -145,14 +145,13 @@ func TestResolveFromOutboundRegistryMode(t *testing.T) {
 func TestPreparePayloadRejectsLengthMismatch(t *testing.T) {
 	dc := NewDubboClient()
 
-	types, vals, finalValues, err := dc.preparePayload(&DubboOutboundRequest{
+	types, vals, err := dc.preparePayload(&DubboOutboundRequest{
 		Arguments:  []any{"only-one"},
 		ParamTypes: []string{"java.lang.String", "int"},
 	})
 
 	assert.Nil(t, types)
 	assert.Nil(t, vals)
-	assert.Nil(t, finalValues)
 	assert.EqualError(t, err, "arguments/paramTypes length mismatch: 1 vs 2")
 }
 
