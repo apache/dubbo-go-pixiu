@@ -55,8 +55,8 @@ func TestFilterFactoriesShareRuntimeCooldownStore(t *testing.T) {
 		return
 	}
 
-	firstStore := firstFactory.(*FilterFactory).cooldownStore()
-	secondStore := secondFactory.(*FilterFactory).cooldownStore()
+	firstStore := firstFactory.(*FilterFactory).cooldowns
+	secondStore := secondFactory.(*FilterFactory).cooldowns
 
 	assert.NotNil(t, firstStore)
 	assert.Same(t, firstStore, secondStore)
@@ -75,6 +75,43 @@ func TestFilterFactoriesShareRuntimeCooldownStore(t *testing.T) {
 	firstExecutor.markEndpointCooldown(endpoint)
 
 	assert.True(t, secondExecutor.endpointInCooldown(endpoint))
+}
+
+func TestIndependentPluginsDoNotShareCooldownState(t *testing.T) {
+	firstPlugin := &Plugin{}
+	secondPlugin := &Plugin{}
+
+	firstFactory, err := firstPlugin.CreateFilterFactory()
+	if !assert.NoError(t, err) {
+		return
+	}
+	secondFactory, err := secondPlugin.CreateFilterFactory()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	firstStore := firstFactory.(*FilterFactory).cooldowns
+	secondStore := secondFactory.(*FilterFactory).cooldowns
+
+	assert.NotNil(t, firstStore)
+	assert.NotNil(t, secondStore)
+	assert.NotSame(t, firstStore, secondStore)
+
+	clusterName := "llm-isolated-runtime-cooldown"
+	endpoint := testLLMEndpoint("ep-1", 18189)
+	firstExecutor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   firstStore,
+	}
+	secondExecutor := &RequestExecutor{
+		clusterName: clusterName,
+		cooldowns:   secondStore,
+	}
+
+	firstExecutor.markEndpointCooldown(endpoint)
+
+	assert.True(t, firstExecutor.endpointInCooldown(endpoint))
+	assert.False(t, secondExecutor.endpointInCooldown(endpoint))
 }
 
 func TestStrategyExecuteUsesRuntimeCooldownStateWithoutMutatingEndpointMetadata(t *testing.T) {

@@ -107,6 +107,11 @@ const (
 	HeaderKeyMCPSessionId       = "Mcp-Session-Id"
 )
 
+// MCPAuthClaimsParamKey is the HttpContext.Params key under which the MCP auth
+// filter stores validated JWT claims for downstream filters (e.g. the MCP tool
+// router). The value is a map[string]any.
+const MCPAuthClaimsParamKey = "mcp_auth_claims"
+
 // MCP protocol versions
 const (
 	MCPProtocolVersion20250618 = "2025-06-18"

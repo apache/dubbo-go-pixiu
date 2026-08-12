@@ -18,14 +18,22 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 import (
@@ -430,6 +438,9 @@ func TestClusterManager_SetEndpointExplicitSameIDDifferentAddressRebuildsConsist
 			assert.Equal(t, "ep-1", endpoints[0].ID)
 			assert.Equal(t, "127.0.0.2", endpoints[0].Address.Address)
 
+			// The Config-level hash is built lazily on the legacy pick path now,
+			// so trigger the build before inspecting it directly.
+			cm.store.Config[0].EnsureConsistentHash()
 			hash := cm.store.Config[0].ConsistentHash.Hash
 			if !assert.NotNil(t, hash) {
 				return
@@ -478,6 +489,9 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 		assert.NotSame(t, remainingEndpoint, config.Endpoints[0])
 	}
 
+	// The Config-level hash is built lazily on the legacy pick path now,
+	// so trigger the build before inspecting it directly.
+	config.EnsureConsistentHash()
 	hash := config.ConsistentHash.Hash
 	if !assert.NotNil(t, hash) {
 		return
@@ -489,6 +503,67 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 	hosts := hostList.Hosts()
 	assert.NotContains(t, hosts, deletedHost)
 	assert.Contains(t, hosts, remainingHost)
+}
+
+// countingFixedHash is a minimal model.LbConsistentHash fixture for the
+// deferred-rebuild test; only construction is observed (via the registered
+// init func's counter), so the lookup methods are stubs.
+type countingFixedHash struct{}
+
+func (countingFixedHash) Hash(string) uint32             { return 0 }
+func (countingFixedHash) Get(string) (string, error)     { return "", nil }
+func (countingFixedHash) GetHash(uint32) (string, error) { return "", nil }
+func (countingFixedHash) Add(string)                     {}
+func (countingFixedHash) Remove(string) bool             { return false }
+
+// TestClusterManager_SetEndpointDefersConsistentHashRebuild verifies that the
+// Config-level consistent hash is no longer rebuilt eagerly on every config
+// mutation. SetEndpoint churn must trigger zero hash builds (the snapshot pick
+// path never reads Config.ConsistentHash.Hash); the hash is built lazily, once,
+// only when the legacy path calls EnsureConsistentHash.
+func TestClusterManager_SetEndpointDefersConsistentHashRebuild(t *testing.T) {
+	const deferLbPolicy model.LbPolicyType = "DeferRebuildCountingHash"
+	var buildCount int32
+	model.ConsistentHashInitMap[deferLbPolicy] = func(model.ConsistentHash, []*model.Endpoint) model.LbConsistentHash {
+		atomic.AddInt32(&buildCount, 1)
+		return countingFixedHash{}
+	}
+	defer delete(model.ConsistentHashInitMap, deferLbPolicy)
+
+	config := testCluster("defer-hash-rebuild", deferLbPolicy, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19360),
+	})
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	// Initial assembly must not build the Config-level hash.
+	assert.Equal(t, int32(0), atomic.LoadInt32(&buildCount), "AddCluster must not eagerly build the consistent hash")
+
+	for i := 0; i < 5; i++ {
+		cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19361+i))
+	}
+	assert.Equal(t, int32(0), atomic.LoadInt32(&buildCount), "SetEndpoint churn must not build the Config-level hash on the snapshot path")
+
+	stored := cm.store.Config[0]
+	stored.EnsureConsistentHash()
+	stored.EnsureConsistentHash()
+	assert.Equal(t, int32(1), atomic.LoadInt32(&buildCount), "legacy path must build the hash exactly once and reuse it")
+}
+
+func TestClusterManager_PrepareClusterConfigPreservesCustomHashWithoutFactory(t *testing.T) {
+	customHash := &countingFixedHash{}
+	config := testCluster("custom-hash-preserve", model.LbPolicyType("UnregisteredConsistentHash"), []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19370),
+	})
+	config.ConsistentHash.Hash = customHash
+
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+
+	cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19371))
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
 }
 
 func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
@@ -1041,6 +1116,71 @@ func TestAssembleEndpointsDeduplicatesExplicitID(t *testing.T) {
 			"not the generated- hash, so the operator's choice stays readable")
 }
 
+// TestEndpointIDAssemblyAndSnapshotRebuildAgree locks issue #969: the config
+// assembly path (ClusterStore.assembleClusterEndpoints, used for static/dynamic
+// config) and the snapshot-rebuild path (cluster.NewCluster -> newEndpointSnapshot)
+// must assign byte-identical endpoint IDs for the same cluster. The endpoint ID
+// is the runtime health/cooldown key, so if the two -2/-3 suffix algorithms ever
+// drift, the same endpoint would get a different ID on a snapshot rebuild and
+// split its health state. Both paths now route through model.StableUniqueEndpointID;
+// this test fails if a future change reintroduces a second, diverging copy.
+func TestEndpointIDAssemblyAndSnapshotRebuildAgree(t *testing.T) {
+	const clusterName = "id-agreement"
+
+	idsOf := func(endpoints []*model.Endpoint) []string {
+		ids := make([]string, len(endpoints))
+		for i, endpoint := range endpoints {
+			ids[i] = endpoint.ID
+		}
+		return ids
+	}
+
+	tests := []struct {
+		name      string
+		endpoints func() []*model.Endpoint
+	}{
+		{
+			// Operator wrote the same id: twice — base is the operator ID.
+			name: "explicit duplicate ID",
+			endpoints: func() []*model.Endpoint {
+				return []*model.Endpoint{
+					{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 22001}},
+					{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 22002}},
+				}
+			},
+		},
+		{
+			// No IDs and identical hash material — base is the generated hash.
+			name: "anonymous endpoints with identical hash material",
+			endpoints: func() []*model.Endpoint {
+				return []*model.Endpoint{
+					{Address: model.SocketAddress{Address: "127.0.0.1", Port: 22010}},
+					{Address: model.SocketAddress{Address: "127.0.0.1", Port: 22010}},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assembled := &model.ClusterConfig{Name: clusterName, Endpoints: tt.endpoints()}
+			(&ClusterStore{}).assembleClusterEndpoints(assembled)
+			assembledIDs := idsOf(assembled.Endpoints)
+
+			runtime := cluster.NewCluster(&model.ClusterConfig{Name: clusterName, Endpoints: tt.endpoints()})
+			snapshotIDs := idsOf(runtime.EndpointSnapshot().AllEndpoints())
+
+			assert.Equal(t, assembledIDs, snapshotIDs,
+				"config assembly and snapshot rebuild must assign identical endpoint IDs")
+
+			if assert.Len(t, assembledIDs, 2) {
+				assert.Equal(t, assembledIDs[0]+"-2", assembledIDs[1],
+					"both paths must suffix the colliding second endpoint with -2, not collapse it")
+			}
+		})
+	}
+}
+
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
 	return CreateDefaultClusterManager(&model.Bootstrap{
 		StaticResources: model.StaticResources{
@@ -1114,4 +1254,119 @@ func healthCheckerAddresses(runtime *cluster.Cluster) []string {
 		addrs = append(addrs, iter.Key().String())
 	}
 	return addrs
+}
+
+// TestStaticClusterSnapshotMetricsRecordedAtStartup verifies that snapshot
+// publication metrics emitted during static cluster initialization land on the
+// real meter provider. This test models production startup ordering: clusters
+// are created during CreateDefaultClusterManager (called from initialize), and
+// the OTel provider must be installed BEFORE that point so the initial snapshot
+// publish (the only guaranteed emission for steady-state clusters) is recorded.
+//
+// Regression guard for: if registerOtelMetricMeter is moved back after cluster
+// construction, static clusters' initial publish lands on the no-op delegating
+// provider, and the counter/gauges remain empty in steady state.
+func TestStaticClusterSnapshotMetricsRecordedAtStartup(t *testing.T) {
+	// Step 1: Install a ManualReader meter provider BEFORE cluster construction.
+	// This models the corrected startup order: registerOtelMetricMeter(bs.Metric)
+	// is called in Start(bs) before server.initialize(bs).
+	reader := installClusterSnapshotMetricsReader(t)
+
+	// Step 2: Construct a cluster manager with static clusters, simulating what
+	// happens during initialize → CreateDefaultClusterManager.
+	staticCluster := testCluster("static-metrics-test", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19001),
+		testEndpoint("ep-2", "127.0.0.1", 19002),
+	})
+	_ = CreateDefaultClusterManager(&model.Bootstrap{
+		StaticResources: model.StaticResources{
+			Clusters: []*model.ClusterConfig{staticCluster},
+		},
+	})
+
+	// Step 3: Verify the initial snapshot publish was recorded. NewCluster calls
+	// RefreshEndpointsFrom, which publishes once. That single emission must land
+	// on the real provider for steady-state clusters (those with no health flips
+	// or registry churn) to have any recorded metrics at all.
+	metrics := collectClusterSnapshotMetrics(t, reader)
+
+	publishTotal, ok := metrics["pixiu_cluster_snapshot_publish_total"]
+	assert.True(t, ok, "publish total metric missing")
+	assert.Equal(t, int64(1), sumForClusterMetric(t, publishTotal, "static-metrics-test"),
+		"static cluster initial publish must increment the counter")
+
+	endpointCount, ok := metrics["pixiu_cluster_snapshot_endpoint_count"]
+	assert.True(t, ok, "endpoint count gauge missing")
+	assert.Equal(t, int64(2), gaugeForClusterMetric(t, endpointCount, "static-metrics-test"),
+		"endpoint count gauge must reflect the initial snapshot size")
+
+	healthyCount, ok := metrics["pixiu_cluster_snapshot_healthy_endpoint_count"]
+	assert.True(t, ok, "healthy endpoint count gauge missing")
+	assert.Equal(t, int64(2), gaugeForClusterMetric(t, healthyCount, "static-metrics-test"),
+		"healthy endpoint count gauge must reflect the initial snapshot size")
+}
+
+// installClusterSnapshotMetricsReader installs a ManualReader meter provider
+// for snapshot metrics testing and restores the previous provider on cleanup.
+// This helper mutates the process-global MeterProvider, so tests using it must
+// not call t.Parallel().
+func installClusterSnapshotMetricsReader(t *testing.T) *sdkmetric.ManualReader {
+	t.Helper()
+
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	prevProvider := otel.GetMeterProvider()
+
+	otel.SetMeterProvider(provider)
+
+	t.Cleanup(func() {
+		otel.SetMeterProvider(prevProvider)
+	})
+
+	return reader
+}
+
+// collectClusterSnapshotMetrics collects metrics from the reader and returns
+// them as a map keyed by metric name.
+func collectClusterSnapshotMetrics(t *testing.T, reader *sdkmetric.ManualReader) map[string]metricdata.Metrics {
+	t.Helper()
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+
+	out := make(map[string]metricdata.Metrics)
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			out[m.Name] = m
+		}
+	}
+	return out
+}
+
+// sumForClusterMetric extracts the counter value for the given cluster label.
+func sumForClusterMetric(t *testing.T, m metricdata.Metrics, clusterName string) int64 {
+	t.Helper()
+	data, ok := m.Data.(metricdata.Sum[int64])
+	require.True(t, ok, "metric %s is not an int64 Sum", m.Name)
+	for _, dp := range data.DataPoints {
+		if v, ok := dp.Attributes.Value(attribute.Key("cluster")); ok && v.AsString() == clusterName {
+			return dp.Value
+		}
+	}
+	t.Fatalf("no data point for cluster %q in metric %s", clusterName, m.Name)
+	return 0
+}
+
+// gaugeForClusterMetric extracts the gauge value for the given cluster label.
+func gaugeForClusterMetric(t *testing.T, m metricdata.Metrics, clusterName string) int64 {
+	t.Helper()
+	data, ok := m.Data.(metricdata.Gauge[int64])
+	require.True(t, ok, "metric %s is not an int64 Gauge", m.Name)
+	for _, dp := range data.DataPoints {
+		if v, ok := dp.Attributes.Value(attribute.Key("cluster")); ok && v.AsString() == clusterName {
+			return dp.Value
+		}
+	}
+	t.Fatalf("no data point for cluster %q in metric %s", clusterName, m.Name)
+	return 0
 }

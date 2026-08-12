@@ -22,6 +22,10 @@ import (
 	"fmt"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
+)
+
 const generatedEndpointIDPrefix = "pixiu-generated-endpoint-"
 
 const (
@@ -138,6 +142,30 @@ func (c *ClusterConfig) CreateConsistentHash() {
 	}
 }
 
+// HasConsistentHashFactory reports whether this cluster's load-balancer policy
+// can rebuild Config-level consistent-hash state from endpoints.
+func (c *ClusterConfig) HasConsistentHashFactory() bool {
+	_, ok := ConsistentHashInitMap[c.LbStr]
+	return ok
+}
+
+// EnsureConsistentHash lazily builds the Config-level consistent hash on first
+// use and reuses it afterwards. It exists only for the legacy (non-snapshot)
+// pick path: snapshot-aware balancers ignore Config.ConsistentHash.Hash and
+// read the snapshot's own healthy hash instead. Building here rather than
+// eagerly on every config mutation avoids rebuilding a large Maglev table on
+// each endpoint add/remove in high-churn discovery environments.
+//
+// Not safe for concurrent use. The legacy pick path serializes callers under
+// loadbalancer's package lock; a fresh ClusterConfig (e.g. a CloneStore copy,
+// whose Hash interface does not survive the yaml round-trip) rebuilds
+// independently on its first legacy pick.
+func (c *ClusterConfig) EnsureConsistentHash() {
+	if c.ConsistentHash.Hash == nil {
+		c.CreateConsistentHash()
+	}
+}
+
 func (e Endpoint) GetHost() string {
 	return fmt.Sprintf("%s:%d", e.Address.Address, e.Address.Port)
 }
@@ -198,6 +226,41 @@ func endpointIDMaterialField(name, value string) string {
 	return fmt.Sprintf("%s:%d:%s\n", name, len(value), value)
 }
 
+// StableUniqueEndpointID resolves a stable runtime ID for one endpoint within
+// a per-cluster dedup set. The operator's explicit endpoint.ID wins unless it
+// collides with an entry already in taken; on collision it appends -2, -3, ...
+// so an operator who wrote id: foo twice sees foo and foo-2 (not
+// generated-<hash>-2). When the operator supplied no ID, GenerateEndpointID's
+// deterministic hash is the base and collisions on that base also append
+// -2, -3, ...
+//
+// The endpoint ID is the runtime health/cooldown key. Static/dynamic config
+// assembly (server.ClusterStore.assembleClusterEndpoints) and snapshot rebuild
+// (cluster.newEndpointSnapshot) must agree on it, or the same endpoint would
+// split its health state across a snapshot rebuild. Both call this so the two
+// paths can never drift.
+//
+// taken is read only: the caller records the returned ID before resolving the
+// next endpoint.
+func StableUniqueEndpointID(clusterName string, endpoint *Endpoint, taken map[string]struct{}) string {
+	baseID := ""
+	if endpoint != nil {
+		baseID = endpoint.ID
+	}
+	if baseID == "" {
+		baseID = GenerateEndpointID(clusterName, endpoint)
+	}
+	if _, exists := taken[baseID]; !exists {
+		return baseID
+	}
+	for suffix := 2; ; suffix++ {
+		candidate := fmt.Sprintf("%s-%d", baseID, suffix)
+		if _, exists := taken[candidate]; !exists {
+			return candidate
+		}
+	}
+}
+
 // CloneEndpoints returns a deep copy of endpoints. Nil input is preserved.
 func CloneEndpoints(endpoints []*Endpoint) []*Endpoint {
 	if endpoints == nil {
@@ -216,7 +279,7 @@ func CloneEndpoints(endpoints []*Endpoint) []*Endpoint {
 // back into the runtime snapshot.
 //
 // Cost: O(depth) — LLMMeta.RetryPolicy.Config is recursively cloned via
-// cloneAnyMap, which allocates per nested map/slice. The request path
+// copyutil.CloneJSONLike, which allocates per nested map/slice. The request path
 // should clone at most once per pick (typically when returning the chosen
 // endpoint to the caller); avoid CloneEndpoint inside per-iteration loops
 // over a snapshot's endpoint slice. Use HealthyEndpointsForPick to scan
@@ -241,14 +304,7 @@ func cloneSocketAddress(address SocketAddress) SocketAddress {
 }
 
 func cloneMetadata(metadata map[string]string) map[string]string {
-	if metadata == nil {
-		return nil
-	}
-	cloned := make(map[string]string, len(metadata))
-	for key, value := range metadata {
-		cloned[key] = value
-	}
-	return cloned
+	return copyutil.CloneStringMap(metadata)
 }
 
 func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
@@ -256,46 +312,8 @@ func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
 		return nil
 	}
 	cloned := *meta
-	cloned.RetryPolicy.Config = cloneAnyMap(meta.RetryPolicy.Config)
+	cloned.RetryPolicy.Config = copyutil.CloneStringAnyMap(meta.RetryPolicy.Config)
 	return &cloned
-}
-
-func cloneAnyMap(input map[string]any) map[string]any {
-	if input == nil {
-		return nil
-	}
-	cloned := make(map[string]any, len(input))
-	for key, value := range input {
-		cloned[key] = cloneAnyValue(value)
-	}
-	return cloned
-}
-
-func cloneAnyValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return cloneAnyMap(typed)
-	case []any:
-		cloned := make([]any, len(typed))
-		for i, item := range typed {
-			cloned[i] = cloneAnyValue(item)
-		}
-		return cloned
-	case []string:
-		return append([]string(nil), typed...)
-	case []int:
-		return append([]int(nil), typed...)
-	case []int64:
-		return append([]int64(nil), typed...)
-	case []float64:
-		return append([]float64(nil), typed...)
-	case []bool:
-		return append([]bool(nil), typed...)
-	case map[string]string:
-		return cloneMetadata(typed)
-	default:
-		return value
-	}
 }
 
 // CloneClusterConfig returns a deep copy of c suitable for handing to a new
@@ -329,7 +347,7 @@ func cloneHealthChecks(checks []HealthCheckConfig) []HealthCheckConfig {
 	for i, hc := range checks {
 		cloned[i] = hc
 		cloned[i].CommonCallbacks = append([]string(nil), hc.CommonCallbacks...)
-		cloned[i].SessionConfig = cloneAnyMap(hc.SessionConfig)
+		cloned[i].SessionConfig = copyutil.CloneStringAnyMap(hc.SessionConfig)
 	}
 	return cloned
 }

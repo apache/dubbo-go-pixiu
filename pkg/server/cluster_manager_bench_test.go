@@ -34,9 +34,10 @@ import (
 
 var (
 	// Keep benchmark results live so the compiler cannot optimize the hot path away.
-	benchmarkEndpointSink  *model.Endpoint
-	benchmarkEndpointsSink []*model.Endpoint
-	benchmarkClusterSink   *model.ClusterConfig
+	benchmarkEndpointSink       *model.Endpoint
+	benchmarkEndpointsSink      []*model.Endpoint
+	benchmarkClusterSink        *model.ClusterConfig
+	benchmarkConsistentHashSink model.LbConsistentHashView
 )
 
 type benchmarkHashPolicy string
@@ -168,6 +169,39 @@ func benchmarkHealthySnapshotAccessor(
 	}
 }
 
+func BenchmarkClusterSetEndpointMembershipChurn(b *testing.B) {
+	endpointCount := 1000
+	clusterName := "endpoint-churn"
+
+	clusterConfig := benchmarkClusterConfig(clusterName, model.LoadBalancerRoundRobin, endpointCount, 0)
+	for _, endpoint := range clusterConfig.Endpoints {
+		endpoint.Metadata = map[string]string{
+			"first":  "0",
+			"second": "0",
+			"third":  "0",
+		}
+	}
+
+	cm := testClusterManager(clusterConfig)
+	endpoints := cm.store.Config[0].Endpoints
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		endpoint := endpoints[i%len(endpoints)]
+
+		cm.SetEndpoint(clusterName, &model.Endpoint{
+			ID:      endpoint.ID,
+			Address: endpoint.Address,
+			Metadata: map[string]string{
+				"first":  fmt.Sprintf("%d", i),
+				"second": fmt.Sprintf("%d", i),
+				"third":  fmt.Sprintf("%d", i),
+			},
+		})
+	}
+}
+
 func BenchmarkClusterCompareAndSetStoreMixed(b *testing.B) {
 	cm, names := benchmarkClusterManager(128, 4, model.LoadBalancerRoundRobin)
 	readIndex := 0
@@ -208,6 +242,96 @@ func BenchmarkClusterConsistentHashResolve(b *testing.B) {
 				benchmarkEndpointSink = cm.PickEndpoint(clusterName, keys[i%len(keys)])
 			}
 		})
+	}
+}
+
+// BenchmarkSetEndpoint measures the per-mutation cost of a registry update on a
+// Maglev cluster with a large lookup table — the metadata-only re-registration
+// a high-churn discovery environment performs on every heartbeat. Each update
+// keeps the endpoint's address fixed (no healthcheck restart) and only flips
+// metadata, so SetEndpoint takes the in-place replace path and prepareClusterConfig
+// runs on every iteration. Before this change that meant repopulating the whole
+// 65537-slot table per mutation; after it, the snapshot path skips the rebuild.
+//
+// The two metadata generations matter: SetEndpoint short-circuits to an
+// idempotent no-op when the incoming endpoint is content-equal to the slot's
+// current occupant. Alternating generations each cycle guarantees every visit
+// to a slot differs from its previous occupant, so the benchmark exercises the
+// rebuild path on every call instead of collapsing into the fast path after the
+// first cycle. Inputs are pre-built so no per-iteration input allocation leaks
+// into the measurement.
+func BenchmarkSetEndpoint(b *testing.B) {
+	const (
+		endpointCount = 64
+		generations   = 2
+	)
+	cluster := testCluster("set-endpoint-maglev", model.LoadBalancerMaglevHashing, nil)
+	cluster.ConsistentHash = model.ConsistentHash{MaglevTableSize: 65537}
+	for i := 0; i < endpointCount; i++ {
+		cluster.Endpoints = append(cluster.Endpoints, testEndpoint(fmt.Sprintf("ep-%d", i), "127.0.0.1", 20000+i))
+	}
+	cm := testClusterManager(cluster)
+	defer stopStoreRuntimes(cm.store)
+
+	updates := make([][]*model.Endpoint, generations)
+	for g := range updates {
+		updates[g] = make([]*model.Endpoint, endpointCount)
+		for i := range updates[g] {
+			endpoint := testEndpoint(fmt.Sprintf("ep-%d", i), "127.0.0.1", 20000+i)
+			endpoint.Metadata = map[string]string{"generation": fmt.Sprintf("gen-%d", g)}
+			updates[g][i] = endpoint
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		generation := (i / endpointCount) % generations
+		cm.SetEndpoint(cluster.Name, updates[generation][i%endpointCount])
+	}
+}
+
+func BenchmarkClusterConsistentHashSnapshotRefreshUnchangedHealthySet(b *testing.B) {
+	for _, lbType := range []model.LbPolicyType{model.LoadBalancerRingHashing, model.LoadBalancerMaglevHashing} {
+		for _, endpointCount := range []int{1, 32, 256, 1024} {
+			name := fmt.Sprintf("%s/endpoints=%d", lbType, endpointCount)
+			b.Run(name, func(b *testing.B) {
+				b.Run("reuse-cached-previous", func(b *testing.B) {
+					benchmarkConsistentHashSnapshotRefresh(b, lbType, endpointCount, true)
+				})
+				b.Run("rebuild-uncached-previous", func(b *testing.B) {
+					benchmarkConsistentHashSnapshotRefresh(b, lbType, endpointCount, false)
+				})
+			})
+		}
+	}
+}
+
+func benchmarkConsistentHashSnapshotRefresh(
+	b *testing.B,
+	lbType model.LbPolicyType,
+	endpointCount int,
+	previousHashBuilt bool,
+) {
+	config := benchmarkClusterConfig("consistent-hash-refresh", lbType, endpointCount, 0)
+	previous := cluster.NewCluster(config).EndpointSnapshot()
+	if previousHashBuilt {
+		benchmarkConsistentHashSink = previous.HealthyConsistentHash()
+		if benchmarkConsistentHashSink == nil {
+			b.Fatal("expected previous consistent hash")
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runtimeCluster := cluster.NewClusterWithEndpointSnapshot(config, previous)
+		next := runtimeCluster.EndpointSnapshot()
+		benchmarkConsistentHashSink = next.HealthyConsistentHash()
+	}
+	b.StopTimer()
+	if benchmarkConsistentHashSink == nil {
+		b.Fatal("expected consistent hash")
 	}
 }
 

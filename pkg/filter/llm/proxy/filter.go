@@ -77,8 +77,13 @@ func init() {
 }
 
 type (
-	// Plugin is the main plugin entrypoint.
-	Plugin struct{}
+	// Plugin is the main plugin entrypoint. It is registered once at init time
+	// and lives for the whole process, so it owns the cooldown store that must
+	// outlive individual filter factory reloads.
+	Plugin struct {
+		initOnce  sync.Once
+		cooldowns *cooldownStore
+	}
 
 	// FilterFactory creates filter instances.
 	FilterFactory struct {
@@ -133,9 +138,19 @@ type (
 	}
 )
 
-// sharedCooldownStore keeps endpoint cooldowns process-wide so filter reloads
-// and multiple LLM proxy factories do not reset runtime failure state.
-var sharedCooldownStore = newCooldownStore()
+// newPlugin builds the plugin with its process-wide cooldown store, so every
+// filter factory the plugin creates shares one runtime failure state that
+// survives individual factory reloads.
+func newPlugin() *Plugin {
+	return &Plugin{cooldowns: newCooldownStore()}
+}
+
+func (p *Plugin) cooldownStore() *cooldownStore {
+	p.initOnce.Do(func() {
+		p.cooldowns = newCooldownStore()
+	})
+	return p.cooldowns
+}
 
 func getPreferredEndpointID(hc *contexthttp.HttpContext) string {
 	if hc == nil || hc.Params == nil {
@@ -157,9 +172,11 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-// CreateFilterFactory creates a new factory instance for this filter.
+// CreateFilterFactory creates a new factory instance for this filter. The
+// plugin-owned cooldown store is injected here so every factory and the
+// request executors it builds share one explicit store with no global fallback.
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &Config{}}, nil
+	return &FilterFactory{cfg: &Config{}, cooldowns: p.cooldownStore()}, nil
 }
 
 // Config returns the configuration struct for the factory.
@@ -194,7 +211,7 @@ func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, cha
 		scheme:         factory.cfg.Scheme,
 		strategy:       &Strategy{},
 		clusterManager: server.GetClusterManager(),
-		cooldowns:      factory.cooldownStore(),
+		cooldowns:      factory.cooldowns,
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
@@ -417,7 +434,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 }
 
 func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bool {
-	store := executor.cooldownStore()
+	store := executor.cooldowns
 	if store == nil || endpoint == nil {
 		return false
 	}
@@ -438,31 +455,11 @@ func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bo
 }
 
 func (executor *RequestExecutor) markEndpointCooldown(endpoint *model.Endpoint) {
-	store := executor.cooldownStore()
+	store := executor.cooldowns
 	if store == nil || endpoint == nil {
 		return
 	}
 	store.markFailure(executor.clusterName, endpoint, time.Now())
-}
-
-func (executor *RequestExecutor) cooldownStore() *cooldownStore {
-	if executor == nil {
-		return nil
-	}
-	if executor.cooldowns != nil {
-		return executor.cooldowns
-	}
-	if executor.filter != nil && executor.filter.cooldowns != nil {
-		return executor.filter.cooldowns
-	}
-	return sharedCooldownStore
-}
-
-func (factory *FilterFactory) cooldownStore() *cooldownStore {
-	if factory == nil || factory.cooldowns == nil {
-		return sharedCooldownStore
-	}
-	return factory.cooldowns
 }
 
 func newCooldownStore() *cooldownStore {

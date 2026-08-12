@@ -18,9 +18,7 @@
 package mcpserver
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -28,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
 	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -36,9 +35,14 @@ import (
 const (
 	// DefaultDebounceTime default debounce interval
 	DefaultDebounceTime = 500 * time.Millisecond
+)
 
-	// EmptyFingerprint fingerprint value for empty configuration
-	EmptyFingerprint = "00000000"
+var errDynamicRouterUpdateUnsupported = fmt.Errorf("dynamic MCP updates support tool catalog changes only; router changes require filter rebuild")
+
+type serverConfigApplySkipReason string
+
+const (
+	serverConfigApplySkippedUnchanged serverConfigApplySkipReason = "unchanged"
 )
 
 // ServerToolConfig tool configuration for a single server
@@ -48,15 +52,27 @@ type ServerToolConfig struct {
 	LastApplied time.Time
 }
 
+type serverConfigApplyResult struct {
+	SkippedReason serverConfigApplySkipReason
+	Fingerprint   string
+	Elapsed       time.Duration
+	ServerCount   int
+	MergedCount   int
+}
+
 // DynamicConsumer applies dynamic MCP configurations into the registry
 type DynamicConsumer struct {
 	registry       *ToolRegistry
 	sessionManager *transport.SessionManager
 	sseHandler     *transport.SSEHandler
+	selector       router.ToolSelector
+	plans          *router.SessionPlanStore
+	governance     bool
+	runtimeID      string
 
 	// Tool configuration management grouped by server
 	mu            sync.RWMutex
-	serverConfigs map[string]*ServerToolConfig // serverId -> server tool configuration
+	serverConfigs map[ServerSource]*ServerToolConfig
 	debounceTime  time.Duration
 }
 
@@ -65,98 +81,138 @@ func NewDynamicConsumer(reg *ToolRegistry, sm *transport.SessionManager, sseHand
 		registry:       reg,
 		sessionManager: sm,
 		sseHandler:     sseHandler,
-		serverConfigs:  make(map[string]*ServerToolConfig),
+		serverConfigs:  make(map[ServerSource]*ServerToolConfig),
 		debounceTime:   DefaultDebounceTime,
 	}
 }
 
-// ApplyMcpServerConfigByServer applies configuration by server ID
-func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *model.McpServerConfig) error {
-	if cfg == nil {
-		return d.removeServerConfig(serverId)
-	}
+func (d *DynamicConsumer) RuntimeID() string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.runtimeID
+}
 
+func (d *DynamicConsumer) setRuntimeID(id string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	d.runtimeID = id
+}
 
-	// 1. Calculate new configuration fingerprint
-	fingerprint := d.calculateFingerprint(cfg.Tools)
+func (d *DynamicConsumer) SetGovernance(selector router.ToolSelector, plans *router.SessionPlanStore) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.selector = selector
+	d.plans = plans
+	d.governance = selector != nil && plans != nil
+}
 
-	// 2. Check if the server's configuration really needs to be updated
-	if existingConfig, exists := d.serverConfigs[serverId]; exists {
-		if existingConfig.Fingerprint == fingerprint {
-			logger.Debugf("[dubbo-go-pixiu] mcp server %s config unchanged (fp=%s), skipped", serverId, fingerprint)
-			return nil
-		}
+// ApplyMcpServerConfigByServer applies a dynamic tool catalog update by server
+// ID. Router configuration is intentionally not applied on this path; a dynamic
+// payload that contains a router section is rejected before mutating tools so
+// the runtime cannot enter a tools=new/router=old partial state.
+func (d *DynamicConsumer) ApplyMcpServerConfigByServer(serverId string, cfg *model.McpServerConfig) error {
+	return d.ApplyMcpServerConfigBySource(NewServerSource(DefaultRegistryName, serverId), cfg)
+}
+
+// ApplyMcpServerConfigBySource applies a dynamic tool catalog update by stable
+// registry source identity. Router configuration is rebuild-only and rejected on
+// this path before mutating catalog state.
+func (d *DynamicConsumer) ApplyMcpServerConfigBySource(source ServerSource, cfg *model.McpServerConfig) error {
+	source = source.Normalize()
+	if cfg == nil {
+		return d.removeServerConfig(source)
 	}
-
-	// 3. Debounce check (based on this server's configuration change time)
-	now := time.Now()
-	if existingConfig, exists := d.serverConfigs[serverId]; exists {
-		// Skip only if this server is within debounce time
-		if !existingConfig.LastApplied.IsZero() && now.Sub(existingConfig.LastApplied) < d.debounceTime {
-			logger.Debugf("[dubbo-go-pixiu] mcp server %s debounce active (elapsed=%v), skipped", serverId, now.Sub(existingConfig.LastApplied))
-			return nil
-		}
-	}
-
-	// 4. Fully replace the server's tool configuration
-	oldConfig := d.serverConfigs[serverId]
-	serverConfig := &ServerToolConfig{
-		Tools:       make([]model.ToolConfig, len(cfg.Tools)),
-		Fingerprint: fingerprint,
-		LastApplied: now,
-	}
-	copy(serverConfig.Tools, cfg.Tools)
-	d.serverConfigs[serverId] = serverConfig
-
-	// 5. Recalculate merged tools from all servers and apply to registry
-	mergedTools := d.calculateCurrentMergedTools()
-	if err := d.applyMergedConfig(mergedTools); err != nil {
-		// Rollback
-		if oldConfig != nil {
-			d.serverConfigs[serverId] = oldConfig
-		} else {
-			delete(d.serverConfigs, serverId)
-		}
+	if err := d.validateDynamicConfig(cfg); err != nil {
 		return err
 	}
 
-	logger.Infof("[dubbo-go-pixiu] mcp server %s config applied: %d tools, total servers: %d, merged tools: %d",
-		serverId, len(cfg.Tools), len(d.serverConfigs), len(mergedTools))
+	result, err := d.applyServerTools(source, cfg.Tools)
+	if err != nil {
+		return err
+	}
+	if d.logSkippedServerConfigApply(source, result) {
+		return nil
+	}
 
-	// Notify all connected clients about tools list change
+	logger.Infof("[dubbo-go-pixiu] mcp server source %s config applied: %d tools, total sources: %d, merged tools: %d",
+		source, len(cfg.Tools), result.ServerCount, result.MergedCount)
+
 	d.notifyToolsListChanged()
 
 	return nil
 }
 
-// calculateFingerprint calculates a robust fingerprint for the configuration using SHA256
+func (d *DynamicConsumer) validateDynamicConfig(cfg *model.McpServerConfig) error {
+	if cfg.Router != nil {
+		return errDynamicRouterUpdateUnsupported
+	}
+	if !d.governanceEnabled() {
+		return nil
+	}
+	if err := router.ValidateTools(cfg.Tools); err != nil {
+		return fmt.Errorf("invalid mcp tool router metadata: %w", err)
+	}
+	return nil
+}
+
+func (d *DynamicConsumer) applyServerTools(source ServerSource, tools []model.ToolConfig) (serverConfigApplyResult, error) {
+	source = source.Normalize()
+	result := serverConfigApplyResult{Fingerprint: d.calculateFingerprint(tools)}
+	now := time.Now()
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	existingConfig := d.serverConfigs[source]
+	if existingConfig != nil && existingConfig.Fingerprint == result.Fingerprint {
+		result.SkippedReason = serverConfigApplySkippedUnchanged
+		result.Elapsed = now.Sub(existingConfig.LastApplied)
+		return result, nil
+	}
+
+	oldConfig := d.serverConfigs[source]
+	serverConfig := &ServerToolConfig{
+		Tools:       make([]model.ToolConfig, len(tools)),
+		Fingerprint: result.Fingerprint,
+		LastApplied: now,
+	}
+	for i := range tools {
+		serverConfig.Tools[i] = *tools[i].DeepCopy()
+	}
+	d.serverConfigs[source] = serverConfig
+
+	mergedTools := d.calculateCurrentMergedTools()
+	mergedFingerprint := d.calculateFingerprint(mergedTools)
+	if err := d.applyMergedConfig(mergedTools, mergedFingerprint); err != nil {
+		d.restoreServerConfig(source, oldConfig)
+		return result, err
+	}
+	result.ServerCount = len(d.serverConfigs)
+	result.MergedCount = len(mergedTools)
+	return result, nil
+}
+
+func (d *DynamicConsumer) restoreServerConfig(source ServerSource, oldConfig *ServerToolConfig) {
+	if oldConfig != nil {
+		d.serverConfigs[source] = oldConfig
+		return
+	}
+	delete(d.serverConfigs, source)
+}
+
+func (d *DynamicConsumer) logSkippedServerConfigApply(source ServerSource, result serverConfigApplyResult) bool {
+	switch result.SkippedReason {
+	case serverConfigApplySkippedUnchanged:
+		logger.Debugf("[dubbo-go-pixiu] mcp server source %s config unchanged (fp=%s, elapsed=%v), skipped", source, result.Fingerprint, result.Elapsed)
+		return true
+	default:
+		return false
+	}
+}
+
+// calculateFingerprint returns the registry-level tool catalog fingerprint.
 func (d *DynamicConsumer) calculateFingerprint(tools []model.ToolConfig) string {
-	if len(tools) == 0 {
-		return EmptyFingerprint
-	}
-
-	// Create a sorted list of tools for consistent hashing
-	sortedTools := make([]model.ToolConfig, len(tools))
-	copy(sortedTools, tools)
-	sort.Slice(sortedTools, func(i, j int) bool {
-		if sortedTools[i].Name != sortedTools[j].Name {
-			return sortedTools[i].Name < sortedTools[j].Name
-		}
-		return sortedTools[i].Cluster < sortedTools[j].Cluster
-	})
-
-	// Build hash input string
-	hash := sha256.New()
-	for _, tool := range sortedTools {
-		_, _ = fmt.Fprintf(hash, "name:%s;cluster:%s;args:%d;", tool.Name, tool.Cluster, len(tool.Args))
-
-	}
-
-	// Return first 8 characters of hex encoded hash
-	fullHash := hex.EncodeToString(hash.Sum(nil))
-	return fullHash[:8]
+	return toolCatalogFingerprint(tools)
 }
 
 // SetDebounceTime dynamically adjusts debounce time
@@ -187,36 +243,65 @@ func (d *DynamicConsumer) ResetDebounceState() {
 	defer d.mu.Unlock()
 
 	// Clear all server configurations
-	d.serverConfigs = make(map[string]*ServerToolConfig)
+	d.serverConfigs = make(map[ServerSource]*ServerToolConfig)
 	logger.Debugf("[dubbo-go-pixiu] mcp dynamic debounce state reset")
 }
 
-// applyMergedConfig applies merged configuration to the registry
-func (d *DynamicConsumer) applyMergedConfig(tools []model.ToolConfig) error {
-	d.registry.ReplaceAllTools(tools)
-	return nil
+// applyMergedConfig applies merged configuration to the registry.
+func (d *DynamicConsumer) applyMergedConfig(tools []model.ToolConfig, fingerprint string) error {
+	return d.registry.replaceAllToolsWithFingerprint(tools, fingerprint)
 }
 
 // removeServerConfig removes server configuration
-func (d *DynamicConsumer) removeServerConfig(serverId string) error {
+func (d *DynamicConsumer) removeServerConfig(source ServerSource) error {
+	source = source.Normalize()
 	d.mu.Lock()
-	defer d.mu.Unlock()
 
-	if _, exists := d.serverConfigs[serverId]; !exists {
+	if _, exists := d.serverConfigs[source]; !exists {
+		d.mu.Unlock()
 		return nil // Already does not exist
 	}
 
-	delete(d.serverConfigs, serverId)
+	oldConfig := d.serverConfigs[source]
+	delete(d.serverConfigs, source)
 
 	// Recalculate and apply merged configuration
 	mergedTools := d.calculateCurrentMergedTools()
-	if err := d.applyMergedConfig(mergedTools); err != nil {
+	mergedFingerprint := d.calculateFingerprint(mergedTools)
+	if err := d.applyMergedConfig(mergedTools, mergedFingerprint); err != nil {
+		d.serverConfigs[source] = oldConfig
+		d.mu.Unlock()
 		return err
 	}
+	serverCount := len(d.serverConfigs)
+	d.mu.Unlock()
 
-	logger.Infof("[dubbo-go-pixiu] mcp server %s config removed, remaining servers: %d",
-		serverId, len(d.serverConfigs))
+	logger.Infof("[dubbo-go-pixiu] mcp server source %s config removed, remaining sources: %d",
+		source, serverCount)
+	d.notifyToolsListChanged()
 
+	return nil
+}
+
+// RemoveAllMcpServerConfigs removes all dynamic registry publications from the
+// runtime catalog. It is used by adapter shutdown/reconfiguration cleanup.
+func (d *DynamicConsumer) RemoveAllMcpServerConfigs() error {
+	d.mu.Lock()
+	if len(d.serverConfigs) == 0 {
+		d.mu.Unlock()
+		return nil
+	}
+	oldConfigs := d.serverConfigs
+	d.serverConfigs = make(map[ServerSource]*ServerToolConfig)
+	if err := d.applyMergedConfig(nil, EmptyFingerprint); err != nil {
+		d.serverConfigs = oldConfigs
+		d.mu.Unlock()
+		return err
+	}
+	d.mu.Unlock()
+
+	logger.Infof("[dubbo-go-pixiu] mcp dynamic server configs removed")
+	d.notifyToolsListChanged()
 	return nil
 }
 
@@ -224,70 +309,98 @@ func (d *DynamicConsumer) removeServerConfig(serverId string) error {
 func (d *DynamicConsumer) calculateCurrentMergedTools() []model.ToolConfig {
 	var allTools []model.ToolConfig
 
-	// Simply accumulate tools from all servers
-	for _, config := range d.serverConfigs {
-		allTools = append(allTools, config.Tools...)
+	sources := make([]ServerSource, 0, len(d.serverConfigs))
+	for source := range d.serverConfigs {
+		sources = append(sources, source)
+	}
+	sort.Slice(sources, func(i, j int) bool {
+		return sources[i].Key() < sources[j].Key()
+	})
+
+	for _, source := range sources {
+		allTools = append(allTools, d.serverConfigs[source].Tools...)
 	}
 
 	return allTools
 }
 
-// notifyToolsListChanged sends notifications/tools/list_changed to all connected clients
+// notifyToolsListChanged marks notifications/tools/list_changed only for
+// sessions whose visible tool set changed. Offline sessions keep one bounded
+// pending version for reconnect.
 func (d *DynamicConsumer) notifyToolsListChanged() {
 	if d.sessionManager == nil {
 		logger.Debugf("[dubbo-go-pixiu] mcp server session manager not available, skip tools list_changed notification")
 		return
 	}
 
-	// Get all active sessions
-	sessionIDs := d.sessionManager.AllSessionIDs()
-	if len(sessionIDs) == 0 {
+	sessions := d.sessionManager.SnapshotSessions()
+	if len(sessions) == 0 {
 		logger.Debugf("[dubbo-go-pixiu] mcp server no active sessions, skip tools list_changed notification")
 		return
 	}
 
-	// Send notification to each session
-	successCount := 0
-	for _, sessionID := range sessionIDs {
-		if err := d.sendToolsListChangedNotification(sessionID); err != nil {
-			logger.Warnf("[dubbo-go-pixiu] mcp server failed to send tools list_changed to session %s: %v", sessionID, err)
-		} else {
-			successCount++
+	markedCount := 0
+	flushedCount := 0
+	changed := d.sessionsWithChangedVisibleSet()
+	for _, session := range sessions {
+		if changed != nil {
+			if _, ok := changed[session.ID]; !ok {
+				continue
+			}
+		}
+		marked, flushed, err := markToolsListChangedAndFlush(d.sseHandler, session)
+		if !marked {
+			continue
+		}
+		markedCount++
+		if err != nil {
+			logger.Warnf("[dubbo-go-pixiu] mcp server failed to send tools list_changed: %v", err)
+		} else if flushed {
+			flushedCount++
 		}
 	}
 
-	logger.Infof("[dubbo-go-pixiu] mcp server sent tools/list_changed notification to %d/%d sessions", successCount, len(sessionIDs))
+	if markedCount == 0 {
+		logger.Debugf("[dubbo-go-pixiu] mcp server no active sessions to mark for tools list_changed notification")
+		return
+	}
+	logger.Infof("[dubbo-go-pixiu] mcp server marked tools/list_changed notification for %d sessions, flushed %d online sessions", markedCount, flushedCount)
 }
 
-// sendToolsListChangedNotification sends notification to a specific session
-func (d *DynamicConsumer) sendToolsListChangedNotification(sessionID string) error {
-	session, exists := d.sessionManager.Session(sessionID)
-	if !exists {
-		return fmt.Errorf("session not found")
+func (d *DynamicConsumer) sessionsWithChangedVisibleSet() router.StringSet {
+	d.mu.RLock()
+	governance := d.governance
+	selector := d.selector
+	plans := d.plans
+	d.mu.RUnlock()
+	if !governance || selector == nil || plans == nil {
+		return nil
 	}
-
-	if session.PipeWriter == nil {
-		return fmt.Errorf("SSE pipe not established")
+	refresher, ok := selector.(router.PlanRefreshSelector)
+	if !ok {
+		return nil
 	}
-
-	// Build tools/list_changed notification (no params needed)
-	notification := map[string]any{
-		"jsonrpc": "2.0",
-		"method":  "notifications/tools/list_changed",
+	snapshot := d.registry.toolCatalogSnapshotUnsafe()
+	changed := make(router.StringSet)
+	for _, item := range plans.SessionPlanContexts() {
+		item.Context.CatalogVersion = snapshot.Version
+		plan, committed, err := refresher.RefreshPlan(context.Background(), item, snapshot.orderedToolsUnsafe())
+		if err != nil {
+			logger.Warnf("[dubbo-go-pixiu] mcp server failed to refresh session plan after catalog update: %v", err)
+			continue
+		}
+		if !committed {
+			continue
+		}
+		if item.Plan.VisibleFingerprint != plan.VisibleFingerprint {
+			changed[item.Key.SessionID] = struct{}{}
+		}
 	}
+	return changed
+}
 
-	messageJSON, err := json.Marshal(notification)
-	if err != nil {
-		return fmt.Errorf("failed to marshal notification: %w", err)
-	}
-
-	sseData := d.sseHandler.FormatSSEMessage(string(messageJSON))
-
-	if _, err := session.PipeWriter.Write([]byte(sseData)); err != nil {
-		return fmt.Errorf("failed to write to SSE pipe: %w", err)
-	}
-
-	session.LastActivity = time.Now()
-	logger.Debugf("[dubbo-go-pixiu] mcp server sent tools/list_changed to session: %s", sessionID)
-	return nil
+func (d *DynamicConsumer) governanceEnabled() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.governance
 }
