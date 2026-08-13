@@ -45,7 +45,9 @@ type (
 
 		store                   *ClusterStore
 		endpointRemovalHandlers map[uint64]func(string, string)
+		endpointStateHandlers   map[uint64]func(string, string, bool, uint64)
 		nextEndpointHandlerID   uint64
+		nextEndpointEventID     uint64
 		//cConfig []*model.ClusterConfig
 	}
 
@@ -97,6 +99,28 @@ func (cm *ClusterManager) AddEndpointRemovalHandler(handler func(string, string)
 	}
 }
 
+// AddEndpointStateHandler registers a callback for endpoint additions and
+// removals. version increases for every cluster-store mutation, allowing
+// consumers to discard stale callbacks that run after a newer update.
+func (cm *ClusterManager) AddEndpointStateHandler(handler func(string, string, bool, uint64)) func() {
+	if handler == nil {
+		return func() {}
+	}
+	cm.rw.Lock()
+	if cm.endpointStateHandlers == nil {
+		cm.endpointStateHandlers = make(map[uint64]func(string, string, bool, uint64))
+	}
+	cm.nextEndpointHandlerID++
+	id := cm.nextEndpointHandlerID
+	cm.endpointStateHandlers[id] = handler
+	cm.rw.Unlock()
+	return func() {
+		cm.rw.Lock()
+		delete(cm.endpointStateHandlers, id)
+		cm.rw.Unlock()
+	}
+}
+
 func newClusterStore(bs *model.Bootstrap) *ClusterStore {
 	store := &ClusterStore{
 		clustersMap: map[string]*cluster.Cluster{},
@@ -109,18 +133,28 @@ func newClusterStore(bs *model.Bootstrap) *ClusterStore {
 
 func (cm *ClusterManager) AddCluster(c *model.ClusterConfig) {
 	cm.rw.Lock()
-	defer cm.rw.Unlock()
-
+	old := endpointAddressSnapshot(nil)
+	version := cm.nextEndpointEventIDLocked()
 	cm.store.IncreaseVersion()
 	cm.store.AddCluster(c)
+	new := endpointAddressSnapshot([]*model.ClusterConfig{c})
+	cm.rw.Unlock()
+	cm.notifyEndpointChanges(endpointStateChanges(old, new, version))
 }
 
 func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 	cm.rw.Lock()
-	defer cm.rw.Unlock()
-
+	oldConfig := cm.store.findClusterConfig(new.Name)
+	old := endpointAddressSnapshot([]*model.ClusterConfig{oldConfig})
+	newSnapshot := old
+	if oldConfig != nil {
+		newSnapshot = endpointAddressSnapshot([]*model.ClusterConfig{new})
+	}
+	version := cm.nextEndpointEventIDLocked()
 	cm.store.IncreaseVersion()
 	cm.store.UpdateCluster(new)
+	cm.rw.Unlock()
+	cm.notifyEndpointChanges(endpointStateChanges(old, newSnapshot, version))
 }
 
 // SetEndpoint registers or refreshes a single endpoint in the named
@@ -157,35 +191,168 @@ func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 // the whole cluster config via AddCluster/UpdateCluster.
 func (cm *ClusterManager) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
 	cm.rw.Lock()
-	defer cm.rw.Unlock()
-
+	old := endpointAddressSnapshot([]*model.ClusterConfig{cm.store.findClusterConfig(clusterName)})
+	version := cm.nextEndpointEventIDLocked()
 	cm.store.IncreaseVersion()
 	cm.store.SetEndpoint(clusterName, endpoint)
+	new := endpointAddressSnapshot([]*model.ClusterConfig{cm.store.findClusterConfig(clusterName)})
+	cm.rw.Unlock()
+	cm.notifyEndpointChanges(endpointStateChanges(old, new, version))
 }
 
 func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) {
 	cm.rw.Lock()
-	var endpointAddress string
-	if clusterConfig := cm.store.findClusterConfig(clusterName); clusterConfig != nil {
-		for _, endpoint := range clusterConfig.Endpoints {
-			if endpoint != nil && endpoint.ID == endpointID {
-				endpointAddress = endpoint.Address.GetAddress()
-				break
-			}
-		}
-	}
+	old := endpointAddressSnapshot([]*model.ClusterConfig{cm.store.findClusterConfig(clusterName)})
+	version := cm.nextEndpointEventIDLocked()
 	cm.store.IncreaseVersion()
 	cm.store.DeleteEndpoint(clusterName, endpointID)
+	new := endpointAddressSnapshot([]*model.ClusterConfig{cm.store.findClusterConfig(clusterName)})
+	cm.rw.Unlock()
+	cm.notifyEndpointChanges(endpointStateChanges(old, new, version))
+}
+
+func (cm *ClusterManager) notifyEndpointRemoval(clusterName, endpointAddress string) {
+	cm.notifyEndpointRemovals([]endpointRemoval{{clusterName: clusterName, address: endpointAddress}})
+}
+
+func (cm *ClusterManager) notifyEndpointRemovals(removals []endpointRemoval) {
+	cm.rw.RLock()
 	handlers := make([]func(string, string), 0, len(cm.endpointRemovalHandlers))
 	for _, handler := range cm.endpointRemovalHandlers {
 		handlers = append(handlers, handler)
 	}
-	cm.rw.Unlock()
-	if endpointAddress != "" {
+	cm.rw.RUnlock()
+	for _, removal := range removals {
+		if removal.address == "" {
+			continue
+		}
 		for _, handler := range handlers {
-			handler(clusterName, endpointAddress)
+			handler(removal.clusterName, removal.address)
 		}
 	}
+}
+
+func (cm *ClusterManager) notifyEndpointChanges(changes []endpointStateChange) {
+	cm.rw.RLock()
+	removalHandlers := make([]func(string, string), 0, len(cm.endpointRemovalHandlers))
+	for _, handler := range cm.endpointRemovalHandlers {
+		removalHandlers = append(removalHandlers, handler)
+	}
+	stateHandlers := make([]func(string, string, bool, uint64), 0, len(cm.endpointStateHandlers))
+	for _, handler := range cm.endpointStateHandlers {
+		stateHandlers = append(stateHandlers, handler)
+	}
+	cm.rw.RUnlock()
+	for _, change := range changes {
+		for _, handler := range stateHandlers {
+			handler(change.clusterName, change.address, change.present, change.version)
+		}
+		if change.present {
+			continue
+		}
+		for _, handler := range removalHandlers {
+			handler(change.clusterName, change.address)
+		}
+	}
+}
+
+type endpointRemoval struct {
+	clusterName string
+	address     string
+}
+
+type endpointStateChange struct {
+	clusterName string
+	address     string
+	present     bool
+	version     uint64
+}
+
+func (cm *ClusterManager) nextEndpointEventIDLocked() uint64 {
+	cm.nextEndpointEventID++
+	return cm.nextEndpointEventID
+}
+
+func endpointAddressSnapshot(configs []*model.ClusterConfig) map[string]map[string]struct{} {
+	result := make(map[string]map[string]struct{})
+	for _, config := range configs {
+		if config == nil {
+			continue
+		}
+		addresses := result[config.Name]
+		if addresses == nil {
+			addresses = make(map[string]struct{})
+			result[config.Name] = addresses
+		}
+		for _, endpoint := range config.Endpoints {
+			if endpoint != nil {
+				addresses[endpoint.Address.GetAddress()] = struct{}{}
+			}
+		}
+	}
+	return result
+}
+
+func endpointStateChanges(old, new map[string]map[string]struct{}, version uint64) []endpointStateChange {
+	changes := make([]endpointStateChange, 0)
+	for clusterName, addresses := range old {
+		for address := range addresses {
+			if _, exists := new[clusterName][address]; !exists {
+				changes = append(changes, endpointStateChange{clusterName: clusterName, address: address, version: version})
+			}
+		}
+	}
+	for clusterName, addresses := range new {
+		for address := range addresses {
+			if _, exists := old[clusterName][address]; !exists {
+				changes = append(changes, endpointStateChange{clusterName: clusterName, address: address, present: true, version: version})
+			}
+		}
+	}
+	return changes
+}
+
+func removedEndpointAddresses(oldConfigs, newConfigs []*model.ClusterConfig) []endpointRemoval {
+	newAddresses := make(map[string]map[string]struct{})
+	for _, config := range newConfigs {
+		if config == nil {
+			continue
+		}
+		addresses := newAddresses[config.Name]
+		if addresses == nil {
+			addresses = make(map[string]struct{})
+			newAddresses[config.Name] = addresses
+		}
+		for _, endpoint := range config.Endpoints {
+			if endpoint != nil {
+				addresses[endpoint.Address.GetAddress()] = struct{}{}
+			}
+		}
+	}
+
+	seen := make(map[string]struct{})
+	var removals []endpointRemoval
+	for _, config := range oldConfigs {
+		if config == nil {
+			continue
+		}
+		for _, endpoint := range config.Endpoints {
+			if endpoint == nil {
+				continue
+			}
+			address := endpoint.Address.GetAddress()
+			key := config.Name + "\x00" + address
+			if _, exists := newAddresses[config.Name][address]; exists {
+				continue
+			}
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			removals = append(removals, endpointRemoval{clusterName: config.Name, address: address})
+		}
+	}
+	return removals
 }
 
 func (cm *ClusterManager) CloneStore() (*ClusterStore, error) {
@@ -216,25 +383,29 @@ func (cm *ClusterManager) NewStore(version int32) *ClusterStore {
 // CompareAndSetStore swaps the store only when versions match.
 // Version mismatch must leave both stores and runtime clusters untouched.
 func (cm *ClusterManager) CompareAndSetStore(store *ClusterStore) bool {
-	swapped, replacedClusters := cm.compareAndSetStore(store)
+	swapped, replacedClusters, changes := cm.compareAndSetStore(store)
 	if !swapped {
 		return false
 	}
 
 	// Stop old runtime after publishing the swap; Stop may touch timers/goroutines.
 	stopClusters(replacedClusters)
+	cm.notifyEndpointChanges(changes)
 	return true
 }
 
-func (cm *ClusterManager) compareAndSetStore(store *ClusterStore) (bool, []*cluster.Cluster) {
+func (cm *ClusterManager) compareAndSetStore(store *ClusterStore) (bool, []*cluster.Cluster, []endpointStateChange) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
 	if store.Version != cm.store.Version {
-		return false, nil
+		return false, nil, nil
 	}
 
 	currentStore := cm.store
+	version := cm.nextEndpointEventIDLocked()
+	old := endpointAddressSnapshot(currentStore.Config)
+	new := endpointAddressSnapshot(store.Config)
 	var replacedClusters []*cluster.Cluster
 	if store == currentStore {
 		replacedClusters = store.ensureRuntimeClusters()
@@ -246,7 +417,7 @@ func (cm *ClusterManager) compareAndSetStore(store *ClusterStore) (bool, []*clus
 	if store != currentStore {
 		replacedClusters = append(replacedClusters, currentStore.runtimeClustersNotIn(store)...)
 	}
-	return true, replacedClusters
+	return true, replacedClusters, endpointStateChanges(old, new, version)
 }
 
 // PickEndpoint picks an endpoint from the cluster by its name and load balancing policy.
@@ -354,7 +525,8 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 
 func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 	cm.rw.Lock()
-	defer cm.rw.Unlock()
+	old := endpointAddressSnapshot(cm.store.Config)
+	version := cm.nextEndpointEventIDLocked()
 
 	for i, c := range cm.store.Config {
 		if c == nil {
@@ -378,6 +550,9 @@ func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 		cm.store.Config = append(cm.store.Config[:i], cm.store.Config[i+1:]...)
 	}
 	cm.store.IncreaseVersion()
+	new := endpointAddressSnapshot(cm.store.Config)
+	cm.rw.Unlock()
+	cm.notifyEndpointChanges(endpointStateChanges(old, new, version))
 }
 
 func (cm *ClusterManager) HasCluster(clusterName string) bool {
@@ -651,10 +826,10 @@ func (s *ClusterStore) UpdateCluster(new *model.ClusterConfig) {
 	logger.Warnf("not found modified cluster %s", new.Name)
 }
 
-func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) {
+func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint) string {
 	endpoint = model.CloneEndpoint(endpoint)
 	if endpoint == nil {
-		return
+		return ""
 	}
 
 	clusterConfig := s.findClusterConfig(clusterName)
@@ -680,15 +855,29 @@ func (s *ClusterStore) SetEndpoint(clusterName string, endpoint *model.Endpoint)
 		// already correct. Returning here keeps re-registration idempotent —
 		// the LLM/Nacos path can replay the same instance event without
 		// growing the endpoint slice.
-		return
+		return ""
 	case setEndpointReplace:
+		oldAddress := clusterConfig.Endpoints[outcome.replaceIdx].Address.GetAddress()
 		s.replaceEndpointAt(clusterConfig, runtimeCluster, outcome.replaceIdx, endpoint)
+		if oldAddress != endpoint.Address.GetAddress() && !clusterHasEndpointAddress(clusterConfig, oldAddress) {
+			return oldAddress
+		}
 	case setEndpointAppend:
 		clusterConfig.Endpoints = append(clusterConfig.Endpoints, endpoint)
 		s.prepareOwnedClusterConfig(clusterConfig)
 		runtimeCluster.RefreshEndpoints()
 		runtimeCluster.AddEndpoint(endpoint)
 	}
+	return ""
+}
+
+func clusterHasEndpointAddress(config *model.ClusterConfig, address string) bool {
+	for _, endpoint := range config.Endpoints {
+		if endpoint != nil && endpoint.Address.GetAddress() == address {
+			return true
+		}
+	}
+	return false
 }
 
 // replaceEndpointAt overwrites the cluster slot at idx with the incoming

@@ -730,6 +730,23 @@ func TestClusterManager_SetEndpointExplicitSameIDDifferentAddressOverwritesInPla
 	assert.Equal(t, 21101, endpoints[0].Address.Port)
 }
 
+func TestClusterManager_SetEndpointNotifiesAddressReplacement(t *testing.T) {
+	cm := testClusterManager(testCluster("endpoint-removal", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("foo", "127.0.0.1", 21120),
+	}))
+	defer stopStoreRuntimes(cm.store)
+
+	var removed []string
+	removeHandler := cm.AddEndpointRemovalHandler(func(clusterName, address string) {
+		removed = append(removed, clusterName+"\x00"+address)
+	})
+	defer removeHandler()
+
+	cm.SetEndpoint("endpoint-removal", testEndpoint("foo", "127.0.0.2", 21121))
+
+	assert.Equal(t, []string{"endpoint-removal\x00127.0.0.1:21120"}, removed)
+}
+
 // TestClusterManager_SetEndpointExplicitSameIDSameContentIsIdempotent locks
 // the other side of the dedup contract: when two calls share the same
 // explicit ID AND the same routing-relevant content, the second call is a

@@ -44,6 +44,7 @@ type FilterManager struct {
 	lifecycleMu sync.Mutex
 	factoryRefs map[*HttpFilterFactory]int
 	retired     map[*HttpFilterFactory]bool
+	closed      bool
 }
 
 // NewFilterManager create filter manager
@@ -88,18 +89,31 @@ func (fm *FilterManager) Load() {
 
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
+	fm.mu.RLock()
+	closed := fm.closed
+	fm.mu.RUnlock()
+	if closed {
+		return
+	}
+
 	tmp := make(map[string]HttpFilterFactory)
-	filtersArray := make([]*HttpFilterFactory, len(filters))
-	for i, f := range filters {
+	filtersArray := make([]*HttpFilterFactory, 0, len(filters))
+	for _, f := range filters {
 		apply, err := fm.Apply(f.Name, f.Config)
 		if err != nil {
 			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
+			continue
 		}
 		tmp[f.Name] = apply
-		filtersArray[i] = &apply
+		filtersArray = append(filtersArray, &apply)
 	}
 	// avoid filter inconsistency
 	fm.mu.Lock()
+	if fm.closed {
+		fm.mu.Unlock()
+		fm.closeAndLog(filtersArray)
+		return
+	}
 	oldFilters := fm.filtersArray
 	fm.filters = tmp
 	fm.filtersArray = filtersArray
@@ -189,6 +203,11 @@ func (fm *FilterManager) closeFactories(factories []*HttpFilterFactory) error {
 // existing HTTP filter implementations.
 func (fm *FilterManager) Close() error {
 	fm.mu.Lock()
+	if fm.closed {
+		fm.mu.Unlock()
+		return nil
+	}
+	fm.closed = true
 	factories := fm.filtersArray
 	fm.filtersArray = nil
 	ready := fm.retireFactories(factories)
@@ -208,16 +227,27 @@ func (fm *FilterManager) Apply(name string, conf map[string]any) (HttpFilterFact
 	if err != nil {
 		return nil, errors.New("plugin create filter error")
 	}
+	if filter == nil {
+		return nil, errors.New("plugin returned nil filter factory")
+	}
+	closeFilter := func() {
+		if closer, ok := filter.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
+	}
 
 	factoryConf := filter.Config()
 	if err := yaml.ParseConfig(factoryConf, conf); err != nil {
+		closeFilter()
 		return nil, errors.Wrap(err, "config error")
 	}
 	if err = defaults.Set(factoryConf); err != nil {
+		closeFilter()
 		return nil, err
 	}
 	err = filter.Apply()
 	if err != nil {
+		closeFilter()
 		return nil, errors.Wrap(err, "create fail")
 	}
 	return filter, nil

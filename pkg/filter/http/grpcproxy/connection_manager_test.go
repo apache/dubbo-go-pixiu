@@ -142,6 +142,35 @@ func TestGRPCConnectionManagerHonorsCallerTimeoutWhileCreating(t *testing.T) {
 	require.NoError(t, manager.Close())
 }
 
+func TestGRPCConnectionManagerDoesNotPublishRemovedEndpointAfterDial(t *testing.T) {
+	endpoint := startTestGRPCServer(t)
+	dialStarted := make(chan struct{})
+	releaseDial := make(chan struct{})
+	manager := &grpcConnectionManager{
+		dial: func(ctx context.Context, endpoint string) (*grpc.ClientConn, error) {
+			close(dialStarted)
+			<-releaseDial
+			return grpc.DialContext(ctx, endpoint, grpc.WithTransportCredentials(insecure.NewCredentials())) //nolint:staticcheck // the test verifies endpoint lifecycle.
+		},
+		dialTimeout: time.Second,
+	}
+	t.Cleanup(func() { require.NoError(t, manager.Close()) })
+
+	key := grpcConnectionKey("cluster", endpoint)
+	result := make(chan error, 1)
+	go func() {
+		_, err := manager.Get(context.Background(), key, endpoint)
+		result <- err
+	}()
+	<-dialStarted
+	manager.RemoveEndpoint("cluster", endpoint)
+	close(releaseDial)
+
+	require.Error(t, <-result)
+	_, ok := manager.connections.Load(key)
+	require.False(t, ok, "a removed endpoint must not be published after dialing")
+}
+
 func TestGRPCConnectionManagerClosePreventsNewConnections(t *testing.T) {
 	var dialCalls atomic.Int32
 	manager := testConnectionManager(t, &dialCalls)
@@ -253,4 +282,119 @@ message Response {}
 		require.Equal(t, "Hello", method.GetName())
 	}
 	require.Equal(t, int32(1), source.findCalls.Load())
+}
+
+type blockingDescriptorSource struct {
+	descriptor desc.Descriptor
+	started    chan struct{}
+	release    chan struct{}
+}
+
+func (s *blockingDescriptorSource) ListServices() ([]string, error) {
+	return []string{"test.Greeter"}, nil
+}
+
+func (s *blockingDescriptorSource) FindSymbol(string) (desc.Descriptor, error) {
+	close(s.started)
+	<-s.release
+	return s.descriptor, nil
+}
+
+func (s *blockingDescriptorSource) AllExtensionsForType(string) ([]*desc.FieldDescriptor, error) {
+	return nil, nil
+}
+
+func TestDescriptorRemovalForOneConnectionDoesNotInvalidateAnother(t *testing.T) {
+	files, err := (protoparse.Parser{
+		Accessor: protoparse.FileContentsFromMap(map[string]string{
+			"test.proto": `syntax = "proto3";
+package test;
+
+service Greeter {
+  rpc Hello(Request) returns (Response);
+}
+
+message Request {}
+message Response {}
+`,
+		}),
+	}).ParseFiles("test.proto")
+	require.NoError(t, err)
+
+	source := &blockingDescriptorSource{
+		descriptor: files[0].FindSymbol("test.Greeter"),
+		started:    make(chan struct{}),
+		release:    make(chan struct{}),
+	}
+	descriptor := &Descriptor{}
+	connA := &grpc.ClientConn{}
+	connB := &grpc.ClientConn{}
+	_, err = descriptor.getMethodDescriptor(
+		&countingDescriptorSource{descriptor: files[0].FindSymbol("test.Greeter")},
+		connB, "test.Greeter", "Hello",
+	)
+	require.NoError(t, err)
+
+	result := make(chan error, 1)
+	go func() {
+		_, lookupErr := descriptor.getMethodDescriptor(source, connA, "test.Greeter", "Hello")
+		result <- lookupErr
+	}()
+	<-source.started
+
+	descriptor.removeConnection(connB)
+	close(source.release)
+
+	require.NoError(t, <-result)
+}
+
+func TestDescriptorRemovalSeparatesNewLookupOnSameConnection(t *testing.T) {
+	files, err := (protoparse.Parser{
+		Accessor: protoparse.FileContentsFromMap(map[string]string{
+			"test.proto": `syntax = "proto3";
+package test;
+
+service Greeter {
+  rpc Hello(Request) returns (Response);
+}
+
+message Request {}
+message Response {}
+`,
+		}),
+	}).ParseFiles("test.proto")
+	require.NoError(t, err)
+
+	oldSource := &blockingDescriptorSource{
+		descriptor: files[0].FindSymbol("test.Greeter"),
+		started:    make(chan struct{}),
+		release:    make(chan struct{}),
+	}
+	newSource := &countingDescriptorSource{descriptor: files[0].FindSymbol("test.Greeter")}
+	descriptor := &Descriptor{}
+	conn := &grpc.ClientConn{}
+
+	oldResult := make(chan error, 1)
+	go func() {
+		_, lookupErr := descriptor.getMethodDescriptor(oldSource, conn, "test.Greeter", "Hello")
+		oldResult <- lookupErr
+	}()
+	<-oldSource.started
+	descriptor.removeConnection(conn)
+
+	newResult := make(chan error, 1)
+	go func() {
+		_, lookupErr := descriptor.getMethodDescriptor(newSource, conn, "test.Greeter", "Hello")
+		newResult <- lookupErr
+	}()
+	select {
+	case lookupErr := <-newResult:
+		require.NoError(t, lookupErr)
+	case <-time.After(200 * time.Millisecond):
+		close(oldSource.release)
+		t.Fatal("new lookup joined the removed connection's in-flight lookup")
+	}
+
+	close(oldSource.release)
+	require.Error(t, <-oldResult)
 }

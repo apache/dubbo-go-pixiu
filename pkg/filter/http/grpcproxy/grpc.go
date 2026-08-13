@@ -153,9 +153,12 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	descriptor := &Descriptor{}
 	connections := newGRPCConnectionManager()
 	connections.onRemove = descriptor.removeConnection
-	removeEndpointHandler := server.GetClusterManager().AddEndpointRemovalHandler(func(clusterName, endpoint string) {
-		connections.RemoveEndpoint(clusterName, endpoint)
-	})
+	var removeEndpointHandler func()
+	if clusterManager := server.GetClusterManager(); clusterManager != nil {
+		removeEndpointHandler = clusterManager.AddEndpointStateHandler(func(clusterName, endpoint string, present bool, version uint64) {
+			connections.UpdateEndpointState(clusterName, endpoint, present, version)
+		})
+	}
 	return &FilterFactory{
 		cfg:                   &Config{DescriptorSourceStrategy: AUTO},
 		descriptor:            descriptor,

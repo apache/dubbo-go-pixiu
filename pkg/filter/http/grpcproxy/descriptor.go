@@ -49,7 +49,16 @@ type Descriptor struct {
 	methodMu    sync.RWMutex
 	methodDescs map[*grpc.ClientConn]map[string]*desc.MethodDescriptor
 	methodLoads singleflight.Group
-	generation  uint64
+	// connectionStates invalidates only lookups for the connection that
+	// was removed. closeGeneration invalidates all in-flight lookups on close.
+	connectionStates  map[*grpc.ClientConn]*descriptorConnectionState
+	closeGeneration   uint64
+	nextStateSequence uint64
+	closed            bool
+}
+
+type descriptorConnectionState struct {
+	generation uint64
 }
 
 type serviceNotExposedError struct {
@@ -105,7 +114,7 @@ func (dr *Descriptor) getDescriptorCompose(ctx context.Context, cfg *Config) (De
 
 	cs := &compositeSource{}
 	cs.reflection, err = dr.getServerDescriptorSourceCtx(ctx, cfg)
-	cs.file = dr.fileSource
+	cs.file = dr.getFileSource()
 
 	return cs, err
 }
@@ -157,32 +166,52 @@ func (dr *Descriptor) removeConnection(cc *grpc.ClientConn) {
 	}
 	dr.methodMu.Lock()
 	delete(dr.methodDescs, cc)
-	dr.generation++
+	state := dr.connectionStates[cc]
+	if state != nil {
+		dr.nextStateSequence++
+		state.generation = dr.nextStateSequence
+		// Keep the state alive for any in-flight lookup, but do not retain the
+		// removed connection in the descriptor's long-lived map.
+		delete(dr.connectionStates, cc)
+	}
 	dr.methodMu.Unlock()
 }
 
 func (dr *Descriptor) Close() {
 	dr.methodMu.Lock()
+	dr.closed = true
 	dr.methodDescs = nil
-	dr.generation++
+	dr.connectionStates = nil
+	dr.closeGeneration++
 	dr.methodMu.Unlock()
 }
 
 func (dr *Descriptor) getMethodDescriptor(source DescriptorSource, cc *grpc.ClientConn, service, method string) (*desc.MethodDescriptor, error) {
 	key := service + "\x00" + method
-	dr.methodMu.RLock()
+	dr.methodMu.Lock()
+	if dr.closed {
+		dr.methodMu.Unlock()
+		return nil, errors.New("descriptor is closed")
+	}
 	if methods := dr.methodDescs[cc]; methods != nil {
 		if descriptor, ok := methods[key]; ok {
-			dr.methodMu.RUnlock()
+			dr.methodMu.Unlock()
 			return descriptor, nil
 		}
 	}
-	dr.methodMu.RUnlock()
-
-	dr.methodMu.RLock()
-	generation := dr.generation
-	dr.methodMu.RUnlock()
-	loadKey := fmt.Sprintf("%p:%d:%s", cc, generation, key)
+	state := dr.connectionStates[cc]
+	if state == nil {
+		if dr.connectionStates == nil {
+			dr.connectionStates = make(map[*grpc.ClientConn]*descriptorConnectionState)
+		}
+		dr.nextStateSequence++
+		state = &descriptorConnectionState{generation: dr.nextStateSequence}
+		dr.connectionStates[cc] = state
+	}
+	connectionGeneration := state.generation
+	closeGeneration := dr.closeGeneration
+	dr.methodMu.Unlock()
+	loadKey := fmt.Sprintf("%p:%d:%d:%s", cc, closeGeneration, connectionGeneration, key)
 	result, err, _ := dr.methodLoads.Do(loadKey, func() (any, error) {
 		dr.methodMu.RLock()
 		if methods := dr.methodDescs[cc]; methods != nil {
@@ -208,7 +237,7 @@ func (dr *Descriptor) getMethodDescriptor(source DescriptorSource, cc *grpc.Clie
 
 		dr.methodMu.Lock()
 		defer dr.methodMu.Unlock()
-		if dr.generation != generation {
+		if dr.closed || dr.closeGeneration != closeGeneration || state.generation != connectionGeneration {
 			return nil, errors.New("descriptor cache invalidated")
 		}
 		if methods := dr.methodDescs[cc]; methods != nil {
@@ -232,15 +261,12 @@ func (dr *Descriptor) getMethodDescriptor(source DescriptorSource, cc *grpc.Clie
 }
 
 func (dr *Descriptor) getFileDescriptorCompose(ctx context.Context, cfg *Config) (DescriptorSource, error) {
-	if dr.fileSource == nil {
-		dr.initFileDescriptorSource(cfg)
-	}
-	return dr.fileSource, nil
+	dr.initFileDescriptorSource(cfg)
+	return dr.getFileSource(), nil
 }
 
 func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {
-
-	if dr.fileSource != nil {
+	if dr.getFileSource() != nil {
 		return dr
 	}
 
@@ -251,9 +277,19 @@ func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {
 		return dr
 	}
 
-	dr.fileSource = descriptor
+	dr.methodMu.Lock()
+	if dr.fileSource == nil {
+		dr.fileSource = descriptor
+	}
+	dr.methodMu.Unlock()
 
 	return dr
+}
+
+func (dr *Descriptor) getFileSource() *fileSource {
+	dr.methodMu.RLock()
+	defer dr.methodMu.RUnlock()
+	return dr.fileSource
 }
 
 func loadFileSource(gc *Config) (*fileSource, error) {

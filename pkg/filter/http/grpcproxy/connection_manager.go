@@ -46,14 +46,18 @@ type grpcConnectionManager struct {
 	dialTimeout time.Duration
 	onRemove    func(*grpc.ClientConn)
 
-	mu     sync.Mutex
-	closed bool
+	mu                  sync.Mutex
+	closed              bool
+	endpointGenerations map[string]uint64
+	endpointEventVers   map[string]uint64
 }
 
 func newGRPCConnectionManager() *grpcConnectionManager {
 	return &grpcConnectionManager{
-		dial:        dialGRPCConnection,
-		dialTimeout: defaultGRPCDialTimeout,
+		dial:                dialGRPCConnection,
+		dialTimeout:         defaultGRPCDialTimeout,
+		endpointGenerations: make(map[string]uint64),
+		endpointEventVers:   make(map[string]uint64),
 	}
 }
 
@@ -77,7 +81,20 @@ func (m *grpcConnectionManager) Get(ctx context.Context, key, endpoint string) (
 		return conn, nil
 	}
 
-	result := m.creates.DoChan(key, func() (any, error) {
+	m.mu.Lock()
+	if m.endpointGenerations == nil {
+		m.endpointGenerations = make(map[string]uint64)
+	}
+	endpointGeneration := m.endpointGenerations[key]
+	m.mu.Unlock()
+	createKey := fmt.Sprintf("%s\x00%d", key, endpointGeneration)
+	result := m.creates.DoChan(createKey, func() (any, error) {
+		m.mu.Lock()
+		currentGeneration := m.endpointGenerations[key]
+		m.mu.Unlock()
+		if currentGeneration != endpointGeneration {
+			return nil, fmt.Errorf("grpc endpoint was removed while connecting")
+		}
 		if conn, ok := m.loadHealthy(key); ok {
 			return conn, nil
 		}
@@ -100,13 +117,17 @@ func (m *grpcConnectionManager) Get(ctx context.Context, key, endpoint string) (
 
 		m.mu.Lock()
 		closed := m.closed
-		if !closed {
+		removed := m.endpointGenerations[key] != endpointGeneration
+		if !closed && !removed {
 			m.connections.Store(key, conn)
 		}
 		m.mu.Unlock()
-		if closed {
+		if closed || removed {
 			_ = conn.Close()
-			return nil, fmt.Errorf("grpc connection manager closed while dialing")
+			if closed {
+				return nil, fmt.Errorf("grpc connection manager closed while dialing")
+			}
+			return nil, fmt.Errorf("grpc endpoint was removed while connecting")
 		}
 
 		return conn, nil
@@ -160,12 +181,49 @@ func (m *grpcConnectionManager) Invalidate(key string, conn *grpc.ClientConn) {
 // RemoveEndpoint closes and removes the connection for a deleted endpoint.
 func (m *grpcConnectionManager) RemoveEndpoint(clusterName, endpoint string) {
 	key := grpcConnectionKey(clusterName, endpoint)
+	m.mu.Lock()
+	if m.endpointGenerations == nil {
+		m.endpointGenerations = make(map[string]uint64)
+	}
+	m.endpointGenerations[key]++
+	m.mu.Unlock()
 	value, ok := m.connections.Load(key)
 	if !ok {
 		return
 	}
 	conn, ok := value.(*grpc.ClientConn)
 	if ok {
+		m.remove(key, conn)
+	}
+}
+
+// UpdateEndpointState applies an ordered endpoint lifecycle event. Additions
+// advance the same generation as removals so a delayed removal cannot delete
+// a connection created after the endpoint was re-added.
+func (m *grpcConnectionManager) UpdateEndpointState(clusterName, endpoint string, present bool, eventVersion uint64) {
+	key := grpcConnectionKey(clusterName, endpoint)
+	m.mu.Lock()
+	if m.endpointGenerations == nil {
+		m.endpointGenerations = make(map[string]uint64)
+	}
+	if m.endpointEventVers == nil {
+		m.endpointEventVers = make(map[string]uint64)
+	}
+	if eventVersion <= m.endpointEventVers[key] {
+		m.mu.Unlock()
+		return
+	}
+	m.endpointEventVers[key] = eventVersion
+	m.endpointGenerations[key]++
+	var conn *grpc.ClientConn
+	if value, ok := m.connections.Load(key); ok {
+		conn, _ = value.(*grpc.ClientConn)
+	}
+	m.mu.Unlock()
+	if conn != nil {
+		// A present event starts a new endpoint incarnation. Remove any
+		// connection left over from the previous incarnation before a new Get
+		// can reuse it.
 		m.remove(key, conn)
 	}
 }
