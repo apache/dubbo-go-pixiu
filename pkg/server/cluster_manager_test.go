@@ -38,6 +38,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for cluster-manager tests.
@@ -564,6 +565,70 @@ func TestClusterManager_PrepareClusterConfigPreservesCustomHashWithoutFactory(t 
 
 	cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19371))
 	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+}
+
+func TestClusterManager_RuntimePreservesProgrammaticCustomHash(t *testing.T) {
+	const customPolicy model.LbPolicyType = "ProgrammaticCustomHashRuntime"
+	previousBalancer, hadPreviousBalancer := loadbalancer.LoadBalancerStrategy[customPolicy]
+	loadbalancer.LoadBalancerStrategy[customPolicy] = programmaticHashSnapshotBalancer{}
+	defer func() {
+		if hadPreviousBalancer {
+			loadbalancer.LoadBalancerStrategy[customPolicy] = previousBalancer
+		} else {
+			delete(loadbalancer.LoadBalancerStrategy, customPolicy)
+		}
+	}()
+
+	endpoint := testEndpoint("custom-hash-ep", "127.0.0.1", 19372)
+	config := testCluster("custom-hash-runtime", customPolicy, []*model.Endpoint{endpoint})
+	config.ConsistentHash.Hash = fixedEndpointHash{host: endpoint.GetHost()}
+
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	picked := cm.PickEndpoint(config.Name, nil)
+	require.NotNil(t, picked)
+	assert.Equal(t, endpoint.ID, picked.ID)
+}
+
+type fixedEndpointHash struct {
+	host string
+}
+
+func (fixedEndpointHash) Hash(string) uint32               { return 0 }
+func (h fixedEndpointHash) Get(string) (string, error)     { return h.host, nil }
+func (h fixedEndpointHash) GetHash(uint32) (string, error) { return h.host, nil }
+func (fixedEndpointHash) Add(string)                       {}
+func (fixedEndpointHash) Remove(string) bool               { return false }
+
+type programmaticHashSnapshotBalancer struct{}
+
+func (programmaticHashSnapshotBalancer) Handler(*model.ClusterConfig, model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (programmaticHashSnapshotBalancer) HandlerWithSnapshot(
+	context loadbalancer.PickContext,
+	_ model.LbPolicy,
+) *model.Endpoint {
+	hash := loadbalancer.ConsistentHashForHealthyEndpoints(context)
+	if hash == nil {
+		return nil
+	}
+	host, err := hash.Get("reviewer-regression")
+	if err != nil {
+		return nil
+	}
+	for _, endpoint := range context.HealthyEndpoints {
+		if endpoint != nil && endpoint.GetHost() == host {
+			return endpoint
+		}
+	}
+	return nil
+}
+
+func (programmaticHashSnapshotBalancer) UseHealthyEndpointsOnly() bool {
+	return true
 }
 
 func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {

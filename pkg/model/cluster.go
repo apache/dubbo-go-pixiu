@@ -318,11 +318,14 @@ func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
 
 // CloneClusterConfig returns a deep copy of c suitable for handing to a new
 // runtime Cluster. The clone owns its Endpoints and HealthChecks slices.
-// ConsistentHash.Hash (a mutable runtime object) is set to nil so the runtime
-// starts with a clean hash; the config fields (ReplicaNum, MaxVnodeNum,
-// MaglevTableSize) are preserved. configID is preserved so callers can detect
-// config-object identity changes. PrePickEndpointIndex is NOT copied — runtime
-// cursor state belongs on the runtime, not in the config clone.
+// ConsistentHash.Hash (a mutable runtime object) is set to nil when the policy
+// has a registered factory, so the runtime can rebuild it from its endpoint
+// snapshot. For an unregistered/custom policy, a programmatically supplied
+// Hash is preserved because there is no factory available to reconstruct it;
+// custom implementations are responsible for their own concurrency safety.
+// configID is preserved so callers can detect config-object identity changes.
+// PrePickEndpointIndex is NOT copied — runtime cursor state belongs on the
+// runtime, not in the config clone.
 func CloneClusterConfig(c *ClusterConfig) *ClusterConfig {
 	if c == nil {
 		return nil
@@ -330,11 +333,9 @@ func CloneClusterConfig(c *ClusterConfig) *ClusterConfig {
 	clone := *c
 	clone.Endpoints = CloneEndpoints(c.Endpoints)
 	clone.HealthChecks = cloneHealthChecks(c.HealthChecks)
-	clone.ConsistentHash = ConsistentHash{
-		ReplicaNum:      c.ConsistentHash.ReplicaNum,
-		MaxVnodeNum:     c.ConsistentHash.MaxVnodeNum,
-		MaglevTableSize: c.ConsistentHash.MaglevTableSize,
-		Hash:            nil,
+	clone.ConsistentHash = c.ConsistentHash
+	if c.HasConsistentHashFactory() {
+		clone.ConsistentHash.Hash = nil
 	}
 	return &clone
 }
