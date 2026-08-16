@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -52,6 +53,8 @@ type ListenerManager struct {
 
 	// name(host-port-protocol) -> wrapListenerService
 	activeListenerService map[string]*wrapListenerService
+	// xdsManaged contains only listener keys created through the xDS API.
+	xdsManaged map[string]struct{}
 	//readWriteLock
 	rwLock *sync.RWMutex
 	//shutdownWaitGroup
@@ -76,6 +79,7 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 
 	lm := &ListenerManager{
 		activeListenerService: listeners,
+		xdsManaged:            make(map[string]struct{}),
 		bootstrap:             bs,
 		rwLock:                &sync.RWMutex{},
 		shutdownWG:            &sync.WaitGroup{},
@@ -162,6 +166,60 @@ func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
 		return err
 	}
 	return nil
+}
+
+// UpsertXDSListener adds or updates a listener owned by xDS. An xDS resource
+// is not allowed to replace a listener created from static configuration.
+func (lm *ListenerManager) UpsertXDSListener(m *model.Listener) error {
+	if m == nil {
+		return errors.New("xDS listener config is nil")
+	}
+
+	listenerKey := resolveListenerName(m)
+	lm.rwLock.Lock()
+	if active, exists := lm.activeListenerService[listenerKey]; exists {
+		if _, owned := lm.xdsManaged[listenerKey]; !owned {
+			lm.rwLock.Unlock()
+			return errors.Errorf("xDS listener %q conflicts with a non-xDS listener", listenerKey)
+		}
+		logger.Infof("Update xDS Listener %s (key: %s)", m.Name, listenerKey)
+		if err := active.Refresh(*m); err != nil {
+			lm.rwLock.Unlock()
+			return errors.Wrapf(err, "refresh xDS listener %q", listenerKey)
+		}
+		active.config = m
+		lm.rwLock.Unlock()
+		return nil
+	}
+
+	ls, err := listener.CreateListenerService(m, lm.bootstrap)
+	if err != nil {
+		lm.rwLock.Unlock()
+		return err
+	}
+	lm.activeListenerService[listenerKey] = &wrapListenerService{
+		config:          m,
+		ListenerService: ls,
+	}
+	lm.xdsManaged[listenerKey] = struct{}{}
+	lm.rwLock.Unlock()
+
+	logger.Infof("Add xDS Listener %s (key: %s)", m.Name, listenerKey)
+	lm.startListenerServiceAsync(ls)
+	return nil
+}
+
+// XDSListenerNames returns the listener keys currently owned by xDS.
+func (lm *ListenerManager) XDSListenerNames() []string {
+	lm.rwLock.RLock()
+	defer lm.rwLock.RUnlock()
+
+	names := make([]string, 0, len(lm.xdsManaged))
+	for name := range lm.xdsManaged {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 func (lm *ListenerManager) HasListener(name string) bool {
@@ -257,5 +315,30 @@ func (lm *ListenerManager) RemoveListener(names []string) {
 	//remove from activeListenerService
 	for _, name := range names {
 		delete(lm.activeListenerService, name)
+	}
+}
+
+// RemoveXDSListeners removes only listeners owned by xDS. Names belonging to
+// static or other runtime configuration sources are ignored.
+func (lm *ListenerManager) RemoveXDSListeners(names []string) {
+	lm.rwLock.Lock()
+	listeners := make(map[string]*wrapListenerService, len(names))
+	for _, name := range names {
+		if _, owned := lm.xdsManaged[name]; !owned {
+			continue
+		}
+		if active := lm.activeListenerService[name]; active != nil {
+			listeners[name] = active
+		}
+		delete(lm.activeListenerService, name)
+		delete(lm.xdsManaged, name)
+	}
+	lm.rwLock.Unlock()
+
+	for name, active := range listeners {
+		logger.Infof("xDS listener %s closing", name)
+		if err := active.Close(); err != nil {
+			logger.Errorf("close xDS listener %s service error: %s", name, err)
+		}
 	}
 }

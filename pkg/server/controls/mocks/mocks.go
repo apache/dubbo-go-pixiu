@@ -118,6 +118,46 @@ func (mr *MockClusterManagerMockRecorder) UpdateCluster(cluster any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCluster", reflect.TypeOf((*MockClusterManager)(nil).UpdateCluster), cluster)
 }
 
+// UpsertXDSCluster mocks base method.
+func (m *MockClusterManager) UpsertXDSCluster(cluster *model.ClusterConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertXDSCluster", cluster)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertXDSCluster indicates an expected call of UpsertXDSCluster.
+func (mr *MockClusterManagerMockRecorder) UpsertXDSCluster(cluster any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertXDSCluster", reflect.TypeOf((*MockClusterManager)(nil).UpsertXDSCluster), cluster)
+}
+
+// RemoveXDSClusters mocks base method.
+func (m *MockClusterManager) RemoveXDSClusters(names []string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemoveXDSClusters", names)
+}
+
+// RemoveXDSClusters indicates an expected call of RemoveXDSClusters.
+func (mr *MockClusterManagerMockRecorder) RemoveXDSClusters(names any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveXDSClusters", reflect.TypeOf((*MockClusterManager)(nil).RemoveXDSClusters), names)
+}
+
+// XDSClusterNames mocks base method.
+func (m *MockClusterManager) XDSClusterNames() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "XDSClusterNames")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// XDSClusterNames indicates an expected call of XDSClusterNames.
+func (mr *MockClusterManagerMockRecorder) XDSClusterNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XDSClusterNames", reflect.TypeOf((*MockClusterManager)(nil).XDSClusterNames))
+}
+
 // MockListenerManager is a mock of ListenerManager interface.
 type MockListenerManager struct {
 	ctrl     *gomock.Controller
@@ -141,7 +181,7 @@ func (m *MockListenerManager) EXPECT() *MockListenerManagerMockRecorder {
 	return m.recorder
 }
 
-// AddOrUpdateListener mocks base method.
+// AddListener mocks base method.
 func (m_2 *MockListenerManager) AddListener(m *model.Listener) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "AddListener", m)
@@ -149,10 +189,39 @@ func (m_2 *MockListenerManager) AddListener(m *model.Listener) error {
 	return ret0
 }
 
-// AddOrUpdateListener indicates an expected call of AddOrUpdateListener.
-func (mr *MockListenerManagerMockRecorder) AddOrUpdateListener(m any) *gomock.Call {
+// AddListener indicates an expected call of AddListener.
+func (mr *MockListenerManagerMockRecorder) AddListener(m any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddListener", reflect.TypeOf((*MockListenerManager)(nil).AddListener), m)
+}
+
+// CloneXdsControlListener mocks base method.
+func (m *MockListenerManager) CloneXdsControlListener() ([]*model.Listener, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloneXdsControlListener")
+	ret0, _ := ret[0].([]*model.Listener)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloneXdsControlListener indicates an expected call of CloneXdsControlListener.
+func (mr *MockListenerManagerMockRecorder) CloneXdsControlListener() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneXdsControlListener", reflect.TypeOf((*MockListenerManager)(nil).CloneXdsControlListener))
+}
+
+// HasListener mocks base method.
+func (m *MockListenerManager) HasListener(name string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasListener", name)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasListener indicates an expected call of HasListener.
+func (mr *MockListenerManagerMockRecorder) HasListener(name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasListener", reflect.TypeOf((*MockListenerManager)(nil).HasListener), name)
 }
 
 // RemoveListener mocks base method.
@@ -165,6 +234,60 @@ func (m *MockListenerManager) RemoveListener(names []string) {
 func (mr *MockListenerManagerMockRecorder) RemoveListener(names any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveListener", reflect.TypeOf((*MockListenerManager)(nil).RemoveListener), names)
+}
+
+// UpdateListener mocks base method.
+func (m *MockListenerManager) UpdateListener(listener *model.Listener) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateListener", listener)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateListener indicates an expected call of UpdateListener.
+func (mr *MockListenerManagerMockRecorder) UpdateListener(listener any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListener", reflect.TypeOf((*MockListenerManager)(nil).UpdateListener), listener)
+}
+
+// UpsertXDSListener mocks base method.
+func (m *MockListenerManager) UpsertXDSListener(listener *model.Listener) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertXDSListener", listener)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertXDSListener indicates an expected call of UpsertXDSListener.
+func (mr *MockListenerManagerMockRecorder) UpsertXDSListener(listener any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertXDSListener", reflect.TypeOf((*MockListenerManager)(nil).UpsertXDSListener), listener)
+}
+
+// RemoveXDSListeners mocks base method.
+func (m *MockListenerManager) RemoveXDSListeners(names []string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemoveXDSListeners", names)
+}
+
+// RemoveXDSListeners indicates an expected call of RemoveXDSListeners.
+func (mr *MockListenerManagerMockRecorder) RemoveXDSListeners(names any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveXDSListeners", reflect.TypeOf((*MockListenerManager)(nil).RemoveXDSListeners), names)
+}
+
+// XDSListenerNames mocks base method.
+func (m *MockListenerManager) XDSListenerNames() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "XDSListenerNames")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// XDSListenerNames indicates an expected call of XDSListenerNames.
+func (mr *MockListenerManagerMockRecorder) XDSListenerNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XDSListenerNames", reflect.TypeOf((*MockListenerManager)(nil).XDSListenerNames))
 }
 
 // MockDynamicResourceManager is a mock of DynamicResourceManager interface.

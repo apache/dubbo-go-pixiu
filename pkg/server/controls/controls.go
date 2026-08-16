@@ -28,6 +28,9 @@ type (
 		UpdateCluster(cluster *model.ClusterConfig)
 		AddCluster(cluster *model.ClusterConfig)
 		CloneXdsControlStore() (ClusterStore, error)
+		UpsertXDSCluster(cluster *model.ClusterConfig) error
+		RemoveXDSClusters(names []string)
+		XDSClusterNames() []string
 	}
 
 	ListenerManager interface {
@@ -36,6 +39,9 @@ type (
 		RemoveListener(names []string)
 		HasListener(name string) bool
 		CloneXdsControlListener() ([]*model.Listener, error)
+		UpsertXDSListener(listener *model.Listener) error
+		RemoveXDSListeners(names []string)
+		XDSListenerNames() []string
 	}
 
 	DynamicResourceManager interface {

@@ -43,7 +43,8 @@ type (
 	ClusterManager struct {
 		rw sync.RWMutex
 
-		store *ClusterStore
+		store      *ClusterStore
+		xdsManaged map[string]struct{}
 		//cConfig []*model.ClusterConfig
 	}
 
@@ -71,7 +72,10 @@ func (cm *ClusterManager) CloneXdsControlStore() (controls.ClusterStore, error) 
 }
 
 func CreateDefaultClusterManager(bs *model.Bootstrap) *ClusterManager {
-	return &ClusterManager{store: newClusterStore(bs)}
+	return &ClusterManager{
+		store:      newClusterStore(bs),
+		xdsManaged: make(map[string]struct{}),
+	}
 }
 
 func newClusterStore(bs *model.Bootstrap) *ClusterStore {
@@ -98,6 +102,44 @@ func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 
 	cm.store.IncreaseVersion()
 	cm.store.UpdateCluster(new)
+}
+
+// UpsertXDSCluster adds or updates a cluster owned by xDS. An xDS resource is
+// not allowed to overwrite a cluster created from static configuration.
+func (cm *ClusterManager) UpsertXDSCluster(c *model.ClusterConfig) error {
+	if c == nil || c.Name == "" {
+		return fmt.Errorf("xDS cluster must have a name")
+	}
+
+	cm.rw.Lock()
+	defer cm.rw.Unlock()
+
+	_, owned := cm.xdsManaged[c.Name]
+	if cm.store.HasCluster(c.Name) && !owned {
+		return fmt.Errorf("xDS cluster %q conflicts with a non-xDS cluster", c.Name)
+	}
+
+	cm.store.IncreaseVersion()
+	if owned {
+		cm.store.UpdateCluster(c)
+	} else {
+		cm.store.AddCluster(c)
+		cm.xdsManaged[c.Name] = struct{}{}
+	}
+	return nil
+}
+
+// XDSClusterNames returns the names of clusters currently owned by xDS.
+func (cm *ClusterManager) XDSClusterNames() []string {
+	cm.rw.RLock()
+	defer cm.rw.RUnlock()
+
+	names := make([]string, 0, len(cm.xdsManaged))
+	for name := range cm.xdsManaged {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // SetEndpoint registers or refreshes a single endpoint in the named
@@ -315,7 +357,30 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
+	cm.removeClustersLocked(namesToDel)
+}
 
+// RemoveXDSClusters removes only clusters owned by xDS. Names belonging to
+// static or other runtime configuration sources are ignored.
+func (cm *ClusterManager) RemoveXDSClusters(names []string) {
+	cm.rw.Lock()
+	defer cm.rw.Unlock()
+
+	ownedNames := make([]string, 0, len(names))
+	for _, name := range names {
+		if _, owned := cm.xdsManaged[name]; !owned {
+			continue
+		}
+		ownedNames = append(ownedNames, name)
+		delete(cm.xdsManaged, name)
+	}
+	if len(ownedNames) == 0 {
+		return
+	}
+	cm.removeClustersLocked(ownedNames)
+}
+
+func (cm *ClusterManager) removeClustersLocked(namesToDel []string) {
 	for i, c := range cm.store.Config {
 		if c == nil {
 			continue

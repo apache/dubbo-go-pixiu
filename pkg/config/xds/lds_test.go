@@ -174,7 +174,8 @@ func TestMakeListener(t *testing.T) {
 }
 
 type mockListenerManager struct {
-	m map[string]*model.Listener
+	m          map[string]*model.Listener
+	xdsManaged map[string]struct{}
 }
 
 func (m *mockListenerManager) AddListener(l *model.Listener) error {
@@ -206,8 +207,36 @@ func (m *mockListenerManager) CloneXdsControlListener() ([]*model.Listener, erro
 	return res, nil
 }
 
+func (m *mockListenerManager) UpsertXDSListener(listener *model.Listener) error {
+	if m.xdsManaged == nil {
+		m.xdsManaged = make(map[string]struct{})
+	}
+	m.m[listener.Name] = listener
+	m.xdsManaged[listener.Name] = struct{}{}
+	return nil
+}
+
+func (m *mockListenerManager) RemoveXDSListeners(names []string) {
+	for _, name := range names {
+		if _, owned := m.xdsManaged[name]; !owned {
+			continue
+		}
+		delete(m.m, name)
+		delete(m.xdsManaged, name)
+	}
+}
+
+func (m *mockListenerManager) XDSListenerNames() []string {
+	res := make([]string, 0, len(m.xdsManaged))
+	for name := range m.xdsManaged {
+		res = append(res, name)
+	}
+	return res
+}
+
 func TestSetupListeners(t *testing.T) {
-	mock := &mockListenerManager{m: map[string]*model.Listener{}}
+	staticListener := &model.Listener{Name: "static-listener"}
+	mock := &mockListenerManager{m: map[string]*model.Listener{"static-listener": staticListener}}
 	lm := &LdsManager{listenerMg: mock}
 
 	listeners := []*xdsmodel.Listener{
@@ -252,5 +281,6 @@ func TestSetupListeners(t *testing.T) {
 		},
 	}
 	lm.setupListeners(newListeners)
-	assert.Equal(t, 1, len(mock.m))
+	assert.Equal(t, 2, len(mock.m))
+	assert.Same(t, staticListener, mock.m["static-listener"])
 }

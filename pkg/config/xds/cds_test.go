@@ -103,7 +103,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 	})
 	defer patches.Reset()
 
-	clusterMg.EXPECT().HasCluster(gomock.Any()).DoAndReturn(func(clusterName string) bool {
+	clusterMg.EXPECT().HasCluster(gomock.Any()).AnyTimes().DoAndReturn(func(clusterName string) bool {
 		_, ok := cluster[clusterName]
 		return ok
 	})
@@ -115,6 +115,12 @@ func TestCdsManager_Fetch(t *testing.T) {
 		addCluster = c
 	})
 	clusterMg.EXPECT().RemoveCluster(gomock.Any()).AnyTimes()
+	clusterMg.EXPECT().XDSClusterNames().AnyTimes().Return(nil)
+	clusterMg.EXPECT().RemoveXDSClusters(gomock.Any()).AnyTimes()
+	clusterMg.EXPECT().UpsertXDSCluster(gomock.Any()).AnyTimes().DoAndReturn(func(c *model.ClusterConfig) error {
+		addCluster = c
+		return nil
+	})
 	clusterMg.EXPECT().CloneXdsControlStore().AnyTimes().DoAndReturn(func() (controls.ClusterStore, error) {
 		store := mocks.NewMockClusterStore(ctrl)
 		store.EXPECT().Config().AnyTimes()

@@ -65,6 +65,21 @@ func TestClusterManager(t *testing.T) {
 	cm.DeleteEndpoint("test2", "1")
 }
 
+func TestClusterManager_XDSOwnershipPreservesStaticCluster(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	cm := testClusterManager(staticCluster)
+
+	require.Error(t, cm.UpsertXDSCluster(testCluster("static", model.LoadBalancerRoundRobin, nil)))
+	require.NoError(t, cm.UpsertXDSCluster(testCluster("dynamic", model.LoadBalancerRoundRobin, nil)))
+	assert.Equal(t, []string{"dynamic"}, cm.XDSClusterNames())
+
+	cm.RemoveXDSClusters([]string{"static", "dynamic"})
+
+	assert.True(t, cm.HasCluster("static"))
+	assert.False(t, cm.HasCluster("dynamic"))
+	assert.Empty(t, cm.XDSClusterNames())
+}
+
 func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
 	cm := testClusterManager()
 	assert.Nil(t, cm.PickEndpoint("missing-cluster", nil))

@@ -103,7 +103,7 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 	for name := range toRemoveHash {
 		names = append(names, name)
 	}
-	l.listenerMg.RemoveListener(names)
+	l.listenerMg.RemoveXDSListeners(names)
 }
 
 // setupListeners setup listeners accord to dynamic resource
@@ -117,16 +117,8 @@ func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) {
 	toRemoveHash := make(map[string]struct{}, len(listeners))
 
 	lm := l.listenerMg
-	activeListeners, err := lm.CloneXdsControlListener()
-	if err != nil {
-		logger.Errorf("Clone Xds Control Listener fail: %s", err)
-		return
-	}
-	//put all current listeners to $toRemoveHash
-	for _, v := range activeListeners {
-		//Make sure each one has a unique name like "host-port-protocol"
-		v.Name = resolveListenerName(v.Address.SocketAddress.Address, v.Address.SocketAddress.Port, v.ProtocolStr)
-		toRemoveHash[v.Name] = struct{}{}
+	for _, name := range lm.XDSListenerNames() {
+		toRemoveHash[name] = struct{}{}
 	}
 
 	for _, listener := range listeners {
@@ -134,16 +126,9 @@ func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) {
 
 		modelListener := l.makeListener(listener)
 		// add or update later after removes
-		switch {
-		case lm.HasListener(modelListener.Name):
-			laterApplies = append(laterApplies, func() error {
-				return lm.UpdateListener(&modelListener)
-			})
-		default:
-			laterApplies = append(laterApplies, func() error {
-				return lm.AddListener(&modelListener)
-			})
-		}
+		laterApplies = append(laterApplies, func() error {
+			return lm.UpsertXDSListener(&modelListener)
+		})
 	}
 	// remove the listeners first to prevent tcp port conflict
 	l.removeListeners(toRemoveHash)

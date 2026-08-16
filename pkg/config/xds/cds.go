@@ -18,10 +18,6 @@
 package xds
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -83,7 +79,7 @@ func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 }
 
 func (c *CdsManager) removeCluster(clusterNames []string) {
-	c.clusterMg.RemoveCluster(clusterNames)
+	c.clusterMg.RemoveXDSClusters(clusterNames)
 }
 
 func (c *CdsManager) setupCluster(clusters []*xdsmodel.Cluster) error {
@@ -91,30 +87,16 @@ func (c *CdsManager) setupCluster(clusters []*xdsmodel.Cluster) error {
 	laterApplies := make([]func() error, 0, len(clusters))
 	toRemoveHash := make(map[string]struct{}, len(clusters))
 
-	store, err := c.clusterMg.CloneXdsControlStore()
-	if err != nil {
-		return errors.WithMessagef(err, "can not clone cluster store when update cluster")
-	}
-	//todo this will remove the cluster which defined locally.
-	for _, cluster := range store.Config() {
-		toRemoveHash[cluster.Name] = struct{}{}
+	for _, name := range c.clusterMg.XDSClusterNames() {
+		toRemoveHash[name] = struct{}{}
 	}
 	for _, cluster := range clusters {
 		delete(toRemoveHash, cluster.Name)
 
 		makeCluster := c.makeCluster(cluster)
-		switch {
-		case c.clusterMg.HasCluster(cluster.Name):
-			laterApplies = append(laterApplies, func() error {
-				c.clusterMg.UpdateCluster(makeCluster)
-				return nil
-			})
-		default:
-			laterApplies = append(laterApplies, func() error {
-				c.clusterMg.AddCluster(makeCluster)
-				return nil
-			})
-		}
+		laterApplies = append(laterApplies, func() error {
+			return c.clusterMg.UpsertXDSCluster(makeCluster)
+		})
 	}
 
 	c.removeClusters(toRemoveHash)
