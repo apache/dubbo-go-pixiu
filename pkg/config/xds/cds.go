@@ -18,6 +18,8 @@
 package xds
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
 )
 
@@ -34,6 +36,8 @@ type CdsManager struct {
 	DiscoverApi
 	clusterMg controls.ClusterManager
 }
+
+const endpointHealthMetadataKey = "pixiu.io/unhealthy"
 
 // Fetch overwrite DiscoverApi.Fetch.
 func (c *CdsManager) Fetch() error {
@@ -162,14 +166,19 @@ func (c *CdsManager) makeClusterType(cluster *xdsmodel.Cluster) model.DiscoveryT
 }
 
 func (c *CdsManager) makeEndpoints(endpoints []*xdsmodel.Endpoint) []*model.Endpoint {
-	r := make([]*model.Endpoint, len(endpoints))
-	for i, endpoint := range endpoints {
-		r[i] = &model.Endpoint{
-			ID:       endpoint.Id,
-			Name:     endpoint.Name,
-			Address:  c.makeAddress(endpoint),
-			Metadata: endpoint.Metadata,
+	r := make([]*model.Endpoint, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		if endpoint == nil {
+			continue
 		}
+		unhealthy, _ := strconv.ParseBool(endpoint.Metadata[endpointHealthMetadataKey])
+		r = append(r, &model.Endpoint{
+			ID:        endpoint.Id,
+			Name:      endpoint.Name,
+			Address:   c.makeAddress(endpoint),
+			Metadata:  endpoint.Metadata,
+			UnHealthy: unhealthy,
+		})
 	}
 	return r
 }

@@ -207,6 +207,18 @@ func TestCdsManager_makeCluster(t *testing.T) {
 	assert.Equal(cluster.Endpoints[0].Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
 }
 
+func TestCdsManager_MakeEndpointsPreservesEDSHealth(t *testing.T) {
+	manager := &CdsManager{}
+	endpoints := manager.makeEndpoints([]*xdsmodel.Endpoint{{
+		Id:       "endpoint-1",
+		Address:  &xdsmodel.SocketAddress{Address: "10.0.0.1", Port: 20880},
+		Metadata: map[string]string{endpointHealthMetadataKey: "true"},
+	}})
+
+	require.Len(t, endpoints, 1)
+	require.True(t, endpoints[0].UnHealthy)
+}
+
 func TestCdsManager_ApplyDelta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	clusterMg := mocks.NewMockClusterManager(ctrl)
