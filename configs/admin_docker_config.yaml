@@ -19,6 +19,9 @@
 
 server:
   address: 127.0.0.1:8081
+xds:
+  listen_port: 18000
+  node_id: test-id
 etcd:
   address: pixiu_admin_etcd:2379
   path: /pixiu/config/api

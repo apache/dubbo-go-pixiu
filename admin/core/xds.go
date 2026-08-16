@@ -51,6 +51,7 @@ import (
 import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
+	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
@@ -58,9 +59,6 @@ import (
 )
 
 var (
-	port   = uint(18000)
-	nodeID = "test-id"
-
 	snaphost cache.SnapshotCache
 )
 
@@ -85,6 +83,9 @@ func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
 
 // StartxDsServer RunXDSServerWithCache starts an xDS server at the gi.ven port.
 func StartxDsServer() error {
+	xdsConfig := adminconfig.Bootstrap.GetXDSConfig()
+	adminxds.DefaultStatusStore.Reset(xdsConfig.NodeID)
+
 	// Create a snaphost
 	snaphost = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
 
@@ -96,7 +97,7 @@ func StartxDsServer() error {
 	}
 
 	// Add the config to the snaphost
-	if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
+	if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, config); err != nil {
 		logger.Errorf("config error %q for %+v", err, config)
 		os.Exit(1)
 	}
@@ -106,7 +107,7 @@ func StartxDsServer() error {
 	// Run the xDS server
 	ctx := context.Background()
 	srv := envoyServer.NewServer(ctx, snaphost, nil)
-	return runXDSServer(ctx, srv, port)
+	return runXDSServer(ctx, srv, xdsConfig.ListenPort)
 }
 
 // runXDSServer starts an xDS server at the given port.
@@ -144,6 +145,7 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 }
 
 func watchConfigAndReload() {
+	xdsConfig := adminconfig.Bootstrap.GetXDSConfig()
 	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
 
 	if err != nil {
@@ -161,7 +163,7 @@ func watchConfigAndReload() {
 		}
 
 		// Add the config to the snaphost
-		if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
+		if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, config); err != nil {
 			logger.Errorf("config error %q for %+v", err, config)
 			os.Exit(1)
 		}
