@@ -24,6 +24,8 @@ import (
 
 import (
 	"gopkg.in/yaml.v3"
+
+	"github.com/pkg/errors"
 )
 
 import (
@@ -56,8 +58,7 @@ func (l *LdsManager) Fetch() error {
 		logger.Infof("listener xds server %v", listener)
 		listeners = append(listeners, listener.Listeners...)
 	}
-	l.setupListeners(listeners)
-	return nil
+	return l.setupListeners(listeners)
 }
 
 func (l *LdsManager) Delta() error {
@@ -71,13 +72,27 @@ func (l *LdsManager) Delta() error {
 
 func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		l.applyDelta(delta)
+		err := l.applyDelta(delta)
+		delta.Complete(err)
+		if err != nil {
+			logger.Errorf("can not setup listener: %v", err)
+		}
 	}
 }
 
-func (l *LdsManager) applyDelta(delta *apiclient.DeltaResources) {
+func (l *LdsManager) applyDelta(delta *apiclient.DeltaResources) error {
 	if delta == nil {
-		return
+		return nil
+	}
+
+	listeners := make([]*xdsmodel.Listener, 0, len(delta.NewResources))
+	for _, resource := range delta.NewResources {
+		listener := &xdsmodel.PixiuExtensionListeners{}
+		if err := resource.To(listener); err != nil {
+			return errors.Wrapf(err, "unknown resource %q, expect Listener", resource.GetName())
+		}
+		logger.Infof("listener xds server %v", listener)
+		listeners = append(listeners, listener.Listeners...)
 	}
 
 	for _, name := range delta.RemovedResources {
@@ -86,21 +101,10 @@ func (l *LdsManager) applyDelta(delta *apiclient.DeltaResources) {
 		}
 	}
 	if len(delta.NewResources) == 0 {
-		return
+		return nil
 	}
 
-	listeners := make([]*xdsmodel.Listener, 0, len(delta.NewResources))
-	for _, resource := range delta.NewResources {
-		listener := &xdsmodel.PixiuExtensionListeners{}
-		if err := resource.To(listener); err != nil {
-			logger.Errorf("unknown resource of %s, expect Listener", resource.GetName())
-			continue
-		}
-		logger.Infof("listener xds server %v", listener)
-		listeners = append(listeners, listener.Listeners...)
-	}
-
-	l.setupListeners(listeners)
+	return l.setupListeners(listeners)
 }
 
 func (l *LdsManager) makeSocketAddress(address *xdsmodel.SocketAddress) model.SocketAddress {
@@ -125,7 +129,7 @@ func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
 }
 
 // setupListeners setup listeners accord to dynamic resource
-func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) {
+func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) error {
 	//Make sure each one has a unique name like "host-port-protocol"
 	for _, v := range listeners {
 		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), v.Protocol.String())
@@ -153,9 +157,10 @@ func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) {
 	//do update and add new cluster.
 	for _, fn := range laterApplies {
 		if err := fn(); err != nil {
-			logger.Errorf("can not modify listener", err)
+			return errors.Wrap(err, "can not modify listener")
 		}
 	}
+	return nil
 }
 
 func resolveListenerName(host string, port int, protocol string) string {

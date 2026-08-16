@@ -18,6 +18,10 @@
 package xds
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
@@ -62,8 +66,10 @@ func (c *CdsManager) Delta() error {
 
 func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		if err := c.applyDelta(delta); err != nil {
-			logger.Errorf("can not setup cluster.", err)
+		err := c.applyDelta(delta)
+		delta.Complete(err)
+		if err != nil {
+			logger.Errorf("can not setup cluster: %v", err)
 		}
 	}
 }
@@ -73,6 +79,16 @@ func (c *CdsManager) applyDelta(delta *apiclient.DeltaResources) error {
 		return nil
 	}
 
+	clusters := make([]*xdsmodel.Cluster, 0, len(delta.NewResources))
+	for _, resource := range delta.NewResources {
+		cluster := &xdsmodel.PixiuExtensionClusters{}
+		if err := resource.To(cluster); err != nil {
+			return errors.Wrapf(err, "unknown resource %q, expect Cluster", resource.GetName())
+		}
+		logger.Infof("clusters from xds server %v", cluster)
+		clusters = append(clusters, cluster.Clusters...)
+	}
+
 	for _, name := range delta.RemovedResources {
 		if name == constant.ClusterType {
 			c.clusterMg.RemoveXDSClusters(c.clusterMg.XDSClusterNames())
@@ -80,17 +96,6 @@ func (c *CdsManager) applyDelta(delta *apiclient.DeltaResources) error {
 	}
 	if len(delta.NewResources) == 0 {
 		return nil
-	}
-
-	clusters := make([]*xdsmodel.Cluster, 0, len(delta.NewResources))
-	for _, resource := range delta.NewResources {
-		cluster := &xdsmodel.PixiuExtensionClusters{}
-		if err := resource.To(cluster); err != nil {
-			logger.Errorf("unknown resource of %s, expect Cluster", resource.GetName())
-			continue
-		}
-		logger.Infof("clusters from xds server %v", cluster)
-		clusters = append(clusters, cluster.Clusters...)
 	}
 	return c.setupCluster(clusters)
 }
@@ -119,7 +124,7 @@ func (c *CdsManager) setupCluster(clusters []*xdsmodel.Cluster) error {
 	c.removeClusters(toRemoveHash)
 	for _, fn := range laterApplies { //do update and add new cluster.
 		if err := fn(); err != nil {
-			logger.Errorf("can not modify cluster", err)
+			return errors.Wrap(err, "can not modify cluster")
 		}
 	}
 	return nil

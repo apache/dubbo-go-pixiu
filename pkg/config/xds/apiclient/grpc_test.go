@@ -19,6 +19,8 @@ package apiclient
 
 import (
 	"context"
+	stderr "errors"
+	"io"
 	"sync"
 	"testing"
 )
@@ -30,8 +32,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/metadata"
+
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 import (
@@ -152,3 +163,150 @@ func TestGRPCCluster_GetConnect(t *testing.T) {
 	state = connectivity.Shutdown
 	assert.False(g.IsAlive())
 }
+
+func TestGrpcExtensionApiClient_HandleDeltaResponse(t *testing.T) {
+	typedPayload, err := anypb.New(&emptypb.Empty{})
+	require.NoError(t, err)
+	outerResource, err := anypb.New(&corepb.TypedExtensionConfig{
+		Name:        "resource-a",
+		TypedConfig: typedPayload,
+	})
+	require.NoError(t, err)
+
+	client := &GrpcExtensionApiClient{}
+	resources, err := client.handleDeltaResponse(&discoverypb.DeltaDiscoveryResponse{
+		Nonce:            "nonce-1",
+		RemovedResources: []string{"resource-old"},
+		Resources: []*discoverypb.Resource{{
+			Name:     "resource-a",
+			Version:  "v2",
+			Resource: outerResource,
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, resources.NewResources, 1)
+	require.Equal(t, []string{"resource-old"}, resources.RemovedResources)
+
+	state := &xdsState{deltaVersion: map[string]string{"resource-old": "v1"}}
+	acceptDeltaResources(state, resources)
+	require.Equal(t, map[string]string{"resource-a": "v2"}, state.deltaVersion)
+
+	_, err = client.handleDeltaResponse(&discoverypb.DeltaDiscoveryResponse{
+		Resources: []*discoverypb.Resource{{
+			Name:     "broken",
+			Version:  "v3",
+			Resource: &anypb.Any{TypeUrl: "invalid", Value: []byte{0xff}},
+		}},
+	})
+	require.Error(t, err)
+}
+
+func TestGrpcExtensionApiClient_RespondToDelta(t *testing.T) {
+	client := &GrpcExtensionApiClient{node: &model.Node{Id: "node-1"}}
+	stream := &recordingDeltaStream{ctx: context.Background()}
+
+	require.NoError(t, client.respondToDelta(stream, "ack-nonce", nil))
+	require.NoError(t, client.respondToDelta(stream, "nack-nonce", stderr.New("apply failed")))
+	require.Len(t, stream.sent, 2)
+
+	ack := stream.sent[0]
+	require.Equal(t, "ack-nonce", ack.ResponseNonce)
+	require.Nil(t, ack.ErrorDetail)
+	require.Empty(t, ack.InitialResourceVersions)
+
+	nack := stream.sent[1]
+	require.Equal(t, "nack-nonce", nack.ResponseNonce)
+	require.Equal(t, int32(codes.InvalidArgument), nack.ErrorDetail.Code)
+	require.Contains(t, nack.ErrorDetail.Message, "apply failed")
+}
+
+func TestGrpcExtensionApiClient_ConsumeWaitsForApplyBeforeAck(t *testing.T) {
+	typedPayload, err := anypb.New(&emptypb.Empty{})
+	require.NoError(t, err)
+	outerResource, err := anypb.New(&corepb.TypedExtensionConfig{
+		Name:        "resource-a",
+		TypedConfig: typedPayload,
+	})
+	require.NoError(t, err)
+
+	stream := &recordingDeltaStream{
+		ctx: context.Background(),
+		responses: []*discoverypb.DeltaDiscoveryResponse{{
+			Nonce: "nonce-1",
+			Resources: []*discoverypb.Resource{{
+				Name:     "resource-a",
+				Version:  "v2",
+				Resource: outerResource,
+			}},
+		}},
+	}
+	client := &GrpcExtensionApiClient{node: &model.Node{Id: "node-1"}}
+	state := &xdsState{deltaVersion: map[string]string{"resource-a": "v1"}}
+	output := make(chan *DeltaResources, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- client.consumeDeltaStream(context.Background(), stream, state, output)
+	}()
+
+	resources := <-output
+	require.Empty(t, stream.sent, "response must not be ACKed before it is applied")
+	require.Equal(t, "v1", state.deltaVersion["resource-a"])
+
+	resources.Complete(nil)
+	require.ErrorIs(t, <-done, io.EOF)
+	require.Len(t, stream.sent, 1)
+	require.Equal(t, "nonce-1", stream.sent[0].ResponseNonce)
+	require.Nil(t, stream.sent[0].ErrorDetail)
+	require.Equal(t, "v2", state.deltaVersion["resource-a"])
+}
+
+func TestDeltaResources_CompleteOnce(t *testing.T) {
+	resources := newDeltaResources()
+	resources.Complete(nil)
+	resources.Complete(stderr.New("late result"))
+	require.NoError(t, <-resources.applyResult)
+}
+
+func TestProtoAny_ToReturnsDecodeError(t *testing.T) {
+	resource := NewProtoAny(&corepb.TypedExtensionConfig{
+		Name: "broken",
+		TypedConfig: &anypb.Any{
+			TypeUrl: "type.googleapis.com/google.protobuf.Empty",
+			Value:   []byte{0xff},
+		},
+	})
+
+	require.NotPanics(t, func() {
+		require.Error(t, resource.To(&emptypb.Empty{}))
+	})
+}
+
+type recordingDeltaStream struct {
+	ctx       context.Context
+	sent      []*discoverypb.DeltaDiscoveryRequest
+	responses []*discoverypb.DeltaDiscoveryResponse
+	recvIndex int
+}
+
+func (s *recordingDeltaStream) Send(req *discoverypb.DeltaDiscoveryRequest) error {
+	s.sent = append(s.sent, req)
+	return nil
+}
+
+func (s *recordingDeltaStream) Recv() (*discoverypb.DeltaDiscoveryResponse, error) {
+	if s.recvIndex >= len(s.responses) {
+		return nil, io.EOF
+	}
+	resp := s.responses[s.recvIndex]
+	s.recvIndex++
+	return resp, nil
+}
+
+func (s *recordingDeltaStream) Header() (metadata.MD, error) { return nil, nil }
+func (s *recordingDeltaStream) Trailer() metadata.MD         { return nil }
+func (s *recordingDeltaStream) CloseSend() error             { return nil }
+func (s *recordingDeltaStream) Context() context.Context     { return s.ctx }
+func (s *recordingDeltaStream) SendMsg(any) error            { return nil }
+func (s *recordingDeltaStream) RecvMsg(any) error            { return io.EOF }
+
+var _ extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient = (*recordingDeltaStream)(nil)
