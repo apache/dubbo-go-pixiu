@@ -22,12 +22,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"time"
 )
 
 import (
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	endpointservice "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
@@ -36,31 +34,25 @@ import (
 	routeservice "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
 	runtimeservice "github.com/envoyproxy/go-control-plane/envoy/service/runtime/v3"
 	secretservice "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	envoyServer "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
-
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
-	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 var (
-	snaphost cache.SnapshotCache
+	snaphost        cache.SnapshotCache
+	snapshotBuilder = adminxds.NewSnapshotBuilder(adminxds.LogicResourceLoader{})
 )
+
+const currentSnapshotVersion = "2"
 
 const (
 	grpcKeepaliveTime        = 30 * time.Second
@@ -90,17 +82,20 @@ func StartxDsServer() error {
 	snaphost = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
 
 	// Create the config that we'll serve to Envoy
-	config := GenerateSnapshotPixiu()
-	if err := config.Consistent(); err != nil {
-		logger.Errorf("config inconsistency: %+v\n%+v", config, err)
+	result, err := GenerateSnapshotPixiu()
+	if err != nil {
+		adminxds.DefaultStatusStore.RecordError(err)
+		logger.Errorf("generate xDS snapshot: %+v", err)
 		os.Exit(1)
 	}
 
 	// Add the config to the snaphost
-	if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, config); err != nil {
-		logger.Errorf("config error %q for %+v", err, config)
+	if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, result.Snapshot); err != nil {
+		adminxds.DefaultStatusStore.RecordError(err)
+		logger.Errorf("config error %q for %+v", err, result.Snapshot)
 		os.Exit(1)
 	}
+	adminxds.DefaultStatusStore.RecordSuccess(result.Version, result.ListenerCount, result.ClusterCount)
 
 	go watchConfigAndReload()
 
@@ -156,143 +151,25 @@ func watchConfigAndReload() {
 	for range ch {
 		logger.Info("get etcd config change")
 		// Create the config that we'll serve to Envoy
-		config := GenerateSnapshotPixiu()
-		if err := config.Consistent(); err != nil {
-			logger.Errorf("config inconsistency: %+v\n%+v", config, err)
+		result, err := GenerateSnapshotPixiu()
+		if err != nil {
+			adminxds.DefaultStatusStore.RecordError(err)
+			logger.Errorf("generate xDS snapshot: %+v", err)
 			os.Exit(1)
 		}
 
 		// Add the config to the snaphost
-		if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, config); err != nil {
-			logger.Errorf("config error %q for %+v", err, config)
+		if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, result.Snapshot); err != nil {
+			adminxds.DefaultStatusStore.RecordError(err)
+			logger.Errorf("config error %q for %+v", err, result.Snapshot)
 			os.Exit(1)
 		}
+		adminxds.DefaultStatusStore.RecordSuccess(result.Version, result.ListenerCount, result.ClusterCount)
 	}
 }
 
-// makeHTTPFilter returns a handler for the given resource.
-func makeHTTPFilter(listener config.Listener) *model.FilterChain {
-	var filters, routes []any
-
-	for _, f := range listener.HTTPFilters {
-		filters = append(filters, map[string]any{
-			"name":   f.Name,
-			"config": f.Config,
-		})
-	}
-
-	for _, r := range listener.RouteConfig.Routes {
-		routes = append(filters, map[string]any{
-			"match": map[string]any{
-				"prefix": r.Match.Prefix,
-			},
-			"route": map[string]any{
-				"cluster":                         r.Route.Cluster,
-				"cluster_not_found_response_code": r.Route.ClusterNotFoundResponseCode,
-			},
-		})
-	}
-
-	return &model.FilterChain{
-		Filters: []*model.NetworkFilter{
-			{
-				Name: constant.HTTPConnectManagerFilter,
-				Config: &model.NetworkFilter_Struct{
-					Struct: func() *structpb.Struct {
-						v, err := structpb.NewStruct(map[string]any{
-							"route_config": map[string]any{
-								"routes": routes,
-							},
-							"http_filters": filters,
-						})
-						if err != nil {
-							panic(err)
-						}
-						return v
-					}(),
-				},
-			},
-		},
-	}
-}
-
-func makeListeners() *model.PixiuExtensionListeners {
-	listeners, err := logic.BizGetListeners()
-	if err != nil {
-		logger.Errorf("get listeners error %q", err)
-		return nil
-	}
-
-	if len(listeners) == 0 {
-		return nil
-	}
-
-	pbListeners := &model.PixiuExtensionListeners{}
-	for _, listener := range listeners {
-		pbListeners.Listeners = append(pbListeners.Listeners, &model.Listener{
-			Name: listener.Name,
-			Address: &model.Address{
-				SocketAddress: &model.SocketAddress{
-					Address: listener.Address.SocketAddress.Address,
-					Port:    int64(listener.Address.SocketAddress.Port),
-				},
-				Name: listener.Address.Name,
-			},
-			FilterChain: makeHTTPFilter(listener),
-		})
-	}
-	return pbListeners
-}
-
-func makeClusters() *model.PixiuExtensionClusters {
-	clusters, err := logic.BizGetClusters()
-	if err != nil {
-		logger.Errorf("get clusters error %q", err)
-		return nil
-	}
-
-	if len(clusters) == 0 {
-		return nil
-	}
-
-	pbCluster := &model.PixiuExtensionClusters{}
-
-	for _, c := range clusters {
-		pbCluster.Clusters = append(pbCluster.Clusters, &model.Cluster{
-			Name:    c.Name,
-			TypeStr: c.Type,
-			Endpoints: []*model.Endpoint{
-				{
-					Id: c.Name + strconv.Itoa(c.ID),
-					Address: &model.SocketAddress{
-						Address: c.Address,
-						Port:    int64(c.Port),
-					},
-				},
-			},
-		})
-	}
-
-	return pbCluster
-}
-
-// GenerateSnapshotPixiu returns a snapshot with a single cluster and endpoint.
-func GenerateSnapshotPixiu() *cache.Snapshot {
-	ldsResource, _ := anypb.New(makeListeners())
-	cdsResource, _ := anypb.New(makeClusters())
-	snap, _ := cache.NewSnapshot("2",
-		map[resource.Type][]types.Resource{
-			resource.ExtensionConfigType: {
-				&core.TypedExtensionConfig{
-					Name:        constant.ClusterType,
-					TypedConfig: cdsResource,
-				},
-				&core.TypedExtensionConfig{
-					Name:        constant.ListenerType,
-					TypedConfig: ldsResource,
-				},
-			},
-		},
-	)
-	return snap
+// GenerateSnapshotPixiu builds and validates the current Admin resource view.
+// Cache publication and version advancement remain the caller's responsibility.
+func GenerateSnapshotPixiu() (*adminxds.SnapshotBuildResult, error) {
+	return snapshotBuilder.Build(currentSnapshotVersion)
 }
