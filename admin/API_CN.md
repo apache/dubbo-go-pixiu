@@ -397,6 +397,22 @@ cache-control: no-cache
 * `server_url`: OPA 服务地址（可选）
 * `bearer_token`: OPA Bearer Token（可选）
 
+## 六、xDS 诊断
+
+### 6.1 获取 xDS 发布状态
+
+该接口需要 Admin JWT，返回最近一次成功发布的快照版本、资源数量、发布时间，
+以及最近一次被拒绝的候选配置错误。
+
+```http
+GET /config/api/xds/status HTTP/1.1
+Host: 127.0.0.1:8080
+token: <admin-jwt>
+```
+
+`ready` 表示至少已有一个快照成功发布；`degraded` 表示新候选配置失败，
+但控制面仍在提供上一个可用快照。
+
 **返回**：
 
 ```json

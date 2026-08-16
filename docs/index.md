@@ -21,6 +21,7 @@
 * [Auto Registry](developer/auto-registy.md)
 * [Filter](developer/filter.md)
 * [Log](developer/log.md)
+* [xDS Operations](developer/xds-operations.md)
 
 ## [AI Gateway](ai/README.md)
 * [MCP](ai/mcp/mcp.md)

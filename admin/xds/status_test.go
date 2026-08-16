@@ -58,10 +58,16 @@ func TestStatusStoreErrorPreservesLastGoodSnapshot(t *testing.T) {
 	if got.LastError != "candidate is inconsistent" {
 		t.Fatalf("unexpected last error: %q", got.LastError)
 	}
+	if got.LastAttemptAt.IsZero() || got.LastErrorAt.IsZero() {
+		t.Fatalf("failed candidate did not record attempt timestamps: %+v", got)
+	}
 
 	store.RecordSuccess("8", 4, 5)
 	if got := store.Snapshot(); got.LastError != "" {
 		t.Fatalf("successful publication did not clear error: %q", got.LastError)
+	}
+	if got := store.Snapshot(); !got.LastErrorAt.IsZero() {
+		t.Fatalf("successful publication did not clear error timestamp: %+v", got)
 	}
 }
 

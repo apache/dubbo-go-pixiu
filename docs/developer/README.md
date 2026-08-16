@@ -4,3 +4,4 @@
 * [Auto Registry](auto-registy.md)
 * [Filter](filter.md)
 * [Log](log.md)
+* [xDS Operations](xds-operations.md)

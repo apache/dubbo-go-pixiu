@@ -30,6 +30,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	"github.com/apache/dubbo-go-pixiu/admin/controller/configInfo"
 	"github.com/apache/dubbo-go-pixiu/admin/controller/opa"
+	xdsController "github.com/apache/dubbo-go-pixiu/admin/controller/xds"
 	_ "github.com/apache/dubbo-go-pixiu/admin/doc"
 )
 
@@ -56,6 +57,7 @@ func Routers() *gin.Engine {
 		taR.POST("/user/checkIsAdmin", account.CheckUserIsAdmin)
 
 		taR.GET("/config/api/base", configInfo.GetBaseInfo)
+		taR.GET("/config/api/xds/status", xdsController.GetStatus)
 		taR.POST("/config/api/base/", configInfo.SetBaseInfo)
 		taR.PUT("/config/api/base/", configInfo.SetBaseInfo)
 

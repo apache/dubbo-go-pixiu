@@ -31,11 +31,13 @@ type SnapshotStatus struct {
 	ListenerCount   int       `json:"listener_count"`
 	ClusterCount    int       `json:"cluster_count"`
 	LastUpdatedAt   time.Time `json:"last_updated_at"`
+	LastAttemptAt   time.Time `json:"last_attempt_at"`
 	LastError       string    `json:"last_error"`
+	LastErrorAt     time.Time `json:"last_error_at"`
 }
 
 // StatusStore provides a race-safe snapshot of xDS publication state for the
-// server, tests, and the future read-only diagnostics endpoint.
+// server, tests, and the read-only diagnostics endpoint.
 type StatusStore struct {
 	mu     sync.RWMutex
 	status SnapshotStatus
@@ -61,11 +63,14 @@ func (s *StatusStore) Reset(nodeID string) {
 func (s *StatusStore) RecordSuccess(version string, listenerCount, clusterCount int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	now := time.Now().UTC()
 	s.status.SnapshotVersion = version
 	s.status.ListenerCount = listenerCount
 	s.status.ClusterCount = clusterCount
-	s.status.LastUpdatedAt = time.Now().UTC()
+	s.status.LastUpdatedAt = now
+	s.status.LastAttemptAt = now
 	s.status.LastError = ""
+	s.status.LastErrorAt = time.Time{}
 }
 
 // RecordError records a failed candidate without replacing the last-good
@@ -76,7 +81,10 @@ func (s *StatusStore) RecordError(err error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	now := time.Now().UTC()
+	s.status.LastAttemptAt = now
 	s.status.LastError = err.Error()
+	s.status.LastErrorAt = now
 }
 
 // Snapshot returns a value copy that callers may read without holding the
