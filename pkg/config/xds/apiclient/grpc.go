@@ -210,13 +210,13 @@ func (g *GrpcExtensionApiClient) handleDeltaResponse(resp *discoverypb.DeltaDisc
 	xState.nonce = resp.Nonce
 
 	resources := &DeltaResources{
-		NewResources:    make([]*ProtoAny, 0, 1),
-		RemovedResource: make([]string, 0, 1),
+		NewResources:     make([]*ProtoAny, 0, 1),
+		RemovedResources: make([]string, 0, 1),
 	}
 	logger.Infof("get xDS message nonce, %s", resp.Nonce)
 	for _, res := range resp.RemovedResources {
 		logger.Infof("remove resource found ", res)
-		resources.RemovedResource = append(resources.RemovedResource, res)
+		resources.RemovedResources = append(resources.RemovedResources, res)
 	}
 
 	for _, res := range resp.Resources {

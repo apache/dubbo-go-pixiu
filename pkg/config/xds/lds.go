@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -70,19 +71,36 @@ func (l *LdsManager) Delta() error {
 
 func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		listeners := make([]*xdsmodel.Listener, 0, len(delta.NewResources))
-		for _, one := range delta.NewResources {
-			listener := &xdsmodel.PixiuExtensionListeners{}
-			if err := one.To(listener); err != nil {
-				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
-				continue
-			}
-			logger.Infof("listener xds server %v", listener)
-			listeners = append(listeners, listener.Listeners...)
-		}
-
-		l.setupListeners(listeners)
+		l.applyDelta(delta)
 	}
+}
+
+func (l *LdsManager) applyDelta(delta *apiclient.DeltaResources) {
+	if delta == nil {
+		return
+	}
+
+	for _, name := range delta.RemovedResources {
+		if name == constant.ListenerType {
+			l.listenerMg.RemoveXDSListeners(l.listenerMg.XDSListenerNames())
+		}
+	}
+	if len(delta.NewResources) == 0 {
+		return
+	}
+
+	listeners := make([]*xdsmodel.Listener, 0, len(delta.NewResources))
+	for _, resource := range delta.NewResources {
+		listener := &xdsmodel.PixiuExtensionListeners{}
+		if err := resource.To(listener); err != nil {
+			logger.Errorf("unknown resource of %s, expect Listener", resource.GetName())
+			continue
+		}
+		logger.Infof("listener xds server %v", listener)
+		listeners = append(listeners, listener.Listeners...)
+	}
+
+	l.setupListeners(listeners)
 }
 
 func (l *LdsManager) makeSocketAddress(address *xdsmodel.SocketAddress) model.SocketAddress {

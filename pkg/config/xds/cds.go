@@ -18,6 +18,7 @@
 package xds
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -60,22 +61,38 @@ func (c *CdsManager) Delta() error {
 }
 
 func (c *CdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
-	for one := range read {
-		clusters := make([]*xdsmodel.Cluster, 0, len(one.NewResources))
-		for _, one := range one.NewResources {
-			cluster := &xdsmodel.PixiuExtensionClusters{}
-			if err := one.To(cluster); err != nil {
-				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
-				continue
-			}
-			logger.Infof("clusters from xds server %v", cluster)
-			clusters = append(clusters, cluster.Clusters...)
-
-		}
-		if err := c.setupCluster(clusters); err != nil {
+	for delta := range read {
+		if err := c.applyDelta(delta); err != nil {
 			logger.Errorf("can not setup cluster.", err)
 		}
 	}
+}
+
+func (c *CdsManager) applyDelta(delta *apiclient.DeltaResources) error {
+	if delta == nil {
+		return nil
+	}
+
+	for _, name := range delta.RemovedResources {
+		if name == constant.ClusterType {
+			c.clusterMg.RemoveXDSClusters(c.clusterMg.XDSClusterNames())
+		}
+	}
+	if len(delta.NewResources) == 0 {
+		return nil
+	}
+
+	clusters := make([]*xdsmodel.Cluster, 0, len(delta.NewResources))
+	for _, resource := range delta.NewResources {
+		cluster := &xdsmodel.PixiuExtensionClusters{}
+		if err := resource.To(cluster); err != nil {
+			logger.Errorf("unknown resource of %s, expect Cluster", resource.GetName())
+			continue
+		}
+		logger.Infof("clusters from xds server %v", cluster)
+		clusters = append(clusters, cluster.Clusters...)
+	}
+	return c.setupCluster(clusters)
 }
 
 func (c *CdsManager) removeCluster(clusterNames []string) {

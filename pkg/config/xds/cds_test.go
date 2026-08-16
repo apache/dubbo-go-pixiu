@@ -206,3 +206,63 @@ func TestCdsManager_makeCluster(t *testing.T) {
 	assert.Equal(cluster.Endpoints[0].Address.Address, modelCluster.Endpoints[0].Address.Address)
 	assert.Equal(cluster.Endpoints[0].Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
 }
+
+func TestCdsManager_ApplyDelta(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	owned := map[string]*model.ClusterConfig{
+		"old-dynamic": {Name: "old-dynamic"},
+	}
+	clusterMg.EXPECT().XDSClusterNames().AnyTimes().DoAndReturn(func() []string {
+		names := make([]string, 0, len(owned))
+		for name := range owned {
+			names = append(names, name)
+		}
+		return names
+	})
+	clusterMg.EXPECT().RemoveXDSClusters(gomock.Any()).AnyTimes().Do(func(names []string) {
+		for _, name := range names {
+			delete(owned, name)
+		}
+	})
+	clusterMg.EXPECT().UpsertXDSCluster(gomock.Any()).AnyTimes().DoAndReturn(func(cluster *model.ClusterConfig) error {
+		owned[cluster.Name] = cluster
+		return nil
+	})
+	manager := &CdsManager{clusterMg: clusterMg}
+
+	// An empty delta response is a no-op. Omission is not deletion in Delta xDS.
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{}))
+	require.Contains(t, owned, "old-dynamic")
+
+	// The extension resource is an aggregate, so a new payload replaces the
+	// xDS-owned aggregate while leaving static resources untouched.
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		NewResources: []*apiclient.ProtoAny{apiclient.NewProtoAny(getCdsConfig())},
+	}))
+	require.NotContains(t, owned, "old-dynamic")
+	require.Contains(t, owned, "http-baidu")
+
+	// An explicitly delivered empty aggregate is authoritative and therefore
+	// removes the clusters previously held by that aggregate.
+	emptyClusters, err := anypb.New(&xdsmodel.PixiuExtensionClusters{})
+	require.NoError(t, err)
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		NewResources: []*apiclient.ProtoAny{apiclient.NewProtoAny(&core.TypedExtensionConfig{
+			Name:        constant.ClusterType,
+			TypedConfig: emptyClusters,
+		})},
+	}))
+	require.NotContains(t, owned, "http-baidu")
+
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		NewResources: []*apiclient.ProtoAny{apiclient.NewProtoAny(getCdsConfig())},
+	}))
+	require.Contains(t, owned, "http-baidu")
+
+	// Removing the subscribed extension resource clears only xDS-owned state.
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		RemovedResources: []string{constant.ClusterType},
+	}))
+	require.NotContains(t, owned, "http-baidu")
+}

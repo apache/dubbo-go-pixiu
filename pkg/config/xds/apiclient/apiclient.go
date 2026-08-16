@@ -41,8 +41,8 @@ type (
 	}
 
 	DeltaResources struct {
-		NewResources    []*ProtoAny
-		RemovedResource []string
+		NewResources     []*ProtoAny
+		RemovedResources []string
 	}
 )
 

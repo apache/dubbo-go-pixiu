@@ -234,7 +234,7 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 							},
 						},
 					},
-					RemovedResource: nil,
+					RemovedResources: nil,
 				}
 			})
 			if err != nil { //todo retry

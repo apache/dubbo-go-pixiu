@@ -31,6 +31,8 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -282,5 +284,28 @@ func TestSetupListeners(t *testing.T) {
 	}
 	lm.setupListeners(newListeners)
 	assert.Equal(t, 2, len(mock.m))
+	assert.Same(t, staticListener, mock.m["static-listener"])
+}
+
+func TestLdsManager_ApplyDelta(t *testing.T) {
+	staticListener := &model.Listener{Name: "static-listener"}
+	dynamicListener := &model.Listener{Name: "dynamic-listener"}
+	mock := &mockListenerManager{
+		m: map[string]*model.Listener{
+			"static-listener":  staticListener,
+			"dynamic-listener": dynamicListener,
+		},
+		xdsManaged: map[string]struct{}{"dynamic-listener": {}},
+	}
+	manager := &LdsManager{listenerMg: mock}
+
+	manager.applyDelta(&apiclient.DeltaResources{})
+	assert.Same(t, dynamicListener, mock.m["dynamic-listener"])
+	assert.Same(t, staticListener, mock.m["static-listener"])
+
+	manager.applyDelta(&apiclient.DeltaResources{
+		RemovedResources: []string{constant.ListenerType},
+	})
+	assert.NotContains(t, mock.m, "dynamic-listener")
 	assert.Same(t, staticListener, mock.m["static-listener"])
 }
