@@ -18,6 +18,9 @@
 package apiclient
 
 import (
+	"context"
+	stderr "errors"
+	"io"
 	"testing"
 )
 
@@ -25,12 +28,21 @@ import (
 	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 	"github.com/stretchr/testify/require"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+)
+
+import (
+	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 )
 
 func TestAggGrpcApiClient_GetClusterResourceReference(t *testing.T) {
@@ -126,6 +138,74 @@ func TestConvertClusterLoadAssignmentsRejectsUnsupportedData(t *testing.T) {
 	require.ErrorContains(t, err, "LEAST_REQUEST")
 }
 
+func TestAggGrpcApiClient_ConsumeADSStream(t *testing.T) {
+	cluster := testEnvoyEDSCluster(t, "cluster-a", "orders-eds", clusterpb.Cluster_ROUND_ROBIN)
+	clusterResource, err := anypb.New(cluster)
+	require.NoError(t, err)
+	assignment := &endpointpb.ClusterLoadAssignment{
+		ClusterName: "orders-eds",
+		Endpoints: []*endpointpb.LocalityLbEndpoints{{
+			LbEndpoints: []*endpointpb.LbEndpoint{
+				testEnvoyEndpoint("10.0.0.1", 20880, corepb.HealthStatus_HEALTHY, 1, nil),
+			},
+		}},
+	}
+	endpointResource, err := anypb.New(assignment)
+	require.NoError(t, err)
+
+	stream := &recordingADSStream{
+		ctx: context.Background(),
+		responses: []*discoverypb.DiscoveryResponse{
+			{TypeUrl: resource.ClusterType, VersionInfo: "cds-v1", Nonce: "cds-nonce", Resources: []*anypb.Any{clusterResource}},
+			{TypeUrl: resource.EndpointType, VersionInfo: "eds-v2", Nonce: "eds-nonce", Resources: []*anypb.Any{endpointResource}},
+		},
+	}
+	client := &AggGrpcApiClient{dubboServiceFilter: map[string]struct{}{}}
+	states := map[string]*adsResourceState{
+		resource.ClusterType:  {},
+		resource.EndpointType: {},
+	}
+	references := make(map[string]refEndpoint)
+	output := make(chan *DeltaResources, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- client.consumeADSStream(context.Background(), stream, states, references, output)
+	}()
+
+	update := <-output
+	require.Len(t, stream.sent, 2)
+	require.Equal(t, resource.ClusterType, stream.sent[0].TypeUrl)
+	require.Equal(t, "cds-v1", stream.sent[0].VersionInfo)
+	require.Equal(t, "cds-nonce", stream.sent[0].ResponseNonce)
+	require.Equal(t, resource.EndpointType, stream.sent[1].TypeUrl)
+	require.Equal(t, []string{"orders-eds"}, stream.sent[1].ResourceNames)
+	require.Empty(t, stream.sent[1].ResponseNonce)
+
+	converted := &xdsmodel.PixiuExtensionClusters{}
+	require.NoError(t, update.NewResources[0].To(converted))
+	require.Len(t, converted.Clusters, 1)
+	require.Equal(t, "cluster-a", converted.Clusters[0].Name)
+	update.Complete(nil)
+
+	require.ErrorIs(t, <-done, io.EOF)
+	require.Len(t, stream.sent, 3)
+	require.Equal(t, "eds-v2", stream.sent[2].VersionInfo)
+	require.Equal(t, "eds-nonce", stream.sent[2].ResponseNonce)
+	require.Equal(t, "cds-v1", states[resource.ClusterType].versionInfo)
+	require.Equal(t, "eds-v2", states[resource.EndpointType].versionInfo)
+}
+
+func TestAggGrpcApiClient_MakeADSNACK(t *testing.T) {
+	client := &AggGrpcApiClient{}
+	state := &adsResourceState{versionInfo: "last-good", resourceNames: []string{"orders-eds"}}
+	req := client.makeADSRequest(resource.EndpointType, state, "rejected-nonce", stderr.New("bad endpoint"))
+
+	require.Equal(t, "last-good", req.VersionInfo)
+	require.Equal(t, "rejected-nonce", req.ResponseNonce)
+	require.Equal(t, []string{"orders-eds"}, req.ResourceNames)
+	require.Equal(t, int32(codes.InvalidArgument), req.ErrorDetail.Code)
+}
+
 func testEnvoyEDSCluster(t *testing.T, name string, serviceName string, policy clusterpb.Cluster_LbPolicy) *clusterpb.Cluster {
 	t.Helper()
 	istio, err := structpb.NewStruct(map[string]any{
@@ -160,3 +240,33 @@ func testEnvoyEndpoint(address string, port uint32, health corepb.HealthStatus, 
 		Metadata:            endpointMetadata,
 	}
 }
+
+type recordingADSStream struct {
+	ctx       context.Context
+	sent      []*discoverypb.DiscoveryRequest
+	responses []*discoverypb.DiscoveryResponse
+	recvIndex int
+}
+
+func (s *recordingADSStream) Send(req *discoverypb.DiscoveryRequest) error {
+	s.sent = append(s.sent, req)
+	return nil
+}
+
+func (s *recordingADSStream) Recv() (*discoverypb.DiscoveryResponse, error) {
+	if s.recvIndex >= len(s.responses) {
+		return nil, io.EOF
+	}
+	resp := s.responses[s.recvIndex]
+	s.recvIndex++
+	return resp, nil
+}
+
+func (s *recordingADSStream) Header() (metadata.MD, error) { return nil, nil }
+func (s *recordingADSStream) Trailer() metadata.MD         { return nil }
+func (s *recordingADSStream) CloseSend() error             { return nil }
+func (s *recordingADSStream) Context() context.Context     { return s.ctx }
+func (s *recordingADSStream) SendMsg(any) error            { return nil }
+func (s *recordingADSStream) RecvMsg(any) error            { return io.EOF }
+
+var _ discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient = (*recordingADSStream)(nil)

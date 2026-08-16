@@ -67,8 +67,6 @@ type (
 	}
 	xdsState struct {
 		deltaVersion map[string]string
-		nonce        string
-		versionInfo  string
 	}
 )
 

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -30,12 +31,14 @@ import (
 	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoyconfigcorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	listenerpb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 	"github.com/pkg/errors"
+
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -98,7 +101,10 @@ type (
 		xDSAggClient       discoverypb.AggregatedDiscoveryServiceClient
 		dubboServiceFilter map[string]struct{} // the service name to filter
 	}
-	discoveryResponseHandler func(any2 []*anypb.Any)
+	adsResourceState struct {
+		versionInfo   string
+		resourceNames []string
+	}
 )
 
 func (g *AggGrpcApiClient) init() {
@@ -140,98 +146,204 @@ type refEndpoint struct {
 }
 
 func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
-	// all endpoint refer cluster or listener. map[type]map[resource name]endpoint info
-	edsResources := make(map[resource.Type]map[string]refEndpoint)
-	req := g.makeDiscoveryRequest(g.resourceNames, g.typeUrl)
-	var handler discoveryResponseHandler
-	switch g.typeUrl {
-	case resource.ListenerType:
-		handler = func(any2 []*anypb.Any) {
-			for _, res := range any2 {
-				l := listenerpb.Listener{}
-				if err := res.UnmarshalTo(&l); err != nil {
-					logger.Warnf("can not decode source %s , %v", res.TypeUrl, res)
-					continue
-				}
-			}
-		}
-	case resource.ClusterType:
-		handler = func(any2 []*anypb.Any) {
-			// A CDS response is authoritative for the watched cluster set. Do not
-			// retain endpoint references for clusters omitted from the response.
-			edsResources[resource.ClusterType] = make(map[string]refEndpoint)
-			// only one goroutine handle response, no need to lock for local var.
-			for _, res := range any2 {
-				logger.Infof("new resource found %s", res.TypeUrl)
-				c := clusterpb.Cluster{}
-				if err := res.UnmarshalTo(&c); err != nil {
-					logger.Warnf("can not decode source %s , %v", res.TypeUrl, res)
-					continue
-				}
-				//needn't lock edsResources
-				g.getClusterResourceReference(&c, edsResources)
-			}
-
-			pendingResourceNames := make([]string, 0)
-			clusterRefEndpoints := edsResources[resource.ClusterType]
-			// list all pending pendingResourceNames
-			for name, b := range clusterRefEndpoints {
-				if b.IsPending {
-					pendingResourceNames = append(pendingResourceNames, name)
-				}
-			}
-
-			// do not block, watch new resource at another goroutine
-			err := g.runEndpointReferences(pendingResourceNames, func(any2 []*anypb.Any) {
-				assignments := make([]*endpointpb.ClusterLoadAssignment, 0, len(any2))
-				for _, one := range any2 {
-					assignment := &endpointpb.ClusterLoadAssignment{}
-					if err := one.UnmarshalTo(assignment); err != nil {
-						logger.Warnf("can not decode EDS resource: %v", err)
-						return
-					}
-					assignments = append(assignments, assignment)
-				}
-				extCluster, err := convertClusterLoadAssignments(assignments, clusterRefEndpoints)
-				if err != nil {
-					logger.Warnf("can not convert EDS resources: %v", err)
-					return
-				}
-
-				//make output
-				output <- &DeltaResources{
-					NewResources: []*ProtoAny{
-						{
-							typeConfig: &envoyconfigcorev3.TypedExtensionConfig{
-								Name: constant.ClusterType,
-								TypedConfig: func() *anypb.Any { //make any.Any from extCluster
-									a, err := anypb.New(extCluster)
-									if err != nil {
-										logger.Warnf("can not make anypb.Any %v", err)
-										return nil
-									}
-									return a
-								}(),
-							},
-						},
-					},
-					RemovedResources: nil,
-				}
-			})
-			if err != nil { //todo retry
-				logger.Errorf("can not run reference request %v", err)
-			}
-		}
-
-	default:
-		return errors.Errorf("nedd listenerType of clusterType but get %s", g.typeUrl)
+	if g.typeUrl != resource.ClusterType {
+		close(output)
+		return errors.Errorf("standard ADS currently supports CDS/EDS, got %s", g.typeUrl)
 	}
 
-	if err := g.runDelta(req, handler); err != nil {
-		return errors.WithMessagef(err, "start run %s failed", req.TypeUrl)
+	ctx, cancel := context.WithCancel(context.Background())
+	if g.exitCh != nil {
+		go func() {
+			select {
+			case <-g.exitCh:
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
+	}
+	states := map[string]*adsResourceState{
+		resource.ClusterType:  {resourceNames: append([]string(nil), g.resourceNames...)},
+		resource.EndpointType: {},
+	}
+	references := make(map[string]refEndpoint)
+	stream, err := g.connectADS(ctx, states, references)
+	if err != nil {
+		cancel()
+		close(output)
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
 	}
 
+	go func() {
+		defer cancel()
+		defer close(output)
+		for {
+			if err := g.consumeADSStream(ctx, stream, states, references, output); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Errorf("ADS stream closed: %v", err)
+			}
+			if ctx.Err() != nil {
+				return
+			}
+			stream, err = g.connectADS(ctx, states, references)
+			if err != nil {
+				return
+			}
+		}
+	}()
 	return nil
+}
+
+func (g *AggGrpcApiClient) connectADS(ctx context.Context, states map[string]*adsResourceState, references map[string]refEndpoint) (discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
+	for {
+		stream, err := g.xDSAggClient.StreamAggregatedResources(ctx)
+		if err == nil {
+			if err = stream.Send(g.makeADSRequest(resource.ClusterType, states[resource.ClusterType], "", nil)); err == nil {
+				if len(references) == 0 {
+					return stream, nil
+				}
+				states[resource.EndpointType].resourceNames = referenceNames(references)
+				if err = stream.Send(g.makeADSRequest(resource.EndpointType, states[resource.EndpointType], "", nil)); err == nil {
+					return stream, nil
+				}
+			}
+			_ = stream.CloseSend()
+		}
+		logger.Errorf("can not start ADS stream; retrying in 1s: %v", err)
+		select {
+		case <-time.After(time.Second):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+func (g *AggGrpcApiClient) consumeADSStream(ctx context.Context, stream discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient, states map[string]*adsResourceState, references map[string]refEndpoint, output chan<- *DeltaResources) error {
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if resp == nil {
+			return errors.New("ADS response is nil")
+		}
+		switch resp.TypeUrl {
+		case resource.ClusterType:
+			newReferences, applyErr := g.decodeCDSReferences(resp.Resources)
+			if applyErr == nil && len(newReferences) == 0 {
+				applyErr = publishADSClusters(ctx, output, &xdsmodel.PixiuExtensionClusters{})
+			}
+			if applyErr == nil {
+				clear(references)
+				for name, ref := range newReferences {
+					references[name] = ref
+				}
+				states[resource.ClusterType].versionInfo = resp.VersionInfo
+			}
+			if err := stream.Send(g.makeADSRequest(resource.ClusterType, states[resource.ClusterType], resp.Nonce, applyErr)); err != nil {
+				return err
+			}
+			if applyErr != nil || len(references) == 0 {
+				continue
+			}
+			states[resource.EndpointType].resourceNames = referenceNames(references)
+			if err := stream.Send(g.makeADSRequest(resource.EndpointType, states[resource.EndpointType], "", nil)); err != nil {
+				return err
+			}
+
+		case resource.EndpointType:
+			clusters, applyErr := decodeAndConvertEDS(resp.Resources, references)
+			if applyErr == nil {
+				applyErr = publishADSClusters(ctx, output, clusters)
+			}
+			if applyErr == nil {
+				states[resource.EndpointType].versionInfo = resp.VersionInfo
+			}
+			if err := stream.Send(g.makeADSRequest(resource.EndpointType, states[resource.EndpointType], resp.Nonce, applyErr)); err != nil {
+				return err
+			}
+
+		default:
+			return errors.Errorf("unexpected ADS response type %q", resp.TypeUrl)
+		}
+	}
+}
+
+func (g *AggGrpcApiClient) decodeCDSReferences(resources []*anypb.Any) (map[string]refEndpoint, error) {
+	nested := map[resource.Type]map[string]refEndpoint{resource.ClusterType: {}}
+	for index, raw := range resources {
+		cluster := &clusterpb.Cluster{}
+		if raw == nil {
+			return nil, errors.Errorf("CDS resource %d is nil", index)
+		}
+		if err := raw.UnmarshalTo(cluster); err != nil {
+			return nil, errors.Wrapf(err, "can not decode CDS resource %d", index)
+		}
+		g.getClusterResourceReference(cluster, nested)
+	}
+	return nested[resource.ClusterType], nil
+}
+
+func decodeAndConvertEDS(resources []*anypb.Any, references map[string]refEndpoint) (*xdsmodel.PixiuExtensionClusters, error) {
+	assignments := make([]*endpointpb.ClusterLoadAssignment, 0, len(resources))
+	for _, raw := range resources {
+		assignment := &endpointpb.ClusterLoadAssignment{}
+		if raw == nil {
+			return nil, errors.New("EDS resource is nil")
+		}
+		if err := raw.UnmarshalTo(assignment); err != nil {
+			return nil, errors.Wrap(err, "can not decode EDS resource")
+		}
+		assignments = append(assignments, assignment)
+	}
+	return convertClusterLoadAssignments(assignments, references)
+}
+
+func publishADSClusters(ctx context.Context, output chan<- *DeltaResources, clusters *xdsmodel.PixiuExtensionClusters) error {
+	payload, err := anypb.New(clusters)
+	if err != nil {
+		return errors.Wrap(err, "encode converted ADS clusters")
+	}
+	update := newDeltaResources()
+	update.NewResources = append(update.NewResources, NewProtoAny(&envoyconfigcorev3.TypedExtensionConfig{
+		Name:        constant.ClusterType,
+		TypedConfig: payload,
+	}))
+	select {
+	case output <- update:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case err = <-update.applyResult:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (g *AggGrpcApiClient) makeADSRequest(typeURL string, state *adsResourceState, nonce string, responseErr error) *discoverypb.DiscoveryRequest {
+	req := &discoverypb.DiscoveryRequest{
+		Node:          g.makeNode(),
+		VersionInfo:   state.versionInfo,
+		ResourceNames: append([]string(nil), state.resourceNames...),
+		TypeUrl:       typeURL,
+		ResponseNonce: nonce,
+	}
+	if responseErr != nil {
+		req.ErrorDetail = grpcstatus.New(codes.InvalidArgument, responseErr.Error()).Proto()
+	}
+	return req
+}
+
+func referenceNames(references map[string]refEndpoint) []string {
+	names := make([]string, 0, len(references))
+	for name := range references {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // readServiceNameOfCluster get service name of k8s
@@ -252,112 +364,6 @@ func (g *AggGrpcApiClient) readServiceNameOfCluster(c *clusterpb.Cluster) string
 		return ""
 	}
 	return service.Fields["name"].GetStringValue()
-}
-
-// request EDS for the allResourceNames
-func (g *AggGrpcApiClient) runEndpointReferences(allResourceNames []string,
-	output discoveryResponseHandler) (err error) {
-
-	//todo reload all request
-	req := g.makeDiscoveryRequest(allResourceNames, resource.EndpointType)
-	if err := g.runDelta(req, output); err != nil {
-		return errors.WithMessagef(err, "start run %s failed", req.TypeUrl)
-	}
-	return nil
-}
-
-// runDelta start 2 goroutine to and watch change
-func (g *AggGrpcApiClient) runDelta(req *discoverypb.DiscoveryRequest, output discoveryResponseHandler) error {
-	var delta discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	var cancel context.CancelFunc
-	var xState xdsState
-	//read resource list
-	backoff := func() {
-		xState = xdsState{}
-		for {
-			//back off
-			var err error
-			var ctx context.Context // context to sync exitCh
-			ctx, cancel = context.WithCancel(context.TODO())
-			delta, err = g.sendInitAggRequest(ctx, req, &xState)
-			if err != nil {
-				logger.Error("can not receive delta discovery request, will back off 1 sec later", err)
-				select {
-				case <-time.After(1 * time.Second):
-				case <-g.exitCh:
-					logger.Infof("get close single.")
-					return
-				}
-				continue //backoff
-			}
-			return //success
-		}
-	}
-
-	backoff()
-	if delta == nil { // delta instance not created because exitCh
-		return nil
-	}
-	go func() {
-		//waiting exitCh close
-		for range g.exitCh {
-		}
-		cancel()
-	}()
-	//get message
-	go func() {
-		for { // delta response backoff.
-			for { //loop consume receive data form xds server(sendInitDeltaRequest)
-				resp, err := delta.Recv()
-				if err != nil {
-					logger.Error("can not receive delta discovery request", err)
-					break
-				}
-				g.handleDeltaResponse(resp, &xState, output)
-			}
-			backoff()
-		}
-	}()
-
-	return nil
-}
-
-func (g *AggGrpcApiClient) handleDeltaResponse(resp *discoverypb.DiscoveryResponse, xdsState *xdsState, handler discoveryResponseHandler) {
-	// save the xds state
-	xdsState.deltaVersion = make(map[string]string, 1)
-	xdsState.nonce = resp.Nonce
-	xdsState.versionInfo = resp.VersionInfo
-	handler(resp.Resources)
-	//notify the resource change handler
-	//output <- resources
-}
-
-func (g *AggGrpcApiClient) sendInitAggRequest(ctx context.Context, req *discoverypb.DiscoveryRequest, xState *xdsState) (stream discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient, err error) {
-	req.VersionInfo = xState.versionInfo
-	req.ResponseNonce = xState.nonce
-	stream, err = g.xDSAggClient.StreamAggregatedResources(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
-	}
-
-	err = stream.Send(req)
-	if err != nil {
-		return nil, errors.Wrapf(err, "fetch dynamic resource from remote error. %s", g.resourceNames)
-	}
-	return
-}
-
-func (g *AggGrpcApiClient) makeDiscoveryRequest(resources []string,
-	typeUrl string,
-) *discoverypb.DiscoveryRequest {
-	return &discoverypb.DiscoveryRequest{
-		//VersionInfo:   xdsState.versionInfo,
-		Node:          g.makeNode(),
-		ResourceNames: resources, //[]string{"outbound|20000||dubbo-go-app.default.svc.cluster.local"},
-		TypeUrl:       typeUrl,   //"type.googleapis.com/envoy.config.listener.v3.Listener",
-		//ResponseNonce: xdsState.nonce,
-		ErrorDetail: nil,
-	}
 }
 
 func (g *AggGrpcApiClient) makeNode() *envoyconfigcorev3.Node {
