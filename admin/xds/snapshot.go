@@ -33,6 +33,7 @@ import (
 )
 
 import (
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/logic"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
@@ -52,10 +53,16 @@ type ResourceLoader interface {
 type LogicResourceLoader struct{}
 
 func (LogicResourceLoader) LoadListeners() ([]config.Listener, error) {
+	if adminconfig.Client == nil {
+		return nil, fmt.Errorf("admin etcd client is not initialized")
+	}
 	return logic.BizGetListeners()
 }
 
 func (LogicResourceLoader) LoadClusters() ([]config.Cluster, error) {
+	if adminconfig.Client == nil {
+		return nil, fmt.Errorf("admin etcd client is not initialized")
+	}
 	return logic.BizGetClusters()
 }
 

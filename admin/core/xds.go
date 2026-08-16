@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"time"
 )
 
@@ -39,6 +38,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 import (
@@ -48,11 +49,9 @@ import (
 )
 
 var (
-	snaphost        cache.SnapshotCache
+	snapshotCache   cache.SnapshotCache
 	snapshotBuilder = adminxds.NewSnapshotBuilder(adminxds.LogicResourceLoader{})
 )
-
-const currentSnapshotVersion = "2"
 
 const (
 	grpcKeepaliveTime        = 30 * time.Second
@@ -77,31 +76,27 @@ func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
 func StartxDsServer() error {
 	xdsConfig := adminconfig.Bootstrap.GetXDSConfig()
 	adminxds.DefaultStatusStore.Reset(xdsConfig.NodeID)
+	ctx := context.Background()
 
-	// Create a snaphost
-	snaphost = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
+	// Create a snapshot cache.
+	snapshotCache = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
+	publisher := adminxds.NewSnapshotPublisher(
+		xdsConfig.NodeID,
+		snapshotBuilder,
+		snapshotCache,
+		adminxds.DefaultStatusStore,
+	)
 
-	// Create the config that we'll serve to Envoy
-	result, err := GenerateSnapshotPixiu()
-	if err != nil {
-		adminxds.DefaultStatusStore.RecordError(err)
-		logger.Errorf("generate xDS snapshot: %+v", err)
-		os.Exit(1)
+	// A failed initial candidate must not terminate Admin. The server and etcd
+	// watch stay active so a later valid configuration can recover publication.
+	if err := publisher.Publish(ctx); err != nil {
+		logger.Errorf("initial xDS snapshot publication failed: %+v", err)
 	}
 
-	// Add the config to the snaphost
-	if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, result.Snapshot); err != nil {
-		adminxds.DefaultStatusStore.RecordError(err)
-		logger.Errorf("config error %q for %+v", err, result.Snapshot)
-		os.Exit(1)
-	}
-	adminxds.DefaultStatusStore.RecordSuccess(result.Version, result.ListenerCount, result.ClusterCount)
-
-	go watchConfigAndReload()
+	go watchConfigAndReload(ctx, publisher)
 
 	// Run the xDS server
-	ctx := context.Background()
-	srv := envoyServer.NewServer(ctx, snaphost, nil)
+	srv := envoyServer.NewServer(ctx, snapshotCache, nil)
 	return runXDSServer(ctx, srv, xdsConfig.ListenPort)
 }
 
@@ -134,42 +129,58 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 
 	logger.Infof("management server listening on %d\n", port)
 	if err = grpcServer.Serve(lis); err != nil {
-		return nil
+		return err
 	}
 	return nil
 }
 
-func watchConfigAndReload() {
-	xdsConfig := adminconfig.Bootstrap.GetXDSConfig()
-	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
+type snapshotPublisher interface {
+	Publish(ctx context.Context) error
+}
 
+func watchConfigAndReload(ctx context.Context, publisher snapshotPublisher) {
+	if adminconfig.Client == nil {
+		err := fmt.Errorf("watch xDS configuration: etcd client is not initialized")
+		adminxds.DefaultStatusStore.RecordError(err)
+		logger.Error(err)
+		return
+	}
+	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
 	if err != nil {
-		logger.Errorf("watch config error %q", err)
-		panic(err)
+		err = fmt.Errorf("watch xDS configuration: %w", err)
+		adminxds.DefaultStatusStore.RecordError(err)
+		logger.Error(err)
+		return
 	}
 
-	for range ch {
-		logger.Info("get etcd config change")
-		// Create the config that we'll serve to Envoy
-		result, err := GenerateSnapshotPixiu()
-		if err != nil {
-			adminxds.DefaultStatusStore.RecordError(err)
-			logger.Errorf("generate xDS snapshot: %+v", err)
-			os.Exit(1)
-		}
-
-		// Add the config to the snaphost
-		if err := snaphost.SetSnapshot(context.Background(), xdsConfig.NodeID, result.Snapshot); err != nil {
-			adminxds.DefaultStatusStore.RecordError(err)
-			logger.Errorf("config error %q for %+v", err, result.Snapshot)
-			os.Exit(1)
-		}
-		adminxds.DefaultStatusStore.RecordSuccess(result.Version, result.ListenerCount, result.ClusterCount)
+	if err := consumeConfigWatch(ctx, ch, publisher); err != nil {
+		adminxds.DefaultStatusStore.RecordError(err)
+		logger.Error(err)
 	}
 }
 
-// GenerateSnapshotPixiu builds and validates the current Admin resource view.
-// Cache publication and version advancement remain the caller's responsibility.
-func GenerateSnapshotPixiu() (*adminxds.SnapshotBuildResult, error) {
-	return snapshotBuilder.Build(currentSnapshotVersion)
+func consumeConfigWatch(ctx context.Context, ch clientv3.WatchChan, publisher snapshotPublisher) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case response, ok := <-ch:
+			if !ok {
+				if ctx.Err() != nil {
+					return nil
+				}
+				return fmt.Errorf("watch xDS configuration: etcd watch channel closed")
+			}
+			if err := response.Err(); err != nil {
+				return fmt.Errorf("watch xDS configuration: %w", err)
+			}
+			if len(response.Events) == 0 {
+				continue
+			}
+			logger.Info("get etcd config change")
+			if err := publisher.Publish(ctx); err != nil {
+				logger.Errorf("reload xDS snapshot failed: %+v", err)
+			}
+		}
+	}
 }

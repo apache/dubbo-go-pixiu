@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
@@ -183,6 +184,19 @@ func TestSnapshotBuilderRejectsMissingInputs(t *testing.T) {
 	}
 	if _, err := NewSnapshotBuilder(fakeResourceLoader{}).Build(""); err == nil {
 		t.Fatal("expected empty version error")
+	}
+}
+
+func TestLogicResourceLoaderRejectsMissingEtcdClient(t *testing.T) {
+	previous := adminconfig.Client
+	adminconfig.Client = nil
+	t.Cleanup(func() { adminconfig.Client = previous })
+
+	if _, err := (LogicResourceLoader{}).LoadListeners(); err == nil {
+		t.Fatal("expected listener load to reject a missing etcd client")
+	}
+	if _, err := (LogicResourceLoader{}).LoadClusters(); err == nil {
+		t.Fatal("expected cluster load to reject a missing etcd client")
 	}
 }
 
