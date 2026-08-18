@@ -19,6 +19,7 @@ package grpcproxy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -169,6 +170,45 @@ func TestGRPCConnectionManagerDoesNotPublishRemovedEndpointAfterDial(t *testing.
 	require.Error(t, <-result)
 	_, ok := manager.connections.Load(key)
 	require.False(t, ok, "a removed endpoint must not be published after dialing")
+}
+
+func TestGRPCConnectionManagerBoundsEndpointTombstones(t *testing.T) {
+	manager := newGRPCConnectionManager()
+	t.Cleanup(func() { require.NoError(t, manager.Close()) })
+
+	const churn = maxEndpointTombstones * 4
+	for i := 0; i < churn; i++ {
+		manager.UpdateEndpointState(
+			"cluster",
+			fmt.Sprintf("127.0.0.1:%d", 20000+i),
+			false,
+			uint64(i+1),
+		)
+	}
+
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	require.LessOrEqual(t, len(manager.endpointGenerations), maxEndpointTombstones)
+	require.LessOrEqual(t, len(manager.endpointEventVers), maxEndpointTombstones)
+	require.LessOrEqual(t, len(manager.endpointTombstones), maxEndpointTombstones)
+}
+
+func TestGRPCConnectionManagerReclaimsRequestOnlyEndpointState(t *testing.T) {
+	manager := &grpcConnectionManager{
+		dial: func(context.Context, string) (*grpc.ClientConn, error) {
+			return nil, fmt.Errorf("dial failed")
+		},
+		dialTimeout: time.Second,
+	}
+	t.Cleanup(func() { require.NoError(t, manager.Close()) })
+
+	_, err := manager.Get(context.Background(), "cluster\x00endpoint", "endpoint")
+	require.EqualError(t, err, "dial failed")
+
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	require.Empty(t, manager.endpointGenerations)
+	require.Empty(t, manager.endpointEventVers)
 }
 
 func TestGRPCConnectionManagerClosePreventsNewConnections(t *testing.T) {

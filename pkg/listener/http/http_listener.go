@@ -88,14 +88,7 @@ func (ls *HttpListenerService) Close() error {
 	if ls.srv != nil {
 		serverErr = ls.srv.Close()
 	}
-	filterErr := error(nil)
-	ls.filterMu.Lock()
-	filterChain := ls.FilterChain
-	ls.FilterChain = nil
-	ls.filterMu.Unlock()
-	if filterChain != nil {
-		filterErr = filterChain.Close()
-	}
+	filterErr := ls.closeFilterChain()
 	if serverErr != nil {
 		return serverErr
 	}
@@ -113,18 +106,49 @@ func (ls *HttpListenerService) ShutDown(wg any) error {
 		wg.(*sync.WaitGroup).Done()
 	}()
 	serverErr := ls.srv.Shutdown(ctx)
-	filterErr := error(nil)
-	ls.filterMu.Lock()
-	filterChain := ls.FilterChain
-	ls.FilterChain = nil
-	ls.filterMu.Unlock()
-	if filterChain != nil {
-		filterErr = filterChain.Close()
-	}
+	filterErr := ls.closeFilterChainAfterShutdown()
 	if serverErr != nil {
 		return serverErr
 	}
 	return filterErr
+}
+
+func (ls *HttpListenerService) detachFilterChainLocked() *filterchain.NetworkFilterChain {
+	filterChain := ls.FilterChain
+	ls.FilterChain = nil
+	return filterChain
+}
+
+func (ls *HttpListenerService) closeFilterChain() error {
+	ls.filterMu.Lock()
+	filterChain := ls.detachFilterChainLocked()
+	ls.filterMu.Unlock()
+	if filterChain == nil {
+		return nil
+	}
+	return filterChain.Close()
+}
+
+// closeFilterChainAfterShutdown must not wait for a request that outlives the
+// HTTP server shutdown deadline while holding filterMu. If an active request
+// still owns the read lock, defer the swap and close until that request has
+// released it. The shutdown caller can then return the server timeout instead
+// of extending the timeout by the lifetime of the request.
+func (ls *HttpListenerService) closeFilterChainAfterShutdown() error {
+	if !ls.filterMu.TryLock() {
+		go func() {
+			if err := ls.closeFilterChain(); err != nil {
+				logger.Warnf("failed to close HTTP filter chain after shutdown: %v", err)
+			}
+		}()
+		return nil
+	}
+	filterChain := ls.detachFilterChainLocked()
+	ls.filterMu.Unlock()
+	if filterChain == nil {
+		return nil
+	}
+	return filterChain.Close()
 }
 
 func (ls *HttpListenerService) Refresh(c model.Listener) error {
