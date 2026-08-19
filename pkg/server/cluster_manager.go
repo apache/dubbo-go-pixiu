@@ -470,6 +470,25 @@ func (cm *ClusterManager) GetAnyEndpointByID(clusterName, endpointID string) *mo
 	return runtimeCluster.EndpointSnapshot().EndpointByID(endpointID)
 }
 
+// HasEndpointAddress reports whether the current runtime snapshot still
+// contains the given endpoint address. Connection managers use this as an
+// authoritative check after bounded lifecycle tombstones have been evicted.
+func (cm *ClusterManager) HasEndpointAddress(clusterName, address string) bool {
+	cm.rw.RLock()
+	defer cm.rw.RUnlock()
+
+	runtimeCluster := cm.getRuntimeCluster(clusterName)
+	if runtimeCluster == nil {
+		return false
+	}
+	for _, endpoint := range runtimeCluster.EndpointSnapshot().AllEndpoints() {
+		if endpoint != nil && endpoint.Address.GetAddress() == address {
+			return true
+		}
+	}
+	return false
+}
+
 // GetHealthyEndpointByID returns the runtime endpoint by ID only when it is
 // healthy in the current runtime snapshot.
 func (cm *ClusterManager) GetHealthyEndpointByID(clusterName, endpointID string) *model.Endpoint {

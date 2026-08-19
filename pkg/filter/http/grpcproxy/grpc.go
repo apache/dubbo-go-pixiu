@@ -155,6 +155,10 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 	connections.onRemove = descriptor.removeConnection
 	var removeEndpointHandler func()
 	if clusterManager := server.GetClusterManager(); clusterManager != nil {
+		connections.endpointPresent = func(key, endpoint string) bool {
+			clusterName, _, ok := strings.Cut(key, "\x00")
+			return ok && clusterManager.HasEndpointAddress(clusterName, endpoint)
+		}
 		removeEndpointHandler = clusterManager.AddEndpointStateHandler(func(clusterName, endpoint string, present bool, version uint64) {
 			connections.UpdateEndpointState(clusterName, endpoint, present, version)
 		})

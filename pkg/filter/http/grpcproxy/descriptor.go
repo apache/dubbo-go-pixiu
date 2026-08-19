@@ -33,8 +33,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"golang.org/x/sync/singleflight"
-
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 )
@@ -48,7 +46,6 @@ type Descriptor struct {
 	fileSource  *fileSource
 	methodMu    sync.RWMutex
 	methodDescs map[*grpc.ClientConn]map[string]*desc.MethodDescriptor
-	methodLoads singleflight.Group
 	// connectionStates invalidates only lookups for the connection that
 	// was removed. closeGeneration invalidates all in-flight lookups on close.
 	connectionStates  map[*grpc.ClientConn]*descriptorConnectionState
@@ -211,53 +208,42 @@ func (dr *Descriptor) getMethodDescriptor(source DescriptorSource, cc *grpc.Clie
 	connectionGeneration := state.generation
 	closeGeneration := dr.closeGeneration
 	dr.methodMu.Unlock()
-	loadKey := fmt.Sprintf("%p:%d:%d:%s", cc, closeGeneration, connectionGeneration, key)
-	result, err, _ := dr.methodLoads.Do(loadKey, func() (any, error) {
-		dr.methodMu.RLock()
-		if methods := dr.methodDescs[cc]; methods != nil {
-			if descriptor, ok := methods[key]; ok {
-				dr.methodMu.RUnlock()
-				return descriptor, nil
-			}
-		}
-		dr.methodMu.RUnlock()
-
-		dscp, err := source.FindSymbol(service)
-		if err != nil {
-			return nil, err
-		}
-		svcDesc, ok := dscp.(*desc.ServiceDescriptor)
-		if !ok {
-			return nil, &serviceNotExposedError{service: service}
-		}
-		descriptor := svcDesc.FindMethodByName(method)
-		if descriptor == nil {
-			return nil, fmt.Errorf("method not found: %s/%s", service, method)
-		}
-
-		dr.methodMu.Lock()
-		defer dr.methodMu.Unlock()
-		if dr.closed || dr.closeGeneration != closeGeneration || state.generation != connectionGeneration {
-			return nil, errors.New("descriptor cache invalidated")
-		}
-		if methods := dr.methodDescs[cc]; methods != nil {
-			if cached, ok := methods[key]; ok {
-				return cached, nil
-			}
-		}
-		if dr.methodDescs == nil {
-			dr.methodDescs = make(map[*grpc.ClientConn]map[string]*desc.MethodDescriptor)
-		}
-		if dr.methodDescs[cc] == nil {
-			dr.methodDescs[cc] = make(map[string]*desc.MethodDescriptor)
-		}
-		dr.methodDescs[cc][key] = descriptor
-		return descriptor, nil
-	})
+	// Do not singleflight this lookup across requests. DescriptorSource carries
+	// the request context used by server reflection, so sharing the first
+	// caller's source would let its timeout or cancellation fail other callers.
+	// The per-connection method cache below still removes repeated reflection
+	// calls after the first successful lookup.
+	dscp, err := source.FindSymbol(service)
 	if err != nil {
 		return nil, err
 	}
-	return result.(*desc.MethodDescriptor), nil
+	svcDesc, ok := dscp.(*desc.ServiceDescriptor)
+	if !ok {
+		return nil, &serviceNotExposedError{service: service}
+	}
+	descriptor := svcDesc.FindMethodByName(method)
+	if descriptor == nil {
+		return nil, fmt.Errorf("method not found: %s/%s", service, method)
+	}
+
+	dr.methodMu.Lock()
+	defer dr.methodMu.Unlock()
+	if dr.closed || dr.closeGeneration != closeGeneration || state.generation != connectionGeneration {
+		return nil, errors.New("descriptor cache invalidated")
+	}
+	if methods := dr.methodDescs[cc]; methods != nil {
+		if cached, ok := methods[key]; ok {
+			return cached, nil
+		}
+	}
+	if dr.methodDescs == nil {
+		dr.methodDescs = make(map[*grpc.ClientConn]map[string]*desc.MethodDescriptor)
+	}
+	if dr.methodDescs[cc] == nil {
+		dr.methodDescs[cc] = make(map[string]*desc.MethodDescriptor)
+	}
+	dr.methodDescs[cc][key] = descriptor
+	return descriptor, nil
 }
 
 func (dr *Descriptor) getFileDescriptorCompose(ctx context.Context, cfg *Config) (DescriptorSource, error) {

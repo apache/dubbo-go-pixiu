@@ -35,6 +35,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
@@ -124,6 +125,32 @@ func TestGRPCConnectionManagerRecreatesUnhealthyConnection(t *testing.T) {
 	require.Equal(t, int32(2), dialCalls.Load())
 }
 
+func TestGRPCConnectionManagerRetainsTransientFailureConnection(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	endpoint := listener.Addr().String()
+	require.NoError(t, listener.Close())
+
+	conn, err := grpc.NewClient("passthrough:///"+endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	conn.Connect()
+	require.Eventually(t, func() bool {
+		return conn.GetState() == connectivity.TransientFailure
+	}, time.Second, time.Millisecond)
+
+	manager := newGRPCConnectionManager()
+	key := grpcConnectionKey("cluster", endpoint)
+	manager.connections.Store(key, conn)
+	t.Cleanup(func() { require.NoError(t, manager.Close()) })
+
+	got, ok := manager.loadHealthy(key)
+	require.True(t, ok)
+	require.Same(t, conn, got)
+	manager.Invalidate(key, conn)
+	_, stillCached := manager.connections.Load(key)
+	require.True(t, stillCached)
+}
+
 func TestGRPCConnectionManagerHonorsCallerTimeoutWhileCreating(t *testing.T) {
 	var dialCalls atomic.Int32
 	manager := &grpcConnectionManager{
@@ -191,6 +218,39 @@ func TestGRPCConnectionManagerBoundsEndpointTombstones(t *testing.T) {
 	require.LessOrEqual(t, len(manager.endpointGenerations), maxEndpointTombstones)
 	require.LessOrEqual(t, len(manager.endpointEventVers), maxEndpointTombstones)
 	require.LessOrEqual(t, len(manager.endpointTombstones), maxEndpointTombstones)
+}
+
+func TestGRPCConnectionManagerRejectsEvictedRemovedEndpointFromSnapshot(t *testing.T) {
+	endpoint := "127.0.0.1:20000"
+	current := make(map[string]bool)
+	var currentMu sync.Mutex
+	var dialCalls atomic.Int32
+	manager := &grpcConnectionManager{
+		dial: func(context.Context, string) (*grpc.ClientConn, error) {
+			dialCalls.Add(1)
+			return nil, fmt.Errorf("unexpected dial")
+		},
+		dialTimeout: time.Second,
+		endpointPresent: func(_, address string) bool {
+			currentMu.Lock()
+			defer currentMu.Unlock()
+			return current[address]
+		},
+	}
+	t.Cleanup(func() { require.NoError(t, manager.Close()) })
+
+	current[endpoint] = true
+	manager.UpdateEndpointState("cluster", endpoint, true, 1)
+	current[endpoint] = false
+	manager.UpdateEndpointState("cluster", endpoint, false, 2)
+	for i := 0; i < maxEndpointTombstones+1; i++ {
+		address := fmt.Sprintf("127.0.0.1:%d", 21000+i)
+		manager.UpdateEndpointState("cluster", address, false, uint64(i+3))
+	}
+
+	_, err := manager.Get(context.Background(), grpcConnectionKey("cluster", endpoint), endpoint)
+	require.EqualError(t, err, "grpc endpoint was removed")
+	require.Zero(t, dialCalls.Load())
 }
 
 func TestGRPCConnectionManagerReclaimsRequestOnlyEndpointState(t *testing.T) {
@@ -302,6 +362,8 @@ message Response {}
 	source := &countingDescriptorSource{descriptor: files[0].FindSymbol("test.Greeter")}
 	descriptor := &Descriptor{}
 	conn := &grpc.ClientConn{}
+	_, err = descriptor.getMethodDescriptor(source, conn, "test.Greeter", "Hello")
+	require.NoError(t, err)
 
 	const requests = 32
 	methods := make([]*desc.MethodDescriptor, requests)
@@ -322,6 +384,57 @@ message Response {}
 		require.Equal(t, "Hello", method.GetName())
 	}
 	require.Equal(t, int32(1), source.findCalls.Load())
+}
+
+func TestDescriptorLookupDoesNotShareRequestBoundSource(t *testing.T) {
+	files, err := (protoparse.Parser{
+		Accessor: protoparse.FileContentsFromMap(map[string]string{
+			"test.proto": `syntax = "proto3";
+package test;
+
+service Greeter {
+  rpc Hello(Request) returns (Response);
+}
+
+message Request {}
+message Response {}
+`,
+		}),
+	}).ParseFiles("test.proto")
+	require.NoError(t, err)
+
+	firstSource := &blockingDescriptorSource{
+		descriptor: files[0].FindSymbol("test.Greeter"),
+		started:    make(chan struct{}),
+		release:    make(chan struct{}),
+	}
+	secondSource := &countingDescriptorSource{descriptor: files[0].FindSymbol("test.Greeter")}
+	descriptor := &Descriptor{}
+	conn := &grpc.ClientConn{}
+
+	firstResult := make(chan error, 1)
+	go func() {
+		_, lookupErr := descriptor.getMethodDescriptor(firstSource, conn, "test.Greeter", "Hello")
+		firstResult <- lookupErr
+	}()
+	<-firstSource.started
+
+	secondResult := make(chan error, 1)
+	go func() {
+		_, lookupErr := descriptor.getMethodDescriptor(secondSource, conn, "test.Greeter", "Hello")
+		secondResult <- lookupErr
+	}()
+
+	select {
+	case lookupErr := <-secondResult:
+		require.NoError(t, lookupErr)
+	case <-time.After(200 * time.Millisecond):
+		close(firstSource.release)
+		t.Fatal("request-bound descriptor lookup was shared with a canceled/slow caller")
+	}
+
+	close(firstSource.release)
+	require.NoError(t, <-firstResult)
 }
 
 type blockingDescriptorSource struct {

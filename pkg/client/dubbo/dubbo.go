@@ -368,8 +368,13 @@ func (dc *Client) preparePayload(req *DubboOutboundRequest) ([]string, []hessian
 }
 
 func withAttachments(ctx context.Context, outbound map[string]any) context.Context {
-	// fast path: no attachments, no tracing -> reuse the context as-is
-	if !tracingEnabled.Load() && len(outbound) == 0 && ctx.Value(constant.AttachmentKey) == nil {
+	// The internal tracing switch does not describe the caller's context. Keep
+	// the fast path only when there is no outbound state and no externally
+	// supplied span context that the global propagator must inject.
+	if !tracingEnabled.Load() &&
+		len(outbound) == 0 &&
+		ctx.Value(constant.AttachmentKey) == nil &&
+		!trace.SpanContextFromContext(ctx).IsValid() {
 		return ctx
 	}
 	attachments := make(map[string]any, len(outbound))

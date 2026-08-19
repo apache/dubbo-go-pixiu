@@ -23,8 +23,13 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/require"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	listenerpkg "github.com/apache/dubbo-go-pixiu/pkg/listener"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 func TestCloseFilterChainAfterShutdownDoesNotWaitForActiveRequest(t *testing.T) {
@@ -33,8 +38,10 @@ func TestCloseFilterChainAfterShutdownDoesNotWaitForActiveRequest(t *testing.T) 
 			FilterChain: &filterchain.NetworkFilterChain{},
 		},
 	}
+	listener.filterState = newHTTPFilterChainState(listener.FilterChain)
+	state := listener.filterState
+	require.True(t, state.acquire())
 
-	listener.filterMu.RLock()
 	finished := make(chan struct{})
 	go func() {
 		_ = listener.closeFilterChainAfterShutdown()
@@ -47,16 +54,41 @@ func TestCloseFilterChainAfterShutdownDoesNotWaitForActiveRequest(t *testing.T) 
 		t.Fatal("shutdown filter cleanup waited for an active request")
 	}
 
-	listener.filterMu.RUnlock()
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		listener.filterMu.RLock()
-		removed := listener.FilterChain == nil
-		listener.filterMu.RUnlock()
-		if removed {
-			return
-		}
-		time.Sleep(time.Millisecond)
+	state.release()
+	select {
+	case <-state.done:
+	case <-time.After(time.Second):
+		t.Fatal("deferred filter cleanup did not run after the request released its chain lease")
 	}
-	t.Fatal("deferred filter cleanup did not run after the request released its read lock")
+}
+
+func TestRefreshSwapsChainWithoutWaitingForActiveRequest(t *testing.T) {
+	listener := &HttpListenerService{
+		BaseListenerService: listenerpkg.BaseListenerService{
+			FilterChain: &filterchain.NetworkFilterChain{},
+		},
+	}
+	listener.filterState = newHTTPFilterChainState(listener.FilterChain)
+	oldState := listener.filterState
+	require.True(t, oldState.acquire())
+
+	refreshed := make(chan error, 1)
+	go func() {
+		refreshed <- listener.Refresh(model.Listener{})
+	}()
+
+	select {
+	case err := <-refreshed:
+		require.NoError(t, err)
+	case <-time.After(100 * time.Millisecond):
+		oldState.release()
+		t.Fatal("refresh waited for an active request on the old filter chain")
+	}
+	require.NotSame(t, oldState, listener.filterState)
+	oldState.release()
+	select {
+	case <-oldState.done:
+	case <-time.After(time.Second):
+		t.Fatal("old filter chain was not closed after the active request released")
+	}
 }

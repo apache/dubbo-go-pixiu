@@ -61,6 +61,10 @@ type grpcConnectionManager struct {
 	endpointRemoved     map[string]bool
 	endpointTombstones  map[string]*list.Element
 	tombstoneOrder      *list.List
+	// endpointPresent is an optional authoritative snapshot check used after
+	// bounded tombstone metadata has been evicted. It is intentionally kept
+	// outside the manager so direct-endpoint users do not need a cluster store.
+	endpointPresent func(key, endpoint string) bool
 }
 
 func newGRPCConnectionManager() *grpcConnectionManager {
@@ -160,6 +164,13 @@ func (m *grpcConnectionManager) pinEndpoint(key string) (uint64, error) {
 	return m.endpointGenerations[key], nil
 }
 
+func (m *grpcConnectionManager) isEndpointPresent(key, endpoint string) bool {
+	if m.endpointPresent == nil {
+		return true
+	}
+	return m.endpointPresent(key, endpoint)
+}
+
 func (m *grpcConnectionManager) unpinEndpoint(key string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -201,8 +212,15 @@ func (m *grpcConnectionManager) Get(ctx context.Context, key, endpoint string) (
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if !m.isEndpointPresent(key, endpoint) {
+		return nil, fmt.Errorf("grpc endpoint was removed")
+	}
 
 	if conn, ok := m.loadHealthy(key); ok {
+		if !m.isEndpointPresent(key, endpoint) {
+			m.remove(key, conn)
+			return nil, fmt.Errorf("grpc endpoint was removed")
+		}
 		return conn, nil
 	}
 
@@ -212,6 +230,9 @@ func (m *grpcConnectionManager) Get(ctx context.Context, key, endpoint string) (
 	}
 	createKey := fmt.Sprintf("%s\x00%d", key, endpointGeneration)
 	result := m.creates.DoChan(createKey, func() (any, error) {
+		if !m.isEndpointPresent(key, endpoint) {
+			return nil, fmt.Errorf("grpc endpoint was removed")
+		}
 		m.mu.Lock()
 		currentGeneration := m.endpointGenerations[key]
 		removed := m.endpointRemoved[key]
@@ -220,6 +241,10 @@ func (m *grpcConnectionManager) Get(ctx context.Context, key, endpoint string) (
 			return nil, fmt.Errorf("grpc endpoint was removed while connecting")
 		}
 		if conn, ok := m.loadHealthy(key); ok {
+			if !m.isEndpointPresent(key, endpoint) {
+				m.remove(key, conn)
+				return nil, fmt.Errorf("grpc endpoint was removed")
+			}
 			return conn, nil
 		}
 
@@ -246,8 +271,14 @@ func (m *grpcConnectionManager) Get(ctx context.Context, key, endpoint string) (
 			m.connections.Store(key, conn)
 		}
 		m.mu.Unlock()
-		if closed || removed {
-			_ = conn.Close()
+		if closed || removed || !m.isEndpointPresent(key, endpoint) {
+			removedFromManager := false
+			if !closed && !removed {
+				removedFromManager = m.remove(key, conn)
+			}
+			if !removedFromManager {
+				_ = conn.Close()
+			}
 			if closed {
 				return nil, fmt.Errorf("grpc connection manager closed while dialing")
 			}
@@ -300,7 +331,7 @@ func (m *grpcConnectionManager) isHealthy(conn *grpc.ClientConn) bool {
 		return false
 	}
 	state := conn.GetState()
-	return state != connectivity.Shutdown && state != connectivity.TransientFailure
+	return state != connectivity.Shutdown
 }
 
 // Invalidate removes a connection only when its transport is known to be
@@ -374,17 +405,19 @@ func (m *grpcConnectionManager) UpdateEndpointState(clusterName, endpoint string
 	}
 }
 
-func (m *grpcConnectionManager) remove(key string, expected *grpc.ClientConn) {
+func (m *grpcConnectionManager) remove(key string, expected *grpc.ClientConn) bool {
 	value, ok := m.connections.Load(key)
 	if !ok || value != expected {
-		return
+		return false
 	}
 	if m.connections.CompareAndDelete(key, expected) {
 		_ = expected.Close()
 		if m.onRemove != nil {
 			m.onRemove(expected)
 		}
+		return true
 	}
+	return false
 }
 
 func (m *grpcConnectionManager) Close() error {
