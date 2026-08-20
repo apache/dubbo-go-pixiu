@@ -67,5 +67,3 @@ Expected output (verbose):
 PASS
 ok      github.com/apache/dubbo-go-pixiu/admin/initialize       0.342s
 ```
-
-

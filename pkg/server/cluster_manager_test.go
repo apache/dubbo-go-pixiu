@@ -38,6 +38,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for cluster-manager tests.
@@ -180,7 +181,9 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 	cm := testClusterManager(cluster)
 
 	const expectedCursor uint32 = 5
-	atomic.StoreUint32(&cm.store.Config[0].PrePickEndpointIndex, expectedCursor)
+	// Set cursor on the runtime, not the config.
+	oldRuntime := cm.store.clustersMap[cluster.Name]
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	oldStore, err := cm.CloneStore()
 	if !assert.NoError(t, err) {
@@ -194,7 +197,10 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 
 	assert.True(t, cm.CompareAndSetStore(newStore))
 	if assert.Len(t, cm.store.Config, 1) {
-		assert.Equal(t, expectedCursor, atomic.LoadUint32(&cm.store.Config[0].PrePickEndpointIndex))
+		newRuntime := cm.store.clustersMap[cluster.Name]
+		if assert.NotNil(t, newRuntime) {
+			assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
+		}
 	}
 
 	endpoint := cm.PickEndpoint(cluster.Name, nil)
@@ -214,11 +220,11 @@ func TestClusterManager_UpdateClusterRebuildsRuntimeCluster(t *testing.T) {
 	if !assert.NotNil(t, oldRuntime) {
 		return
 	}
-	assert.Same(t, oldConfig, oldRuntime.Config)
+	assert.True(t, oldRuntime.ConfigIsIdenticalTo(oldConfig))
 	assert.Greater(t, healthCheckersLen(oldRuntime), 0)
 
 	const expectedCursor uint32 = 11
-	atomic.StoreUint32(&oldConfig.PrePickEndpointIndex, expectedCursor)
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	newConfig := testCluster(oldConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-2", "127.0.0.1", 19301),
@@ -231,9 +237,9 @@ func TestClusterManager_UpdateClusterRebuildsRuntimeCluster(t *testing.T) {
 		return
 	}
 	assert.NotSame(t, oldRuntime, newRuntime)
-	assert.Same(t, newConfig, newRuntime.Config)
+	assert.True(t, newRuntime.ConfigIsIdenticalTo(newConfig))
 	assert.Same(t, newConfig, cm.store.Config[0])
-	assert.Equal(t, expectedCursor, atomic.LoadUint32(&newConfig.PrePickEndpointIndex))
+	assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
 	assert.Equal(t, 0, healthCheckersLen(oldRuntime))
 	assert.Greater(t, healthCheckersLen(newRuntime), 0)
 }
@@ -279,7 +285,7 @@ func TestClusterManager_CompareAndSetStoreEnsuresRuntimeAndStopsOld(t *testing.T
 	assert.Greater(t, healthCheckersLen(oldRuntime), 0)
 
 	const expectedCursor uint32 = 17
-	atomic.StoreUint32(&oldConfig.PrePickEndpointIndex, expectedCursor)
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	newConfig := testCluster(oldConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-2", "127.0.0.1", 19321),
@@ -298,8 +304,8 @@ func TestClusterManager_CompareAndSetStoreEnsuresRuntimeAndStopsOld(t *testing.T
 	}
 	assert.Same(t, candidate, cm.store)
 	assert.NotSame(t, oldRuntime, newRuntime)
-	assert.Same(t, newConfig, newRuntime.Config)
-	assert.Equal(t, expectedCursor, atomic.LoadUint32(&newConfig.PrePickEndpointIndex))
+	assert.True(t, newRuntime.ConfigIsIdenticalTo(newConfig))
+	assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
 	assert.Equal(t, 0, healthCheckersLen(oldRuntime))
 	assert.Greater(t, healthCheckersLen(newRuntime), 0)
 }
@@ -339,7 +345,7 @@ func TestClusterStore_EnsureRuntimeClustersRepairsRuntimeMap(t *testing.T) {
 
 		assert.Empty(t, replaced)
 		if assert.NotNil(t, store.clustersMap[config.Name]) {
-			assert.Same(t, config, store.clustersMap[config.Name].Config)
+			assert.True(t, store.clustersMap[config.Name].ConfigIsIdenticalTo(config))
 		}
 	})
 
@@ -380,13 +386,13 @@ func TestClusterStore_EnsureRuntimeClustersRepairsRuntimeMap(t *testing.T) {
 		replaced := store.ensureRuntimeClusters()
 		stopClusters(replaced)
 
-		assert.Same(t, correctRuntime, store.clustersMap[correctConfig.Name])
+		assert.True(t, store.clustersMap[correctConfig.Name].ConfigIsIdenticalTo(correctConfig))
 		if assert.NotNil(t, store.clustersMap[missingConfig.Name]) {
-			assert.Same(t, missingConfig, store.clustersMap[missingConfig.Name].Config)
+			assert.True(t, store.clustersMap[missingConfig.Name].ConfigIsIdenticalTo(missingConfig))
 		}
 		if assert.NotNil(t, store.clustersMap[newMismatchedConfig.Name]) {
 			assert.NotSame(t, mismatchedRuntime, store.clustersMap[newMismatchedConfig.Name])
-			assert.Same(t, newMismatchedConfig, store.clustersMap[newMismatchedConfig.Name].Config)
+			assert.True(t, store.clustersMap[newMismatchedConfig.Name].ConfigIsIdenticalTo(newMismatchedConfig))
 		}
 		assert.NotContains(t, store.clustersMap, staleConfig.Name)
 		assert.Contains(t, replaced, mismatchedRuntime)
@@ -478,7 +484,7 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 		return
 	}
 	assert.NotSame(t, staleRuntime, runtime)
-	assert.Same(t, config, runtime.Config)
+	assert.True(t, runtime.ConfigIsIdenticalTo(config))
 	if assert.Len(t, config.Endpoints, 1) {
 		assert.Equal(t, remainingEndpoint, config.Endpoints[0])
 		assert.NotSame(t, remainingEndpoint, config.Endpoints[0])
@@ -559,6 +565,70 @@ func TestClusterManager_PrepareClusterConfigPreservesCustomHashWithoutFactory(t 
 
 	cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19371))
 	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+}
+
+func TestClusterManager_RuntimePreservesProgrammaticCustomHash(t *testing.T) {
+	const customPolicy model.LbPolicyType = "ProgrammaticCustomHashRuntime"
+	previousBalancer, hadPreviousBalancer := loadbalancer.LoadBalancerStrategy[customPolicy]
+	loadbalancer.LoadBalancerStrategy[customPolicy] = programmaticHashSnapshotBalancer{}
+	defer func() {
+		if hadPreviousBalancer {
+			loadbalancer.LoadBalancerStrategy[customPolicy] = previousBalancer
+		} else {
+			delete(loadbalancer.LoadBalancerStrategy, customPolicy)
+		}
+	}()
+
+	endpoint := testEndpoint("custom-hash-ep", "127.0.0.1", 19372)
+	config := testCluster("custom-hash-runtime", customPolicy, []*model.Endpoint{endpoint})
+	config.ConsistentHash.Hash = fixedEndpointHash{host: endpoint.GetHost()}
+
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	picked := cm.PickEndpoint(config.Name, nil)
+	require.NotNil(t, picked)
+	assert.Equal(t, endpoint.ID, picked.ID)
+}
+
+type fixedEndpointHash struct {
+	host string
+}
+
+func (fixedEndpointHash) Hash(string) uint32               { return 0 }
+func (h fixedEndpointHash) Get(string) (string, error)     { return h.host, nil }
+func (h fixedEndpointHash) GetHash(uint32) (string, error) { return h.host, nil }
+func (fixedEndpointHash) Add(string)                       {}
+func (fixedEndpointHash) Remove(string) bool               { return false }
+
+type programmaticHashSnapshotBalancer struct{}
+
+func (programmaticHashSnapshotBalancer) Handler(*model.ClusterConfig, model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (programmaticHashSnapshotBalancer) HandlerWithSnapshot(
+	context loadbalancer.PickContext,
+	_ model.LbPolicy,
+) *model.Endpoint {
+	hash := loadbalancer.ConsistentHashForHealthyEndpoints(context)
+	if hash == nil {
+		return nil
+	}
+	host, err := hash.Get("reviewer-regression")
+	if err != nil {
+		return nil
+	}
+	for _, endpoint := range context.HealthyEndpoints {
+		if endpoint != nil && endpoint.GetHost() == host {
+			return endpoint
+		}
+	}
+	return nil
+}
+
+func (programmaticHashSnapshotBalancer) UseHealthyEndpointsOnly() bool {
+	return true
 }
 
 func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
