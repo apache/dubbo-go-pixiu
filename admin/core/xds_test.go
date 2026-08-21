@@ -31,15 +31,33 @@ import (
 type fakeSnapshotPublisher struct {
 	calls    int
 	failures int
+	onCall   func(int)
 }
 
 func (p *fakeSnapshotPublisher) Publish(context.Context) error {
 	p.calls++
+	if p.onCall != nil {
+		p.onCall(p.calls)
+	}
 	if p.failures > 0 {
 		p.failures--
 		return errors.New("invalid candidate")
 	}
 	return nil
+}
+
+type fakeConfigWatcher struct {
+	channels []clientv3.WatchChan
+	calls    int
+}
+
+func (w *fakeConfigWatcher) WatchWithPrefix(string) (clientv3.WatchChan, error) {
+	if w.calls >= len(w.channels) {
+		return nil, errors.New("unexpected watch attempt")
+	}
+	ch := w.channels[w.calls]
+	w.calls++
+	return ch, nil
 }
 
 func TestConsumeConfigWatchPublishesEachEventBatch(t *testing.T) {
@@ -81,5 +99,25 @@ func TestConsumeConfigWatchReturnsWatchError(t *testing.T) {
 	err := consumeConfigWatch(context.Background(), ch, &fakeSnapshotPublisher{})
 	if err == nil || !strings.Contains(err.Error(), "required revision has been compacted") {
 		t.Fatalf("unexpected compacted watch error: %v", err)
+	}
+}
+
+func TestWatchConfigWithRetryReconnectsAndResyncs(t *testing.T) {
+	first := make(chan clientv3.WatchResponse, 1)
+	first <- clientv3.WatchResponse{Canceled: true, CompactRevision: 3}
+	close(first)
+	second := make(chan clientv3.WatchResponse)
+
+	watcher := &fakeConfigWatcher{channels: []clientv3.WatchChan{first, second}}
+	ctx, cancel := context.WithCancel(context.Background())
+	publisher := &fakeSnapshotPublisher{onCall: func(int) { cancel() }}
+
+	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, 0)
+
+	if watcher.calls != 2 {
+		t.Fatalf("watch attempts: want 2, got %d", watcher.calls)
+	}
+	if publisher.calls != 1 {
+		t.Fatalf("resync publications: want 1, got %d", publisher.calls)
 	}
 }

@@ -140,6 +140,8 @@ func TestSnapshotBuilderConvertsClusters(t *testing.T) {
 
 func TestSnapshotBuilderReturnsFilterConversionError(t *testing.T) {
 	listener := config.Listener{Name: "invalid-filter"}
+	listener.Address.SocketAddress.Address = "0.0.0.0"
+	listener.Address.SocketAddress.Port = 8080
 	listener.HTTPFilters = config.HTTPFilters{{
 		Name:   "bad",
 		Config: make(chan int),
@@ -148,6 +150,69 @@ func TestSnapshotBuilderReturnsFilterConversionError(t *testing.T) {
 	_, err := NewSnapshotBuilder(fakeResourceLoader{listeners: []config.Listener{listener}}).Build("9")
 	if err == nil || !strings.Contains(err.Error(), `convert listeners: listener "invalid-filter"`) {
 		t.Fatalf("Build error did not identify the invalid listener: %v", err)
+	}
+}
+
+func TestSnapshotBuilderRejectsInvalidCustomResources(t *testing.T) {
+	validListener := config.Listener{Name: "http"}
+	validListener.Address.SocketAddress.Address = "0.0.0.0"
+	validListener.Address.SocketAddress.Port = 8080
+	validCluster := config.Cluster{Name: "backend", Type: "Static", Address: "127.0.0.1", Port: 20880}
+
+	tests := []struct {
+		name   string
+		loader fakeResourceLoader
+		want   string
+	}{
+		{
+			name:   "empty cluster name",
+			loader: fakeResourceLoader{clusters: []config.Cluster{{Type: "Static", Address: "127.0.0.1", Port: 20880}}},
+			want:   "empty name",
+		},
+		{
+			name: "duplicate cluster",
+			loader: fakeResourceLoader{clusters: []config.Cluster{
+				validCluster,
+				{Name: "backend", Type: "Static", Address: "127.0.0.2", Port: 20880},
+			}},
+			want: "duplicate cluster name",
+		},
+		{
+			name:   "invalid cluster endpoint",
+			loader: fakeResourceLoader{clusters: []config.Cluster{{Name: "backend", Type: "Static"}}},
+			want:   "invalid endpoint address",
+		},
+		{
+			name:   "invalid cluster type",
+			loader: fakeResourceLoader{clusters: []config.Cluster{{Name: "backend", Type: "", Address: "127.0.0.1", Port: 20880}}},
+			want:   "unsupported type",
+		},
+		{
+			name:   "empty listener name",
+			loader: fakeResourceLoader{listeners: []config.Listener{{}}},
+			want:   "empty name",
+		},
+		{
+			name: "duplicate listener address",
+			loader: fakeResourceLoader{listeners: []config.Listener{
+				validListener,
+				func() config.Listener {
+					duplicate := validListener
+					duplicate.Name = "other"
+					return duplicate
+				}(),
+			}},
+			want: "duplicate listener socket address",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewSnapshotBuilder(tt.loader).Build("10")
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("Build error: want %q, got %v", tt.want, err)
+			}
+		})
 	}
 }
 

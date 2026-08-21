@@ -132,6 +132,20 @@ func (mr *MockClusterManagerMockRecorder) UpsertXDSCluster(cluster any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertXDSCluster", reflect.TypeOf((*MockClusterManager)(nil).UpsertXDSCluster), cluster)
 }
 
+// ReplaceXDSClusters mocks base method.
+func (m *MockClusterManager) ReplaceXDSClusters(clusters []*model.ClusterConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplaceXDSClusters", clusters)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplaceXDSClusters indicates an expected call of ReplaceXDSClusters.
+func (mr *MockClusterManagerMockRecorder) ReplaceXDSClusters(clusters any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceXDSClusters", reflect.TypeOf((*MockClusterManager)(nil).ReplaceXDSClusters), clusters)
+}
+
 // RemoveXDSClusters mocks base method.
 func (m *MockClusterManager) RemoveXDSClusters(names []string) {
 	m.ctrl.T.Helper()
@@ -262,6 +276,20 @@ func (m *MockListenerManager) UpsertXDSListener(listener *model.Listener) error 
 func (mr *MockListenerManagerMockRecorder) UpsertXDSListener(listener any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertXDSListener", reflect.TypeOf((*MockListenerManager)(nil).UpsertXDSListener), listener)
+}
+
+// ReplaceXDSListeners mocks base method.
+func (m *MockListenerManager) ReplaceXDSListeners(listeners []*model.Listener) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplaceXDSListeners", listeners)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplaceXDSListeners indicates an expected call of ReplaceXDSListeners.
+func (mr *MockListenerManagerMockRecorder) ReplaceXDSListeners(listeners any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceXDSListeners", reflect.TypeOf((*MockListenerManager)(nil).ReplaceXDSListeners), listeners)
 }
 
 // RemoveXDSListeners mocks base method.

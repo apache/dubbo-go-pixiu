@@ -127,8 +127,45 @@ func TestSnapshotPublisherBuildFailureDoesNotTouchCache(t *testing.T) {
 	}
 }
 
+func TestSnapshotPublisherInvalidCustomResourceKeepsLastGood(t *testing.T) {
+	loader := &mutableResourceLoader{clusters: []config.Cluster{{
+		Name:    "backend",
+		Type:    "Static",
+		Address: "127.0.0.1",
+		Port:    20880,
+	}}}
+	status := NewStatusStore("node-a")
+	cacheWriter := &recordingSnapshotCache{}
+	publisher := newSnapshotPublisher(
+		"node-a",
+		NewSnapshotBuilder(loader),
+		cacheWriter,
+		status,
+		0,
+	)
+
+	if err := publisher.Publish(context.Background()); err != nil {
+		t.Fatalf("publish last-good snapshot: %v", err)
+	}
+	loader.clusters = []config.Cluster{{Name: "broken", Type: "Static"}}
+	if err := publisher.Publish(context.Background()); err == nil {
+		t.Fatal("expected invalid cluster to be rejected")
+	}
+
+	if len(cacheWriter.snapshots) != 1 {
+		t.Fatalf("invalid candidate reached cache: %d snapshots", len(cacheWriter.snapshots))
+	}
+	got := status.Snapshot()
+	if got.SnapshotVersion != "1" || got.ClusterCount != 1 || !strings.Contains(got.LastError, "invalid endpoint address") {
+		t.Fatalf("invalid candidate changed last-good state: %+v", got)
+	}
+}
+
 func TestSnapshotPublisherPublishesDeletionAsEmptyResource(t *testing.T) {
-	loader := &mutableResourceLoader{listeners: []config.Listener{{Name: "to-delete"}}}
+	listener := config.Listener{Name: "to-delete"}
+	listener.Address.SocketAddress.Address = "0.0.0.0"
+	listener.Address.SocketAddress.Port = 8080
+	loader := &mutableResourceLoader{listeners: []config.Listener{listener}}
 	status := NewStatusStore("node-a")
 	cacheWriter := &recordingSnapshotCache{}
 	publisher := newSnapshotPublisher(

@@ -95,12 +95,7 @@ func (l *LdsManager) applyDelta(delta *apiclient.DeltaResources) error {
 		listeners = append(listeners, listener.Listeners...)
 	}
 
-	for _, name := range delta.RemovedResources {
-		if name == constant.ListenerType {
-			l.listenerMg.RemoveXDSListeners(l.listenerMg.XDSListenerNames())
-		}
-	}
-	if len(delta.NewResources) == 0 {
+	if len(delta.NewResources) == 0 && !containsResource(delta.RemovedResources, constant.ListenerType) {
 		return nil
 	}
 
@@ -120,47 +115,28 @@ func (l *LdsManager) makeSocketAddress(address *xdsmodel.SocketAddress) model.So
 	}
 }
 
-func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
-	names := make([]string, 0, len(toRemoveHash))
-	for name := range toRemoveHash {
-		names = append(names, name)
-	}
-	l.listenerMg.RemoveXDSListeners(names)
-}
-
 // setupListeners setup listeners accord to dynamic resource
 func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) error {
 	//Make sure each one has a unique name like "host-port-protocol"
 	for _, v := range listeners {
+		if v == nil || v.Address == nil || v.Address.SocketAddress == nil {
+			return errors.New("xDS listener must have a socket address")
+		}
+		if v.Address.SocketAddress.Address == "" || v.Address.SocketAddress.Port <= 0 || v.Address.SocketAddress.Port > 65535 {
+			return errors.Errorf("xDS listener has invalid socket address %q:%d", v.Address.SocketAddress.Address, v.Address.SocketAddress.Port)
+		}
+		if v.FilterChain == nil {
+			return errors.Errorf("xDS listener %q has no filter chain", v.Name)
+		}
 		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), v.Protocol.String())
 	}
 
-	laterApplies := make([]func() error, 0, len(listeners))
-	toRemoveHash := make(map[string]struct{}, len(listeners))
-
-	lm := l.listenerMg
-	for _, name := range lm.XDSListenerNames() {
-		toRemoveHash[name] = struct{}{}
-	}
-
+	converted := make([]*model.Listener, 0, len(listeners))
 	for _, listener := range listeners {
-		delete(toRemoveHash, listener.Name)
-
 		modelListener := l.makeListener(listener)
-		// add or update later after removes
-		laterApplies = append(laterApplies, func() error {
-			return lm.UpsertXDSListener(&modelListener)
-		})
+		converted = append(converted, &modelListener)
 	}
-	// remove the listeners first to prevent tcp port conflict
-	l.removeListeners(toRemoveHash)
-	//do update and add new cluster.
-	for _, fn := range laterApplies {
-		if err := fn(); err != nil {
-			return errors.Wrap(err, "can not modify listener")
-		}
-	}
-	return nil
+	return errors.Wrap(l.listenerMg.ReplaceXDSListeners(converted), "can not replace xDS listeners")
 }
 
 func resolveListenerName(host string, port int, protocol string) string {

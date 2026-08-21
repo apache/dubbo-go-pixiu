@@ -115,10 +115,10 @@ func TestCdsManager_Fetch(t *testing.T) {
 		addCluster = c
 	})
 	clusterMg.EXPECT().RemoveCluster(gomock.Any()).AnyTimes()
-	clusterMg.EXPECT().XDSClusterNames().AnyTimes().Return(nil)
-	clusterMg.EXPECT().RemoveXDSClusters(gomock.Any()).AnyTimes()
-	clusterMg.EXPECT().UpsertXDSCluster(gomock.Any()).AnyTimes().DoAndReturn(func(c *model.ClusterConfig) error {
-		addCluster = c
+	clusterMg.EXPECT().ReplaceXDSClusters(gomock.Any()).AnyTimes().DoAndReturn(func(clusters []*model.ClusterConfig) error {
+		if len(clusters) > 0 {
+			addCluster = clusters[0]
+		}
 		return nil
 	})
 	clusterMg.EXPECT().CloneXdsControlStore().AnyTimes().DoAndReturn(func() (controls.ClusterStore, error) {
@@ -219,26 +219,43 @@ func TestCdsManager_MakeEndpointsPreservesEDSHealth(t *testing.T) {
 	require.True(t, endpoints[0].UnHealthy)
 }
 
+func TestCdsManager_StandardEDSClusterDoesNotRequireNestedConfigSource(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	clusterMg.EXPECT().ReplaceXDSClusters(gomock.Any()).DoAndReturn(func(clusters []*model.ClusterConfig) error {
+		require.Len(t, clusters, 1)
+		require.Equal(t, "orders", clusters[0].Name)
+		require.Equal(t, "orders-eds", clusters[0].EdsClusterConfig.ServiceName)
+		require.Equal(t, "10.0.0.1", clusters[0].Endpoints[0].Address.Address)
+		return nil
+	})
+	manager := &CdsManager{clusterMg: clusterMg}
+
+	require.NotPanics(t, func() {
+		require.NoError(t, manager.setupCluster([]*xdsmodel.Cluster{{
+			Name:             "orders",
+			TypeStr:          "Static",
+			LbStr:            "RoundRobin",
+			EdsClusterConfig: &xdsmodel.EdsClusterConfig{ServiceName: "orders-eds"},
+			Endpoints: []*xdsmodel.Endpoint{{
+				Id:      "10.0.0.1:20880",
+				Address: &xdsmodel.SocketAddress{Address: "10.0.0.1", Port: 20880},
+			}},
+		}}))
+	})
+}
+
 func TestCdsManager_ApplyDelta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	clusterMg := mocks.NewMockClusterManager(ctrl)
 	owned := map[string]*model.ClusterConfig{
 		"old-dynamic": {Name: "old-dynamic"},
 	}
-	clusterMg.EXPECT().XDSClusterNames().AnyTimes().DoAndReturn(func() []string {
-		names := make([]string, 0, len(owned))
-		for name := range owned {
-			names = append(names, name)
+	clusterMg.EXPECT().ReplaceXDSClusters(gomock.Any()).AnyTimes().DoAndReturn(func(clusters []*model.ClusterConfig) error {
+		clear(owned)
+		for _, cluster := range clusters {
+			owned[cluster.Name] = cluster
 		}
-		return names
-	})
-	clusterMg.EXPECT().RemoveXDSClusters(gomock.Any()).AnyTimes().Do(func(names []string) {
-		for _, name := range names {
-			delete(owned, name)
-		}
-	})
-	clusterMg.EXPECT().UpsertXDSCluster(gomock.Any()).AnyTimes().DoAndReturn(func(cluster *model.ClusterConfig) error {
-		owned[cluster.Name] = cluster
 		return nil
 	})
 	manager := &CdsManager{clusterMg: clusterMg}

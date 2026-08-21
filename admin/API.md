@@ -395,22 +395,6 @@ cache-control: no-cache
 * `server_url`: OPA server URL (optional)
 * `bearer_token`: OPA bearer token (optional)
 
-## VI. xDS Diagnostics
-
-### 6.1 Get xDS Publication Status
-
-This authenticated endpoint returns the last-good snapshot version, resource
-counts, publication timestamps, and the latest rejected candidate error.
-
-```http
-GET /config/api/xds/status HTTP/1.1
-Host: 127.0.0.1:8080
-token: <admin-jwt>
-```
-
-`ready` indicates that a snapshot has been published. `degraded` indicates
-that a newer candidate failed while the last-good snapshot remains available.
-
 **Response**:
 
 ```json
@@ -465,3 +449,44 @@ cache-control: no-cache
 * `policy_id`: OPA policy id (optional)
 * `server_url`: OPA server URL (optional)
 * `bearer_token`: OPA bearer token (optional)
+
+## VI. xDS Diagnostics
+
+### 6.1 Get xDS Publication Status
+
+This authenticated endpoint returns the last-good snapshot version, resource
+counts, publication timestamps, the latest rejected candidate error, and the
+explicit support status of each xDS resource path.
+
+```http
+GET /config/api/xds/status HTTP/1.1
+Host: 127.0.0.1:8080
+token: <admin-jwt>
+```
+
+`ready` indicates that a snapshot has been published. `degraded` indicates
+that a newer candidate failed while the last-good snapshot remains available.
+
+**Response**:
+
+```json
+{
+  "code": "10001",
+  "data": {
+    "node_id": "test-id",
+    "snapshot_version": "42",
+    "listener_count": 1,
+    "cluster_count": 2,
+    "listen_port": 18000,
+    "ready": true,
+    "degraded": false,
+    "resource_support": {
+      "extension_config_listener": "supported",
+      "extension_config_cluster": "supported",
+      "standard_cds": "experimental",
+      "standard_eds": "experimental",
+      "standard_lds": "unsupported"
+    }
+  }
+}
+```

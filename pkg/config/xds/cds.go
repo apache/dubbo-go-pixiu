@@ -93,56 +93,21 @@ func (c *CdsManager) applyDelta(delta *apiclient.DeltaResources) error {
 		clusters = append(clusters, cluster.Clusters...)
 	}
 
-	for _, name := range delta.RemovedResources {
-		if name == constant.ClusterType {
-			c.clusterMg.RemoveXDSClusters(c.clusterMg.XDSClusterNames())
-		}
-	}
-	if len(delta.NewResources) == 0 {
+	if len(delta.NewResources) == 0 && !containsResource(delta.RemovedResources, constant.ClusterType) {
 		return nil
 	}
 	return c.setupCluster(clusters)
 }
 
-func (c *CdsManager) removeCluster(clusterNames []string) {
-	c.clusterMg.RemoveXDSClusters(clusterNames)
-}
-
 func (c *CdsManager) setupCluster(clusters []*xdsmodel.Cluster) error {
-
-	laterApplies := make([]func() error, 0, len(clusters))
-	toRemoveHash := make(map[string]struct{}, len(clusters))
-
-	for _, name := range c.clusterMg.XDSClusterNames() {
-		toRemoveHash[name] = struct{}{}
-	}
+	converted := make([]*model.ClusterConfig, 0, len(clusters))
 	for _, cluster := range clusters {
-		delete(toRemoveHash, cluster.Name)
-
-		makeCluster := c.makeCluster(cluster)
-		laterApplies = append(laterApplies, func() error {
-			return c.clusterMg.UpsertXDSCluster(makeCluster)
-		})
-	}
-
-	c.removeClusters(toRemoveHash)
-	for _, fn := range laterApplies { //do update and add new cluster.
-		if err := fn(); err != nil {
-			return errors.Wrap(err, "can not modify cluster")
+		if cluster == nil || cluster.Name == "" {
+			return errors.New("xDS cluster must have a name")
 		}
+		converted = append(converted, c.makeCluster(cluster))
 	}
-	return nil
-}
-
-func (c *CdsManager) removeClusters(toRemoveList map[string]struct{}) {
-	removeClusters := make([]string, 0, len(toRemoveList))
-	for clusterName := range toRemoveList {
-		removeClusters = append(removeClusters, clusterName)
-	}
-	if len(toRemoveList) == 0 {
-		return
-	}
-	c.removeCluster(removeClusters)
+	return errors.Wrap(c.clusterMg.ReplaceXDSClusters(converted), "can not replace xDS clusters")
 }
 
 func (c *CdsManager) makeCluster(cluster *xdsmodel.Cluster) *model.ClusterConfig {
@@ -232,16 +197,20 @@ func (c *CdsManager) makeEdsClusterConfig(edsConfig *xdsmodel.EdsClusterConfig) 
 	if edsConfig == nil {
 		return model.EdsClusterConfig{}
 	}
-	return model.EdsClusterConfig{
-		EdsConfig: model.ConfigSource{
-			Path:            edsConfig.EdsConfig.Path,
-			ApiConfigSource: c.makeApiConfigSource(edsConfig.EdsConfig.ApiConfigSource),
-		},
-		ServiceName: edsConfig.ServiceName,
+	result := model.EdsClusterConfig{ServiceName: edsConfig.ServiceName}
+	if configSource := edsConfig.GetEdsConfig(); configSource != nil {
+		result.EdsConfig = model.ConfigSource{
+			Path:            configSource.GetPath(),
+			ApiConfigSource: c.makeApiConfigSource(configSource.GetApiConfigSource()),
+		}
 	}
+	return result
 }
 
 func (c *CdsManager) makeApiConfigSource(apiConfig *xdsmodel.ApiConfigSource) (result model.ApiConfigSource) {
+	if apiConfig == nil {
+		return result
+	}
 	apiType, ok := model.ApiTypeValue[apiConfig.APITypeStr]
 	if !ok {
 		logger.Errorf("unknown apiType %s", apiConfig.APITypeStr)
@@ -256,4 +225,13 @@ func (c *CdsManager) makeApiConfigSource(apiConfig *xdsmodel.ApiConfigSource) (r
 		RequestTimeout: apiConfig.RequestTimeout,
 		GrpcServices:   nil, //todo create node of pb
 	}
+}
+
+func containsResource(resources []string, target string) bool {
+	for _, resourceName := range resources {
+		if resourceName == target {
+			return true
+		}
+	}
+	return false
 }

@@ -35,9 +35,24 @@ import (
 // failed while the last-good snapshot remains available to clients.
 type StatusResponse struct {
 	adminxds.SnapshotStatus
-	ListenPort uint `json:"listen_port"`
-	Ready      bool `json:"ready"`
-	Degraded   bool `json:"degraded"`
+	ListenPort      uint              `json:"listen_port"`
+	Ready           bool              `json:"ready"`
+	Degraded        bool              `json:"degraded"`
+	ResourceSupport map[string]string `json:"resource_support"`
+}
+
+func resourceSupportStatus() map[string]string {
+	return map[string]string{
+		"extension_config_listener": "supported",
+		"extension_config_cluster":  "supported",
+		"standard_cds":              "experimental",
+		"standard_eds":              "experimental",
+		"standard_lds":              "unsupported",
+		"standard_rds":              "unsupported",
+		"standard_sds":              "unsupported",
+		"standard_rtds":             "unsupported",
+		"ads_config":                "unsupported",
+	}
 }
 
 // GetStatus returns the last-good xDS snapshot and latest publication error.
@@ -49,10 +64,11 @@ type StatusResponse struct {
 func GetStatus(c *gin.Context) {
 	status := adminxds.DefaultStatusStore.Snapshot()
 	response := StatusResponse{
-		SnapshotStatus: status,
-		ListenPort:     adminconfig.Bootstrap.GetXDSConfig().ListenPort,
-		Ready:          status.SnapshotVersion != "",
-		Degraded:       status.LastError != "",
+		SnapshotStatus:  status,
+		ListenPort:      adminconfig.Bootstrap.GetXDSConfig().ListenPort,
+		Ready:           status.SnapshotVersion != "",
+		Degraded:        status.LastError != "",
+		ResourceSupport: resourceSupportStatus(),
 	}
 	c.JSON(http.StatusOK, adminconfig.WithRet(response))
 }

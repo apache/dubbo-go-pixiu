@@ -218,6 +218,21 @@ func (m *mockListenerManager) UpsertXDSListener(listener *model.Listener) error 
 	return nil
 }
 
+func (m *mockListenerManager) ReplaceXDSListeners(listeners []*model.Listener) error {
+	if m.xdsManaged == nil {
+		m.xdsManaged = make(map[string]struct{})
+	}
+	for name := range m.xdsManaged {
+		delete(m.m, name)
+	}
+	clear(m.xdsManaged)
+	for _, listener := range listeners {
+		m.m[listener.Name] = listener
+		m.xdsManaged[listener.Name] = struct{}{}
+	}
+	return nil
+}
+
 func (m *mockListenerManager) RemoveXDSListeners(names []string) {
 	for _, name := range names {
 		if _, owned := m.xdsManaged[name]; !owned {

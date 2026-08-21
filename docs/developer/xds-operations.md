@@ -4,6 +4,23 @@ Pixiu Admin publishes gateway listeners and clusters through Envoy xDS v3. It
 supports the project-specific `TypedExtensionConfig` transport and standard
 CDS/EDS ingestion for Istio-compatible control planes.
 
+## Resource support matrix
+
+`Supported` means the repository maintains the complete Admin-to-Pixiu path.
+`Experimental` means conversion and protocol handling exist, but production
+environment coverage is still limited. Registering a gRPC service alone does
+not make its resource type supported.
+
+| Resource path | Status | Boundary |
+| --- | --- | --- |
+| ExtensionConfig listener | Supported | Pixiu-specific aggregate over Delta ECDS. |
+| ExtensionConfig cluster | Supported | Pixiu-specific aggregate over Delta ECDS. |
+| Standard CDS | Experimental | EDS-type clusters through standard ADS. |
+| Standard EDS | Experimental | Socket-address endpoints for referenced CDS resources. |
+| Standard LDS | Unsupported | Listener conversion is outside the base scope. |
+| Standard RDS/SDS/RTDS | Unsupported | Services may be registered, but no resources are published or applied. |
+| `ads_config` bootstrap | Unsupported | Use `lds_config`/`cds_config` with the documented API types. |
+
 ## Admin configuration
 
 Configure the management server in the Admin YAML:
@@ -44,6 +61,7 @@ The `data` object contains:
 | `last_error`, `last_error_at` | Latest rejected candidate and its time. |
 | `ready` | At least one snapshot has been published. |
 | `degraded` | The latest candidate failed; the last-good snapshot is still served. |
+| `resource_support` | Explicit support status for each xDS path. |
 
 An empty `snapshot_version` means no candidate has been published. A response
 with both `ready: true` and `degraded: true` means clients can continue using

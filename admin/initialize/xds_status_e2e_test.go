@@ -72,4 +72,7 @@ func TestXDSStatusRouteEndToEnd(t *testing.T) {
 	require.True(t, response.Data.Ready)
 	require.True(t, response.Data.Degraded)
 	require.Equal(t, "candidate rejected", response.Data.LastError)
+	require.Equal(t, "supported", response.Data.ResourceSupport["extension_config_cluster"])
+	require.Equal(t, "experimental", response.Data.ResourceSupport["standard_cds"])
+	require.Equal(t, "unsupported", response.Data.ResourceSupport["standard_lds"])
 }

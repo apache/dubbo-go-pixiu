@@ -80,6 +80,26 @@ func TestClusterManager_XDSOwnershipPreservesStaticCluster(t *testing.T) {
 	assert.Empty(t, cm.XDSClusterNames())
 }
 
+func TestClusterManager_ReplaceXDSClustersIsAtomicOnConflict(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	oldDynamic := testCluster("old-dynamic", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("old", "127.0.0.1", 18080),
+	})
+	cm := testClusterManager(staticCluster)
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{oldDynamic}))
+
+	err := cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		testCluster("new-dynamic", model.LoadBalancerRoundRobin, nil),
+		testCluster("static", model.LoadBalancerRoundRobin, nil),
+	})
+
+	require.ErrorContains(t, err, "conflicts with a non-xDS cluster")
+	assert.True(t, cm.HasCluster("static"))
+	assert.True(t, cm.HasCluster("old-dynamic"))
+	assert.False(t, cm.HasCluster("new-dynamic"))
+	assert.Equal(t, []string{"old-dynamic"}, cm.XDSClusterNames())
+}
+
 func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
 	cm := testClusterManager()
 	assert.Nil(t, cm.PickEndpoint("missing-cluster", nil))

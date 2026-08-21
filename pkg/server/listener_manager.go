@@ -209,6 +209,125 @@ func (lm *ListenerManager) UpsertXDSListener(m *model.Listener) error {
 	return nil
 }
 
+// ReplaceXDSListeners replaces the complete xDS-owned listener set as one
+// transaction. New listeners are constructed and existing listeners are
+// refreshed before removals are committed. Any refresh failure restores the
+// listeners already refreshed during the same attempt.
+func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) error {
+	lm.rwLock.Lock()
+
+	newManaged := make(map[string]struct{}, len(listeners))
+	staged := make(map[string]*wrapListenerService)
+	type refreshTarget struct {
+		key      string
+		active   *wrapListenerService
+		previous *model.Listener
+		next     *model.Listener
+	}
+	refreshes := make([]refreshTarget, 0, len(listeners))
+
+	for _, listenerConfig := range listeners {
+		if listenerConfig == nil {
+			lm.rwLock.Unlock()
+			return errors.New("xDS listener config is nil")
+		}
+		key := resolveListenerName(listenerConfig)
+		if _, duplicate := newManaged[key]; duplicate {
+			lm.rwLock.Unlock()
+			return errors.Errorf("duplicate xDS listener %q", key)
+		}
+		newManaged[key] = struct{}{}
+
+		if active := lm.activeListenerService[key]; active != nil {
+			if _, owned := lm.xdsManaged[key]; !owned {
+				lm.rwLock.Unlock()
+				return errors.Errorf("xDS listener %q conflicts with a non-xDS listener", key)
+			}
+			refreshes = append(refreshes, refreshTarget{
+				key:      key,
+				active:   active,
+				previous: active.config,
+				next:     listenerConfig,
+			})
+			continue
+		}
+
+		service, err := createListenerServiceSafely(listenerConfig, lm.bootstrap)
+		if err != nil {
+			lm.rwLock.Unlock()
+			return errors.Wrapf(err, "create xDS listener %q", key)
+		}
+		staged[key] = &wrapListenerService{config: listenerConfig, ListenerService: service}
+	}
+
+	refreshed := refreshes[:0]
+	for _, target := range refreshes {
+		if err := refreshListenerServiceSafely(target.active.ListenerService, *target.next); err != nil {
+			for i := len(refreshed) - 1; i >= 0; i-- {
+				rollback := refreshed[i]
+				if rollbackErr := refreshListenerServiceSafely(rollback.active.ListenerService, *rollback.previous); rollbackErr != nil {
+					logger.Errorf("rollback xDS listener %s failed: %v", rollback.key, rollbackErr)
+				}
+			}
+			lm.rwLock.Unlock()
+			return errors.Wrapf(err, "refresh xDS listener %q", target.key)
+		}
+		refreshed = append(refreshed, target)
+	}
+
+	removed := make(map[string]*wrapListenerService)
+	for key := range lm.xdsManaged {
+		if _, keep := newManaged[key]; !keep {
+			removed[key] = lm.activeListenerService[key]
+			delete(lm.activeListenerService, key)
+		}
+	}
+	for _, target := range refreshes {
+		target.active.config = target.next
+	}
+	for key, active := range staged {
+		lm.activeListenerService[key] = active
+	}
+	lm.xdsManaged = newManaged
+	lm.rwLock.Unlock()
+
+	for key, active := range removed {
+		if active == nil || active.ListenerService == nil {
+			continue
+		}
+		logger.Infof("xDS listener %s closing", key)
+		if err := active.Close(); err != nil {
+			logger.Errorf("close xDS listener %s service error: %s", key, err)
+		}
+	}
+	for _, active := range staged {
+		lm.startListenerServiceAsync(active.ListenerService)
+	}
+	return nil
+}
+
+func createListenerServiceSafely(listenerConfig *model.Listener, bootstrap *model.Bootstrap) (service listener.ListenerService, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			service = nil
+			err = errors.Errorf("listener factory panicked: %v", recovered)
+		}
+	}()
+	return listener.CreateListenerService(listenerConfig, bootstrap)
+}
+
+func refreshListenerServiceSafely(service listener.ListenerService, listenerConfig model.Listener) (err error) {
+	if service == nil {
+		return errors.New("listener service is nil")
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("listener refresh panicked: %v", recovered)
+		}
+	}()
+	return service.Refresh(listenerConfig)
+}
+
 // XDSListenerNames returns the listener keys currently owned by xDS.
 func (lm *ListenerManager) XDSListenerNames() []string {
 	lm.rwLock.RLock()

@@ -58,6 +58,7 @@ const (
 	grpcKeepaliveTimeout     = 5 * time.Second
 	grpcKeepaliveMinTime     = 30 * time.Second
 	grpcMaxConcurrentStreams = 1000000
+	configWatchRetryDelay    = time.Second
 )
 
 func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
@@ -138,6 +139,10 @@ type snapshotPublisher interface {
 	Publish(ctx context.Context) error
 }
 
+type configWatcher interface {
+	WatchWithPrefix(key string) (clientv3.WatchChan, error)
+}
+
 func watchConfigAndReload(ctx context.Context, publisher snapshotPublisher) {
 	if adminconfig.Client == nil {
 		err := fmt.Errorf("watch xDS configuration: etcd client is not initialized")
@@ -145,17 +150,42 @@ func watchConfigAndReload(ctx context.Context, publisher snapshotPublisher) {
 		logger.Error(err)
 		return
 	}
-	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
-	if err != nil {
-		err = fmt.Errorf("watch xDS configuration: %w", err)
-		adminxds.DefaultStatusStore.RecordError(err)
-		logger.Error(err)
-		return
-	}
+	watchConfigWithRetry(ctx, adminconfig.Client, adminconfig.Bootstrap.EtcdConfig.Path, publisher, configWatchRetryDelay)
+}
 
-	if err := consumeConfigWatch(ctx, ch, publisher); err != nil {
+func watchConfigWithRetry(ctx context.Context, watcher configWatcher, path string, publisher snapshotPublisher, retryDelay time.Duration) {
+	reconnecting := false
+	for {
+		ch, err := watcher.WatchWithPrefix(path)
+		if err == nil && reconnecting {
+			// Establish the new watch before rebuilding. Events that happen during
+			// the rebuild remain queued on the new channel, while the rebuild
+			// catches changes that occurred between the two watch sessions.
+			if publishErr := publisher.Publish(ctx); publishErr != nil {
+				logger.Errorf("resync xDS snapshot after watch reconnect failed: %+v", publishErr)
+			}
+		}
+		if err == nil {
+			err = consumeConfigWatch(ctx, ch, publisher)
+		} else {
+			err = fmt.Errorf("watch xDS configuration: %w", err)
+		}
+		if ctx.Err() != nil {
+			return
+		}
+
 		adminxds.DefaultStatusStore.RecordError(err)
 		logger.Error(err)
+		reconnecting = true
+		timer := time.NewTimer(retryDelay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return
+		case <-timer.C:
+		}
 	}
 }
 
@@ -173,6 +203,9 @@ func consumeConfigWatch(ctx context.Context, ch clientv3.WatchChan, publisher sn
 			}
 			if err := response.Err(); err != nil {
 				return fmt.Errorf("watch xDS configuration: %w", err)
+			}
+			if response.Canceled {
+				return fmt.Errorf("watch xDS configuration: etcd watch canceled")
 			}
 			if len(response.Events) == 0 {
 				continue

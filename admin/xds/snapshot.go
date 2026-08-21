@@ -20,6 +20,7 @@ package xds
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -38,6 +39,7 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 // ResourceLoader reads one logical Admin resource view for snapshot building.
@@ -101,6 +103,12 @@ func (b *SnapshotBuilder) Build(version string) (*SnapshotBuildResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load clusters: %w", err)
 	}
+	if err := validateListeners(listeners); err != nil {
+		return nil, fmt.Errorf("validate listeners: %w", err)
+	}
+	if err := validateClusters(clusters); err != nil {
+		return nil, fmt.Errorf("validate clusters: %w", err)
+	}
 
 	listenerConfig, err := makeListeners(listeners)
 	if err != nil {
@@ -142,6 +150,62 @@ func (b *SnapshotBuilder) Build(version string) (*SnapshotBuildResult, error) {
 		ListenerCount: len(listenerConfig.Listeners),
 		ClusterCount:  len(clusterConfig.Clusters),
 	}, nil
+}
+
+func validateListeners(listeners []config.Listener) error {
+	names := make(map[string]struct{}, len(listeners))
+	addresses := make(map[string]struct{}, len(listeners))
+	for index, listener := range listeners {
+		name := strings.TrimSpace(listener.Name)
+		if name == "" {
+			return fmt.Errorf("listener %d has an empty name", index)
+		}
+		if _, duplicate := names[name]; duplicate {
+			return fmt.Errorf("duplicate listener name %q", name)
+		}
+		names[name] = struct{}{}
+
+		address := strings.TrimSpace(listener.Address.SocketAddress.Address)
+		port := listener.Address.SocketAddress.Port
+		if address == "" || port <= 0 || port > 65535 {
+			return fmt.Errorf("listener %q has invalid socket address %q:%d", name, address, port)
+		}
+		addressKey := address + ":" + strconv.Itoa(port)
+		if _, duplicate := addresses[addressKey]; duplicate {
+			return fmt.Errorf("duplicate listener socket address %q", addressKey)
+		}
+		addresses[addressKey] = struct{}{}
+
+		for routeIndex, route := range listener.RouteConfig.Routes {
+			if strings.TrimSpace(route.Route.Cluster) == "" {
+				return fmt.Errorf("listener %q route %d has an empty cluster", name, routeIndex)
+			}
+		}
+	}
+	return nil
+}
+
+func validateClusters(clusters []config.Cluster) error {
+	names := make(map[string]struct{}, len(clusters))
+	for index, cluster := range clusters {
+		name := strings.TrimSpace(cluster.Name)
+		if name == "" {
+			return fmt.Errorf("cluster %d has an empty name", index)
+		}
+		if _, duplicate := names[name]; duplicate {
+			return fmt.Errorf("duplicate cluster name %q", name)
+		}
+		names[name] = struct{}{}
+		if _, supported := model.DiscoveryTypeValue[strings.TrimSpace(cluster.Type)]; !supported {
+			return fmt.Errorf("cluster %q has unsupported type %q", name, cluster.Type)
+		}
+
+		address := strings.TrimSpace(cluster.Address)
+		if address == "" || cluster.Port <= 0 || cluster.Port > 65535 {
+			return fmt.Errorf("cluster %q has invalid endpoint address %q:%d", name, address, cluster.Port)
+		}
+	}
+	return nil
 }
 
 func makeHTTPFilter(listener config.Listener) (*xdsmodel.FilterChain, error) {

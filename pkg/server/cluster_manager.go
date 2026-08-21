@@ -129,6 +129,83 @@ func (cm *ClusterManager) UpsertXDSCluster(c *model.ClusterConfig) error {
 	return nil
 }
 
+// ReplaceXDSClusters atomically replaces the complete xDS-owned cluster set.
+// Validation and runtime construction finish before the new store is
+// published, so a rejected xDS response cannot partially mutate live state.
+func (cm *ClusterManager) ReplaceXDSClusters(clusters []*model.ClusterConfig) error {
+	cm.rw.Lock()
+	candidate := &ClusterStore{
+		Version:     cm.store.Version,
+		clustersMap: make(map[string]*cluster.Cluster, len(cm.store.clustersMap)+len(clusters)),
+	}
+
+	staticNames := make(map[string]struct{}, len(cm.store.Config))
+	for _, clusterConfig := range cm.store.Config {
+		if clusterConfig == nil {
+			continue
+		}
+		if _, owned := cm.xdsManaged[clusterConfig.Name]; !owned {
+			staticNames[clusterConfig.Name] = struct{}{}
+			candidate.Config = append(candidate.Config, clusterConfig)
+			if runtimeCluster := cm.store.clustersMap[clusterConfig.Name]; runtimeCluster != nil {
+				candidate.clustersMap[clusterConfig.Name] = runtimeCluster
+			}
+		}
+	}
+
+	newManaged := make(map[string]struct{}, len(clusters))
+	for _, clusterConfig := range clusters {
+		if clusterConfig == nil || clusterConfig.Name == "" {
+			cm.rw.Unlock()
+			return fmt.Errorf("xDS cluster must have a name")
+		}
+		if _, duplicate := newManaged[clusterConfig.Name]; duplicate {
+			cm.rw.Unlock()
+			return fmt.Errorf("duplicate xDS cluster %q", clusterConfig.Name)
+		}
+		if _, conflict := staticNames[clusterConfig.Name]; conflict {
+			cm.rw.Unlock()
+			return fmt.Errorf("xDS cluster %q conflicts with a non-xDS cluster", clusterConfig.Name)
+		}
+		newManaged[clusterConfig.Name] = struct{}{}
+	}
+
+	for _, clusterConfig := range clusters {
+		candidate.prepareClusterConfig(clusterConfig)
+		candidate.Config = append(candidate.Config, clusterConfig)
+		candidate.replaceClusterRuntimeWithSnapshot(
+			clusterConfig.Name,
+			clusterConfig,
+			snapshotForRuntimeReplacement(cm.store, clusterConfig.Name),
+		)
+	}
+	candidate.IncreaseVersion()
+	replacedClusters := make([]*cluster.Cluster, 0, len(cm.xdsManaged))
+	for name := range cm.xdsManaged {
+		if runtimeCluster := cm.store.clustersMap[name]; runtimeCluster != nil {
+			replacedClusters = append(replacedClusters, runtimeCluster)
+		}
+	}
+	cm.store = candidate
+	cm.xdsManaged = newManaged
+	cm.rw.Unlock()
+
+	stopClusters(replacedClusters)
+	return nil
+}
+
+func cloneClusterStore(store *ClusterStore) (*ClusterStore, error) {
+	data, err := yaml.MarshalYML(store)
+	if err != nil {
+		return nil, err
+	}
+	cloned := &ClusterStore{clustersMap: map[string]*cluster.Cluster{}}
+	if err := yaml.UnmarshalYML(data, cloned); err != nil {
+		return nil, err
+	}
+	return cloned, nil
+}
+
 // XDSClusterNames returns the names of clusters currently owned by xDS.
 func (cm *ClusterManager) XDSClusterNames() []string {
 	cm.rw.RLock()
@@ -193,19 +270,7 @@ func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) 
 func (cm *ClusterManager) CloneStore() (*ClusterStore, error) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
-
-	b, err := yaml.MarshalYML(cm.store)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &ClusterStore{
-		clustersMap: map[string]*cluster.Cluster{},
-	}
-	if err := yaml.UnmarshalYML(b, c); err != nil {
-		return nil, err
-	}
-	return c, nil
+	return cloneClusterStore(cm.store)
 }
 
 func (cm *ClusterManager) NewStore(version int32) *ClusterStore {

@@ -21,7 +21,10 @@ import (
 	"context"
 	stderr "errors"
 	"io"
+	"net"
+	"sync"
 	"testing"
+	"time"
 )
 
 import (
@@ -33,8 +36,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/test/bufconn"
 
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -204,6 +210,159 @@ func TestAggGrpcApiClient_MakeADSNACK(t *testing.T) {
 	require.Equal(t, "rejected-nonce", req.ResponseNonce)
 	require.Equal(t, []string{"orders-eds"}, req.ResourceNames)
 	require.Equal(t, int32(codes.InvalidArgument), req.ErrorDetail.Code)
+}
+
+type reconnectADSServer struct {
+	discoverypb.UnimplementedAggregatedDiscoveryServiceServer
+
+	mu               sync.Mutex
+	streamCount      int
+	clusterResource  *anypb.Any
+	endpointResource *anypb.Any
+	reconnected      chan []*discoverypb.DiscoveryRequest
+}
+
+func (s *reconnectADSServer) StreamAggregatedResources(stream discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	s.mu.Lock()
+	s.streamCount++
+	streamNumber := s.streamCount
+	s.mu.Unlock()
+
+	if streamNumber == 1 {
+		initialCDS, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if initialCDS.TypeUrl != resource.ClusterType {
+			return stderr.New("first request is not CDS")
+		}
+		if err := stream.Send(&discoverypb.DiscoveryResponse{
+			TypeUrl:     resource.ClusterType,
+			VersionInfo: "cds-v1",
+			Nonce:       "cds-nonce-1",
+			Resources:   []*anypb.Any{s.clusterResource},
+		}); err != nil {
+			return err
+		}
+		cdsACK, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		edsSubscription, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if cdsACK.VersionInfo != "cds-v1" || cdsACK.ResponseNonce != "cds-nonce-1" || edsSubscription.TypeUrl != resource.EndpointType {
+			return stderr.New("client did not ACK CDS and subscribe to EDS")
+		}
+		if err := stream.Send(&discoverypb.DiscoveryResponse{
+			TypeUrl:     resource.EndpointType,
+			VersionInfo: "eds-v1",
+			Nonce:       "eds-nonce-1",
+			Resources:   []*anypb.Any{s.endpointResource},
+		}); err != nil {
+			return err
+		}
+		edsACK, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if edsACK.VersionInfo != "eds-v1" || edsACK.ResponseNonce != "eds-nonce-1" {
+			return stderr.New("client did not ACK EDS")
+		}
+		return nil
+	}
+
+	requests := make([]*discoverypb.DiscoveryRequest, 0, 2)
+	for len(requests) < 2 {
+		request, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		requests = append(requests, request)
+	}
+	select {
+	case s.reconnected <- requests:
+	case <-stream.Context().Done():
+		return stream.Context().Err()
+	}
+	<-stream.Context().Done()
+	return nil
+}
+
+func TestAggGrpcApiClient_ReconnectsWithLastAcceptedVersions(t *testing.T) {
+	clusterResource, err := anypb.New(testEnvoyEDSCluster(t, "cluster-a", "orders-eds", clusterpb.Cluster_ROUND_ROBIN))
+	require.NoError(t, err)
+	endpointResource, err := anypb.New(&endpointpb.ClusterLoadAssignment{
+		ClusterName: "orders-eds",
+		Endpoints: []*endpointpb.LocalityLbEndpoints{{
+			LbEndpoints: []*endpointpb.LbEndpoint{
+				testEnvoyEndpoint("10.0.0.1", 20880, corepb.HealthStatus_HEALTHY, 1, nil),
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	managementServer := &reconnectADSServer{
+		clusterResource:  clusterResource,
+		endpointResource: endpointResource,
+		reconnected:      make(chan []*discoverypb.DiscoveryRequest, 1),
+	}
+	listener := bufconn.Listen(1024 * 1024)
+	grpcServer := grpc.NewServer()
+	discoverypb.RegisterAggregatedDiscoveryServiceServer(grpcServer, managementServer)
+	go func() { _ = grpcServer.Serve(listener) }()
+	t.Cleanup(func() {
+		grpcServer.Stop()
+		_ = listener.Close()
+	})
+
+	conn, err := grpc.DialContext(
+		context.Background(),
+		"bufnet",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	exitCh := make(chan struct{})
+	client := &AggGrpcApiClient{
+		GrpcExtensionApiClient: GrpcExtensionApiClient{
+			exitCh:  exitCh,
+			typeUrl: resource.ClusterType,
+		},
+		xDSAggClient:       discoverypb.NewAggregatedDiscoveryServiceClient(conn),
+		dubboServiceFilter: map[string]struct{}{},
+	}
+	updates := make(chan *DeltaResources)
+	require.NoError(t, client.pipeline(updates))
+
+	select {
+	case update := <-updates:
+		update.Complete(nil)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for initial CDS/EDS application")
+	}
+
+	select {
+	case requests := <-managementServer.reconnected:
+		require.Equal(t, resource.ClusterType, requests[0].TypeUrl)
+		require.Equal(t, "cds-v1", requests[0].VersionInfo)
+		require.Equal(t, resource.EndpointType, requests[1].TypeUrl)
+		require.Equal(t, "eds-v1", requests[1].VersionInfo)
+		require.Equal(t, []string{"orders-eds"}, requests[1].ResourceNames)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for ADS reconnect")
+	}
+
+	close(exitCh)
+	select {
+	case _, ok := <-updates:
+		require.False(t, ok)
+	case <-time.After(5 * time.Second):
+		t.Fatal("ADS pipeline did not stop")
+	}
 }
 
 func testEnvoyEDSCluster(t *testing.T, name string, serviceName string, policy clusterpb.Cluster_LbPolicy) *clusterpb.Cluster {
