@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 import (
@@ -42,7 +43,27 @@ import (
 )
 
 type Descriptor struct {
-	fileSource *fileSource
+	fileSource  *fileSource
+	methodMu    sync.RWMutex
+	methodDescs map[*grpc.ClientConn]map[string]*desc.MethodDescriptor
+	// connectionStates invalidates only lookups for the connection that
+	// was removed. closeGeneration invalidates all in-flight lookups on close.
+	connectionStates  map[*grpc.ClientConn]*descriptorConnectionState
+	closeGeneration   uint64
+	nextStateSequence uint64
+	closed            bool
+}
+
+type descriptorConnectionState struct {
+	generation uint64
+}
+
+type serviceNotExposedError struct {
+	service string
+}
+
+func (e *serviceNotExposedError) Error() string {
+	return fmt.Sprintf("service not exposed: %s", e.service)
 }
 
 func (dr *Descriptor) GetCurrentDescriptorSource(ctx context.Context) (DescriptorSource, error) {
@@ -90,7 +111,7 @@ func (dr *Descriptor) getDescriptorCompose(ctx context.Context, cfg *Config) (De
 
 	cs := &compositeSource{}
 	cs.reflection, err = dr.getServerDescriptorSourceCtx(ctx, cfg)
-	cs.file = dr.fileSource
+	cs.file = dr.getFileSource()
 
 	return cs, err
 }
@@ -117,24 +138,121 @@ func (dr *Descriptor) getServerDescriptorSourceCtx(refCtx context.Context, cfg *
 	default:
 		err = errors.Errorf("found a value of type %s, which is not *grpc.ClientConn, ", t)
 	}
-	return &serverSource{client: grpcreflect.NewClient(refCtx, reflectpb.NewServerReflectionClient(cc))}, err
+	if err != nil {
+		return nil, err
+	}
+
+	// The reflection client is created per lookup and bound to the request
+	// context so every remote reflection RPC honors the request timeout.
+	// It must not be cached connection-scoped: grpcreflect reuses the root
+	// context for every RPC, and a cached client would lose the deadline and
+	// keep the per-request timeout from applying. The method descriptor
+	// cache in getMethodDescriptor below is what avoids repeating the
+	// reflection RPC after the first lookup.
+	return &serverSource{client: grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(cc))}, nil
 }
 
 // nolint
 func (dr *Descriptor) getServerDescriptorSource(refCtx context.Context, cc *grpc.ClientConn) DescriptorSource {
-	return &serverSource{client: grpcreflect.NewClient(refCtx, reflectpb.NewServerReflectionClient(cc))}
+	return &serverSource{client: grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(cc))}
+}
+
+func (dr *Descriptor) removeConnection(cc *grpc.ClientConn) {
+	if cc == nil {
+		return
+	}
+	dr.methodMu.Lock()
+	delete(dr.methodDescs, cc)
+	state := dr.connectionStates[cc]
+	if state != nil {
+		dr.nextStateSequence++
+		state.generation = dr.nextStateSequence
+		// Keep the state alive for any in-flight lookup, but do not retain the
+		// removed connection in the descriptor's long-lived map.
+		delete(dr.connectionStates, cc)
+	}
+	dr.methodMu.Unlock()
+}
+
+func (dr *Descriptor) Close() {
+	dr.methodMu.Lock()
+	dr.closed = true
+	dr.methodDescs = nil
+	dr.connectionStates = nil
+	dr.closeGeneration++
+	dr.methodMu.Unlock()
+}
+
+func (dr *Descriptor) getMethodDescriptor(source DescriptorSource, cc *grpc.ClientConn, service, method string) (*desc.MethodDescriptor, error) {
+	key := service + "\x00" + method
+	dr.methodMu.Lock()
+	if dr.closed {
+		dr.methodMu.Unlock()
+		return nil, errors.New("descriptor is closed")
+	}
+	if methods := dr.methodDescs[cc]; methods != nil {
+		if descriptor, ok := methods[key]; ok {
+			dr.methodMu.Unlock()
+			return descriptor, nil
+		}
+	}
+	state := dr.connectionStates[cc]
+	if state == nil {
+		if dr.connectionStates == nil {
+			dr.connectionStates = make(map[*grpc.ClientConn]*descriptorConnectionState)
+		}
+		dr.nextStateSequence++
+		state = &descriptorConnectionState{generation: dr.nextStateSequence}
+		dr.connectionStates[cc] = state
+	}
+	connectionGeneration := state.generation
+	closeGeneration := dr.closeGeneration
+	dr.methodMu.Unlock()
+	// Do not singleflight this lookup across requests. DescriptorSource carries
+	// the request context used by server reflection, so sharing the first
+	// caller's source would let its timeout or cancellation fail other callers.
+	// The per-connection method cache below still removes repeated reflection
+	// calls after the first successful lookup.
+	dscp, err := source.FindSymbol(service)
+	if err != nil {
+		return nil, err
+	}
+	svcDesc, ok := dscp.(*desc.ServiceDescriptor)
+	if !ok {
+		return nil, &serviceNotExposedError{service: service}
+	}
+	descriptor := svcDesc.FindMethodByName(method)
+	if descriptor == nil {
+		return nil, fmt.Errorf("method not found: %s/%s", service, method)
+	}
+
+	dr.methodMu.Lock()
+	defer dr.methodMu.Unlock()
+	if dr.closed || dr.closeGeneration != closeGeneration || state.generation != connectionGeneration {
+		return nil, errors.New("descriptor cache invalidated")
+	}
+	if methods := dr.methodDescs[cc]; methods != nil {
+		if cached, ok := methods[key]; ok {
+			return cached, nil
+		}
+	}
+	if dr.methodDescs == nil {
+		dr.methodDescs = make(map[*grpc.ClientConn]map[string]*desc.MethodDescriptor)
+	}
+	if dr.methodDescs[cc] == nil {
+		dr.methodDescs[cc] = make(map[string]*desc.MethodDescriptor)
+	}
+	dr.methodDescs[cc][key] = descriptor
+	return descriptor, nil
 }
 
 func (dr *Descriptor) getFileDescriptorCompose(ctx context.Context, cfg *Config) (DescriptorSource, error) {
-	if dr.fileSource == nil {
-		dr.initFileDescriptorSource(cfg)
-	}
-	return dr.fileSource, nil
+	dr.initFileDescriptorSource(cfg)
+	return dr.getFileSource(), nil
 }
 
 func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {
-
-	if dr.fileSource != nil {
+	if dr.getFileSource() != nil {
 		return dr
 	}
 
@@ -145,9 +263,19 @@ func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {
 		return dr
 	}
 
-	dr.fileSource = descriptor
+	dr.methodMu.Lock()
+	if dr.fileSource == nil {
+		dr.fileSource = descriptor
+	}
+	dr.methodMu.Unlock()
 
 	return dr
+}
+
+func (dr *Descriptor) getFileSource() *fileSource {
+	dr.methodMu.RLock()
+	defer dr.methodMu.RUnlock()
+	return dr.fileSource
 }
 
 func loadFileSource(gc *Config) (*fileSource, error) {

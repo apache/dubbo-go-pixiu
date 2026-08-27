@@ -80,6 +80,7 @@ const (
 	LogLevelKey      = "log-level"
 	LimitCpusKey     = "limit-cpus"
 	LogFormatKey     = "log-format"
+	ReloadPortKey    = "reload-port"
 )
 
 const (

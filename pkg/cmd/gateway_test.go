@@ -26,6 +26,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/stretchr/testify/assert"
+
+	"go.uber.org/zap"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // MockDeployer for testing
@@ -196,6 +202,23 @@ func TestInitDefaultValue(t *testing.T) {
 	assert.NotEmpty(t, logLevel)
 	assert.NotEmpty(t, limitCpus)
 	// logFormat can be empty as DefaultLogFormat is ""
+}
+
+func TestInitLogAppliesLevelWhenConfigIsMissing(t *testing.T) {
+	previousPath := logConfigPath
+	previousLevel := logLevel
+	defer func() {
+		logConfigPath = previousPath
+		logLevel = previousLevel
+		logger.InitLogger(nil)
+	}()
+
+	logConfigPath = "/tmp/dubbo-go-pixiu-missing-log-config.yml"
+	logLevel = "info"
+
+	err := initLog()
+	assert.Error(t, err)
+	assert.False(t, logger.GetLogger().Desugar().Core().Enabled(zap.DebugLevel))
 }
 
 func TestGatewayCmdAddedToRootCmd(t *testing.T) {

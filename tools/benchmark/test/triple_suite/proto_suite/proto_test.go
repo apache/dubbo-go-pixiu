@@ -62,20 +62,20 @@ var _ = Describe("triple protocol performance test", Ordered, func() {
 		test.CurPath, err = os.Getwd()
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		waitForPortAvailable("20000", 10*time.Second)
-		waitForPortAvailable("8881", 10*time.Second)
+		waitForPortAvailable("20010", 10*time.Second)
+		waitForPortAvailable("8883", 10*time.Second)
 
 		tripleServerSession = prepareTripleServer()
 		time.Sleep(8 * time.Second)
 
-		pixiuSession = test.PreparePixiu("../../../dist/pixiu", test.CurPath+"/../../../protocol/triple/pixiu/conf/config.yaml")
+		pixiuSession = test.PreparePixiu("../../../dist/pixiu", test.CurPath+"/../../../protocol/triple/pixiu/conf/config.yaml", 18382)
 		time.Sleep(6 * time.Second)
 	})
 
 	It("pixiu to triple protocol performance test", func() {
 		defer GinkgoRecover()
 
-		urlPrefix := "http://localhost:8881/dubbo.io/benchmark.BenchmarkService/%s"
+		urlPrefix := "http://localhost:8883/dubbo.io/benchmark.BenchmarkService/%s"
 
 		experiment := gmeasure.NewExperiment("pixiu to triple protocol performance test")
 		AddReportEntry(experiment.Name, experiment)
@@ -219,7 +219,7 @@ func prepareTripleServer() *gexec.Session {
 func prepareTripleClient() {
 	// Create client using new API
 	cli, err := client.NewClient(
-		client.WithClientURL("tri://127.0.0.1:20000"),
+		client.WithClientURL("tri://127.0.0.1:20010"),
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 

@@ -42,7 +42,7 @@ func main() {
 	// Create server using new API
 	srv, err := server.NewServer(
 		server.WithServerProtocol(
-			protocol.WithPort(20000),
+			protocol.WithPort(20010),
 			protocol.WithTriple(),
 		),
 	)
@@ -62,7 +62,7 @@ func main() {
 		}
 	}()
 
-	fmt.Println("triple benchmark server is now running on :20000...")
+	fmt.Println("triple benchmark server is now running on :20010...")
 	initSignal()
 }
 

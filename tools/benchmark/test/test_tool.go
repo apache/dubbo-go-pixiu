@@ -20,6 +20,7 @@ package test
 import (
 	"io"
 	"os/exec"
+	"strconv"
 	"time"
 )
 
@@ -38,8 +39,8 @@ var (
 	}
 )
 
-func PreparePixiu(pixiu, path string) *gexec.Session {
-	command := exec.Command(pixiu, "gateway", "start", "-c", path)
+func PreparePixiu(pixiu, path string, reloadPort int) *gexec.Session {
+	command := exec.Command(pixiu, "gateway", "start", "-c", path, "--reload-port", strconv.Itoa(reloadPort))
 	session, err := gexec.Start(command, io.Discard, io.Discard)
 	//session, err := gexec.Start(command, os.Stdout, os.Stderr)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

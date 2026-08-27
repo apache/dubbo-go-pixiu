@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -42,6 +43,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -70,7 +72,16 @@ var (
 		Owner:        "Dubbogo Pixiu",
 		Environment:  "dev",
 	}
+	// tracingEnabled records whether a tracer provider was configured at startup.
+	// When tracing is disabled, per-request span creation and JSON payload
+	// marshaling for span attributes are skipped.
+	tracingEnabled atomic.Bool
 )
+
+// SetTracingEnabled records whether a tracer provider has been configured.
+func SetTracingEnabled(enabled bool) {
+	tracingEnabled.Store(enabled)
+}
 
 // Client client to generic invoke dubbo
 type Client struct {
@@ -79,6 +90,10 @@ type Client struct {
 	dubboProxyConfig   *DubboProxyConfig
 	registries         map[string]*global.RegistryConfig
 	dubboClient        *dclient.Client
+	// immutable after Apply(): cached to avoid re-computing per request
+	registryIDs      []string
+	useNacosWarmup   bool
+	consumerDefaults resolvedConsumerDefaults
 }
 
 type resolvedConsumerDefaults struct {
@@ -173,6 +188,19 @@ func (dc *Client) Apply() error {
 	}
 	dc.registries = registries
 
+	// Cache immutable per-request resolution data
+	dc.registryIDs = make([]string, 0, len(registries))
+	useNacosWarmup := false
+	for id, registry := range registries {
+		dc.registryIDs = append(dc.registryIDs, id)
+		if registry != nil && registry.Protocol == "nacos" {
+			useNacosWarmup = true
+		}
+	}
+	sort.Strings(dc.registryIDs)
+	dc.useNacosWarmup = useNacosWarmup
+	dc.consumerDefaults = dc.resolveGlobalConsumerDefaults()
+
 	// Create dubbo client with registries and application config
 	var err error
 	dc.dubboClient, err = dclient.NewClient(
@@ -203,7 +231,7 @@ func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, err
 	}
 
 	spec := dc.resolveFromOutbound(req)
-	types, vals, finalValues, err := dc.preparePayload(req)
+	types, vals, err := dc.preparePayload(req)
 	if err != nil {
 		return nil, err
 	}
@@ -221,24 +249,39 @@ func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, err
 		defer cancel()
 	}
 
-	spanCtx, span := otel.Tracer(traceNameDubbogoClient).Start(invokeCtx, spanNameDubbogoClient)
-	defer span.End()
-	span.SetAttributes(
-		attribute.String(spanTagMethod, req.Method),
-		attribute.StringSlice(spanTagType, types),
-		attribute.String(spanTagValues, string(finalValues)),
-	)
+	invokeCtx = withAttachments(invokeCtx, req.Attachments)
+	var span trace.Span
+	if tracingEnabled.Load() {
+		var spanCtx context.Context
+		spanCtx, span = otel.Tracer(traceNameDubbogoClient).Start(invokeCtx, spanNameDubbogoClient)
+		defer span.End()
+		span.SetAttributes(
+			attribute.String(spanTagMethod, req.Method),
+			attribute.StringSlice(spanTagType, types),
+			attribute.String(spanTagValues, string(spanValues(vals))),
+		)
+		// carry the trace context as upstream attachments
+		invokeCtx = withAttachments(spanCtx, nil)
+	}
 
-	spanCtx = context.WithValue(spanCtx, constant.AttachmentKey, mergeOutboundAttachments(spanCtx, req.Attachments))
-	ctxWithAttachment := withAttachments(spanCtx)
-	rst, err := gs.Invoke(ctxWithAttachment, req.Method, types, vals)
+	rst, err := gs.Invoke(invokeCtx, req.Method, types, vals)
 	if err != nil {
-		span.RecordError(err)
+		if span != nil {
+			span.RecordError(err)
+		}
 		return nil, err
 	}
 
 	logger.Debugf("[dubbo-go-pixiu] dubbo invoke result:%v", rst)
 	return rst, nil
+}
+
+func spanValues(vals []hessian.Object) []byte {
+	finalValues, err := json.Marshal(vals)
+	if err != nil {
+		return nil
+	}
+	return finalValues
 }
 
 func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest) resolvedReferSpec {
@@ -248,7 +291,11 @@ func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest) resolvedReferSp
 		Version:                req.Version,
 		EffectiveProtocol:      req.Protocol,
 		EffectiveSerialization: req.Serialization,
-		ConsumerDefaults:       dc.resolveGlobalConsumerDefaults(),
+		ConsumerDefaults:       dc.consumerDefaults,
+	}
+	if spec.ConsumerDefaults.Cluster == "" && spec.ConsumerDefaults.RequestTimeout == 0 {
+		// fallback for clients used before Apply()
+		spec.ConsumerDefaults = dc.resolveGlobalConsumerDefaults()
 	}
 
 	if strings.TrimSpace(req.Address) != "" {
@@ -257,19 +304,25 @@ func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest) resolvedReferSp
 		return spec
 	}
 
-	registryIDs := make([]string, 0, len(dc.registries))
-	useNacosWarmup := false
-	for id, registry := range dc.registries {
-		registryIDs = append(registryIDs, id)
-		if registry != nil && registry.Protocol == "nacos" {
-			useNacosWarmup = true
-		}
-	}
-	sort.Strings(registryIDs)
-
 	spec.Mode = "registry"
-	spec.RegistryIDs = registryIDs
-	spec.UseNacosWarmup = useNacosWarmup
+	if dc.registryIDs == nil && len(dc.registries) > 0 {
+		// fallback for clients used before Apply()
+		registryIDs := make([]string, 0, len(dc.registries))
+		useNacosWarmup := false
+		for id, registry := range dc.registries {
+			registryIDs = append(registryIDs, id)
+			if registry != nil && registry.Protocol == "nacos" {
+				useNacosWarmup = true
+			}
+		}
+		sort.Strings(registryIDs)
+		spec.RegistryIDs = registryIDs
+		spec.UseNacosWarmup = useNacosWarmup
+		return spec
+	}
+
+	spec.RegistryIDs = dc.registryIDs
+	spec.UseNacosWarmup = dc.useNacosWarmup
 	return spec
 }
 
@@ -297,12 +350,12 @@ func (dc *Client) resolveGlobalConsumerDefaults() resolvedConsumerDefaults {
 	return defaults
 }
 
-func (dc *Client) preparePayload(req *DubboOutboundRequest) ([]string, []hessian.Object, []byte, error) {
+func (dc *Client) preparePayload(req *DubboOutboundRequest) ([]string, []hessian.Object, error) {
 	if len(req.Arguments) == 0 && len(req.ParamTypes) == 0 {
-		return []string{}, []hessian.Object{}, []byte("[]"), nil
+		return []string{}, []hessian.Object{}, nil
 	}
 	if len(req.Arguments) != len(req.ParamTypes) {
-		return nil, nil, nil, errors.Errorf("arguments/paramTypes length mismatch: %d vs %d", len(req.Arguments), len(req.ParamTypes))
+		return nil, nil, errors.Errorf("arguments/paramTypes length mismatch: %d vs %d", len(req.Arguments), len(req.ParamTypes))
 	}
 
 	types := append([]string(nil), req.ParamTypes...)
@@ -311,15 +364,19 @@ func (dc *Client) preparePayload(req *DubboOutboundRequest) ([]string, []hessian
 		vals[i] = arg
 	}
 
-	finalValues, err := json.Marshal(vals)
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "marshal dubbo arguments")
-	}
-
-	return types, vals, finalValues, nil
+	return types, vals, nil
 }
 
-func mergeOutboundAttachments(ctx context.Context, outbound map[string]any) map[string]any {
+func withAttachments(ctx context.Context, outbound map[string]any) context.Context {
+	// The internal tracing switch does not describe the caller's context. Keep
+	// the fast path only when there is no outbound state and no externally
+	// supplied span context that the global propagator must inject.
+	if !tracingEnabled.Load() &&
+		len(outbound) == 0 &&
+		ctx.Value(constant.AttachmentKey) == nil &&
+		!trace.SpanContextFromContext(ctx).IsValid() {
+		return ctx
+	}
 	attachments := make(map[string]any, len(outbound))
 	if attaRaw := ctx.Value(constant.AttachmentKey); attaRaw != nil {
 		switch userAtta := attaRaw.(type) {
@@ -336,7 +393,15 @@ func mergeOutboundAttachments(ctx context.Context, outbound map[string]any) map[
 	for key, val := range outbound {
 		attachments[key] = val
 	}
-	return attachments
+
+	carrier := propagation.MapCarrier{}
+	// Carry tracing headers as Dubbo attachments for the upstream invocation.
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	for key, val := range carrier {
+		attachments[key] = val
+	}
+
+	return context.WithValue(ctx, constant.AttachmentKey, attachments)
 }
 
 func prepareInvokeContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
@@ -353,15 +418,6 @@ func (dc *Client) get(key string) *generic.GenericService {
 	dc.lock.RLock()
 	defer dc.lock.RUnlock()
 	return dc.GenericServicePool[key]
-}
-
-func (dc *Client) check(key string) bool {
-	dc.lock.RLock()
-	defer dc.lock.RUnlock()
-	if _, ok := dc.GenericServicePool[key]; ok {
-		return true
-	}
-	return false
 }
 
 func (spec resolvedReferSpec) validate() error {
@@ -420,8 +476,8 @@ func (dc *Client) Get(spec resolvedReferSpec) (*generic.GenericService, error) {
 	if err != nil {
 		return nil, err
 	}
-	if dc.check(key) {
-		return dc.get(key), nil
+	if service := dc.get(key); service != nil {
+		return service, nil
 	}
 
 	return dc.create(spec)
@@ -586,29 +642,4 @@ func loadBalanceReferenceOption(loadBalance string) dclient.ReferenceOption {
 	default:
 		return dclient.WithLoadBalance(loadBalance)
 	}
-}
-
-func withAttachments(ctx context.Context) context.Context {
-	attachments := make(map[string]any)
-	if attaRaw := ctx.Value(constant.AttachmentKey); attaRaw != nil {
-		switch userAtta := attaRaw.(type) {
-		case map[string]any:
-			for key, val := range userAtta {
-				attachments[key] = val
-			}
-		case map[string]string:
-			for key, val := range userAtta {
-				attachments[key] = val
-			}
-		}
-	}
-
-	carrier := propagation.MapCarrier{}
-	// Carry tracing headers as Dubbo attachments for the upstream invocation.
-	otel.GetTextMapPropagator().Inject(ctx, carrier)
-	for key, val := range carrier {
-		attachments[key] = val
-	}
-
-	return context.WithValue(ctx, constant.AttachmentKey, attachments)
 }
