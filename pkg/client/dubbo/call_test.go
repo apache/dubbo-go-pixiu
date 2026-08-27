@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -248,6 +249,24 @@ func TestWithAttachmentsPropagatesExternalSpanWhenTracingDisabled(t *testing.T) 
 	attachments, ok := ctx.Value(dubboConstant.AttachmentKey).(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "00-01000000000000000000000000000000-0200000000000000-01", attachments["traceparent"])
+}
+
+func TestWithAttachmentsPropagatesBaggageWithoutSpanWhenTracingDisabled(t *testing.T) {
+	restorePropagator(t, propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	previousTracingEnabled := tracingEnabled.Load()
+	t.Cleanup(func() { SetTracingEnabled(previousTracingEnabled) })
+	SetTracingEnabled(false)
+
+	member, err := baggage.NewMember("tenant", "blue")
+	require.NoError(t, err)
+	bag, err := baggage.New(member)
+	require.NoError(t, err)
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+	ctx = withAttachments(ctx, nil)
+
+	attachments, ok := ctx.Value(dubboConstant.AttachmentKey).(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "tenant=blue", attachments["baggage"])
 }
 
 func TestCallAppliesTimeout(t *testing.T) {
