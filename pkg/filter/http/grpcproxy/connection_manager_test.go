@@ -253,6 +253,50 @@ func TestGRPCConnectionManagerRejectsEvictedRemovedEndpointFromSnapshot(t *testi
 	require.Zero(t, dialCalls.Load())
 }
 
+func TestGRPCConnectionManagerIgnoresStaleRemovalAfterTombstoneEviction(t *testing.T) {
+	endpoint := startTestGRPCServer(t)
+	current := make(map[string]bool)
+	var currentMu sync.Mutex
+	var dialCalls atomic.Int32
+	manager := testConnectionManager(t, &dialCalls)
+	manager.endpointPresent = func(_, address string) bool {
+		currentMu.Lock()
+		defer currentMu.Unlock()
+		return current[address]
+	}
+	t.Cleanup(func() { require.NoError(t, manager.Close()) })
+
+	setPresent := func(address string, present bool) {
+		currentMu.Lock()
+		current[address] = present
+		currentMu.Unlock()
+	}
+
+	setPresent(endpoint, true)
+	manager.UpdateEndpointState("cluster", endpoint, true, 1)
+	setPresent(endpoint, false)
+	manager.UpdateEndpointState("cluster", endpoint, false, 100)
+	for i := 0; i < maxEndpointTombstones+1; i++ {
+		manager.UpdateEndpointState(
+			"cluster",
+			fmt.Sprintf("127.0.0.1:%d", 21000+i),
+			false,
+			uint64(i+101),
+		)
+	}
+
+	// The authoritative snapshot has re-added the endpoint, but the matching
+	// present callback has not arrived yet. A delayed removal must not turn the
+	// current endpoint back into a tombstone after its old version was evicted.
+	setPresent(endpoint, true)
+	manager.UpdateEndpointState("cluster", endpoint, false, 50)
+
+	conn, err := manager.Get(context.Background(), grpcConnectionKey("cluster", endpoint), endpoint)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	require.Equal(t, int32(1), dialCalls.Load())
+}
+
 func TestGRPCConnectionManagerReclaimsRequestOnlyEndpointState(t *testing.T) {
 	manager := &grpcConnectionManager{
 		dial: func(context.Context, string) (*grpc.ClientConn, error) {
