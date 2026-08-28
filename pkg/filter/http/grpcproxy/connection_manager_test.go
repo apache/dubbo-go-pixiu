@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -43,6 +45,8 @@ import (
 
 import (
 	ct "github.com/apache/dubbo-go-pixiu/pkg/context"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 func startTestGRPCServer(t *testing.T) string {
@@ -253,48 +257,106 @@ func TestGRPCConnectionManagerRejectsEvictedRemovedEndpointFromSnapshot(t *testi
 	require.Zero(t, dialCalls.Load())
 }
 
-func TestGRPCConnectionManagerIgnoresStaleRemovalAfterTombstoneEviction(t *testing.T) {
+func TestFilterFactoryIgnoresStaleRemovalAfterTombstoneEviction(t *testing.T) {
+	const clusterName = "stale-removal-cluster"
+
 	endpoint := startTestGRPCServer(t)
-	current := make(map[string]bool)
-	var currentMu sync.Mutex
-	var dialCalls atomic.Int32
-	manager := testConnectionManager(t, &dialCalls)
-	manager.endpointPresent = func(_, address string) bool {
-		currentMu.Lock()
-		defer currentMu.Unlock()
-		return current[address]
+	primary := &model.Endpoint{
+		ID:      "primary",
+		Name:    "primary",
+		Address: model.SocketAddress{Address: "127.0.0.1"},
 	}
-	t.Cleanup(func() { require.NoError(t, manager.Close()) })
+	require.NoError(t, parseEndpointPort(primary, endpoint))
 
-	setPresent := func(address string, present bool) {
-		currentMu.Lock()
-		current[address] = present
-		currentMu.Unlock()
+	clusterManager := server.CreateDefaultClusterManager(&model.Bootstrap{
+		StaticResources: model.StaticResources{
+			Clusters: []*model.ClusterConfig{
+				{
+					Name:      clusterName,
+					LbStr:     model.LoadBalancerRoundRobin,
+					Endpoints: []*model.Endpoint{primary},
+				},
+			},
+		},
+	})
+	factory := (&Plugin{}).newFilterFactory(clusterManager)
+	t.Cleanup(func() { require.NoError(t, factory.Close()) })
+
+	// Keep the production snapshot lookup, but delay the first removal callback
+	// until after newer endpoint mutations have evicted its version state. This
+	// models a slow registry consumer without bypassing ClusterManager wiring.
+	realPresent := factory.connections.endpointPresent
+	removalEntered := make(chan struct{})
+	releaseRemoval := make(chan struct{})
+	var delayedOnce sync.Once
+	factory.connections.endpointPresent = func(key, address string) bool {
+		if key == grpcConnectionKey(clusterName, endpoint) {
+			delayedOnce.Do(func() {
+				close(removalEntered)
+				<-releaseRemoval
+			})
+		}
+		return realPresent(key, address)
 	}
 
-	setPresent(endpoint, true)
-	manager.UpdateEndpointState("cluster", endpoint, true, 1)
-	setPresent(endpoint, false)
-	manager.UpdateEndpointState("cluster", endpoint, false, 100)
-	for i := 0; i < maxEndpointTombstones+1; i++ {
-		manager.UpdateEndpointState(
-			"cluster",
-			fmt.Sprintf("127.0.0.1:%d", 21000+i),
-			false,
-			uint64(i+101),
-		)
+	removalDone := make(chan struct{})
+	go func() {
+		defer close(removalDone)
+		clusterManager.DeleteEndpoint(clusterName, primary.ID)
+	}()
+	select {
+	case <-removalEntered:
+	case <-removalDone:
+		t.Fatal("removal callback completed without consulting the cluster snapshot")
 	}
 
-	// The authoritative snapshot has re-added the endpoint, but the matching
-	// present callback has not arrived yet. A delayed removal must not turn the
-	// current endpoint back into a tombstone after its old version was evicted.
-	setPresent(endpoint, true)
-	manager.UpdateEndpointState("cluster", endpoint, false, 50)
+	churn := make([]*model.Endpoint, 0, maxEndpointTombstones+1)
+	churn = append(churn, primary)
+	for i := 0; i <= maxEndpointTombstones; i++ {
+		address := fmt.Sprintf("127.0.0.1:%d", 21000+i)
+		churnEndpoint := &model.Endpoint{
+			ID:      fmt.Sprintf("churn-%d", i),
+			Name:    fmt.Sprintf("churn-%d", i),
+			Address: model.SocketAddress{Address: "127.0.0.1"},
+		}
+		require.NoError(t, parseEndpointPort(churnEndpoint, address))
+		churn = append(churn, churnEndpoint)
+	}
+	clusterManager.UpdateCluster(&model.ClusterConfig{
+		Name:      clusterName,
+		LbStr:     model.LoadBalancerRoundRobin,
+		Endpoints: churn,
+	})
+	clusterManager.UpdateCluster(&model.ClusterConfig{
+		Name:      clusterName,
+		LbStr:     model.LoadBalancerRoundRobin,
+		Endpoints: []*model.Endpoint{primary},
+	})
 
-	conn, err := manager.Get(context.Background(), grpcConnectionKey("cluster", endpoint), endpoint)
+	close(releaseRemoval)
+	<-removalDone
+	require.True(t, clusterManager.HasEndpointAddress(clusterName, endpoint))
+
+	conn, err := factory.connections.Get(
+		context.Background(),
+		grpcConnectionKey(clusterName, endpoint),
+		endpoint,
+	)
 	require.NoError(t, err)
 	require.NotNil(t, conn)
-	require.Equal(t, int32(1), dialCalls.Load())
+}
+
+func parseEndpointPort(endpoint *model.Endpoint, address string) error {
+	_, portText, found := strings.Cut(address, ":")
+	if !found {
+		return fmt.Errorf("endpoint address %q has no port", address)
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return err
+	}
+	endpoint.Address.Port = port
+	return nil
 }
 
 func TestGRPCConnectionManagerReclaimsRequestOnlyEndpointState(t *testing.T) {
