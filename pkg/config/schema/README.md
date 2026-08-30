@@ -1,38 +1,42 @@
-# Dynamic Admin configuration model
+# Admin route binding model
 
-This package is the first code-level proposal for replacing raw Admin YAML
-editing with a schema-driven model. It is intentionally not connected to the
-current Admin controllers, etcd keys, or Pixiu runtime yet.
+This package is an initial code-level model for replacing raw Resource and
+Method YAML editing with one Admin-facing route binding.
 
-## Boundaries
+The supported flow is:
 
-The design has four explicit boundaries:
+```text
+AdminRouteBinding
+    -> schema defaults and validation
+    -> legacy Resource + Method compilation
+    -> api_config.yaml preview
+    -> future draft and publish storage
+```
 
-1. `ConfigObject` is a stable envelope. Its `spec` is `map[string]any`.
-2. `ObjectSchema` and `FieldSchema` give those dynamic values type, default,
-   validation, UI, and runtime-binding metadata.
-3. `Registry` owns built-in and plugin field registration. Duplicate fields
-   are rejected so an extension cannot override core semantics silently.
-4. `RuntimeAdapter` names identify the future compiler from the dynamic model
-   to the existing `pkg/config` and xDS models.
+## Scope
 
-`ConfigSet` is the revision/snapshot boundary. It allows Resource/Method and
-Listener/Cluster changes to be validated and published as one unit. Collection
-validators check references across those objects, while object validators
-handle rules local to one object.
+The first version deliberately covers one HTTP entry mapped to one
+registry-backed Dubbo method. Listener, Cluster, PluginGroup, direct provider
+URLs, and the actual etcd publish transaction are outside this package.
 
-## Dynamic field rules
+`Resource` and `Method` are generated Pixiu runtime structures. They are not
+registered as Admin form objects.
 
-- Named, unordered request parameters use a map.
-- Ordered Dubbo method parameters use an array with an explicit index.
-- Complex request bodies use an open JSON-Schema-like object.
-- Backend alternatives use a discriminated union (`backend.kind`).
-- Community fields are registered below `spec.extensions` unless they are
-  promoted into a future core schema version.
+## Object boundary
 
-Registering a schema makes a field editable, serializable, and validatable. It
-does not make the field affect Pixiu automatically; an executable field also
-needs a runtime adapter or plugin capability.
+`AdminObject` keeps only a stable `kind`, `metadata`, and dynamic
+`spec map[string]any`. `ObjectSchema` and `FieldSchema` define the form,
+defaults, and validation rules for the dynamic values.
 
-See [`testdata/config_set.yaml`](testdata/config_set.yaml) for a complete
-Resource, Method, Listener, and Cluster snapshot.
+The built-in `AdminRouteBinding` schema has four user-facing sections:
+
+- `entry`: HTTP protocol, path, and method.
+- `target`: Dubbo application, interface, method, version, group, and cluster.
+- `params`: ordered HTTP-source to Dubbo-argument mappings.
+- `publish`: Admin control-plane intent; it is never emitted into Pixiu YAML.
+
+Typed plugin fields can be inserted below `spec.extensions` through the same
+registry without changing the stored Go object.
+
+See [`testdata/admin_route_binding.yaml`](testdata/admin_route_binding.yaml) for
+the complete example and `CompiledRoute.PreviewYAML` for the legacy output.

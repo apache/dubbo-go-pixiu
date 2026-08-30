@@ -26,25 +26,19 @@ import (
 )
 
 var (
-	ErrSchemaNotFound          = errors.New("config schema not found")
-	ErrSchemaAlreadyRegistered = errors.New("config schema already registered")
-	ErrFieldAlreadyRegistered  = errors.New("config field already registered")
+	ErrSchemaNotFound          = errors.New("admin object schema not found")
+	ErrSchemaAlreadyRegistered = errors.New("admin object schema already registered")
+	ErrFieldAlreadyRegistered  = errors.New("admin object field already registered")
 )
 
-type ObjectValidator func(ConfigObject) []ValidationIssue
+type ObjectValidator func(AdminObject) []ValidationIssue
 
-// ConfigSetValidator validates relationships that cannot be decided from one
-// object alone, such as Method -> Resource and route -> Cluster references.
-type ConfigSetValidator func(ConfigSet) []ValidationIssue
-
-// Registry is an in-memory, concurrency-safe registry. Core and plugin
-// schemas use the same registration path, while duplicate fields are rejected
-// so extensions cannot silently override core semantics.
+// Registry stores Admin-facing schemas and semantic validators. Definitions
+// are cloned at the boundary so callers cannot mutate active validation rules.
 type Registry struct {
-	mu                  sync.RWMutex
-	schemas             map[string]*ObjectSchema
-	validators          map[string][]ObjectValidator
-	configSetValidators []ConfigSetValidator
+	mu         sync.RWMutex
+	schemas    map[string]*ObjectSchema
+	validators map[string][]ObjectValidator
 }
 
 func NewRegistry() *Registry {
@@ -67,21 +61,20 @@ func (r *Registry) Register(objectSchema ObjectSchema) error {
 		return err
 	}
 
-	key := makeSchemaKey(objectSchema.APIVersion, objectSchema.Kind)
+	kind := strings.TrimSpace(objectSchema.Kind)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, exists := r.schemas[key]; exists {
-		return fmt.Errorf("%w: %s", ErrSchemaAlreadyRegistered, key)
+	if _, exists := r.schemas[kind]; exists {
+		return fmt.Errorf("%w: %s", ErrSchemaAlreadyRegistered, kind)
 	}
 	cloned := objectSchema.clone()
-	r.schemas[key] = &cloned
+	r.schemas[kind] = &cloned
 	return nil
 }
 
-// RegisterField inserts a field at a dotted path rooted at spec. Intermediate
-// object fields must already exist. This makes extension ownership explicit
-// and prevents a typo from creating an unintended schema branch.
-func (r *Registry) RegisterField(apiVersion, kind, path string, field FieldSchema) error {
+// RegisterField adds a typed extension below an existing object field. Paths
+// are rooted at spec; intermediate fields must be objects.
+func (r *Registry) RegisterField(kind, path string, field FieldSchema) error {
 	parts, err := splitFieldPath(path)
 	if err != nil {
 		return err
@@ -90,13 +83,11 @@ func (r *Registry) RegisterField(apiVersion, kind, path string, field FieldSchem
 		return err
 	}
 
-	key := makeSchemaKey(apiVersion, kind)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	objectSchema, exists := r.schemas[key]
+	objectSchema, exists := r.schemas[strings.TrimSpace(kind)]
 	if !exists {
-		return fmt.Errorf("%w: %s", ErrSchemaNotFound, key)
+		return fmt.Errorf("%w: %s", ErrSchemaNotFound, kind)
 	}
 
 	fields := objectSchema.Fields
@@ -122,34 +113,24 @@ func (r *Registry) RegisterField(apiVersion, kind, path string, field FieldSchem
 	return nil
 }
 
-func (r *Registry) RegisterValidator(apiVersion, kind string, validator ObjectValidator) error {
+func (r *Registry) RegisterValidator(kind string, validator ObjectValidator) error {
 	if validator == nil {
-		return errors.New("config object validator is nil")
+		return errors.New("admin object validator is nil")
 	}
-	key := makeSchemaKey(apiVersion, kind)
+	kind = strings.TrimSpace(kind)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, exists := r.schemas[key]; !exists {
-		return fmt.Errorf("%w: %s", ErrSchemaNotFound, key)
+	if _, exists := r.schemas[kind]; !exists {
+		return fmt.Errorf("%w: %s", ErrSchemaNotFound, kind)
 	}
-	r.validators[key] = append(r.validators[key], validator)
+	r.validators[kind] = append(r.validators[kind], validator)
 	return nil
 }
 
-func (r *Registry) RegisterConfigSetValidator(validator ConfigSetValidator) error {
-	if validator == nil {
-		return errors.New("config set validator is nil")
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.configSetValidators = append(r.configSetValidators, validator)
-	return nil
-}
-
-func (r *Registry) Lookup(apiVersion, kind string) (ObjectSchema, bool) {
+func (r *Registry) Lookup(kind string) (ObjectSchema, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	objectSchema, exists := r.schemas[makeSchemaKey(apiVersion, kind)]
+	objectSchema, exists := r.schemas[strings.TrimSpace(kind)]
 	if !exists {
 		return ObjectSchema{}, false
 	}
@@ -159,40 +140,28 @@ func (r *Registry) Lookup(apiVersion, kind string) (ObjectSchema, bool) {
 func (r *Registry) List() []ObjectSchema {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
-	keys := make([]string, 0, len(r.schemas))
-	for key := range r.schemas {
-		keys = append(keys, key)
+	kinds := make([]string, 0, len(r.schemas))
+	for kind := range r.schemas {
+		kinds = append(kinds, kind)
 	}
-	sort.Strings(keys)
-
-	result := make([]ObjectSchema, 0, len(keys))
-	for _, key := range keys {
-		result = append(result, r.schemas[key].clone())
+	sort.Strings(kinds)
+	result := make([]ObjectSchema, 0, len(kinds))
+	for _, kind := range kinds {
+		result = append(result, r.schemas[kind].clone())
 	}
 	return result
 }
 
-func (r *Registry) lookupEntry(apiVersion, kind string) (ObjectSchema, []ObjectValidator, bool) {
-	key := makeSchemaKey(apiVersion, kind)
+func (r *Registry) lookupEntry(kind string) (ObjectSchema, []ObjectValidator, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	objectSchema, exists := r.schemas[key]
+	kind = strings.TrimSpace(kind)
+	objectSchema, exists := r.schemas[kind]
 	if !exists {
 		return ObjectSchema{}, nil, false
 	}
-	validators := append([]ObjectValidator(nil), r.validators[key]...)
+	validators := append([]ObjectValidator(nil), r.validators[kind]...)
 	return objectSchema.clone(), validators, true
-}
-
-func (r *Registry) configSetValidatorSnapshot() []ConfigSetValidator {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return append([]ConfigSetValidator(nil), r.configSetValidators...)
-}
-
-func makeSchemaKey(apiVersion, kind string) string {
-	return strings.TrimSpace(apiVersion) + "/" + strings.TrimSpace(kind)
 }
 
 func splitFieldPath(path string) ([]string, error) {

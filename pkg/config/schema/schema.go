@@ -22,32 +22,24 @@ import "github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
 type FieldType string
 
 const (
-	FieldTypeAny     FieldType = "any"
 	FieldTypeString  FieldType = "string"
 	FieldTypeInteger FieldType = "integer"
-	FieldTypeNumber  FieldType = "number"
 	FieldTypeBoolean FieldType = "boolean"
 	FieldTypeObject  FieldType = "object"
 	FieldTypeArray   FieldType = "array"
 	FieldTypeMap     FieldType = "map"
-	FieldTypeUnion   FieldType = "union"
 )
 
-// ObjectSchema describes one version of a ConfigObject. Fields are rooted at
-// ConfigObject.Spec. RuntimeAdapter identifies the compiler that projects the
-// dynamic object into Pixiu's current runtime models.
+// ObjectSchema is the source of truth for validation and form generation for
+// one Admin-facing object kind.
 type ObjectSchema struct {
-	APIVersion         string                  `json:"apiVersion" yaml:"apiVersion"`
-	Kind               string                  `json:"kind" yaml:"kind"`
-	Description        string                  `json:"description,omitempty" yaml:"description,omitempty"`
-	RuntimeAdapter     string                  `json:"runtimeAdapter,omitempty" yaml:"runtimeAdapter,omitempty"`
-	AllowUnknownFields bool                    `json:"allowUnknownFields,omitempty" yaml:"allowUnknownFields,omitempty"`
-	Fields             map[string]*FieldSchema `json:"fields" yaml:"fields"`
+	Kind        string                  `json:"kind" yaml:"kind"`
+	Description string                  `json:"description,omitempty" yaml:"description,omitempty"`
+	Fields      map[string]*FieldSchema `json:"fields" yaml:"fields"`
 }
 
-// FieldSchema is a small, serializable schema language tailored for the Admin
-// form and validation needs. It supports schema insertion without making the
-// stored ConfigObject itself strongly typed.
+// FieldSchema intentionally covers the smaller contract needed by Admin
+// forms instead of attempting to reimplement the full JSON Schema standard.
 type FieldSchema struct {
 	Type                 FieldType               `json:"type" yaml:"type"`
 	Description          string                  `json:"description,omitempty" yaml:"description,omitempty"`
@@ -56,16 +48,11 @@ type FieldSchema struct {
 	Enum                 []any                   `json:"enum,omitempty" yaml:"enum,omitempty"`
 	Pattern              string                  `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 	Minimum              *float64                `json:"minimum,omitempty" yaml:"minimum,omitempty"`
-	Maximum              *float64                `json:"maximum,omitempty" yaml:"maximum,omitempty"`
-	MinItems             *int                    `json:"minItems,omitempty" yaml:"minItems,omitempty"`
 	Properties           map[string]*FieldSchema `json:"properties,omitempty" yaml:"properties,omitempty"`
 	Items                *FieldSchema            `json:"items,omitempty" yaml:"items,omitempty"`
 	AdditionalProperties *FieldSchema            `json:"additionalProperties,omitempty" yaml:"additionalProperties,omitempty"`
 	AllowUnknown         bool                    `json:"allowUnknown,omitempty" yaml:"allowUnknown,omitempty"`
-	Discriminator        string                  `json:"discriminator,omitempty" yaml:"discriminator,omitempty"`
-	Variants             map[string]*FieldSchema `json:"variants,omitempty" yaml:"variants,omitempty"`
 	UI                   UIHints                 `json:"ui,omitempty" yaml:"ui,omitempty"`
-	Runtime              *RuntimeBinding         `json:"runtime,omitempty" yaml:"runtime,omitempty"`
 }
 
 type UIHints struct {
@@ -75,11 +62,6 @@ type UIHints struct {
 	Placeholder string         `json:"placeholder,omitempty" yaml:"placeholder,omitempty"`
 	Advanced    bool           `json:"advanced,omitempty" yaml:"advanced,omitempty"`
 	Options     map[string]any `json:"options,omitempty" yaml:"options,omitempty"`
-}
-
-type RuntimeBinding struct {
-	Adapter string `json:"adapter" yaml:"adapter"`
-	Path    string `json:"path,omitempty" yaml:"path,omitempty"`
 }
 
 func (s ObjectSchema) clone() ObjectSchema {
@@ -101,23 +83,10 @@ func (s *FieldSchema) clone() *FieldSchema {
 	cloned.Properties = cloneFieldMap(s.Properties)
 	cloned.Items = s.Items.clone()
 	cloned.AdditionalProperties = s.AdditionalProperties.clone()
-	cloned.Variants = cloneFieldMap(s.Variants)
 	cloned.UI.Options = copyutil.CloneStringAnyMap(s.UI.Options)
-	if s.Runtime != nil {
-		runtimeBinding := *s.Runtime
-		cloned.Runtime = &runtimeBinding
-	}
 	if s.Minimum != nil {
 		minimum := *s.Minimum
 		cloned.Minimum = &minimum
-	}
-	if s.Maximum != nil {
-		maximum := *s.Maximum
-		cloned.Maximum = &maximum
-	}
-	if s.MinItems != nil {
-		minItems := *s.MinItems
-		cloned.MinItems = &minItems
 	}
 	return &cloned
 }

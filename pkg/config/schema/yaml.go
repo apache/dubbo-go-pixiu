@@ -23,34 +23,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func DecodeObjectYAML(data []byte) (ConfigObject, error) {
-	var object ConfigObject
+func DecodeAdminObjectYAML(data []byte) (AdminObject, error) {
+	var object AdminObject
 	if err := yaml.Unmarshal(data, &object); err != nil {
-		return ConfigObject{}, fmt.Errorf("decode config object YAML: %w", err)
+		return AdminObject{}, fmt.Errorf("decode Admin object YAML: %w", err)
 	}
 	return object, nil
 }
 
-func EncodeObjectYAML(object ConfigObject) ([]byte, error) {
+func EncodeAdminObjectYAML(object AdminObject) ([]byte, error) {
 	data, err := yaml.Marshal(object)
 	if err != nil {
-		return nil, fmt.Errorf("encode config object YAML: %w", err)
-	}
-	return data, nil
-}
-
-func DecodeConfigSetYAML(data []byte) (ConfigSet, error) {
-	var configSet ConfigSet
-	if err := yaml.Unmarshal(data, &configSet); err != nil {
-		return ConfigSet{}, fmt.Errorf("decode config set YAML: %w", err)
-	}
-	return configSet, nil
-}
-
-func EncodeConfigSetYAML(configSet ConfigSet) ([]byte, error) {
-	data, err := yaml.Marshal(configSet)
-	if err != nil {
-		return nil, fmt.Errorf("encode config set YAML: %w", err)
+		return nil, fmt.Errorf("encode Admin object YAML: %w", err)
 	}
 	return data, nil
 }

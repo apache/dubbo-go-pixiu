@@ -37,41 +37,37 @@ type ValidationErrors []ValidationIssue
 
 func (e ValidationErrors) Error() string {
 	messages := make([]string, 0, len(e))
-	for _, issue := range e {
-		messages = append(messages, fmt.Sprintf("%s: %s", issue.Path, issue.Message))
+	for _, validationIssue := range e {
+		messages = append(messages, fmt.Sprintf("%s: %s", validationIssue.Path, validationIssue.Message))
 	}
 	return strings.Join(messages, "; ")
 }
 
-func (r *Registry) Validate(object ConfigObject) error {
+func (r *Registry) Validate(object AdminObject) error {
 	_, err := r.Normalize(object)
 	return err
 }
 
-// Normalize applies registered defaults to a defensive copy and validates the
-// result. The input object is never mutated.
-func (r *Registry) Normalize(object ConfigObject) (ConfigObject, error) {
+// Normalize applies schema defaults to a defensive copy, then validates both
+// field-level and semantic rules. The caller's object is never mutated.
+func (r *Registry) Normalize(object AdminObject) (AdminObject, error) {
 	normalized := object.Clone()
-	if normalized.Metadata.Lifecycle == "" {
-		normalized.Metadata.Lifecycle = LifecycleDraft
-	}
 	if normalized.Spec == nil {
 		normalized.Spec = make(map[string]any)
 	}
 
 	issues := validateEnvelope(normalized)
-	objectSchema, validators, exists := r.lookupEntry(normalized.APIVersion, normalized.Kind)
+	objectSchema, validators, exists := r.lookupEntry(normalized.Kind)
 	if !exists {
-		issues = append(issues, ValidationIssue{
-			Path:    "kind",
-			Code:    "schema_not_found",
-			Message: fmt.Sprintf("schema %s/%s is not registered", normalized.APIVersion, normalized.Kind),
-		})
+		issues = append(issues, issue("kind", "schema_not_found", fmt.Sprintf(
+			"schema for kind %q is not registered",
+			normalized.Kind,
+		)))
 		return normalized, ValidationErrors(issues)
 	}
 
 	applyDefaultsToFields(normalized.Spec, objectSchema.Fields)
-	issues = append(issues, validateFields("spec", normalized.Spec, objectSchema.Fields, objectSchema.AllowUnknownFields)...)
+	issues = append(issues, validateFields("spec", normalized.Spec, objectSchema.Fields, false)...)
 	for _, validator := range validators {
 		issues = append(issues, validator(normalized)...)
 	}
@@ -81,104 +77,15 @@ func (r *Registry) Normalize(object ConfigObject) (ConfigObject, error) {
 	return normalized, nil
 }
 
-// NormalizeConfigSet validates a complete snapshot, guarantees object IDs are
-// unique within each kind, and runs collection validators for relationships.
-func (r *Registry) NormalizeConfigSet(configSet ConfigSet) (ConfigSet, error) {
-	normalized := configSet.Clone()
-	issues := make([]ValidationIssue, 0)
-	if normalized.Metadata.Lifecycle == "" {
-		normalized.Metadata.Lifecycle = LifecycleDraft
-	}
-	if strings.TrimSpace(normalized.APIVersion) == "" {
-		issues = append(issues, issue("apiVersion", "required", "apiVersion is required"))
-	}
-	if normalized.Kind != KindConfigSet {
-		issues = append(issues, issue("kind", "invalid", fmt.Sprintf("kind must be %s", KindConfigSet)))
-	}
-	if strings.TrimSpace(normalized.Metadata.ID) == "" {
-		issues = append(issues, issue("metadata.id", "required", "metadata.id is required"))
-	}
-	if strings.TrimSpace(normalized.Metadata.Name) == "" {
-		issues = append(issues, issue("metadata.name", "required", "metadata.name is required"))
-	}
-	issues = append(issues, validateLifecycle("metadata.lifecycle", normalized.Metadata.Lifecycle)...)
-	if normalized.Metadata.Revision < 0 {
-		issues = append(issues, issue("metadata.revision", "minimum", "revision cannot be negative"))
-	}
-
-	seen := make(map[string]int, len(normalized.Objects))
-	for i := range normalized.Objects {
-		if normalized.Objects[i].APIVersion == "" {
-			normalized.Objects[i].APIVersion = normalized.APIVersion
-		}
-		object, err := r.Normalize(normalized.Objects[i])
-		normalized.Objects[i] = object
-		prefix := fmt.Sprintf("objects[%d].", i)
-		if err != nil {
-			if validationErrors, ok := err.(ValidationErrors); ok {
-				for _, validationIssue := range validationErrors {
-					validationIssue.Path = prefix + validationIssue.Path
-					issues = append(issues, validationIssue)
-				}
-			} else {
-				issues = append(issues, issue(prefix+"spec", "invalid", err.Error()))
-			}
-		}
-
-		identity := object.Kind + "/" + object.Metadata.ID
-		if previous, exists := seen[identity]; exists {
-			issues = append(issues, issue(
-				prefix+"metadata.id",
-				"duplicate",
-				fmt.Sprintf("duplicates objects[%d] identity %s", previous, identity),
-			))
-		} else if object.Metadata.ID != "" {
-			seen[identity] = i
-		}
-	}
-	for _, validator := range r.configSetValidatorSnapshot() {
-		issues = append(issues, validator(normalized)...)
-	}
-
-	if len(issues) != 0 {
-		return normalized, ValidationErrors(issues)
-	}
-	return normalized, nil
-}
-
-func validateEnvelope(object ConfigObject) []ValidationIssue {
-	issues := make([]ValidationIssue, 0, 6)
-	if strings.TrimSpace(object.APIVersion) == "" {
-		issues = append(issues, issue("apiVersion", "required", "apiVersion is required"))
-	}
+func validateEnvelope(object AdminObject) []ValidationIssue {
+	issues := make([]ValidationIssue, 0, 2)
 	if strings.TrimSpace(object.Kind) == "" {
 		issues = append(issues, issue("kind", "required", "kind is required"))
-	}
-	if strings.TrimSpace(object.Metadata.ID) == "" {
-		issues = append(issues, issue("metadata.id", "required", "metadata.id is required"))
 	}
 	if strings.TrimSpace(object.Metadata.Name) == "" {
 		issues = append(issues, issue("metadata.name", "required", "metadata.name is required"))
 	}
-	issues = append(issues, validateLifecycle("metadata.lifecycle", object.Metadata.Lifecycle)...)
-	if object.Metadata.Revision < 0 {
-		issues = append(issues, issue("metadata.revision", "minimum", "revision cannot be negative"))
-	}
 	return issues
-}
-
-func validateLifecycle(path string, lifecycle Lifecycle) []ValidationIssue {
-	switch lifecycle {
-	case LifecycleDraft, LifecyclePublished, LifecycleArchived:
-		return nil
-	default:
-		return []ValidationIssue{issue(path, "enum", fmt.Sprintf(
-			"must be one of %q, %q, or %q",
-			LifecycleDraft,
-			LifecyclePublished,
-			LifecycleArchived,
-		))}
-	}
 }
 
 func validateFields(path string, values map[string]any, fields map[string]*FieldSchema, allowUnknown bool) []ValidationIssue {
@@ -218,10 +125,6 @@ func validateFields(path string, values map[string]any, fields map[string]*Field
 }
 
 func validateValue(path string, value any, field *FieldSchema) []ValidationIssue {
-	if field == nil || field.Type == FieldTypeAny {
-		return nil
-	}
-
 	switch field.Type {
 	case FieldTypeString:
 		valueString, ok := value.(string)
@@ -239,16 +142,8 @@ func validateValue(path string, value any, field *FieldSchema) []ValidationIssue
 		if !ok || math.Trunc(number) != number {
 			return []ValidationIssue{typeIssue(path, field.Type, value)}
 		}
-		if rangeIssue := validateNumberRange(path, number, field); rangeIssue != nil {
-			return []ValidationIssue{*rangeIssue}
-		}
-	case FieldTypeNumber:
-		number, ok := numericValue(value)
-		if !ok {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
-		if rangeIssue := validateNumberRange(path, number, field); rangeIssue != nil {
-			return []ValidationIssue{*rangeIssue}
+		if field.Minimum != nil && number < *field.Minimum {
+			return []ValidationIssue{issue(path, "minimum", fmt.Sprintf("must be at least %v", *field.Minimum))}
 		}
 	case FieldTypeBoolean:
 		if _, ok := value.(bool); !ok {
@@ -266,42 +161,25 @@ func validateValue(path string, value any, field *FieldSchema) []ValidationIssue
 			return []ValidationIssue{typeIssue(path, field.Type, value)}
 		}
 		issues := make([]ValidationIssue, 0)
-		if field.MinItems != nil && len(items) < *field.MinItems {
-			issues = append(issues, issue(path, "min_items", fmt.Sprintf("must contain at least %d item(s)", *field.MinItems)))
-		}
-		for i, item := range items {
-			issues = append(issues, validateValue(fmt.Sprintf("%s[%d]", path, i), item, field.Items)...)
+		for index, item := range items {
+			issues = append(issues, validateValue(fmt.Sprintf("%s[%d]", path, index), item, field.Items)...)
 		}
 		return issues
 	case FieldTypeMap:
-		values, ok := value.(map[string]any)
+		entries, ok := value.(map[string]any)
 		if !ok {
 			return []ValidationIssue{typeIssue(path, field.Type, value)}
 		}
-		issues := make([]ValidationIssue, 0)
-		keys := make([]string, 0, len(values))
-		for key := range values {
+		keys := make([]string, 0, len(entries))
+		for key := range entries {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
+		issues := make([]ValidationIssue, 0)
 		for _, key := range keys {
-			issues = append(issues, validateValue(joinPath(path, key), values[key], field.AdditionalProperties)...)
+			issues = append(issues, validateValue(joinPath(path, key), entries[key], field.AdditionalProperties)...)
 		}
 		return issues
-	case FieldTypeUnion:
-		object, ok := value.(map[string]any)
-		if !ok {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
-		discriminator, ok := object[field.Discriminator].(string)
-		if !ok || strings.TrimSpace(discriminator) == "" {
-			return []ValidationIssue{issue(joinPath(path, field.Discriminator), "required", "union discriminator is required")}
-		}
-		variant, exists := field.Variants[discriminator]
-		if !exists {
-			return []ValidationIssue{issue(joinPath(path, field.Discriminator), "unsupported", fmt.Sprintf("unsupported variant %q", discriminator))}
-		}
-		return validateValue(path, value, variant)
 	default:
 		return []ValidationIssue{issue(path, "schema", fmt.Sprintf("unsupported field type %q", field.Type))}
 	}
@@ -328,9 +206,6 @@ func applyDefaultsToFields(values map[string]any, fields map[string]*FieldSchema
 }
 
 func applyDefaultsToValue(value any, field *FieldSchema) {
-	if field == nil {
-		return
-	}
 	switch field.Type {
 	case FieldTypeObject:
 		if object, ok := value.(map[string]any); ok {
@@ -343,29 +218,20 @@ func applyDefaultsToValue(value any, field *FieldSchema) {
 			}
 		}
 	case FieldTypeMap:
-		if values, ok := value.(map[string]any); ok {
-			for _, item := range values {
+		if entries, ok := value.(map[string]any); ok {
+			for _, item := range entries {
 				applyDefaultsToValue(item, field.AdditionalProperties)
-			}
-		}
-	case FieldTypeUnion:
-		if object, ok := value.(map[string]any); ok {
-			if discriminator, ok := object[field.Discriminator].(string); ok {
-				applyDefaultsToValue(value, field.Variants[discriminator])
 			}
 		}
 	}
 }
 
 func validateSchemaDefinition(objectSchema ObjectSchema) error {
-	if strings.TrimSpace(objectSchema.APIVersion) == "" {
-		return fmt.Errorf("object schema apiVersion is required")
-	}
 	if strings.TrimSpace(objectSchema.Kind) == "" {
 		return fmt.Errorf("object schema kind is required")
 	}
 	if objectSchema.Fields == nil {
-		return fmt.Errorf("object schema %s/%s fields are required", objectSchema.APIVersion, objectSchema.Kind)
+		return fmt.Errorf("object schema %s fields are required", objectSchema.Kind)
 	}
 	for name, field := range objectSchema.Fields {
 		if strings.TrimSpace(name) == "" {
@@ -383,7 +249,7 @@ func validateFieldDefinition(path string, field *FieldSchema) error {
 		return fmt.Errorf("schema field %s is nil", path)
 	}
 	switch field.Type {
-	case FieldTypeAny, FieldTypeString, FieldTypeInteger, FieldTypeNumber, FieldTypeBoolean:
+	case FieldTypeString, FieldTypeInteger, FieldTypeBoolean:
 	case FieldTypeObject:
 		for name, child := range field.Properties {
 			if err := validateFieldDefinition(joinPath(path, name), child); err != nil {
@@ -394,23 +260,15 @@ func validateFieldDefinition(path string, field *FieldSchema) error {
 		if field.Items == nil {
 			return fmt.Errorf("schema field %s array items are required", path)
 		}
-		return validateFieldDefinition(path+"[]", field.Items)
+		if err := validateFieldDefinition(path+"[]", field.Items); err != nil {
+			return err
+		}
 	case FieldTypeMap:
 		if field.AdditionalProperties == nil {
 			return fmt.Errorf("schema field %s map value schema is required", path)
 		}
-		return validateFieldDefinition(path+".*", field.AdditionalProperties)
-	case FieldTypeUnion:
-		if strings.TrimSpace(field.Discriminator) == "" {
-			return fmt.Errorf("schema field %s union discriminator is required", path)
-		}
-		if len(field.Variants) == 0 {
-			return fmt.Errorf("schema field %s union variants are required", path)
-		}
-		for name, variant := range field.Variants {
-			if err := validateFieldDefinition(path+"<"+name+">", variant); err != nil {
-				return err
-			}
+		if err := validateFieldDefinition(path+".*", field.AdditionalProperties); err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("schema field %s has unsupported type %q", path, field.Type)
@@ -455,18 +313,6 @@ func numericValue(value any) (float64, bool) {
 	default:
 		return 0, false
 	}
-}
-
-func validateNumberRange(path string, number float64, field *FieldSchema) *ValidationIssue {
-	if field.Minimum != nil && number < *field.Minimum {
-		result := issue(path, "minimum", fmt.Sprintf("must be at least %v", *field.Minimum))
-		return &result
-	}
-	if field.Maximum != nil && number > *field.Maximum {
-		result := issue(path, "maximum", fmt.Sprintf("must be at most %v", *field.Maximum))
-		return &result
-	}
-	return nil
 }
 
 func enumContains(values []any, target any) bool {

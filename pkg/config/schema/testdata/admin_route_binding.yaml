@@ -1,0 +1,23 @@
+kind: AdminRouteBinding
+metadata:
+  name: user-get
+spec:
+  entry:
+    protocol: http
+    path: /api/v1/users/:id
+    method: GET
+  target:
+    protocol: dubbo
+    application: UserProvider
+    interface: com.example.UserService
+    method: GetUser
+    version: 1.0.0
+    group: stable
+    cluster: user-dubbo
+  params:
+    - from: uri.id
+      to: 0
+      type: java.lang.String
+  publish:
+    mode: draft
+    validate: true
