@@ -1,0 +1,80 @@
+apiVersion: pixiu.apache.org/v1alpha1
+kind: ConfigSet
+metadata:
+  id: default
+  name: default
+  revision: 1
+  lifecycle: draft
+objects:
+  - kind: Cluster
+    metadata:
+      id: cluster-user
+      name: user-service
+      lifecycle: draft
+    spec:
+      type: Static
+      endpoints:
+        - id: user-provider-1
+          address: 127.0.0.1
+          port: 20880
+
+  - kind: Listener
+    metadata:
+      id: listener-public-http
+      name: public-http
+      lifecycle: draft
+    spec:
+      address:
+        host: 0.0.0.0
+        port: 8888
+      protocol: HTTP
+      routes:
+        - prefix: /api/v1
+          clusterRef: cluster-user
+      filters:
+        - name: dgp.filter.http.apiconfig
+          config: {}
+
+  - kind: Resource
+    metadata:
+      id: resource-users
+      name: users
+      lifecycle: draft
+    spec:
+      path: /api/v1/users/:id
+      description: User HTTP facade
+      methodRefs:
+        - method-get-user
+
+  - kind: Method
+    metadata:
+      id: method-get-user
+      name: get-user
+      lifecycle: draft
+      ownerReferences:
+        - kind: Resource
+          id: resource-users
+    spec:
+      resourceRef: resource-users
+      http:
+        verb: GET
+      request:
+        parameters:
+          id:
+            in: path
+            required: true
+            schema:
+              type: string
+      backend:
+        kind: dubbo
+        clusterRef: cluster-user
+        interface: com.example.UserService
+        method: getUser
+        version: 1.0.0
+        signature:
+          - index: 0
+            name: id
+            javaType: java.lang.String
+      bindings:
+        - from: request.parameters.id
+          to: backend.signature[0]
