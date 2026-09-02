@@ -24,6 +24,7 @@ import (
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common"
+	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 
 	"github.com/pkg/errors"
 )
@@ -95,6 +96,9 @@ func GetRegistry(name string, regConfig model.Registry, listener common2.Registr
 // CreateAPIConfig returns router.API struct base on the input
 func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboBackendConfig, methodString string, mappingParams []config.MappingParam) router.API {
 	dboBackendConfig.Method = methodString
+	if strings.TrimSpace(dboBackendConfig.Serialization) == "" {
+		dboBackendConfig.Serialization = dubboConstant.Hessian2Serialization
+	}
 	url := strings.Join([]string{urlPattern, methodString}, constant.PathSlash)
 	var requestType string
 	switch dboBackendConfig.Protocol {

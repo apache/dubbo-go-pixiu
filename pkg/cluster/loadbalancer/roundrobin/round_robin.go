@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -32,12 +33,8 @@ func init() {
 
 type RoundRobin struct{}
 
-func (RoundRobin) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (RoundRobin) UseZeroCopySnapshot() bool {
-	return true
+func (RoundRobin) SnapshotOptIn() snapshotopt.Token {
+	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
 }
 
 func (r RoundRobin) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
@@ -52,7 +49,11 @@ func (RoundRobin) HandlerWithSnapshot(c loadbalancer.PickContext, _ model.LbPoli
 	if len(endpoints) == 0 {
 		return nil
 	}
-	// AddUint32 returns the incremented value, so subtract 1 for a zero-based index.
-	index := atomic.AddUint32(&c.Config.PrePickEndpointIndex, 1) - 1
+	var index uint32
+	if c.RoundRobinCursor != nil {
+		index = c.RoundRobinCursor.Add(1) - 1
+	} else {
+		index = atomic.AddUint32(&c.Config.PrePickEndpointIndex, 1) - 1
+	}
 	return endpoints[int(index%uint32(len(endpoints)))]
 }

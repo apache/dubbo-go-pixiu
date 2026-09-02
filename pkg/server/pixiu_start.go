@@ -145,6 +145,9 @@ func GetServer() *Server {
 }
 
 func GetClusterManager() *ClusterManager {
+	if server == nil {
+		return nil
+	}
 	return server.GetClusterManager()
 }
 

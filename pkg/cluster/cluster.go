@@ -28,15 +28,28 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+// Cluster is the runtime representation of an upstream cluster. It holds
+// a deep copy of the desired config and publishes immutable EndpointSnapshot
+// via CAS for the request path. Runtime state (cursors, health, snapshots)
+// lives here, not in model.ClusterConfig.
+//
+// RuntimeState holds operational state that belongs to the runtime, not the
+// configuration. Fields here are mutated only by the request path.
+type RuntimeState struct {
+	roundRobinCursor atomic.Uint32
+}
+
 type Cluster struct {
 	HealthCheck *healthcheck.HealthChecker
-	// Config is the desired cluster configuration. Runtime picks read the
-	// published EndpointSnapshot, so direct edits to Config.Endpoints or
+	// config is the desired cluster configuration. Runtime picks read the
+	// published EndpointSnapshot, so direct edits to config.Endpoints or
 	// Endpoint.UnHealthy are not observed by PickEndpoint immediately. Publish
 	// membership/address changes with RefreshEndpoints; publish runtime health
 	// changes with UpdateEndpointHealth, or RefreshEndpoints for clusters
 	// without health checks.
-	Config             *model.ClusterConfig
+	config             *model.ClusterConfig
+	configID           uint64 // snapshot of config.ConfigID at construction time
+	runtimeState       *RuntimeState
 	healthMu           sync.Mutex
 	acceptHealthEvents bool
 	endpoints          atomic.Pointer[EndpointSnapshot]
@@ -47,17 +60,23 @@ func NewCluster(clusterConfig *model.ClusterConfig) *Cluster {
 }
 
 func NewClusterWithEndpointSnapshot(clusterConfig *model.ClusterConfig, previous *EndpointSnapshot) *Cluster {
+	configID := uint64(0)
+	if clusterConfig != nil {
+		configID = clusterConfig.ConfigID
+	}
 	c := &Cluster{
-		Config:             clusterConfig,
+		config:             clusterConfig,
+		configID:           configID,
+		runtimeState:       &RuntimeState{},
 		acceptHealthEvents: true,
 	}
 	c.RefreshEndpointsFrom(previous)
 
 	// only handle one health checker
-	if len(c.Config.HealthChecks) != 0 {
+	if clusterConfig != nil && len(clusterConfig.HealthChecks) != 0 {
 		c.HealthCheck = healthcheck.CreateHealthCheckWithCallback(
 			clusterConfig,
-			c.Config.HealthChecks[0],
+			c.config.HealthChecks[0],
 			c.handleEndpointHealth,
 		)
 		c.HealthCheck.Start()
@@ -98,7 +117,7 @@ func (c *Cluster) RefreshEndpointsFrom(previous *EndpointSnapshot) {
 		if current != nil && current != previous {
 			source = current
 		}
-		next := newEndpointSnapshot(c.Config, source, len(c.Config.HealthChecks) != 0)
+		next := newEndpointSnapshot(c.config, source, len(c.config.HealthChecks) != 0)
 		if c.endpoints.CompareAndSwap(current, next) {
 			recordSnapshotPublish(c.clusterName(), next)
 			return
@@ -179,10 +198,62 @@ func (c *Cluster) handleEndpointHealth(event healthcheck.EndpointHealthEvent) {
 }
 
 func (c *Cluster) clusterName() string {
-	if c == nil || c.Config == nil {
+	if c == nil || c.config == nil {
 		return ""
 	}
-	return c.Config.Name
+	return c.config.Name
+}
+
+// SyncConfigEndpoints updates the runtime's config endpoints to match the
+// store's authoritative copy. Required before RefreshEndpoints when the store
+// mutates endpoints through SetEndpoint or replaceEndpointAt.
+func (c *Cluster) SyncConfigEndpoints(endpoints []*model.Endpoint) {
+	if c == nil {
+		return
+	}
+	c.config.Endpoints = model.CloneEndpoints(endpoints)
+}
+
+// Config returns the cluster configuration this runtime was built from.
+// Callers must treat the returned pointer as read-only; the runtime owns the
+// config and never mutates it after construction.
+func (c *Cluster) Config() *model.ClusterConfig {
+	if c == nil {
+		return nil
+	}
+	return c.config
+}
+
+// ConfigIsIdenticalTo reports whether this runtime was built from cfg (by
+// config object identity, not by deep equality). Used after deep-cloning to
+// detect when a runtime needs replacement without relying on pointer equality.
+func (c *Cluster) ConfigIsIdenticalTo(cfg *model.ClusterConfig) bool {
+	if c == nil || cfg == nil {
+		return false
+	}
+	return c.configID == cfg.ConfigID
+}
+
+// RoundRobinCursor returns the runtime's atomic RoundRobin cursor. Snapshot
+// load balancers use this cursor instead of ClusterConfig.PrePickEndpointIndex.
+func (c *Cluster) RoundRobinCursor() *atomic.Uint32 {
+	if c == nil || c.runtimeState == nil {
+		return nil
+	}
+	return &c.runtimeState.roundRobinCursor
+}
+
+// CarryOverCursorTo copies this runtime's RR cursor value into target, used
+// when replacing runtimes to preserve fairness state.
+func (c *Cluster) CarryOverCursorTo(target *Cluster) {
+	if c == nil || target == nil {
+		return
+	}
+	src := c.RoundRobinCursor()
+	dst := target.RoundRobinCursor()
+	if src != nil && dst != nil {
+		dst.Store(src.Load())
+	}
 }
 
 // EndpointSnapshot endpoint membership and health indexes are immutable after
@@ -222,10 +293,10 @@ type EndpointSnapshot struct {
 //     only because *Endpoint and the underlying maps are treated as
 //     read-only after publication.
 //     Any code path that mutates them in place will leak state across
-//     all snapshots alive at the time of the mutation. The
-//     ZeroCopySnapshotLoadBalancer marker on load balancers exists
-//     precisely to opt into this contract; do not introduce new
-//     in-place mutation on snapshot-owned objects.
+//     all snapshots alive at the time of the mutation. The zero-copy
+//     opt-in on load balancers (snapshotopt.Token.ZeroCopy, set via
+//     SnapshotOptIn) exists precisely to opt into this contract; do not
+//     introduce new in-place mutation on snapshot-owned objects.
 func newEndpointSnapshot(config *model.ClusterConfig, previous *EndpointSnapshot, inheritRuntimeHealth bool) *EndpointSnapshot {
 	var endpoints []*model.Endpoint
 	clusterName := ""

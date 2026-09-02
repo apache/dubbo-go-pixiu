@@ -40,7 +40,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -90,21 +89,24 @@ type (
 		cfg *Config
 		// grpc descriptor source factory
 		descriptor *Descriptor
-		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
-		pools map[string]*sync.Pool
+		// hold grpc.ClientConns, key format: cluster name + NUL + endpoint
+		connections           *grpcConnectionManager
+		removeEndpointHandler func()
 
-		extReg     *dynamic.ExtensionRegistry
-		registered map[string]bool
+		extReg      *dynamic.ExtensionRegistry
+		registered  map[string]bool
+		extensionMu *sync.RWMutex
 	}
 	Filter struct {
 		cfg *Config
 		// grpc descriptor source factory
 		descriptor *Descriptor
-		// hold grpc.ClientConns, key format: cluster name + "." + endpoint
-		pools map[string]*sync.Pool
+		// hold grpc.ClientConns, key format: cluster name + NUL + endpoint
+		connections *grpcConnectionManager
 
-		extReg     *dynamic.ExtensionRegistry
-		registered map[string]bool
+		extReg      *dynamic.ExtensionRegistry
+		registered  map[string]bool
+		extensionMu *sync.RWMutex
 	}
 
 	// Config describe the config of AccessFilter
@@ -148,12 +150,40 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &Config{DescriptorSourceStrategy: AUTO}, descriptor: &Descriptor{}}, nil
+	descriptor := &Descriptor{}
+	connections := newGRPCConnectionManager()
+	connections.onRemove = descriptor.removeConnection
+	var removeEndpointHandler func()
+	if clusterManager := server.GetClusterManager(); clusterManager != nil {
+		connections.endpointPresent = func(key, endpoint string) bool {
+			clusterName, _, ok := strings.Cut(key, "\x00")
+			return ok && clusterManager.HasEndpointAddress(clusterName, endpoint)
+		}
+		removeEndpointHandler = clusterManager.AddEndpointStateHandler(func(clusterName, endpoint string, present bool, version uint64) {
+			connections.UpdateEndpointState(clusterName, endpoint, present, version)
+		})
+	}
+	return &FilterFactory{
+		cfg:                   &Config{DescriptorSourceStrategy: AUTO},
+		descriptor:            descriptor,
+		connections:           connections,
+		removeEndpointHandler: removeEndpointHandler,
+		extReg:                &dynamic.ExtensionRegistry{},
+		registered:            make(map[string]bool),
+		extensionMu:           &sync.RWMutex{},
+	}, nil
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
 	// Deep copy config to avoid pointer sharing (factory.cfg may change at runtime)
-	f := &Filter{cfg: factory.cfg.DeepCopy(), descriptor: factory.descriptor, pools: factory.pools, extReg: factory.extReg, registered: factory.registered}
+	f := &Filter{
+		cfg:         factory.cfg.DeepCopy(),
+		descriptor:  factory.descriptor,
+		connections: factory.connections,
+		extReg:      factory.extReg,
+		registered:  factory.registered,
+		extensionMu: factory.extensionMu,
+	}
 	chain.AppendDecodeFilters(f)
 	return nil
 }
@@ -199,21 +229,13 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	defer cancel()
 	ep := e.Address.GetAddress()
 
-	p, ok := f.pools[strings.Join([]string{re.Cluster, ep}, ".")]
-	if !ok {
-		p = &sync.Pool{}
-	}
-
-	clientConn, ok = p.Get().(*grpc.ClientConn)
-	if !ok || clientConn == nil {
-		// TODO(Kenway): Support Credential and TLS
-		clientConn, err = grpc.DialContext(ctx, ep, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil || clientConn == nil {
-			logger.Errorf("%s err {failed to connect to grpc service provider}", loggerHeader)
-			errResp := http.ServiceUnavailable.WithError(fmt.Errorf("endpoint not found: %w", err))
-			c.SendLocalReply(errResp.Status, errResp.ToJSON())
-			return filter.Stop
-		}
+	connectionKey := grpcConnectionKey(re.Cluster, ep)
+	clientConn, err = f.connections.Get(ctx, connectionKey, ep)
+	if err != nil || clientConn == nil {
+		logger.Errorf("%s err {failed to connect to grpc service provider}: %v", loggerHeader, err)
+		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("endpoint not found: %w", err))
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
+		return filter.Stop
 	}
 
 	// get DescriptorSource, contain file and reflection
@@ -227,23 +249,19 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	//put DescriptorSource concurrent, del if no need
 	ctx = context.WithValue(ctx, ct.ContextKey(DescriptorSourceKey), source)
 
-	dscp, err := source.FindSymbol(svc)
+	mthDesc, err := f.descriptor.getMethodDescriptor(source, clientConn, svc, mth)
 	if err != nil {
-		logger.Errorf("%s err {%s}", loggerHeader, "request path invalid")
+		if _, ok := err.(*serviceNotExposedError); ok {
+			logger.Errorf("%s err {service not expose, %s}", loggerHeader, svc)
+			errResp := http.BadRequest.WithError(err)
+			c.SendLocalReply(errResp.Status, errResp.ToJSON())
+			return filter.Stop
+		}
+		logger.Errorf("%s err {request path invalid, service: %s, method: %s, cause: %v}", loggerHeader, svc, mth, err)
 		errResp := http.MethodNotAllowed.New()
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
-
-	svcDesc, ok := dscp.(*desc.ServiceDescriptor)
-	if !ok {
-		logger.Errorf("%s err {service not expose, %s}", loggerHeader, svc)
-		errResp := http.BadRequest.WithError(fmt.Errorf("service not exposed: %s", svc))
-		c.SendLocalReply(errResp.Status, errResp.ToJSON())
-		return filter.Stop
-	}
-
-	mthDesc := svcDesc.FindMethodByName(mth)
 
 	err = f.registerExtension(source, mthDesc)
 	if err != nil {
@@ -281,6 +299,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 			logger.Errorf("%s err {gRPC client error, code: %s, msg: %s}", loggerHeader, st.Code(), st.Message())
 			errResp := http.BadGateway.WithError(fmt.Errorf("gRPC client error: %w", err))
 			c.SendLocalReply(errResp.Status, errResp.ToJSON())
+			f.connections.Invalidate(connectionKey, clientConn)
 			return filter.Stop
 		}
 		// Handle server-side gRPC errors
@@ -289,11 +308,13 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 				logger.Errorf("%s err {failed to invoke grpc service provider because timeout, err:%s}", loggerHeader, err.Error())
 				errResp := http.GatewayTimeout.WithError(fmt.Errorf("upstream timeout: %w", err))
 				c.SendLocalReply(errResp.Status, errResp.ToJSON())
+				f.connections.Invalidate(connectionKey, clientConn)
 				return filter.Stop
 			}
 			logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 			errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
 			c.SendLocalReply(errResp.Status, errResp.ToJSON())
+			f.connections.Invalidate(connectionKey, clientConn)
 			return filter.Stop
 		}
 	} else if err != nil {
@@ -301,6 +322,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
+		f.connections.Invalidate(connectionKey, clientConn)
 		return filter.Stop
 	}
 
@@ -323,19 +345,48 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 		Trailer:    th,
 		Request:    c.Request,
 	}
-	p.Put(clientConn)
 	return filter.Continue
 }
 
+func grpcConnectionKey(cluster, endpoint string) string {
+	return cluster + "\x00" + endpoint
+}
+
 func (f *Filter) registerExtension(source DescriptorSource, mthDesc *desc.MethodDescriptor) error {
-	err := RegisterExtension(source, f.extReg, mthDesc.GetInputType(), f.registered)
-	if err != nil {
-		return perrors.New("register extension failed")
+	inputDesc := mthDesc.GetInputType()
+	outputDesc := mthDesc.GetOutputType()
+	if f.extensionMu == nil || f.extReg == nil || f.registered == nil {
+		if err := RegisterExtension(source, f.extReg, inputDesc, f.registered); err != nil {
+			return perrors.New("register extension failed")
+		}
+		if err := RegisterExtension(source, f.extReg, outputDesc, f.registered); err != nil {
+			return perrors.New("register extension failed")
+		}
+		return nil
 	}
 
-	err = RegisterExtension(source, f.extReg, mthDesc.GetOutputType(), f.registered)
-	if err != nil {
-		return perrors.New("register extension failed")
+	inputName := inputDesc.GetFullyQualifiedName()
+	outputName := outputDesc.GetFullyQualifiedName()
+	f.extensionMu.RLock()
+	registered := f.registered[inputName] && f.registered[outputName]
+	f.extensionMu.RUnlock()
+	if registered {
+		return nil
+	}
+
+	f.extensionMu.Lock()
+	defer f.extensionMu.Unlock()
+	if !f.registered[inputName] {
+		if err := RegisterExtension(source, f.extReg, inputDesc, f.registered); err != nil {
+			return perrors.New("register extension failed")
+		}
+		f.registered[inputName] = true
+	}
+	if !f.registered[outputName] {
+		if err := RegisterExtension(source, f.extReg, outputDesc, f.registered); err != nil {
+			return perrors.New("register extension failed")
+		}
+		f.registered[outputName] = true
 	}
 	return nil
 }
@@ -424,6 +475,23 @@ func (factory *FilterFactory) Apply() error {
 	factory.descriptor.initDescriptorSource(factory.cfg)
 
 	return nil
+}
+
+// Close releases all backend connections owned by this filter factory.
+func (factory *FilterFactory) Close() error {
+	var firstErr error
+	if factory.connections != nil {
+		if err := factory.connections.Close(); err != nil {
+			firstErr = err
+		}
+	}
+	if factory.descriptor != nil {
+		factory.descriptor.Close()
+	}
+	if factory.removeEndpointHandler != nil {
+		factory.removeEndpointHandler()
+	}
+	return firstErr
 }
 
 func configCheck(cfg *Config) error {

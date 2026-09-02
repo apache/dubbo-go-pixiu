@@ -19,6 +19,7 @@ package filter
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -142,6 +143,35 @@ func TestLoad(t *testing.T) {
 		},
 	}
 	runFilter(t, fm, filtersConf)
+}
+
+func TestReloadSkipsFailedFactoriesAndDoesNotReopenAfterClose(t *testing.T) {
+	fm := NewEmptyFilterManager()
+	fm.ReLoad([]*model.HTTPFilter{{Name: "missing-filter"}})
+	assert.Empty(t, fm.GetFactory())
+	assert.NotPanics(t, func() { fm.CreateFilterChain(&contexthttp.HttpContext{}) })
+
+	fm.ReLoad([]*model.HTTPFilter{{Name: DEMO}})
+	assert.Len(t, fm.GetFactory(), 1)
+	assert.NoError(t, fm.Close())
+	fm.ReLoad([]*model.HTTPFilter{{Name: DEMO}})
+	assert.Empty(t, fm.GetFactory())
+}
+
+func TestReloadAndCloseDoNotReopenManager(t *testing.T) {
+	fm := NewEmptyFilterManager()
+	filters := []*model.HTTPFilter{{Name: DEMO}}
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		for range 20 {
+			fm.ReLoad(filters)
+		}
+	})
+	wg.Go(func() {
+		assert.NoError(t, fm.Close())
+	})
+	wg.Wait()
+	assert.Empty(t, fm.GetFactory())
 }
 
 func runFilter(t *testing.T, fm *FilterManager, filtersConf []*model.HTTPFilter) {

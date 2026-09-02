@@ -68,6 +68,12 @@ func TestCoerceDirectInvokeValueWrapperFQNArray(t *testing.T) {
 	assert.Equal(t, []any{1, 2}, val)
 }
 
+func TestCoerceDirectInvokeValueLegacyGenericArrayWithScalarType(t *testing.T) {
+	val, err := CoerceDirectInvokeValue("string", []any{"003", "002"})
+	require.NoError(t, err)
+	assert.Equal(t, []any{"003", "002"}, val)
+}
+
 func TestNormalizeReferenceProtocol(t *testing.T) {
 	assert.Equal(t, "tri", NormalizeReferenceProtocol("triple"))
 	assert.Equal(t, "tri", NormalizeReferenceProtocol("  TRI  "))
