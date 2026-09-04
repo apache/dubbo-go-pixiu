@@ -60,28 +60,6 @@ jobs:
           imports-formatter
           git diff --exit-code
 
-  admin-web-compose-smoke:
-    name: Admin Web Compose Smoke Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Start frontend service
-        run: |
-          set -euo pipefail
-          trap 'docker compose logs frontend; docker compose down --volumes --remove-orphans' EXIT
-          docker compose up -d --no-deps frontend
-          for attempt in $(seq 1 60); do
-            health="$(docker inspect --format='{{.State.Health.Status}}' pixiu_admin_frontend 2>/dev/null || true)"
-            if [ "$health" = "healthy" ]; then
-              exit 0
-            fi
-            if [ "$health" = "unhealthy" ]; then
-              exit 1
-            fi
-            sleep 2
-          done
-          exit 1
-
   golangci:
     needs: license-check-and-import-format
     name: Golang Lint

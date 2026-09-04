@@ -21,6 +21,18 @@ npm run build
 
 产物输出到 `dist/`。
 
+## Docker Compose 冒烟验证
+
+在仓库根目录启动前端容器并等待 healthcheck 通过：
+
+```bash
+docker compose up -d --no-deps frontend
+docker inspect --format='{{.State.Health.Status}}' pixiu_admin_frontend
+docker compose down --volumes --remove-orphans
+```
+
+前端容器通过 `VITE_BACKEND_URL=http://backend:8081` 访问 Compose 网络中的 Admin 后端。
+
 ## 功能边界
 
 - 页面与交互以本 README 和当前源码为准。
