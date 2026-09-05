@@ -38,14 +38,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/go/bin
-          key: ${{ runner.os }}-go-imports-formatter-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-imports-formatter-
+          key: ${{ runner.os }}-go-imports-formatter-v1.0.10
 
       - name: Download imports-formatter if not cached
         if: steps.cache-go-bin.outputs.cache-hit != 'true'
         run: |
-          go install github.com/dubbogo/tools/cmd/imports-formatter@latest
+          go install github.com/dubbogo/tools/cmd/imports-formatter@v1.0.10
 
       - name: Check License Header
         uses: apache/skywalking-eyes/header@main # NOSONAR
@@ -115,10 +113,10 @@ jobs:
         run: |
           echo "Cache miss. Downloading Zookeeper JAR..."
           zkJarName="zookeeper-3.4.9-fatjar.jar"
-          remoteJarUrl="https://github.com/dubbogo/resources/raw/master/zookeeper-4unitest/contrib/fatjar/${zkJarName}"
+          remoteJarUrl="https://raw.githubusercontent.com/dubbogo/resources/master/zookeeper-4unitest/contrib/fatjar/${zkJarName}"
           zkJarPath="pkg/registry/zookeeper-4unittest/contrib/fatjar"
           mkdir -p ${zkJarPath}
-          wget -P "${zkJarPath}" ${remoteJarUrl}
+          wget --max-redirect=0 -P "${zkJarPath}" "${remoteJarUrl}"
 
       - name: Run Tests and Generate Coverage
         run: |
