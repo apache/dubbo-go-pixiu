@@ -27,7 +27,6 @@ require (
 	github.com/go-sql-driver/mysql v1.9.2
 	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang-jwt/jwt/v4 v4.5.2
-	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/jhump/protoreflect v1.17.0
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
@@ -62,6 +61,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
 	go.opentelemetry.io/otel/trace v1.43.0
+	go.uber.org/mock v0.5.2
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.52.0
 	golang.org/x/net v0.55.0
@@ -159,6 +159,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.6.0 // indirect
