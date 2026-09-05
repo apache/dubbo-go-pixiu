@@ -18,10 +18,10 @@
 package nacos
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosConstant "github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	"github.com/pkg/errors"
 )
@@ -55,7 +55,22 @@ func (n *NacosRegistry) DoSubscribe() error {
 }
 
 func (n *NacosRegistry) DoUnsubscribe() error {
-	panic("implement me")
+	// Stop the background listener first (it drains its watch goroutine), then
+	// close the v2 naming client. The v2 client holds a gRPC connection and
+	// internal retry goroutines that survive listener shutdown; CloseClient
+	// releases them (idempotent via an internal isClosed guard). Previously
+	// this method panicked, so any graceful Stop leaked the connection.
+	Listener, ok := n.nacosListeners[n.RegisteredType]
+	if !ok {
+		return errors.New("Listener for interface level registration does not initialized")
+	}
+	Listener.Close()
+	for k, l := range n.GetAllSvcListener() {
+		l.Close()
+		n.RemoveSvcListener(k)
+	}
+	n.client.CloseClient()
+	return nil
 }
 
 var _ registry.Registry = new(NacosRegistry)

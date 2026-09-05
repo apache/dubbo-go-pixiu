@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package configcenter
+package nacos
 
 import (
-	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/router"
 )
 
-type (
-	ConfigClient interface {
-		LoadConfig(properties map[string]any) (string, error)
+// mockRegistryEventListener is a mock implementation for testing
+type mockRegistryEventListener struct {
+	addCount    int
+	removeCount int
+}
 
-		ListenConfig(properties map[string]any) (err error)
+func (m *mockRegistryEventListener) OnAddAPI(r router.API) error {
+	m.addCount++
+	return nil
+}
 
-		// ViewConfig returns the current remote configuration.
-		ViewConfig() *model.Bootstrap
+func (m *mockRegistryEventListener) OnRemoveAPI(r router.API) error {
+	m.removeCount++
+	return nil
+}
 
-		// Close releases the underlying client (e.g. the Nacos v2 gRPC
-		// connection). It must be idempotent and safe to call from a shutdown
-		// path. Implementations that hold no resource should no-op.
-		Close()
-	}
-)
+func (m *mockRegistryEventListener) OnDeleteRouter(r config.Resource) error {
+	return nil
+}

@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/configcenter"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -151,4 +152,39 @@ func TestStruct2JSON(t *testing.T) {
 	} else {
 		t.Log(string(bytes))
 	}
+}
+
+// closeRecorderLoad is a configcenter.Load stand-in that records Close calls
+// so ConfigManager.Close can be asserted without a live remote config center.
+type closeRecorderLoad struct {
+	closeCount int
+}
+
+func (c *closeRecorderLoad) LoadConfigs(boot *model.Bootstrap, opts ...configcenter.Option) (*model.Bootstrap, error) {
+	return nil, nil
+}
+
+func (c *closeRecorderLoad) ViewRemoteConfig() *model.Bootstrap { return nil }
+
+func (c *closeRecorderLoad) Close() { c.closeCount++ }
+
+// TestConfigManager_Close verifies the v2 close path: Close must forward to
+// the underlying remote config loader so the Nacos v2 gRPC connection is
+// released on shutdown. See AlexStocks' [P1] review on PR #982.
+func TestConfigManager_Close(t *testing.T) {
+	t.Run("forwards to the loader", func(t *testing.T) {
+		recorder := &closeRecorderLoad{}
+		m := &ConfigManager{load: recorder}
+
+		assert.Equal(t, 0, recorder.closeCount, "loader must not be closed before Close")
+
+		m.Close()
+
+		assert.Equal(t, 1, recorder.closeCount, "Close must forward to the underlying loader")
+	})
+
+	t.Run("no-op when no remote config center", func(t *testing.T) {
+		m := &ConfigManager{load: nil}
+		assert.NotPanics(t, func() { m.Close() })
+	})
 }
