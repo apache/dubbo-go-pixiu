@@ -25,7 +25,6 @@ require (
 	github.com/go-playground/assert/v2 v2.2.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/go-sql-driver/mysql v1.9.2
-	github.com/goinggo/mapstructure v0.0.0-20140717182941-194205d9b4a9
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang/protobuf v1.5.4
 	github.com/jhump/protoreflect v1.17.0
