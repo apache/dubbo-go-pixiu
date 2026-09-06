@@ -33,17 +33,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'tools/imports-formatter/go.mod'
+          cache-dependency-path: 'tools/imports-formatter/go.sum'
       - name: Cache imports-formatter
         id: cache-go-bin
         uses: actions/cache@v4
         with:
           path: ~/go/bin
-          key: ${{ runner.os }}-go-imports-formatter-v1.0.10
+          key: ${{ runner.os }}-go-imports-formatter-${{ hashFiles('tools/imports-formatter/go.mod', 'tools/imports-formatter/go.sum') }}
 
       - name: Download imports-formatter if not cached
         if: steps.cache-go-bin.outputs.cache-hit != 'true'
+        working-directory: tools/imports-formatter
+        env:
+          GOWORK: off
         run: |
-          go install github.com/dubbogo/tools/cmd/imports-formatter@v1.0.10
+          go build -mod=readonly -o "$HOME/go/bin/imports-formatter" github.com/dubbogo/tools/cmd/imports-formatter
 
       - name: Check License Header
         uses: apache/skywalking-eyes/header@main # NOSONAR
