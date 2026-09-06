@@ -33,19 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Cache imports-formatter
-        id: cache-go-bin
-        uses: actions/cache@v4
+      - uses: actions/setup-go@v6
         with:
-          path: ~/go/bin
-          key: ${{ runner.os }}-go-imports-formatter-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-imports-formatter-
-
-      - name: Download imports-formatter if not cached
-        if: steps.cache-go-bin.outputs.cache-hit != 'true'
-        run: |
-          go install github.com/dubbogo/tools/cmd/imports-formatter@latest
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Check License Header
         uses: apache/skywalking-eyes/header@main # NOSONAR
@@ -57,7 +48,7 @@ jobs:
 
       - name: Check Import Formatting
         run: |
-          imports-formatter
+          go tool imports-formatter
           git diff --exit-code
 
   golangci:
@@ -102,23 +93,6 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
-
-      - name: Cache Zookeeper JAR
-        id: cache-zk-jar
-        uses: actions/cache@v4
-        with:
-          path: pkg/registry/zookeeper-4unittest/contrib/fatjar
-          key: ${{ runner.os }}-zookeeper-jar-3.4.9
-
-      - name: Download Zookeeper JAR if not cached
-        if: steps.cache-zk-jar.outputs.cache-hit != 'true'
-        run: |
-          echo "Cache miss. Downloading Zookeeper JAR..."
-          zkJarName="zookeeper-3.4.9-fatjar.jar"
-          remoteJarUrl="https://github.com/dubbogo/resources/raw/master/zookeeper-4unitest/contrib/fatjar/${zkJarName}"
-          zkJarPath="pkg/registry/zookeeper-4unittest/contrib/fatjar"
-          mkdir -p ${zkJarPath}
-          wget -P "${zkJarPath}" ${remoteJarUrl}
 
       - name: Run Tests and Generate Coverage
         run: |
