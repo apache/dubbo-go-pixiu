@@ -160,36 +160,45 @@ func (cs *compositeSource) FindSymbol(fullyQualifiedName string) (desc.Descripto
 		}
 	}
 
+	if cs.file == nil {
+		return nil, fmt.Errorf("could not found symbol %v", fullyQualifiedName)
+	}
 	return cs.file.FindSymbol(fullyQualifiedName)
 }
 
 func (cs *compositeSource) AllExtensionsForType(typeName string) ([]*desc.FieldDescriptor, error) {
 
 	if cs.reflection == nil {
-		fileExts, err := cs.file.AllExtensionsForType(typeName)
-		if err != nil {
-			return fileExts, nil
+		if cs.file == nil {
+			return nil, nil
 		}
-	} else {
-		exts, err := cs.reflection.AllExtensionsForType(typeName)
-		if err != nil {
-			return cs.file.AllExtensionsForType(typeName)
-		}
-		tags := make(map[int32]bool)
-		for _, ext := range exts {
-			tags[ext.GetNumber()] = true
-		}
+		return cs.file.AllExtensionsForType(typeName)
+	}
 
-		fileExts, err := cs.file.AllExtensionsForType(typeName)
-		if err != nil {
-			return exts, nil
+	exts, err := cs.reflection.AllExtensionsForType(typeName)
+	if err != nil {
+		if cs.file == nil {
+			return nil, err
 		}
-		for _, ext := range fileExts {
-			if !tags[ext.GetNumber()] {
-				exts = append(exts, ext)
-			}
-		}
+		return cs.file.AllExtensionsForType(typeName)
+	}
+	if cs.file == nil {
 		return exts, nil
 	}
-	return nil, nil
+
+	tags := make(map[int32]bool)
+	for _, ext := range exts {
+		tags[ext.GetNumber()] = true
+	}
+
+	fileExts, err := cs.file.AllExtensionsForType(typeName)
+	if err != nil {
+		return exts, nil
+	}
+	for _, ext := range fileExts {
+		if !tags[ext.GetNumber()] {
+			exts = append(exts, ext)
+		}
+	}
+	return exts, nil
 }
