@@ -66,33 +66,19 @@ Go to the `web` directory and install dependencies:
 
 ```bash
 cd ./admin/web/
-yarn install  # Install dependencies
-yarn run serve  # Test run
+npm ci  # Install the locked dependencies
+npm run dev -- --host 0.0.0.0  # Start the Vite development server
 ```
 
 #### Admin Web Configuration
 
-Edit the `vue.config.js` file in the `web` directory to configure the backend service address:
+The Vite development server listens on port `8088` and proxies Admin API requests to `http://127.0.0.1:8081` by default. Set `VITE_BACKEND_URL` to override the backend address, for example when running inside Docker Compose:
 
-```
-devServer: {
-    host: '0.0.0.0',
-    port: 8080,  // Web app address
-    hot: true,
-    https: false,
-    open: false,
-    disableHostCheck: true,
-    proxy: {
-        "/config": {
-            target: "http://127.0.0.1:8081",  // Backend service address
-            ws: true,  // Enable websockets
-            changeOrigin: true,  // Enable proxy
-        }
-    }
-}
+```bash
+VITE_BACKEND_URL=http://127.0.0.1:8081 npm run dev -- --host 0.0.0.0
 ```
 
-After running successfully, you can access the Admin web interface in the browser at [http://127.0.0.1:8081/login.html#/Overview](http://127.0.0.1:8081/login.html#/Overview).
+After running successfully, you can access the Admin web interface in the browser at [http://127.0.0.1:8088/login](http://127.0.0.1:8088/login).
 
 ## II. Related Operations
 
