@@ -78,7 +78,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8 # NOSONAR
+        uses: golangci/golangci-lint-action@v9 # NOSONAR
         with:
           version: v2.4.0
           args: ${{ steps.lint_base.outputs.sha != '' && format('--new-from-rev={0}', steps.lint_base.outputs.sha) || '' }}
@@ -100,10 +100,10 @@ jobs:
           go test ./... -gcflags=-l -race -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4 # NOSONAR
+        uses: codecov/codecov-action@v7 # NOSONAR
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.txt
+          files: ./coverage.txt
           flags: unittests
 
   integration-test:
@@ -139,7 +139,7 @@ jobs:
 
       - name: Cache dubbo-go-pixiu-samples
         id: cache_samples
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.SAMPLES_CLONE_DIR }}
           key: ${{ runner.os }}-samples-${{ steps.samples_head.outputs.sha }}
