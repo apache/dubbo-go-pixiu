@@ -150,11 +150,15 @@ func (p *Plugin) Kind() string {
 }
 
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return p.newFilterFactory(server.GetClusterManager()), nil
+}
+
+func (p *Plugin) newFilterFactory(clusterManager *server.ClusterManager) *FilterFactory {
 	descriptor := &Descriptor{}
 	connections := newGRPCConnectionManager()
 	connections.onRemove = descriptor.removeConnection
 	var removeEndpointHandler func()
-	if clusterManager := server.GetClusterManager(); clusterManager != nil {
+	if clusterManager != nil {
 		connections.endpointPresent = func(key, endpoint string) bool {
 			clusterName, _, ok := strings.Cut(key, "\x00")
 			return ok && clusterManager.HasEndpointAddress(clusterName, endpoint)
@@ -171,7 +175,7 @@ func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
 		extReg:                &dynamic.ExtensionRegistry{},
 		registered:            make(map[string]bool),
 		extensionMu:           &sync.RWMutex{},
-	}, nil
+	}
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain filter.FilterChain) error {
