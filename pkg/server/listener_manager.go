@@ -23,6 +23,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -45,6 +46,10 @@ type wrapListenerService struct {
 
 	config *model.Listener
 }
+
+// ShutdownFunc is the signature for a listener shutdown function.
+// It returns an error if shutdown failed.
+type ShutdownFunc func() error
 
 // ListenerManager the listener manager
 type ListenerManager struct {
@@ -98,31 +103,121 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		sig := <-signals
 		logger.Infof("get signal %s, dubbo-go-pixiu will start shutdown.", sig)
 
-		time.AfterFunc(timeout, func() {
-			logger.Warn("Shutdown gracefully timeout, listeners will shutdown immediately. ")
-			os.Exit(0)
-		})
+		// Handle shutdown signal (extracted for testability)
+		shutdownErrors, timedOut := lm.handleShutdownSignal(sig, timeout)
 
-		for _, listener := range lm.activeListenerService {
-			lm.shutdownWG.Add(1)
-			go func(listener *wrapListenerService) {
-				err := listener.ShutDown(lm.shutdownWG)
-				if err != nil {
-					logger.Errorf("Shutdown Error: %+v", err)
-					os.Exit(0)
-				}
-			}(listener)
+		// Exit with appropriate code based on shutdown errors
+		if len(shutdownErrors) > 0 {
+			logger.Errorf("Shutdown completed with %d errors", len(shutdownErrors))
+			os.Exit(1)
 		}
-		lm.shutdownWG.Wait()
-
-		// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
-		for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
-			if sig == dumpSignal {
-				debug.WriteHeapDump(os.Stdout.Fd())
-			}
+		if timedOut {
+			logger.Warn("Shutdown gracefully timeout, some listeners may not have shut down cleanly")
 		}
 		os.Exit(0)
 	}()
+}
+
+// handleShutdownSignal processes a shutdown signal by coordinating listener shutdowns.
+// It returns a slice of errors from failed shutdowns and a boolean indicating timeout.
+// This function is extracted from gracefulShutdownInit for testability.
+func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Duration) ([]error, bool) {
+	// Build shutdown functions for all listeners
+	shutdownFuncs := make([]ShutdownFunc, 0, len(lm.activeListenerService))
+	for _, listener := range lm.activeListenerService {
+		shutdownFuncs = append(shutdownFuncs, func() error {
+			lm.shutdownWG.Add(1)
+			// Note: listener.ShutDown() internally calls wg.Done()
+			return listener.ShutDown(lm.shutdownWG)
+		})
+	}
+
+	// Execute shutdown coordination
+	shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout)
+
+	// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
+	for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
+		if sig == dumpSignal {
+			debug.WriteHeapDump(os.Stdout.Fd())
+		}
+	}
+
+	return shutdownErrors, timedOut
+}
+
+// shutdownListeners coordinates the shutdown of multiple listeners.
+// It returns a slice of errors from failed shutdowns and a boolean indicating
+// whether the shutdown timed out before all listeners completed.
+//
+// The overall timeout is the sole bound on how long we wait for listeners: it
+// must honor the user-configured graceful-shutdown budget. We deliberately do
+// NOT impose a shorter per-listener deadline. A fixed per-listener timeout
+// would let a single slow listener be considered "done" early and cause the
+// caller to os.Exit(0) and interrupt the graceful shutdown of listeners that
+// are still within their allowed time (P0 review feedback on PR #993).
+func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]error, bool) {
+	if len(shutdownFuncs) == 0 {
+		return nil, false
+	}
+
+	// Error channel is buffered so a slow send never blocks the worker goroutine.
+	errCh := make(chan error, len(shutdownFuncs))
+	// doneCh is signaled by each worker AFTER its error (if any) has been sent,
+	// so receiving all doneCh signals guarantees every error is already queued.
+	doneCh := make(chan struct{}, len(shutdownFuncs))
+
+	var completed int32
+	// Start shutdown for all listeners
+	for _, shutdownFunc := range shutdownFuncs {
+		go func(fn ShutdownFunc) {
+			err := fn()
+			if err != nil {
+				logger.Errorf("Shutdown Error: %+v", err)
+				errCh <- err
+			}
+			atomic.AddInt32(&completed, 1)
+			// Signal that this goroutine has completed (after the error send).
+			doneCh <- struct{}{}
+		}(shutdownFunc)
+	}
+
+	// Wait for every listener to finish, bounded only by the overall timeout.
+	// There is no per-listener deadline: a listener that is slow but still
+	// within the configured budget must be allowed to run to completion.
+	allDone := make(chan struct{})
+	go func() {
+		for i := 0; i < len(shutdownFuncs); i++ {
+			<-doneCh
+		}
+		close(allDone)
+	}()
+
+	var timedOut bool
+	select {
+	case <-allDone:
+		// All listener goroutines completed
+		logger.Info("All listeners shut down gracefully")
+	case <-time.After(timeout):
+		timedOut = true
+		unfinished := int32(len(shutdownFuncs)) - atomic.LoadInt32(&completed)
+		logger.Warnf("Shutdown timed out after %s; %d of %d listener(s) did not finish gracefully",
+			timeout, unfinished, len(shutdownFuncs))
+	}
+
+	// Drain any queued errors (non-blocking). After allDone this is complete
+	// and safe (all sends are done); after a timeout it is best-effort.
+	var shutdownErrors []error
+drainErrors:
+	for {
+		select {
+		case err := <-errCh:
+			shutdownErrors = append(shutdownErrors, err)
+		default:
+			break drainErrors
+		}
+	}
+
+	return shutdownErrors, timedOut
 }
 
 func resolveListenerName(c *model.Listener) string {
