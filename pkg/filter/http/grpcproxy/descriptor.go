@@ -111,14 +111,22 @@ func (dr *Descriptor) getDescriptorCompose(ctx context.Context, cfg *Config) (De
 
 	cs := &compositeSource{}
 	cs.reflection, err = dr.getServerDescriptorSourceCtx(ctx, cfg)
-	cs.file = dr.getFileSource()
+	// Never store a nil *fileSource: it would leave cs.file a non-nil interface
+	// holding a nil pointer, so the fallback in compositeSource would dereference
+	// it instead of reporting that the local proto files are unavailable.
+	if fs := dr.getFileSource(); fs != nil {
+		cs.file = fs
+	}
 
 	return cs, err
 }
 
 func (dr *Descriptor) initDescriptorSource(cfg *Config) *Descriptor {
 
-	if cfg.DescriptorSourceStrategy.String() == LOCAL {
+	switch strings.ToLower(cfg.DescriptorSourceStrategy.String()) {
+	case LOCAL, AUTO:
+		// AUTO is `file + reflection`, so the local proto files have to be loaded
+		// as well, otherwise the fallback of the reflection lookup has no source.
 		dr.initFileDescriptorSource(cfg)
 	}
 
@@ -248,7 +256,11 @@ func (dr *Descriptor) getMethodDescriptor(source DescriptorSource, cc *grpc.Clie
 
 func (dr *Descriptor) getFileDescriptorCompose(ctx context.Context, cfg *Config) (DescriptorSource, error) {
 	dr.initFileDescriptorSource(cfg)
-	return dr.getFileSource(), nil
+	fs := dr.getFileSource()
+	if fs == nil {
+		return nil, errors.New("the local proto file descriptor source is not available")
+	}
+	return fs, nil
 }
 
 func (dr *Descriptor) initFileDescriptorSource(cfg *Config) *Descriptor {

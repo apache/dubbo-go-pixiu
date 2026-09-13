@@ -48,7 +48,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "1.25.0"
+          goversion: "1.25.4"
           project_path: "./cmd/pixiu"
           binary_name: "dubbo-go-pixiu"
           extra_files: LICENSE README.md
