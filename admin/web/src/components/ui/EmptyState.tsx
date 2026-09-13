@@ -1,1 +1,18 @@
-export function EmptyState({title='暂无数据',action}:{title?:string;action?:()=>void}){return <div className="empty"><b>{title}</b>{action&&<button className="primary" onClick={action}>新建</button>}</div>}
+export function EmptyState({
+  title = '暂无数据',
+  action,
+}: {
+  title?: string
+  action?: () => void
+}) {
+  return (
+    <div className="empty">
+      <b>{title}</b>
+      {action && (
+        <button className="primary" onClick={action}>
+          新建
+        </button>
+      )}
+    </div>
+  )
+}

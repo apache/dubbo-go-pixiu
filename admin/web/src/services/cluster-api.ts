@@ -1,1 +1,24 @@
-import {pixiuAdminApi} from '../api'; import {isNotFoundError,parseArrayResponse,request} from './http'; import type {JsonObject} from '../types/api'; export const clusterApi={list:async()=>{try{return parseArrayResponse<JsonObject>(await request<unknown>(pixiuAdminApi.clusters.list))}catch(e:unknown){if(isNotFoundError(e))return [];throw e}},detail:(id:string)=>request<unknown>(`${pixiuAdminApi.clusters.detail}?clusterId=${encodeURIComponent(id)}`),save:(content:string,method='POST')=>request<void>(pixiuAdminApi.clusters.create,{method,body:new URLSearchParams({content})}),remove:(id:string)=>request<void>(`${pixiuAdminApi.clusters.remove}?clusterId=${encodeURIComponent(id)}`,{method:'DELETE'})}
+import { pixiuAdminApi } from '../api'
+import { isNotFoundError, parseArrayResponse, request } from './http'
+import type { JsonObject } from '../types/api'
+export const clusterApi = {
+  list: async () => {
+    try {
+      return parseArrayResponse<JsonObject>(await request<unknown>(pixiuAdminApi.clusters.list))
+    } catch (e: unknown) {
+      if (isNotFoundError(e)) return []
+      throw e
+    }
+  },
+  detail: (id: string) =>
+    request<unknown>(`${pixiuAdminApi.clusters.detail}?clusterId=${encodeURIComponent(id)}`),
+  save: (content: string, method = 'POST') =>
+    request<void>(pixiuAdminApi.clusters.create, {
+      method,
+      body: new URLSearchParams({ content }),
+    }),
+  remove: (id: string) =>
+    request<void>(`${pixiuAdminApi.clusters.remove}?clusterId=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+}

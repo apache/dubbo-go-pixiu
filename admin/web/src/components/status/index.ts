@@ -1,1 +1,2 @@
-export * from './StatusBadge'; export * from './MockLabel';
+export * from './StatusBadge'
+export * from './MockLabel'

@@ -1,1 +1,24 @@
-import {pixiuAdminApi} from '../api'; import {isNotFoundError,parseArrayResponse,request} from './http'; import type {JsonObject} from '../types/api'; export const listenerApi={list:async()=>{try{return parseArrayResponse<JsonObject>(await request<unknown>(pixiuAdminApi.listeners.list))}catch(e:unknown){if(isNotFoundError(e))return [];throw e}},detail:(name:string)=>request<unknown>(`${pixiuAdminApi.listeners.detail}?listener=${encodeURIComponent(name)}`),save:(content:string,method='POST')=>request<void>(pixiuAdminApi.listeners.create,{method,body:new URLSearchParams({content})}),remove:(name:string)=>request<void>(`${pixiuAdminApi.listeners.remove}?listener=${encodeURIComponent(name)}`,{method:'DELETE'})}
+import { pixiuAdminApi } from '../api'
+import { isNotFoundError, parseArrayResponse, request } from './http'
+import type { JsonObject } from '../types/api'
+export const listenerApi = {
+  list: async () => {
+    try {
+      return parseArrayResponse<JsonObject>(await request<unknown>(pixiuAdminApi.listeners.list))
+    } catch (e: unknown) {
+      if (isNotFoundError(e)) return []
+      throw e
+    }
+  },
+  detail: (name: string) =>
+    request<unknown>(`${pixiuAdminApi.listeners.detail}?listener=${encodeURIComponent(name)}`),
+  save: (content: string, method = 'POST') =>
+    request<void>(pixiuAdminApi.listeners.create, {
+      method,
+      body: new URLSearchParams({ content }),
+    }),
+  remove: (name: string) =>
+    request<void>(`${pixiuAdminApi.listeners.remove}?listener=${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
+}

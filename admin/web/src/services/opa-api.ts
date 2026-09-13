@@ -1,1 +1,15 @@
-import {pixiuAdminApi} from '../api'; import {request} from './http'; export const opaApi={get:(params:string)=>request<string>(pixiuAdminApi.opa.policy+'?'+params),save:(data:{policy_id:string;content:string;server_url?:string;bearer_token?:string})=>request<void>(pixiuAdminApi.opa.policy,{method:'PUT',body:new URLSearchParams(data)}),remove:(policy_id:string)=>request<void>(pixiuAdminApi.opa.policy+'?policy_id='+encodeURIComponent(policy_id),{method:'DELETE'})}
+import { pixiuAdminApi } from '../api'
+import { request } from './http'
+export const opaApi = {
+  get: (params: string) => request<string>(pixiuAdminApi.opa.policy + '?' + params),
+  save: (data: {
+    policy_id: string
+    content: string
+    server_url?: string
+    bearer_token?: string
+  }) => request<void>(pixiuAdminApi.opa.policy, { method: 'PUT', body: new URLSearchParams(data) }),
+  remove: (policy_id: string) =>
+    request<void>(pixiuAdminApi.opa.policy + '?policy_id=' + encodeURIComponent(policy_id), {
+      method: 'DELETE',
+    }),
+}

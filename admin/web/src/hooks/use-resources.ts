@@ -1,1 +1,5 @@
-import {useQuery} from '@tanstack/react-query'; import {resourceApi} from '../services/resource-api'; export function useResources(){return useQuery({queryKey:['resources'],queryFn:resourceApi.list})}
+import { useQuery } from '@tanstack/react-query'
+import { resourceApi } from '../services/resource-api'
+export function useResources() {
+  return useQuery({ queryKey: ['resources'], queryFn: resourceApi.list })
+}

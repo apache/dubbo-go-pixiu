@@ -1,3 +1,32 @@
-export const enUS={published:'Published',draft:'Draft',paused:'Paused',enabled:'Enabled',disabled:'Disabled',healthy:'Healthy',error:'Error',retry:'Retry',cancel:'Cancel',save:'Save',delete:'Delete',edit:'Edit',create:'Create',mock:'MOCK',connected:'CONNECTED'} as const
+export const enUS = {
+  published: 'Published',
+  draft: 'Draft',
+  paused: 'Paused',
+  enabled: 'Enabled',
+  disabled: 'Disabled',
+  healthy: 'Healthy',
+  error: 'Error',
+  retry: 'Retry',
+  cancel: 'Cancel',
+  save: 'Save',
+  delete: 'Delete',
+  edit: 'Edit',
+  create: 'Create',
+  mock: 'MOCK',
+  connected: 'CONNECTED',
+} as const
 
-export const moduleMessages = {"capability": "API capability", "pending": "Pending backend integration", "description": "This page is still a placeholder. List and edit operations are not connected yet.", "contract": "API paths", "paths": "Backend API reference", "source": "API paths for integration", "createCluster": "Create cluster", "createListener": "Create listener", "createPlugin": "Create plugin group", "createLimit": "Configure rate limit", "createOpa": "Create OPA policy", "reference": "API reference: "} as const;
+export const moduleMessages = {
+  capability: 'API capability',
+  pending: 'Pending backend integration',
+  description: 'This page is still a placeholder. List and edit operations are not connected yet.',
+  contract: 'API paths',
+  paths: 'Backend API reference',
+  source: 'API paths for integration',
+  createCluster: 'Create cluster',
+  createListener: 'Create listener',
+  createPlugin: 'Create plugin group',
+  createLimit: 'Configure rate limit',
+  createOpa: 'Create OPA policy',
+  reference: 'API reference: ',
+} as const

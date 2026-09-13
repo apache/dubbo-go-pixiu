@@ -1,1 +1,3 @@
-export function MockLabel(){return <span className="mock-label">MOCK</span>}
+export function MockLabel() {
+  return <span className="mock-label">MOCK</span>
+}
