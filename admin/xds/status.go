@@ -34,6 +34,9 @@ type SnapshotStatus struct {
 	LastAttemptAt   time.Time `json:"last_attempt_at"`
 	LastError       string    `json:"last_error"`
 	LastErrorAt     time.Time `json:"last_error_at"`
+	Listening       bool      `json:"listening"`
+	ListenError     string    `json:"listen_error"`
+	ListenErrorAt   time.Time `json:"listen_error_at"`
 }
 
 // StatusStore provides a race-safe snapshot of xDS publication state for the
@@ -85,6 +88,29 @@ func (s *StatusStore) RecordError(err error) {
 	s.status.LastAttemptAt = now
 	s.status.LastError = err.Error()
 	s.status.LastErrorAt = now
+}
+
+// RecordListening reports that the xDS socket has been bound successfully.
+func (s *StatusStore) RecordListening() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.status.Listening = true
+	s.status.ListenError = ""
+	s.status.ListenErrorAt = time.Time{}
+}
+
+// RecordListenError reports that the xDS server is not accepting connections.
+// Snapshot metadata remains intact so diagnostics can still describe the
+// last-good candidate separately from service availability.
+func (s *StatusStore) RecordListenError(err error) {
+	if err == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.status.Listening = false
+	s.status.ListenError = err.Error()
+	s.status.ListenErrorAt = time.Now().UTC()
 }
 
 // Snapshot returns a value copy that callers may read without holding the

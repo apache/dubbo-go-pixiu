@@ -37,6 +37,8 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+const listenerReadyTimeout = 5 * time.Second
+
 func init() {
 	listener.SetListenerServiceFactory(model.ProtocolTypeTCP, newTcpListenerService)
 }
@@ -44,7 +46,7 @@ func init() {
 type (
 	// ListenerService the facade of a listener
 	TcpListenerService struct {
-		listener.BaseListenerService
+		*listener.BaseListenerService
 		server          getty.Server
 		gShutdownConfig *listener.ListenerGracefulShutdownConfig
 	}
@@ -55,26 +57,59 @@ func newTcpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.Li
 	// todo taskPoolMode
 	server := getty.NewTCPServer(serverOpts...)
 
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
+	fc, err := filterchain.BuildNetworkFilterChain(lc.FilterChain)
+	if err != nil {
+		return nil, err
+	}
 	return &TcpListenerService{
-		BaseListenerService: listener.BaseListenerService{
-			Config:      lc,
-			FilterChain: fc,
-		},
-		server:          server,
-		gShutdownConfig: &listener.ListenerGracefulShutdownConfig{},
+		BaseListenerService: listener.NewBaseListenerService(lc, fc),
+		server:              server,
+		gShutdownConfig:     &listener.ListenerGracefulShutdownConfig{},
 	}, nil
 }
 
 // Start start tcp server
 func (ls *TcpListenerService) Start() error {
-	go ls.server.RunEventLoop(ls.newSession)
-	return nil
+	startErr := make(chan error, 1)
+	ready := make(chan struct{})
+	var readyOnce sync.Once
+	go func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				startErr <- fmt.Errorf("start TCP listener: %v", recovered)
+			}
+		}()
+		ls.server.RunEventLoop(func(session getty.Session) error {
+			readyOnce.Do(func() { close(ready) })
+			return ls.newSession(session)
+		})
+	}()
+
+	address := ls.Config.Address.SocketAddress.GetAddress()
+	deadline := time.NewTimer(listenerReadyTimeout)
+	defer deadline.Stop()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case err := <-startErr:
+			return err
+		case <-ready:
+			return nil
+		case <-ticker.C:
+			conn, err := net.DialTimeout("tcp", address, 50*time.Millisecond)
+			if err == nil {
+				_ = conn.Close()
+			}
+		case <-deadline.C:
+			return fmt.Errorf("TCP listener %s did not become ready within %s", address, listenerReadyTimeout)
+		}
+	}
 }
 
 func (ls *TcpListenerService) Close() error {
 	ls.server.Close()
-	return nil
+	return ls.CloseFilterChain()
 }
 
 func (ls *TcpListenerService) ShutDown(wg any) error {
@@ -83,22 +118,15 @@ func (ls *TcpListenerService) ShutDown(wg any) error {
 		return nil
 	}
 	// stop accept request
-	ls.gShutdownConfig.RejectRequest = true
+	ls.gShutdownConfig.SetRejectRequests(true)
 	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) && ls.gShutdownConfig.ActiveCount > 0 {
+	for time.Now().Before(deadline) && ls.gShutdownConfig.GetActiveCount() > 0 {
 		// sleep 100 ms and check it again
 		time.Sleep(100 * time.Millisecond)
-		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.ActiveCount)
+		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.GetActiveCount())
 	}
 	wg.(*sync.WaitGroup).Done()
 	ls.server.Close()
-	return nil
-}
-
-func (ls *TcpListenerService) Refresh(c model.Listener) error {
-	// There is no need to lock here for now, as there is at most one NetworkFilter
-	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
-	ls.FilterChain = fc
 	return nil
 }
 

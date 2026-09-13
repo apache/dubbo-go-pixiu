@@ -21,6 +21,7 @@ import (
 	"context"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -47,10 +48,11 @@ func init() {
 type (
 	// ListenerService the facade of a listener
 	TripleListenerService struct {
-		listener.BaseListenerService
+		*listener.BaseListenerService
 		server          *triple.TripleServer
 		serviceMap      *sync.Map
 		gShutdownConfig *listener.ListenerGracefulShutdownConfig
+		started         atomic.Bool
 	}
 	// ProxyService grpc proxy service definition
 	ProxyService struct {
@@ -61,13 +63,13 @@ type (
 
 func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
+	fc, err := filterchain.BuildNetworkFilterChain(lc.FilterChain)
+	if err != nil {
+		return nil, err
+	}
 	ls := &TripleListenerService{
-		BaseListenerService: listener.BaseListenerService{
-			Config:      lc,
-			FilterChain: fc,
-		},
-		gShutdownConfig: &listener.ListenerGracefulShutdownConfig{},
+		BaseListenerService: listener.NewBaseListenerService(lc, fc),
+		gShutdownConfig:     &listener.ListenerGracefulShutdownConfig{},
 	}
 
 	opts := []triConfig.OptionFunction{
@@ -89,14 +91,22 @@ func newTripleListenerService(lc *model.Listener, bs *model.Bootstrap) (listener
 }
 
 // Start start triple server
-func (ls *TripleListenerService) Start() error {
+func (ls *TripleListenerService) Start() (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("start Triple listener: %v", recovered)
+		}
+	}()
 	ls.server.Start()
+	ls.started.Store(true)
 	return nil
 }
 
 func (ls *TripleListenerService) Close() error {
-	ls.server.Stop()
-	return nil
+	if ls.started.Swap(false) {
+		ls.server.Stop()
+	}
+	return ls.CloseFilterChain()
 }
 
 func (ls *TripleListenerService) ShutDown(wg any) error {
@@ -105,22 +115,15 @@ func (ls *TripleListenerService) ShutDown(wg any) error {
 		return nil
 	}
 	// stop accept request
-	ls.gShutdownConfig.RejectRequest = true
+	ls.gShutdownConfig.SetRejectRequests(true)
 	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) && ls.gShutdownConfig.ActiveCount > 0 {
+	for time.Now().Before(deadline) && ls.gShutdownConfig.GetActiveCount() > 0 {
 		// sleep 100 ms and check it again
 		time.Sleep(100 * time.Millisecond)
-		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.ActiveCount)
+		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.GetActiveCount())
 	}
 	wg.(*sync.WaitGroup).Done()
 	ls.server.Stop()
-	return nil
-}
-
-func (ls *TripleListenerService) Refresh(c model.Listener) error {
-	// There is no need to lock here for now, as there is at most one NetworkFilter
-	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
-	ls.FilterChain = fc
 	return nil
 }
 
@@ -142,8 +145,14 @@ func (d *ProxyService) GetReqParamsInterfaces(methodName string) ([]any, bool) {
 func (d *ProxyService) InvokeWithArgs(ctx context.Context, methodName string, arguments []any) (any, error) {
 	d.ls.gShutdownConfig.AddActiveCount(1)
 	defer d.ls.gShutdownConfig.AddActiveCount(-1)
-	if d.ls.gShutdownConfig.RejectRequest {
+	if d.ls.gShutdownConfig.RejectRequests() {
 		return nil, errors.Errorf("Pixiu is preparing to close, reject all new requests")
 	}
-	return d.ls.FilterChain.OnTripleData(ctx, methodName, arguments)
+	var result any
+	err := d.ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		var invokeErr error
+		result, invokeErr = fc.OnTripleData(ctx, methodName, arguments)
+		return invokeErr
+	})
+	return result, err
 }

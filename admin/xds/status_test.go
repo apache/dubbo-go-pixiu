@@ -25,6 +25,7 @@ import (
 
 func TestStatusStoreRecordsLastGoodSnapshot(t *testing.T) {
 	store := NewStatusStore("node-a")
+	store.RecordListening()
 	store.RecordSuccess("7", 2, 3)
 
 	got := store.Snapshot()
@@ -39,6 +40,9 @@ func TestStatusStoreRecordsLastGoodSnapshot(t *testing.T) {
 	}
 	if got.LastError != "" {
 		t.Fatalf("successful publication retained an error: %q", got.LastError)
+	}
+	if !got.Listening || got.ListenError != "" {
+		t.Fatalf("listening state was not recorded: %+v", got)
 	}
 }
 
@@ -71,6 +75,29 @@ func TestStatusStoreErrorPreservesLastGoodSnapshot(t *testing.T) {
 	}
 }
 
+func TestStatusStoreListenErrorPreservesLastGoodSnapshot(t *testing.T) {
+	store := NewStatusStore("node-a")
+	store.RecordListening()
+	store.RecordSuccess("7", 2, 3)
+	want := store.Snapshot()
+
+	store.RecordListenError(errors.New("address already in use"))
+	got := store.Snapshot()
+	if got.Listening || got.ListenError != "address already in use" || got.ListenErrorAt.IsZero() {
+		t.Fatalf("listen error was not recorded: %+v", got)
+	}
+	if got.SnapshotVersion != want.SnapshotVersion || got.ListenerCount != want.ListenerCount ||
+		got.ClusterCount != want.ClusterCount || !got.LastUpdatedAt.Equal(want.LastUpdatedAt) {
+		t.Fatalf("listen error replaced last-good snapshot: want %+v, got %+v", want, got)
+	}
+
+	store.RecordListening()
+	got = store.Snapshot()
+	if !got.Listening || got.ListenError != "" || !got.ListenErrorAt.IsZero() {
+		t.Fatalf("successful bind did not clear listen error: %+v", got)
+	}
+}
+
 func TestStatusStoreConcurrentAccess(t *testing.T) {
 	store := NewStatusStore("node-a")
 	var wg sync.WaitGroup
@@ -94,8 +121,10 @@ func TestStatusStoreConcurrentAccess(t *testing.T) {
 
 func TestStatusStoreReset(t *testing.T) {
 	store := NewStatusStore("node-a")
+	store.RecordListening()
 	store.RecordSuccess("7", 2, 3)
 	store.RecordError(errors.New("old error"))
+	store.RecordListenError(errors.New("old listen error"))
 
 	store.Reset("node-b")
 	if got := store.Snapshot(); got != (SnapshotStatus{NodeID: "node-b"}) {

@@ -38,6 +38,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -185,7 +186,7 @@ func (h *ServerHandler) OnMessage(session getty.Session, pkg any) {
 		}
 	}()
 
-	if h.ls.gShutdownConfig.RejectRequest {
+	if h.ls.gShutdownConfig.RejectRequests() {
 		err := perrors.Errorf("Pixiu is preparing to close, reject all new requests")
 		resp.Result = protocol.RPCResult{
 			Err: err,
@@ -202,7 +203,12 @@ func (h *ServerHandler) OnMessage(session getty.Session, pkg any) {
 	attachments["local-addr"] = session.LocalAddr()
 	attachments["remote-addr"] = session.RemoteAddr()
 
-	result, err := h.ls.FilterChain.OnData(invoc)
+	var result any
+	err := h.ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		var invokeErr error
+		result, invokeErr = fc.OnData(invoc)
+		return invokeErr
+	})
 	if err != nil {
 		resp.Error = fmt.Errorf("OnData panic unknow exception. %+v", err)
 		if !req.TwoWay {

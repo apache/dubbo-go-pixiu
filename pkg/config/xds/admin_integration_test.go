@@ -52,20 +52,23 @@ func (l *integrationResourceLoader) LoadClusters() ([]config.Cluster, error) {
 	return l.clusters, nil
 }
 
-func TestAdminSnapshotCreateUpdateDeleteAppliedByPixiuManagers(t *testing.T) {
+// TestAdminSnapshotComponentIntegration keeps conversion failures cheap to
+// diagnose. The deployment-level path lives in
+// TestAdminHTTPToRunningPixiuEndToEnd and must not be represented by this test.
+func TestAdminSnapshotComponentIntegration(t *testing.T) {
 	loader := &integrationResourceLoader{}
 	clusterState := make(map[string]*model.ClusterConfig)
 	clusterController := gomock.NewController(t)
 	clusterManager := mocks.NewMockClusterManager(clusterController)
-	clusterManager.EXPECT().ReplaceXDSClusters(gomock.Any()).AnyTimes().DoAndReturn(func(clusters []*model.ClusterConfig) error {
+	replacingClusterManager := &replaceXDSClusterManager{ClusterManager: clusterManager, replace: func(clusters []*model.ClusterConfig) error {
 		clear(clusterState)
 		for _, cluster := range clusters {
 			clusterState[cluster.Name] = cluster
 		}
 		return nil
-	})
+	}}
 	listenerManager := &mockListenerManager{m: make(map[string]*model.Listener)}
-	cdsManager := &CdsManager{clusterMg: clusterManager}
+	cdsManager := &CdsManager{clusterMg: replacingClusterManager}
 	ldsManager := &LdsManager{listenerMg: listenerManager}
 
 	listener := config.Listener{Name: "gateway"}

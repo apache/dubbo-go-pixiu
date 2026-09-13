@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	"google.golang.org/protobuf/types/known/anypb"
@@ -53,30 +54,46 @@ import (
 
 func TestAggGrpcApiClient_GetClusterResourceReference(t *testing.T) {
 	client := &AggGrpcApiClient{dubboServiceFilter: map[string]struct{}{}}
-	references := make(map[resource.Type]map[string]refEndpoint)
+	references := make(map[string]refEndpoint)
 	first := testEnvoyEDSCluster(t, "outbound|20880||orders.default.svc.cluster.local", "orders-eds", clusterpb.Cluster_ROUND_ROBIN)
 	second := testEnvoyEDSCluster(t, "outbound|20881||orders.default.svc.cluster.local", "orders-eds", clusterpb.Cluster_RANDOM)
 
 	client.getClusterResourceReference(first, references)
 	client.getClusterResourceReference(second, references)
 
-	ref := references[resource.ClusterType]["orders-eds"]
-	require.True(t, ref.IsPending)
+	ref := references["orders-eds"]
 	require.Equal(t, []*clusterpb.Cluster{first, second}, ref.Clusters)
 	require.Equal(t, "orders", client.readServiceNameOfCluster(first))
 	require.Empty(t, client.readServiceNameOfCluster(&clusterpb.Cluster{}))
 
 	filtered := &AggGrpcApiClient{dubboServiceFilter: map[string]struct{}{"payments": {}}}
-	filteredReferences := make(map[resource.Type]map[string]refEndpoint)
+	filteredReferences := make(map[string]refEndpoint)
 	filtered.getClusterResourceReference(first, filteredReferences)
 	require.Empty(t, filteredReferences)
+}
+
+func TestAggGrpcApiClient_SkipsUnsupportedCDSClusters(t *testing.T) {
+	client := &AggGrpcApiClient{dubboServiceFilter: map[string]struct{}{}}
+	staticResource, err := anypb.New(&clusterpb.Cluster{
+		Name:                 "local-management",
+		ClusterDiscoveryType: &clusterpb.Cluster_Type{Type: clusterpb.Cluster_STATIC},
+		LbPolicy:             clusterpb.Cluster_ROUND_ROBIN,
+	})
+	require.NoError(t, err)
+	edsResource, err := anypb.New(testEnvoyEDSCluster(t, "orders", "orders-eds", clusterpb.Cluster_ROUND_ROBIN))
+	require.NoError(t, err)
+
+	references, err := client.decodeCDSReferences([]*anypb.Any{staticResource, edsResource})
+	require.NoError(t, err)
+	require.NotContains(t, references, "local-management")
+	require.Contains(t, references, "orders-eds")
 }
 
 func TestConvertClusterLoadAssignments(t *testing.T) {
 	first := testEnvoyEDSCluster(t, "cluster-a", "orders-eds", clusterpb.Cluster_ROUND_ROBIN)
 	second := testEnvoyEDSCluster(t, "cluster-b", "orders-eds", clusterpb.Cluster_RING_HASH)
 	references := map[string]refEndpoint{
-		"orders-eds": {IsPending: true, Clusters: []*clusterpb.Cluster{first, second}},
+		"orders-eds": {Clusters: []*clusterpb.Cluster{first, second}},
 	}
 	endpointMeta, err := structpb.NewStruct(map[string]any{"canary": true})
 	require.NoError(t, err)
@@ -142,6 +159,11 @@ func TestConvertClusterLoadAssignmentsRejectsUnsupportedData(t *testing.T) {
 	assignment.Endpoints[0].LbEndpoints[0] = testEnvoyEndpoint("10.0.0.1", 20880, corepb.HealthStatus_HEALTHY, 1, nil)
 	_, err = convertClusterLoadAssignments([]*endpointpb.ClusterLoadAssignment{assignment}, references)
 	require.ErrorContains(t, err, "LEAST_REQUEST")
+
+	references["orders-eds"].Clusters[0] = testEnvoyEDSCluster(t, "cluster-a", "orders-eds", clusterpb.Cluster_ROUND_ROBIN)
+	assignment.Endpoints[0].LbEndpoints[0] = testEnvoyEndpoint("10.0.0.1", 65536, corepb.HealthStatus_HEALTHY, 1, nil)
+	_, err = convertClusterLoadAssignments([]*endpointpb.ClusterLoadAssignment{assignment}, references)
+	require.ErrorContains(t, err, "invalid socket address")
 }
 
 func TestAggGrpcApiClient_ConsumeADSStream(t *testing.T) {
@@ -210,6 +232,42 @@ func TestAggGrpcApiClient_MakeADSNACK(t *testing.T) {
 	require.Equal(t, "rejected-nonce", req.ResponseNonce)
 	require.Equal(t, []string{"orders-eds"}, req.ResourceNames)
 	require.Equal(t, int32(codes.InvalidArgument), req.ErrorDetail.Code)
+}
+
+func TestAggGrpcApiClient_NACKsInvalidCDSBeforeRecordingVersion(t *testing.T) {
+	invalid := testEnvoyEDSCluster(t, "cluster-a", "orders-eds", clusterpb.Cluster_LEAST_REQUEST)
+	resourceAny, err := anypb.New(invalid)
+	require.NoError(t, err)
+	stream := &recordingADSStream{
+		ctx: context.Background(),
+		responses: []*discoverypb.DiscoveryResponse{{
+			TypeUrl:     resource.ClusterType,
+			VersionInfo: "invalid-cds-v2",
+			Nonce:       "invalid-cds-nonce",
+			Resources:   []*anypb.Any{resourceAny},
+		}},
+	}
+	client := &AggGrpcApiClient{dubboServiceFilter: map[string]struct{}{}}
+	states := map[string]*adsResourceState{
+		resource.ClusterType:  {versionInfo: "last-good-cds-v1"},
+		resource.EndpointType: {},
+	}
+	output := make(chan *DeltaResources, 1)
+
+	err = client.consumeADSStream(context.Background(), stream, states, make(map[string]refEndpoint), output)
+	require.ErrorIs(t, err, io.EOF)
+	require.Len(t, stream.sent, 1)
+	require.Equal(t, resource.ClusterType, stream.sent[0].TypeUrl)
+	require.Equal(t, "last-good-cds-v1", stream.sent[0].VersionInfo)
+	require.Equal(t, "invalid-cds-nonce", stream.sent[0].ResponseNonce)
+	require.Equal(t, int32(codes.InvalidArgument), stream.sent[0].ErrorDetail.Code)
+	require.ErrorContains(t, grpcstatus.ErrorProto(stream.sent[0].ErrorDetail), "LEAST_REQUEST")
+	require.Equal(t, "last-good-cds-v1", states[resource.ClusterType].versionInfo)
+	select {
+	case <-output:
+		t.Fatal("invalid CDS must not be published to the cluster manager")
+	default:
+	}
 }
 
 type reconnectADSServer struct {

@@ -141,8 +141,7 @@ func (g *AggGrpcApiClient) Delta() (chan *DeltaResources, error) {
 }
 
 type refEndpoint struct {
-	IsPending bool
-	Clusters  []*clusterpb.Cluster
+	Clusters []*clusterpb.Cluster
 }
 
 func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
@@ -271,7 +270,8 @@ func (g *AggGrpcApiClient) consumeADSStream(ctx context.Context, stream discover
 }
 
 func (g *AggGrpcApiClient) decodeCDSReferences(resources []*anypb.Any) (map[string]refEndpoint, error) {
-	nested := map[resource.Type]map[string]refEndpoint{resource.ClusterType: {}}
+	references := make(map[string]refEndpoint)
+	clusterNames := make(map[string]struct{}, len(resources))
 	for index, raw := range resources {
 		cluster := &clusterpb.Cluster{}
 		if raw == nil {
@@ -280,9 +280,38 @@ func (g *AggGrpcApiClient) decodeCDSReferences(resources []*anypb.Any) (map[stri
 		if err := raw.UnmarshalTo(cluster); err != nil {
 			return nil, errors.Wrapf(err, "can not decode CDS resource %d", index)
 		}
-		g.getClusterResourceReference(cluster, nested)
+		if !g.selectsEnvoyCluster(cluster) {
+			continue
+		}
+		supported, err := validateEnvoyCDSCluster(cluster)
+		if err != nil {
+			return nil, errors.Wrapf(err, "validate CDS resource %d", index)
+		}
+		if !supported {
+			logger.Infof("skip unsupported CDS cluster %q with discovery type %s", cluster.GetName(), cluster.GetType().String())
+			continue
+		}
+		if _, duplicate := clusterNames[cluster.GetName()]; duplicate {
+			return nil, errors.Errorf("duplicate CDS cluster %q", cluster.GetName())
+		}
+		clusterNames[cluster.GetName()] = struct{}{}
+		g.getClusterResourceReference(cluster, references)
 	}
-	return nested[resource.ClusterType], nil
+	return references, nil
+}
+
+func validateEnvoyCDSCluster(cluster *clusterpb.Cluster) (bool, error) {
+	if cluster == nil || cluster.GetName() == "" {
+		return false, errors.New("CDS cluster must have a name")
+	}
+	typeConfig, ok := cluster.ClusterDiscoveryType.(*clusterpb.Cluster_Type)
+	if !ok || typeConfig.Type != clusterpb.Cluster_EDS {
+		return false, nil
+	}
+	if _, err := convertLoadBalancingPolicy(cluster.GetLbPolicy()); err != nil {
+		return false, errors.Wrapf(err, "cluster %q", cluster.GetName())
+	}
+	return true, nil
 }
 
 func decodeAndConvertEDS(resources []*anypb.Any, references map[string]refEndpoint) (*xdsmodel.PixiuExtensionClusters, error) {
@@ -405,15 +434,12 @@ func (g *AggGrpcApiClient) makeNode() *envoyconfigcorev3.Node {
 }
 
 // getClusterResourceReference get resources of cluster
-func (g *AggGrpcApiClient) getClusterResourceReference(c *clusterpb.Cluster, edsResources map[resource.Type]map[string]refEndpoint) {
+func (g *AggGrpcApiClient) getClusterResourceReference(c *clusterpb.Cluster, references map[string]refEndpoint) {
 	if c == nil {
 		return
 	}
 	logger.Infof("cluster name ==>%s", c.Name)
-	serviceName := g.readServiceNameOfCluster(c)
-	_, serviceSelected := g.dubboServiceFilter[serviceName]
-	_, clusterSelected := g.dubboServiceFilter[c.Name]
-	if len(g.dubboServiceFilter) > 0 && !serviceSelected && !clusterSelected {
+	if !g.selectsEnvoyCluster(c) {
 		logger.Infof("cluster name ==>%v", c)
 		return
 	}
@@ -426,18 +452,23 @@ func (g *AggGrpcApiClient) getClusterResourceReference(c *clusterpb.Cluster, eds
 				name = c.EdsClusterConfig.ServiceName
 			}
 
-			if _, ok := edsResources[resource.ClusterType]; !ok {
-				edsResources[resource.ClusterType] = make(map[string]refEndpoint)
-			}
-
-			ref := edsResources[resource.ClusterType][name]
-			ref.IsPending = true
+			ref := references[name]
 			ref.Clusters = append(ref.Clusters, c)
-			edsResources[resource.ClusterType][name] = ref
+			references[name] = ref
 		} else {
 			logger.Infof("cluster type %s not supported", typ.Type.String())
 		}
 	}
+}
+
+func (g *AggGrpcApiClient) selectsEnvoyCluster(c *clusterpb.Cluster) bool {
+	if c == nil || len(g.dubboServiceFilter) == 0 {
+		return c != nil
+	}
+	serviceName := g.readServiceNameOfCluster(c)
+	_, serviceSelected := g.dubboServiceFilter[serviceName]
+	_, clusterSelected := g.dubboServiceFilter[c.GetName()]
+	return serviceSelected || clusterSelected
 }
 
 const (
@@ -497,8 +528,8 @@ func convertLoadBalancingEndpoints(assignment *endpointpb.ClusterLoadAssignment)
 				return nil, errors.New("only socket-address EDS endpoints are supported")
 			}
 			address := endpoint.Address.GetSocketAddress()
-			if address.Address == "" || address.GetPortValue() == 0 {
-				return nil, errors.New("EDS endpoint socket address and port must be set")
+			if address.Address == "" || address.GetPortValue() == 0 || address.GetPortValue() > 65535 {
+				return nil, errors.Errorf("EDS endpoint has invalid socket address %q:%d", address.Address, address.GetPortValue())
 			}
 
 			metadata := endpointMetadata(lbEndpoint, localityEndpoints.Locality)

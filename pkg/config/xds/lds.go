@@ -42,6 +42,10 @@ type LdsManager struct {
 	listenerMg controls.ListenerManager
 }
 
+type xdsListenerReplacer interface {
+	ReplaceXDSListeners(listeners []*model.Listener) error
+}
+
 // Fetch overwrite DiscoverApi.Fetch.
 func (l *LdsManager) Fetch() error {
 	r, err := l.DiscoverApi.Fetch("") //todo use local version
@@ -128,66 +132,117 @@ func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) error {
 		if v.FilterChain == nil {
 			return errors.Errorf("xDS listener %q has no filter chain", v.Name)
 		}
-		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), v.Protocol.String())
+		protocol, err := validateListenerProtocol(v.Protocol)
+		if err != nil {
+			return err
+		}
+		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), protocol)
 	}
 
 	converted := make([]*model.Listener, 0, len(listeners))
 	for _, listener := range listeners {
-		modelListener := l.makeListener(listener)
+		modelListener, err := l.makeListener(listener)
+		if err != nil {
+			return err
+		}
 		converted = append(converted, &modelListener)
 	}
-	return errors.Wrap(l.listenerMg.ReplaceXDSListeners(converted), "can not replace xDS listeners")
+	replacer, ok := l.listenerMg.(xdsListenerReplacer)
+	if !ok {
+		return errors.New("listener manager does not support transactional xDS replacement")
+	}
+	return errors.Wrap(replacer.ReplaceXDSListeners(converted), "can not replace xDS listeners")
 }
 
 func resolveListenerName(host string, port int, protocol string) string {
 	return host + "-" + strconv.Itoa(port) + "-" + protocol
 }
 
-func (l *LdsManager) makeListener(listener *xdsmodel.Listener) model.Listener {
+func (l *LdsManager) makeListener(listener *xdsmodel.Listener) (model.Listener, error) {
+	protocol, err := validateListenerProtocol(listener.Protocol)
+	if err != nil {
+		return model.Listener{}, err
+	}
+	filterChain, err := l.makeFilterChain(listener.FilterChain)
+	if err != nil {
+		return model.Listener{}, errors.Wrapf(err, "listener %q", listener.Name)
+	}
 	return model.Listener{
 		Name:        listener.Name,
-		ProtocolStr: listener.Protocol.String(),
-		Protocol:    model.ProtocolType(model.ProtocolTypeValue[listener.Protocol.String()]),
+		ProtocolStr: protocol,
+		Protocol:    model.ProtocolType(model.ProtocolTypeValue[protocol]),
 		Address:     l.makeAddress(listener.Address),
-		FilterChain: l.makeFilterChain(listener.FilterChain),
+		FilterChain: filterChain,
 		Config:      nil, // todo set the additional config
-	}
+	}, nil
 }
 
-func (l *LdsManager) makeFilterChain(fChain *xdsmodel.FilterChain) model.FilterChain {
-	return model.FilterChain{
-		Filters: l.makeFilters(fChain.Filters),
+func validateListenerProtocol(protocol xdsmodel.Listener_Protocols) (string, error) {
+	name, declared := xdsmodel.Listener_Protocols_name[int32(protocol)]
+	if !declared {
+		return "", errors.Errorf("unsupported xDS listener protocol value %d", protocol)
 	}
+	if _, supported := model.ProtocolTypeValue[name]; !supported {
+		return "", errors.Errorf("unsupported xDS listener protocol %q", name)
+	}
+	return name, nil
 }
 
-func (l *LdsManager) makeFilters(filters []*xdsmodel.NetworkFilter) []model.NetworkFilter {
+func (l *LdsManager) makeFilterChain(fChain *xdsmodel.FilterChain) (model.FilterChain, error) {
+	if fChain == nil || len(fChain.Filters) == 0 {
+		return model.FilterChain{}, errors.New("filter chain must contain at least one network filter")
+	}
+	filters, err := l.makeFilters(fChain.Filters)
+	if err != nil {
+		return model.FilterChain{}, err
+	}
+	return model.FilterChain{Filters: filters}, nil
+}
+
+func (l *LdsManager) makeFilters(filters []*xdsmodel.NetworkFilter) ([]model.NetworkFilter, error) {
 	result := make([]model.NetworkFilter, 0, len(filters))
-	for _, filter := range filters {
+	for index, filter := range filters {
+		if filter == nil || filter.Name == "" {
+			return nil, errors.Errorf("network filter %d has an empty name", index)
+		}
+		config, err := l.makeConfig(filter)
+		if err != nil {
+			return nil, errors.Wrapf(err, "network filter %q", filter.Name)
+		}
 		result = append(result, model.NetworkFilter{
-			Name: filter.Name,
-			//Config: filter., todo define the config of filter
-			Config: l.makeConfig(filter),
+			Name:   filter.Name,
+			Config: config,
 		})
 	}
-	return result
+	return result, nil
 }
 
-func (l *LdsManager) makeConfig(filter *xdsmodel.NetworkFilter) (m map[string]any) {
+func (l *LdsManager) makeConfig(filter *xdsmodel.NetworkFilter) (map[string]any, error) {
+	var m map[string]any
 	switch cfg := filter.Config.(type) {
 	case *xdsmodel.NetworkFilter_Yaml:
+		if cfg.Yaml == nil {
+			return nil, errors.New("YAML config is nil")
+		}
 		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {
-			logger.Errorf("can not make yaml from filter.Config: %s", cfg.Yaml.Content, err)
+			return nil, errors.Wrap(err, "decode YAML config")
 		}
 	case *xdsmodel.NetworkFilter_Json:
+		if cfg.Json == nil {
+			return nil, errors.New("JSON config is nil")
+		}
 		if err := json.Unmarshal([]byte(cfg.Json.Content), &m); err != nil {
-			logger.Errorf("can not make json from filter.Config: %s", cfg.Json.Content, err)
+			return nil, errors.Wrap(err, "decode JSON config")
 		}
 	case *xdsmodel.NetworkFilter_Struct:
+		if cfg.Struct == nil {
+			return nil, errors.New("Struct config is nil")
+		}
 		m = cfg.Struct.AsMap()
 	default:
-		logger.Errorf("can not get filter config of %s", filter.Name)
+		return nil, errors.New("config is missing")
 	}
-	return
+	return m, nil
 }
 
 func (l *LdsManager) makeAddress(addr *xdsmodel.Address) model.Address {

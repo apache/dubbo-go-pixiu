@@ -100,6 +100,28 @@ func TestClusterManager_ReplaceXDSClustersIsAtomicOnConflict(t *testing.T) {
 	assert.Equal(t, []string{"old-dynamic"}, cm.XDSClusterNames())
 }
 
+func TestClusterManager_RegistryStoreDoesNotInheritXDSOwnership(t *testing.T) {
+	cm := CreateDefaultClusterManager(&model.Bootstrap{})
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		testCluster("shared", model.LoadBalancerRoundRobin, nil),
+	}))
+	require.Equal(t, []string{"shared"}, cm.XDSClusterNames())
+
+	oldStore, err := cm.CloneStore()
+	require.NoError(t, err)
+	registryStore := cm.NewStore(oldStore.Version)
+	registryStore.AddCluster(testCluster("shared", model.LoadBalancerRoundRobin, []*model.Endpoint{{
+		ID:      "spring-instance",
+		Address: model.SocketAddress{Address: "127.0.0.2", Port: 20880},
+	}}))
+	require.True(t, cm.CompareAndSetStore(registryStore))
+	require.Empty(t, cm.XDSClusterNames())
+
+	err = cm.ReplaceXDSClusters(nil)
+	require.NoError(t, err)
+	require.True(t, cm.HasCluster("shared"), "xDS deletion must not remove a registry-owned cluster")
+}
+
 func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
 	cm := testClusterManager()
 	assert.Nil(t, cm.PickEndpoint("missing-cluster", nil))

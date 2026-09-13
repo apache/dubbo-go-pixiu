@@ -454,9 +454,10 @@ cache-control: no-cache
 
 ### 6.1 Get xDS Publication Status
 
-This authenticated endpoint returns the last-good snapshot version, resource
-counts, publication timestamps, the latest rejected candidate error, and the
-explicit support status of each xDS resource path.
+This authenticated endpoint returns xDS listener availability, the last-good
+snapshot version, resource counts, publication timestamps, the latest listener
+or rejected-candidate error, and the explicit support status of each xDS
+resource path.
 
 ```http
 GET /config/api/xds/status HTTP/1.1
@@ -464,8 +465,8 @@ Host: 127.0.0.1:8080
 token: <admin-jwt>
 ```
 
-`ready` indicates that a snapshot has been published. `degraded` indicates
-that a newer candidate failed while the last-good snapshot remains available.
+`ready` requires both a bound xDS listener and a published snapshot. `degraded`
+indicates that listener startup or a newer snapshot candidate failed.
 
 **Response**:
 
@@ -478,6 +479,7 @@ that a newer candidate failed while the last-good snapshot remains available.
     "listener_count": 1,
     "cluster_count": 2,
     "listen_port": 18000,
+    "listening": true,
     "ready": true,
     "degraded": false,
     "resource_support": {

@@ -349,6 +349,9 @@ func BizGetClusters() ([]config.Cluster, error) {
 	)
 	kList, vList, err = adminconfig.Client.GetChildrenKVList(getRootPath(Clusters))
 	if err != nil {
+		if errors.Is(err, gxetcd.ErrKVPairNotFound) {
+			return []config.Cluster{}, nil
+		}
 		logger.Debugf("get clusters error from etcd, %+v, %+v, %s", kList, vList, err)
 		return nil, perrors.WithMessage(err, "get clusters error")
 	}
@@ -440,6 +443,9 @@ func BizGetCluster(id string) (string, error) {
 func BizGetListeners() ([]config.Listener, error) {
 	kList, vList, err := adminconfig.Client.GetChildrenKVList(getRootPath(Listeners))
 	if err != nil {
+		if errors.Is(err, gxetcd.ErrKVPairNotFound) {
+			return []config.Listener{}, nil
+		}
 		logger.Debugf("get listeners error from etcd, %+v, %+v, %s", kList, vList, err)
 		return nil, perrors.WithMessage(err, "get listeners error")
 	}

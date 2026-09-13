@@ -30,9 +30,9 @@ import (
 	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
 )
 
-// StatusResponse is the operational state of the Admin xDS publisher. Ready
-// means at least one snapshot was published. Degraded means a newer candidate
-// failed while the last-good snapshot remains available to clients.
+// StatusResponse is the operational state of the Admin xDS service. Ready
+// means the server is listening and at least one snapshot was published.
+// Degraded means snapshot publication or the xDS listener has failed.
 type StatusResponse struct {
 	adminxds.SnapshotStatus
 	ListenPort      uint              `json:"listen_port"`
@@ -58,6 +58,7 @@ func resourceSupportStatus() map[string]string {
 // GetStatus returns the last-good xDS snapshot and latest publication error.
 // @Tags XDS
 // @Summary get Admin xDS publication status
+// @Description Returns xDS listener availability, last-good snapshot metadata, latest errors, readiness, and resource support matrix.
 // @Produce application/json
 // @Success 200 {object} adminconfig.RetData
 // @Router /config/api/xds/status [get]
@@ -66,8 +67,8 @@ func GetStatus(c *gin.Context) {
 	response := StatusResponse{
 		SnapshotStatus:  status,
 		ListenPort:      adminconfig.Bootstrap.GetXDSConfig().ListenPort,
-		Ready:           status.SnapshotVersion != "",
-		Degraded:        status.LastError != "",
+		Ready:           status.Listening && status.SnapshotVersion != "",
+		Degraded:        status.LastError != "" || status.ListenError != "",
 		ResourceSupport: resourceSupportStatus(),
 	}
 	c.JSON(http.StatusOK, adminconfig.WithRet(response))

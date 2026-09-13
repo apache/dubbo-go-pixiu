@@ -92,6 +92,7 @@ func (cm *ClusterManager) AddCluster(c *model.ClusterConfig) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
+	cm.releaseXDSOwnership(c.Name)
 	cm.store.IncreaseVersion()
 	cm.store.AddCluster(c)
 }
@@ -100,6 +101,7 @@ func (cm *ClusterManager) UpdateCluster(new *model.ClusterConfig) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
+	cm.releaseXDSOwnership(new.Name)
 	cm.store.IncreaseVersion()
 	cm.store.UpdateCluster(new)
 }
@@ -255,6 +257,7 @@ func (cm *ClusterManager) SetEndpoint(clusterName string, endpoint *model.Endpoi
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
+	cm.releaseXDSOwnership(clusterName)
 	cm.store.IncreaseVersion()
 	cm.store.SetEndpoint(clusterName, endpoint)
 }
@@ -263,6 +266,7 @@ func (cm *ClusterManager) DeleteEndpoint(clusterName string, endpointID string) 
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
 
+	cm.releaseXDSOwnership(clusterName)
 	cm.store.IncreaseVersion()
 	cm.store.DeleteEndpoint(clusterName, endpointID)
 }
@@ -310,6 +314,10 @@ func (cm *ClusterManager) compareAndSetStore(store *ClusterStore) (bool, []*clus
 	}
 	store.carryOverRuntimeStateFrom(currentStore)
 	cm.store = store
+	// CompareAndSetStore is the registry reconciliation boundary. The
+	// candidate store is authored outside xDS (SpringCloud today), so names in
+	// it must not inherit ownership from a previous xDS store by coincidence.
+	cm.xdsManaged = make(map[string]struct{})
 	if store != currentStore {
 		replacedClusters = append(replacedClusters, currentStore.runtimeClustersNotIn(store)...)
 	}
@@ -422,7 +430,16 @@ func (cm *ClusterManager) pickOneEndpoint(runtimeCluster *cluster.Cluster, polic
 func (cm *ClusterManager) RemoveCluster(namesToDel []string) {
 	cm.rw.Lock()
 	defer cm.rw.Unlock()
+	for _, name := range namesToDel {
+		cm.releaseXDSOwnership(name)
+	}
 	cm.removeClustersLocked(namesToDel)
+}
+
+func (cm *ClusterManager) releaseXDSOwnership(name string) {
+	if name != "" {
+		delete(cm.xdsManaged, name)
+	}
 }
 
 // RemoveXDSClusters removes only clusters owned by xDS. Names belonging to

@@ -57,6 +57,20 @@ paths:
       summary: modify pixiu base info such as name,desc
       tags:
       - Config
+  /config/api/xds/status:
+    get:
+      description: Returns xDS listener availability, last-good snapshot metadata,
+        latest errors, readiness, and resource support matrix.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: get Admin xDS publication status
+      tags:
+      - XDS
   /config/api/cluster:
     delete:
       description: delete cluster according to cluster ID

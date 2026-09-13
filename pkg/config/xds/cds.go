@@ -18,6 +18,7 @@
 package xds
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -35,6 +36,10 @@ import (
 type CdsManager struct {
 	DiscoverApi
 	clusterMg controls.ClusterManager
+}
+
+type xdsClusterReplacer interface {
+	ReplaceXDSClusters(clusters []*model.ClusterConfig) error
 }
 
 const endpointHealthMetadataKey = "pixiu.io/unhealthy"
@@ -101,42 +106,106 @@ func (c *CdsManager) applyDelta(delta *apiclient.DeltaResources) error {
 
 func (c *CdsManager) setupCluster(clusters []*xdsmodel.Cluster) error {
 	converted := make([]*model.ClusterConfig, 0, len(clusters))
+	names := make(map[string]struct{}, len(clusters))
 	for _, cluster := range clusters {
 		if cluster == nil || cluster.Name == "" {
 			return errors.New("xDS cluster must have a name")
 		}
-		converted = append(converted, c.makeCluster(cluster))
+		if _, duplicate := names[cluster.Name]; duplicate {
+			return errors.Errorf("duplicate xDS cluster %q", cluster.Name)
+		}
+		names[cluster.Name] = struct{}{}
+		convertedCluster, err := c.makeCluster(cluster)
+		if err != nil {
+			return errors.Wrapf(err, "xDS cluster %q", cluster.Name)
+		}
+		converted = append(converted, convertedCluster)
 	}
-	return errors.Wrap(c.clusterMg.ReplaceXDSClusters(converted), "can not replace xDS clusters")
+	replacer, ok := c.clusterMg.(xdsClusterReplacer)
+	if !ok {
+		return errors.New("cluster manager does not support transactional xDS replacement")
+	}
+	return errors.Wrap(replacer.ReplaceXDSClusters(converted), "can not replace xDS clusters")
 }
 
-func (c *CdsManager) makeCluster(cluster *xdsmodel.Cluster) *model.ClusterConfig {
+func (c *CdsManager) makeCluster(cluster *xdsmodel.Cluster) (*model.ClusterConfig, error) {
+	clusterType, err := c.makeClusterType(cluster)
+	if err != nil {
+		return nil, err
+	}
+	lb, err := c.makeLoadBalancePolicy(cluster.LbStr)
+	if err != nil {
+		return nil, err
+	}
+	endpoints, err := c.makeEndpoints(cluster.Endpoints)
+	if err != nil {
+		return nil, err
+	}
+	edsConfig, err := c.makeEdsClusterConfig(cluster.EdsClusterConfig)
+	if err != nil {
+		return nil, err
+	}
 	return &model.ClusterConfig{
 		Name:             cluster.Name,
 		TypeStr:          cluster.TypeStr,
-		Type:             c.makeClusterType(cluster),
-		EdsClusterConfig: c.makeEdsClusterConfig(cluster.EdsClusterConfig),
-		LbStr:            c.makeLoadBalancePolicy(cluster.LbStr),
+		Type:             clusterType,
+		EdsClusterConfig: edsConfig,
+		LbStr:            lb,
 		HealthChecks:     c.makeHealthChecks(cluster.HealthChecks),
-		Endpoints:        c.makeEndpoints(cluster.Endpoints),
+		Endpoints:        endpoints,
+	}, nil
+}
+
+func (c *CdsManager) makeLoadBalancePolicy(lb string) (model.LbPolicyType, error) {
+	if lb == "" {
+		return model.LoadBalancerRand, nil
 	}
+	policy, ok := model.LbPolicyTypeValue[lb]
+	if !ok {
+		return "", errors.Errorf("unsupported load-balancing policy %q", lb)
+	}
+	return policy, nil
 }
 
-func (c *CdsManager) makeLoadBalancePolicy(lb string) model.LbPolicyType {
-	return model.LbPolicyTypeValue[lb]
+func (c *CdsManager) makeClusterType(cluster *xdsmodel.Cluster) (model.DiscoveryType, error) {
+	clusterType, ok := model.DiscoveryTypeValue[cluster.TypeStr]
+	if !ok {
+		return 0, errors.Errorf("unsupported discovery type %q", cluster.TypeStr)
+	}
+	return clusterType, nil
 }
 
-func (c *CdsManager) makeClusterType(cluster *xdsmodel.Cluster) model.DiscoveryType {
-	return model.DiscoveryTypeValue[cluster.TypeStr]
-}
-
-func (c *CdsManager) makeEndpoints(endpoints []*xdsmodel.Endpoint) []*model.Endpoint {
+func (c *CdsManager) makeEndpoints(endpoints []*xdsmodel.Endpoint) ([]*model.Endpoint, error) {
 	r := make([]*model.Endpoint, 0, len(endpoints))
-	for _, endpoint := range endpoints {
+	ids := make(map[string]struct{}, len(endpoints))
+	addresses := make(map[string]struct{}, len(endpoints))
+	for index, endpoint := range endpoints {
 		if endpoint == nil {
-			continue
+			return nil, errors.Errorf("endpoint %d is nil", index)
 		}
-		unhealthy, _ := strconv.ParseBool(endpoint.Metadata[endpointHealthMetadataKey])
+		if endpoint.Id == "" {
+			return nil, errors.Errorf("endpoint %d has an empty ID", index)
+		}
+		if _, duplicate := ids[endpoint.Id]; duplicate {
+			return nil, errors.Errorf("duplicate endpoint ID %q", endpoint.Id)
+		}
+		ids[endpoint.Id] = struct{}{}
+		if endpoint.Address == nil || endpoint.Address.Address == "" || endpoint.Address.Port <= 0 || endpoint.Address.Port > 65535 {
+			return nil, errors.Errorf("endpoint %q has invalid socket address", endpoint.Id)
+		}
+		addressKey := fmt.Sprintf("%s:%d", endpoint.Address.Address, endpoint.Address.Port)
+		if _, duplicate := addresses[addressKey]; duplicate {
+			return nil, errors.Errorf("duplicate endpoint socket address %q", addressKey)
+		}
+		addresses[addressKey] = struct{}{}
+		unhealthy := false
+		if value, ok := endpoint.Metadata[endpointHealthMetadataKey]; ok {
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return nil, errors.Wrapf(err, "endpoint %q has invalid %s metadata", endpoint.Id, endpointHealthMetadataKey)
+			}
+			unhealthy = parsed
+		}
 		r = append(r, &model.Endpoint{
 			ID:        endpoint.Id,
 			Name:      endpoint.Name,
@@ -145,7 +214,7 @@ func (c *CdsManager) makeEndpoints(endpoints []*xdsmodel.Endpoint) []*model.Endp
 			UnHealthy: unhealthy,
 		})
 	}
-	return r
+	return r, nil
 }
 
 func (c *CdsManager) makeAddress(endpoint *xdsmodel.Endpoint) model.SocketAddress {
@@ -193,28 +262,31 @@ func (c *CdsManager) makeHealthChecks(checks []*xdsmodel.HealthCheck) (result []
 	return
 }
 
-func (c *CdsManager) makeEdsClusterConfig(edsConfig *xdsmodel.EdsClusterConfig) model.EdsClusterConfig {
+func (c *CdsManager) makeEdsClusterConfig(edsConfig *xdsmodel.EdsClusterConfig) (model.EdsClusterConfig, error) {
 	if edsConfig == nil {
-		return model.EdsClusterConfig{}
+		return model.EdsClusterConfig{}, nil
 	}
 	result := model.EdsClusterConfig{ServiceName: edsConfig.ServiceName}
 	if configSource := edsConfig.GetEdsConfig(); configSource != nil {
+		apiConfig, err := c.makeApiConfigSource(configSource.GetApiConfigSource())
+		if err != nil {
+			return model.EdsClusterConfig{}, err
+		}
 		result.EdsConfig = model.ConfigSource{
 			Path:            configSource.GetPath(),
-			ApiConfigSource: c.makeApiConfigSource(configSource.GetApiConfigSource()),
+			ApiConfigSource: apiConfig,
 		}
 	}
-	return result
+	return result, nil
 }
 
-func (c *CdsManager) makeApiConfigSource(apiConfig *xdsmodel.ApiConfigSource) (result model.ApiConfigSource) {
+func (c *CdsManager) makeApiConfigSource(apiConfig *xdsmodel.ApiConfigSource) (result model.ApiConfigSource, err error) {
 	if apiConfig == nil {
-		return result
+		return result, nil
 	}
 	apiType, ok := model.ApiTypeValue[apiConfig.APITypeStr]
 	if !ok {
-		logger.Errorf("unknown apiType %s", apiConfig.APITypeStr)
-		return
+		return result, errors.Errorf("unsupported EDS API type %q", apiConfig.APITypeStr)
 	}
 
 	return model.ApiConfigSource{
@@ -224,7 +296,7 @@ func (c *CdsManager) makeApiConfigSource(apiConfig *xdsmodel.ApiConfigSource) (r
 		RefreshDelay:   apiConfig.RefreshDelay,
 		RequestTimeout: apiConfig.RequestTimeout,
 		GrpcServices:   nil, //todo create node of pb
-	}
+	}, nil
 }
 
 func containsResource(resources []string, target string) bool {

@@ -2,6 +2,28 @@
 
 ---
 
+## Unreleased
+
+### xDS
+
+* Admin snapshot publication now preserves last-good state, reports listener
+  availability, and supports reliable Delta ExtensionConfig and standard
+  CDS/EDS updates.
+* Standard ADS manages EDS-backed clusters only. Other CDS discovery types are
+  logged and skipped instead of causing the complete CDS response to be NACKed.
+
+### Compatibility Notes
+
+* Listener construction is now fail-closed: an invalid network or HTTP filter
+  prevents a static listener from starting and causes an xDS update to be
+  NACKed. Previously, invalid filters could be silently omitted.
+* Existing out-of-tree `ListenerService` implementations still compile, but
+  they must implement the optional transactional refresh methods to receive
+  xDS listener updates; otherwise the last-good listener is retained.
+* The self-contained xDS acceptance test uses embedded etcd and therefore adds
+  `go.etcd.io/etcd/server/v3 v3.5.7` to the module graph. An external disposable
+  etcd can be selected with `PIXIU_E2E_ETCD_ENDPOINT`.
+
 ## 1.1.0
 
 This release delivers major improvements in AI Gateway and LLM integration, including a full-featured LLM proxy, token billing, retry/fallback strategies, and HTTP/SSE streaming support.

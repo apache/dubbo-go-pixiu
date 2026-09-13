@@ -19,7 +19,9 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -48,7 +50,7 @@ func init() {
 type (
 	// ListenerService the facade of a listener
 	HttpListenerService struct {
-		listener.BaseListenerService
+		*listener.BaseListenerService
 		srv *http.Server
 	}
 
@@ -59,13 +61,13 @@ type (
 )
 
 func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
+	fc, err := filterchain.BuildNetworkFilterChain(lc.FilterChain)
+	if err != nil {
+		return nil, errors.Wrap(err, "create HTTP listener filter chain")
+	}
 	return &HttpListenerService{
-		BaseListenerService: listener.BaseListenerService{
-			Config:      lc,
-			FilterChain: fc,
-		},
-		srv: nil,
+		BaseListenerService: listener.NewBaseListenerService(lc, fc),
+		srv:                 nil,
 	}, nil
 }
 
@@ -73,17 +75,23 @@ func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.L
 func (ls *HttpListenerService) Start() error {
 	switch ls.Config.Protocol {
 	case model.ProtocolTypeHTTP:
-		ls.httpListener()
+		return ls.httpListener()
 	case model.ProtocolTypeHTTPS:
-		ls.httpsListener()
+		return ls.httpsListener()
 	default:
-		return errors.New(fmt.Sprintf("unsupported protocol start: %d", ls.Config.Protocol))
+		return fmt.Errorf("unsupported protocol start: %d", ls.Config.Protocol)
 	}
-	return nil
 }
 
 func (ls *HttpListenerService) Close() error {
-	return ls.srv.Close()
+	var closeErr error
+	if ls.srv != nil {
+		closeErr = ls.srv.Close()
+	}
+	if filterErr := ls.CloseFilterChain(); closeErr == nil {
+		closeErr = filterErr
+	}
+	return closeErr
 }
 
 func (ls *HttpListenerService) ShutDown(wg any) error {
@@ -99,14 +107,7 @@ func (ls *HttpListenerService) ShutDown(wg any) error {
 	return ls.srv.Shutdown(ctx)
 }
 
-func (ls *HttpListenerService) Refresh(c model.Listener) error {
-	// There is no need to lock here for now, as there is at most one NetworkFilter
-	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
-	ls.FilterChain = fc
-	return nil
-}
-
-func (ls *HttpListenerService) httpsListener() {
+func (ls *HttpListenerService) httpsListener() error {
 	hl := createDefaultHttpWorker(ls)
 
 	// user customize http config
@@ -129,13 +130,22 @@ func (ls *HttpListenerService) httpsListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 		TLSConfig:      m.TLSConfig(),
 	}
-	autoLs := autocert.NewListener(ls.Config.Address.SocketAddress.Domains...)
+	tcpListener, err := net.Listen("tcp", ls.srv.Addr)
+	if err != nil {
+		return errors.Wrapf(err, "bind HTTPS listener %s", ls.srv.Addr)
+	}
+	autoLs := tls.NewListener(tcpListener, m.TLSConfig())
 	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
-	err := ls.srv.Serve(autoLs)
-	logger.Info("[dubbo-go-server] httpsListener result:", err)
+	go func() {
+		serveErr := ls.srv.Serve(autoLs)
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			logger.Errorf("[dubbo-go-server] httpsListener Serve error: %v", serveErr)
+		}
+	}()
+	return nil
 }
 
-func (ls *HttpListenerService) httpListener() {
+func (ls *HttpListenerService) httpListener() error {
 	hl := createDefaultHttpWorker(ls)
 
 	// user customize http config
@@ -157,13 +167,19 @@ func (ls *HttpListenerService) httpListener() {
 	logger.Infof("[dubbo-go-server] httpListener starting at %s with WriteTimeout: %v, IdleTimeout: %v, ReadTimeout: %v",
 		ls.srv.Addr, ls.srv.WriteTimeout, ls.srv.IdleTimeout, ls.srv.ReadTimeout)
 
-	err := ls.srv.ListenAndServe()
-	// Improved error logging and replace log.Println
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Errorf("[dubbo-go-server] httpListener ListenAndServe error: %v", err)
-	} else {
-		logger.Info("[dubbo-go-server] httpListener stopped gracefully.")
+	netListener, err := net.Listen("tcp", ls.srv.Addr)
+	if err != nil {
+		return errors.Wrapf(err, "bind HTTP listener %s", ls.srv.Addr)
 	}
+	go func() {
+		serveErr := ls.srv.Serve(netListener)
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			logger.Errorf("[dubbo-go-server] httpListener Serve error: %v", serveErr)
+		} else {
+			logger.Info("[dubbo-go-server] httpListener stopped gracefully.")
+		}
+	}()
+	return nil
 }
 
 // createDefaultHttpWorker create http listener
@@ -175,7 +191,12 @@ func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.ls.FilterChain.ServeHTTP(w, r)
+	if err := s.ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		fc.ServeHTTP(w, r)
+		return nil
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+	}
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {

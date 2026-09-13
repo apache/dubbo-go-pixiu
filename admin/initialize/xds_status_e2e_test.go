@@ -51,6 +51,7 @@ func TestXDSStatusRouteEndToEnd(t *testing.T) {
 		NodeID:     "gateway-a",
 	}}
 	adminxds.DefaultStatusStore = adminxds.NewStatusStore("gateway-a")
+	adminxds.DefaultStatusStore.RecordListening()
 	adminxds.DefaultStatusStore.RecordSuccess("42", 2, 3)
 	adminxds.DefaultStatusStore.RecordError(errors.New("candidate rejected"))
 
@@ -69,10 +70,37 @@ func TestXDSStatusRouteEndToEnd(t *testing.T) {
 	require.Equal(t, "gateway-a", response.Data.NodeID)
 	require.Equal(t, "42", response.Data.SnapshotVersion)
 	require.Equal(t, uint(19000), response.Data.ListenPort)
+	require.True(t, response.Data.Listening)
 	require.True(t, response.Data.Ready)
 	require.True(t, response.Data.Degraded)
 	require.Equal(t, "candidate rejected", response.Data.LastError)
 	require.Equal(t, "supported", response.Data.ResourceSupport["extension_config_cluster"])
 	require.Equal(t, "experimental", response.Data.ResourceSupport["standard_cds"])
 	require.Equal(t, "unsupported", response.Data.ResourceSupport["standard_lds"])
+
+	adminxds.DefaultStatusStore.RecordListenError(errors.New("address already in use"))
+	recorder = httptest.NewRecorder()
+	Routers().ServeHTTP(recorder, req.Clone(req.Context()))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.False(t, response.Data.Listening)
+	require.False(t, response.Data.Ready)
+	require.True(t, response.Data.Degraded)
+	require.Equal(t, "address already in use", response.Data.ListenError)
+}
+
+func TestSwaggerIncludesXDSStatusRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() { gin.SetMode(gin.DebugMode) })
+
+	req := httptest.NewRequest(http.MethodGet, "/swagger/doc.json", nil)
+	recorder := httptest.NewRecorder()
+	Routers().ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var document struct {
+		Paths map[string]json.RawMessage `json:"paths"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &document))
+	require.Contains(t, document.Paths, "/config/api/xds/status")
 }

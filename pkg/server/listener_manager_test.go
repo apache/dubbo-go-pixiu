@@ -19,6 +19,7 @@ package server
 
 import (
 	"errors"
+	"net"
 	"sync"
 	"testing"
 )
@@ -29,12 +30,30 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/listener"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
 type transactionListenerService struct {
+	listener.BaseListenerService
 	config   model.Listener
+	pending  model.Listener
 	failName string
+}
+
+type legacyListenerService struct {
+	config model.Listener
+}
+
+var _ listener.ListenerService = (*legacyListenerService)(nil)
+
+func (s *legacyListenerService) Start() error       { return nil }
+func (s *legacyListenerService) Close() error       { return nil }
+func (s *legacyListenerService) ShutDown(any) error { return nil }
+func (s *legacyListenerService) Refresh(config model.Listener) error {
+	s.config = config
+	return nil
 }
 
 func (s *transactionListenerService) Start() error       { return nil }
@@ -46,6 +65,17 @@ func (s *transactionListenerService) Refresh(config model.Listener) error {
 	}
 	s.config = config
 	return nil
+}
+func (s *transactionListenerService) PrepareRefresh(config model.Listener) (*listener.PreparedUpdate, error) {
+	if config.Name == s.failName {
+		return nil, errors.New("refresh rejected")
+	}
+	s.pending = config
+	return s.BaseListenerService.PrepareRefresh(config)
+}
+func (s *transactionListenerService) CommitRefresh(update *listener.PreparedUpdate) *listener.RetiredUpdate {
+	s.config = s.pending
+	return s.BaseListenerService.CommitRefresh(update)
 }
 
 func TestListenerManager_XDSOwnershipPreservesStaticListener(t *testing.T) {
@@ -71,6 +101,55 @@ func TestListenerManager_XDSOwnershipPreservesStaticListener(t *testing.T) {
 
 	assert.True(t, lm.HasListener(key))
 	assert.Empty(t, lm.XDSListenerNames())
+}
+
+func TestCreateDefaultListenerManagerSkipsInvalidStaticListener(t *testing.T) {
+	config := &model.Listener{
+		Name:        "invalid-static",
+		ProtocolStr: "HTTP",
+		Protocol:    model.ProtocolTypeHTTP,
+		Address: model.Address{SocketAddress: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18080,
+		}},
+		FilterChain: model.FilterChain{Filters: []model.NetworkFilter{{
+			Name: "missing.network.filter.plugin",
+		}}},
+	}
+	manager := CreateDefaultListenerManager(&model.Bootstrap{StaticResources: model.StaticResources{
+		Listeners: []*model.Listener{config},
+	}})
+
+	require.False(t, manager.HasListener(resolveListenerName(config)))
+}
+
+func TestReplaceXDSListenersPreservesLegacyListenerWhenTransactionalRefreshIsUnavailable(t *testing.T) {
+	lastGood := &model.Listener{
+		Name:        "last-good",
+		ProtocolStr: "HTTP",
+		Protocol:    model.ProtocolTypeHTTP,
+		Address: model.Address{SocketAddress: model.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18080,
+		}},
+	}
+	key := resolveListenerName(lastGood)
+	service := &legacyListenerService{config: *lastGood}
+	manager := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			key: {config: lastGood, ListenerService: service},
+		},
+		xdsManaged: map[string]struct{}{key: {}},
+		rwLock:     &sync.RWMutex{},
+	}
+
+	next := *lastGood
+	next.Name = "next"
+	err := manager.ReplaceXDSListeners([]*model.Listener{&next})
+
+	require.ErrorContains(t, err, "does not support transactional xDS refresh")
+	require.Equal(t, "last-good", service.config.Name)
+	require.Same(t, lastGood, manager.activeListenerService[key].config)
 }
 
 func TestListenerManager_ReplaceXDSListenersKeepsLastGoodOnCreateFailure(t *testing.T) {
@@ -105,6 +184,59 @@ func TestListenerManager_ReplaceXDSListenersKeepsLastGoodOnCreateFailure(t *test
 	require.ErrorContains(t, err, "does not support yet")
 	assert.True(t, lm.HasListener(oldKey))
 	assert.Equal(t, []string{oldKey}, lm.XDSListenerNames())
+}
+
+func TestListenerManager_ReplaceXDSListenersNACKsOccupiedPortBeforeCommit(t *testing.T) {
+	occupied, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = occupied.Close() })
+	port := occupied.Addr().(*net.TCPAddr).Port
+
+	oldListener := &model.Listener{Name: "last-good", ProtocolStr: "HTTP", Protocol: model.ProtocolTypeHTTP}
+	oldListener.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: port + 1}
+	oldKey := resolveListenerName(oldListener)
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			oldKey: {ListenerService: &transactionListenerService{config: *oldListener}, config: oldListener},
+		},
+		xdsManaged: map[string]struct{}{oldKey: {}},
+		rwLock:     &sync.RWMutex{},
+		updateGate: &sync.RWMutex{},
+	}
+
+	candidate := &model.Listener{Name: "candidate", ProtocolStr: "HTTP", Protocol: model.ProtocolTypeHTTP}
+	candidate.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: port}
+	err = lm.ReplaceXDSListeners([]*model.Listener{candidate})
+
+	require.ErrorContains(t, err, "bind HTTP listener")
+	require.True(t, lm.HasListener(oldKey))
+	require.Equal(t, []string{oldKey}, lm.XDSListenerNames())
+	require.False(t, lm.HasListener(resolveListenerName(candidate)))
+}
+
+func TestListenerManager_ReplaceXDSListenersRejectsInvalidFilter(t *testing.T) {
+	oldListener := &model.Listener{Name: "last-good", ProtocolStr: "HTTP", Protocol: model.ProtocolTypeHTTP}
+	oldListener.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: 18080}
+	oldKey := resolveListenerName(oldListener)
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			oldKey: {ListenerService: &transactionListenerService{config: *oldListener}, config: oldListener},
+		},
+		xdsManaged: map[string]struct{}{oldKey: {}},
+		rwLock:     &sync.RWMutex{},
+		updateGate: &sync.RWMutex{},
+	}
+	candidate := *oldListener
+	candidate.Name = "invalid-filter-update"
+	candidate.FilterChain.Filters = []model.NetworkFilter{{
+		Name:   "missing.network.filter.plugin",
+		Config: map[string]any{},
+	}}
+
+	err := lm.ReplaceXDSListeners([]*model.Listener{&candidate})
+	require.ErrorContains(t, err, "missing.network.filter.plugin")
+	require.Equal(t, []string{oldKey}, lm.XDSListenerNames())
+	require.Same(t, oldListener, lm.activeListenerService[oldKey].config)
 }
 
 func TestListenerManager_ReplaceXDSListenersRollsBackEarlierRefresh(t *testing.T) {

@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -147,6 +146,7 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 	}
 
 	hcm := CreateHttpConnectionManager(&hcmc)
+	assert.NotNil(t, hcm)
 	assert.Equal(t, len(hcm.filterManager.GetFactory()), 1)
 	request, err := http.NewRequest("POST", "http://www.dubbogopixiu.com/api/v1?name=tc", bytes.NewReader([]byte("{\"id\":\"12345\"}")))
 	assert.NoError(t, err)
@@ -159,6 +159,15 @@ func TestCreateHttpConnectionManager(t *testing.T) {
 	assert.NoError(t, err)
 	err = hcm.Handle(c)
 	assert.NoError(t, err)
+}
+
+func TestCreateHttpConnectionManagerKeepsLegacyNonNilResultForBadFilter(t *testing.T) {
+	hcm := CreateHttpConnectionManager(&model.HttpConnectionManagerConfig{
+		HTTPFilters: []*model.HTTPFilter{{Name: "missing.compatibility.filter"}},
+	})
+
+	assert.NotNil(t, hcm)
+	assert.Empty(t, hcm.filterManager.GetFactory())
 }
 
 // test SSE case
@@ -191,7 +200,7 @@ func TestStreamingResponse(t *testing.T) {
 	defer cancel()
 
 	// mock server
-	upstreamServer, _ := NewTestServerWithURL("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(constant.HeaderKeyContextType, constant.HeaderValueTextEventStream)
 		w.Header().Set(constant.HeaderKeyCacheControl, constant.HeaderValueNoCache)
 		flusher := w.(http.Flusher)
@@ -211,7 +220,7 @@ func TestStreamingResponse(t *testing.T) {
 	}))
 	defer upstreamServer.Close()
 
-	req := httptest.NewRequest("GET", "http://localhost:8080/api/sse", nil).WithContext(ctx)
+	req := httptest.NewRequest("GET", upstreamServer.URL+"/api/sse", nil).WithContext(ctx)
 
 	done := make(chan struct{})
 
@@ -224,6 +233,10 @@ func TestStreamingResponse(t *testing.T) {
 		defer close(done)
 
 		hcm := CreateHttpConnectionManager(&hcmc)
+		if hcm == nil {
+			t.Error("CreateHttpConnectionManager returned nil")
+			return
+		}
 
 		if err := hcm.Handle(httpCtx); err != nil {
 			t.Errorf("Handle failed: %v", err)
@@ -286,31 +299,14 @@ func (r *StreamRecorder) Write(data []byte) (int, error) {
 }
 
 func (r *StreamRecorder) GetReceivedBuf() []string {
-	bufCopy := make([]string, len(r.receivedBuf))
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	bufCopy := make([]string, len(r.receivedBuf))
 	copy(bufCopy, r.receivedBuf)
 	return bufCopy
 }
 
 func (r *StreamRecorder) Flush() {
-}
-
-func NewTestServerWithURL(URL string, handler http.Handler) (*httptest.Server, error) {
-	ts := httptest.NewUnstartedServer(handler)
-	if URL != "" {
-		l, err := net.Listen("tcp", URL)
-		if err != nil {
-			return nil, err
-		}
-		err = ts.Listener.Close()
-		if err != nil {
-			return nil, err
-		}
-		ts.Listener = l
-	}
-	ts.Start()
-	return ts, nil
 }
 
 // StreamHTTPRecorder Used to capture and test streaming HTTP responses over channels
@@ -352,9 +348,9 @@ func (r *StreamHTTPRecorder) Flush() {
 }
 
 func (r *StreamHTTPRecorder) GetReceivedBuf() []string {
-	bufCopy := make([]string, len(r.receivedBuf))
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	bufCopy := make([]string, len(r.receivedBuf))
 	copy(bufCopy, r.receivedBuf)
 	return bufCopy
 }
@@ -410,7 +406,7 @@ func testStreamableResponse(t *testing.T, contentType string) {
 	}
 
 	// mock server
-	upstreamServer, _ := NewTestServerWithURL("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(constant.HeaderKeyContextType, contentType)
 		flusher := w.(http.Flusher)
 
@@ -442,7 +438,7 @@ func testStreamableResponse(t *testing.T, contentType string) {
 	}))
 	defer upstreamServer.Close()
 
-	req := httptest.NewRequest("GET", "http://localhost:8080/api/stream", nil).WithContext(ctx)
+	req := httptest.NewRequest("GET", upstreamServer.URL+"/api/stream", nil).WithContext(ctx)
 	done := make(chan struct{})
 
 	httpCtx := &contexthttp.HttpContext{
@@ -455,6 +451,10 @@ func testStreamableResponse(t *testing.T, contentType string) {
 		defer close(done)
 
 		hcm := CreateHttpConnectionManager(&hcmc)
+		if hcm == nil {
+			t.Error("CreateHttpConnectionManager returned nil")
+			return
+		}
 
 		if err := hcm.Handle(httpCtx); err != nil {
 			t.Errorf("Handle failed: %v", err)

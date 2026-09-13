@@ -20,8 +20,14 @@ package core
 import (
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"testing"
+)
+
+import (
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
+	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
 )
 
 import (
@@ -49,6 +55,7 @@ func (p *fakeSnapshotPublisher) Publish(context.Context) error {
 type fakeConfigWatcher struct {
 	channels []clientv3.WatchChan
 	calls    int
+	onCall   func(int)
 }
 
 func (w *fakeConfigWatcher) WatchWithPrefix(string) (clientv3.WatchChan, error) {
@@ -57,6 +64,9 @@ func (w *fakeConfigWatcher) WatchWithPrefix(string) (clientv3.WatchChan, error) 
 	}
 	ch := w.channels[w.calls]
 	w.calls++
+	if w.onCall != nil {
+		w.onCall(w.calls)
+	}
 	return ch, nil
 }
 
@@ -110,14 +120,69 @@ func TestWatchConfigWithRetryReconnectsAndResyncs(t *testing.T) {
 
 	watcher := &fakeConfigWatcher{channels: []clientv3.WatchChan{first, second}}
 	ctx, cancel := context.WithCancel(context.Background())
-	publisher := &fakeSnapshotPublisher{onCall: func(int) { cancel() }}
+	publisher := &fakeSnapshotPublisher{onCall: func(call int) {
+		if call == 2 {
+			cancel()
+		}
+	}}
 
 	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, 0)
 
 	if watcher.calls != 2 {
 		t.Fatalf("watch attempts: want 2, got %d", watcher.calls)
 	}
-	if publisher.calls != 1 {
-		t.Fatalf("resync publications: want 1, got %d", publisher.calls)
+	if publisher.calls != 2 {
+		t.Fatalf("initial and reconnect publications: want 2, got %d", publisher.calls)
+	}
+}
+
+func TestWatchConfigWithRetryEstablishesWatchBeforeInitialPublish(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	sequence := make([]string, 0, 2)
+	watcher := &fakeConfigWatcher{
+		channels: []clientv3.WatchChan{make(chan clientv3.WatchResponse)},
+		onCall: func(int) {
+			sequence = append(sequence, "watch")
+		},
+	}
+	publisher := &fakeSnapshotPublisher{onCall: func(int) {
+		sequence = append(sequence, "publish")
+		cancel()
+	}}
+
+	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, 0)
+
+	if got := strings.Join(sequence, ","); got != "watch,publish" {
+		t.Fatalf("startup sequence: want watch,publish, got %s", got)
+	}
+}
+
+func TestStartXDSServerRecordsBindFailure(t *testing.T) {
+	occupied, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("reserve xDS port: %v", err)
+	}
+	defer occupied.Close()
+	port := uint(occupied.Addr().(*net.TCPAddr).Port)
+
+	previousBootstrap := adminconfig.Bootstrap
+	previousStatus := adminxds.DefaultStatusStore
+	t.Cleanup(func() {
+		adminconfig.Bootstrap = previousBootstrap
+		adminxds.DefaultStatusStore = previousStatus
+	})
+	adminconfig.Bootstrap = &adminconfig.AdminBootstrap{XDS: adminconfig.XDSConfig{
+		ListenPort: port,
+		NodeID:     "bind-failure",
+	}}
+	adminxds.DefaultStatusStore = adminxds.NewStatusStore("")
+
+	err = StartxDsServer()
+	if err == nil {
+		t.Fatal("expected occupied xDS port to fail")
+	}
+	status := adminxds.DefaultStatusStore.Snapshot()
+	if status.Listening || status.ListenError == "" || status.NodeID != "bind-failure" {
+		t.Fatalf("bind failure was not reflected in status: %+v", status)
 	}
 }

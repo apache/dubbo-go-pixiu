@@ -77,7 +77,17 @@ func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
 func StartxDsServer() error {
 	xdsConfig := adminconfig.Bootstrap.GetXDSConfig()
 	adminxds.DefaultStatusStore.Reset(xdsConfig.NodeID)
-	ctx := context.Background()
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", xdsConfig.ListenPort))
+	if err != nil {
+		adminxds.DefaultStatusStore.RecordListenError(err)
+		return err
+	}
+	defer lis.Close()
+	adminxds.DefaultStatusStore.RecordListening()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Create a snapshot cache.
 	snapshotCache = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
@@ -88,21 +98,21 @@ func StartxDsServer() error {
 		adminxds.DefaultStatusStore,
 	)
 
-	// A failed initial candidate must not terminate Admin. The server and etcd
-	// watch stay active so a later valid configuration can recover publication.
-	if err := publisher.Publish(ctx); err != nil {
-		logger.Errorf("initial xDS snapshot publication failed: %+v", err)
-	}
-
+	// Establishing the watch before rebuilding closes the startup gap: writes
+	// that race with the full read remain queued on the watch channel.
 	go watchConfigAndReload(ctx, publisher)
 
 	// Run the xDS server
 	srv := envoyServer.NewServer(ctx, snapshotCache, nil)
-	return runXDSServer(ctx, srv, xdsConfig.ListenPort)
+	if err := runXDSServer(srv, lis); err != nil {
+		adminxds.DefaultStatusStore.RecordListenError(err)
+		return err
+	}
+	return nil
 }
 
-// runXDSServer starts an xDS server at the given port.
-func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error {
+// runXDSServer serves xDS on an already-bound listener.
+func runXDSServer(srv envoyServer.Server, lis net.Listener) error {
 	// gRPC golang library sets a very small upper bound for the number gRPC/h2
 	// streams over a single TCP connection. If a proxy multiplexes requests over
 	// a single connection to the management server, then it might lead to
@@ -121,15 +131,10 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 	)
 	grpcServer := grpc.NewServer(grpcOptions...)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return err
-	}
-
 	registerServer(grpcServer, srv)
 
-	logger.Infof("management server listening on %d\n", port)
-	if err = grpcServer.Serve(lis); err != nil {
+	logger.Infof("management server listening on %s", lis.Addr())
+	if err := grpcServer.Serve(lis); err != nil {
 		return err
 	}
 	return nil
@@ -154,18 +159,14 @@ func watchConfigAndReload(ctx context.Context, publisher snapshotPublisher) {
 }
 
 func watchConfigWithRetry(ctx context.Context, watcher configWatcher, path string, publisher snapshotPublisher, retryDelay time.Duration) {
-	reconnecting := false
 	for {
 		ch, err := watcher.WatchWithPrefix(path)
-		if err == nil && reconnecting {
-			// Establish the new watch before rebuilding. Events that happen during
-			// the rebuild remain queued on the new channel, while the rebuild
-			// catches changes that occurred between the two watch sessions.
-			if publishErr := publisher.Publish(ctx); publishErr != nil {
-				logger.Errorf("resync xDS snapshot after watch reconnect failed: %+v", publishErr)
-			}
-		}
 		if err == nil {
+			// Establish the watch before rebuilding on both startup and reconnect.
+			// Events that happen during the rebuild remain queued on the channel.
+			if publishErr := publisher.Publish(ctx); publishErr != nil {
+				logger.Errorf("rebuild xDS snapshot after watch establishment failed: %+v", publishErr)
+			}
 			err = consumeConfigWatch(ctx, ch, publisher)
 		} else {
 			err = fmt.Errorf("watch xDS configuration: %w", err)
@@ -176,7 +177,6 @@ func watchConfigWithRetry(ctx context.Context, watcher configWatcher, path strin
 
 		adminxds.DefaultStatusStore.RecordError(err)
 		logger.Error(err)
-		reconnecting = true
 		timer := time.NewTimer(retryDelay)
 		select {
 		case <-ctx.Done():

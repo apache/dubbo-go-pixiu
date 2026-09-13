@@ -456,8 +456,8 @@ cache-control: no-cache
 
 ### 6.1 获取 xDS 发布状态
 
-该接口需要 Admin JWT，返回最近一次成功发布的快照版本、资源数量、发布时间、
-最近一次被拒绝的候选配置错误，以及各条 xDS 资源链路的明确支持状态。
+该接口需要 Admin JWT，返回 xDS 监听状态、最近一次成功发布的快照版本、资源数量、
+发布时间、最近一次监听或候选配置错误，以及各条 xDS 资源链路的明确支持状态。
 
 ```http
 GET /config/api/xds/status HTTP/1.1
@@ -465,8 +465,8 @@ Host: 127.0.0.1:8080
 token: <admin-jwt>
 ```
 
-`ready` 表示至少已有一个快照成功发布；`degraded` 表示新候选配置失败，
-但控制面仍在提供上一个可用快照。
+`ready` 只有在 xDS 端口已监听且至少一个快照成功发布时为 true；`degraded`
+表示监听启动或新候选配置失败。
 
 **返回**：
 
@@ -479,6 +479,7 @@ token: <admin-jwt>
     "listener_count": 1,
     "cluster_count": 2,
     "listen_port": 18000,
+    "listening": true,
     "ready": true,
     "degraded": false,
     "resource_support": {

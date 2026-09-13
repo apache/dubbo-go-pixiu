@@ -370,8 +370,8 @@ func (g *GRPCClusterManager) GetGrpcCluster(name string) (*GRPCCluster, error) {
 func (g *GRPCClusterManager) Close() (err error) {
 	//todo enhance the close process when concurrent
 	g.clusters.Range(func(_, value any) bool {
-		if conn := value.(*grpc.ClientConn); conn != nil {
-			if err = conn.Close(); err != nil {
+		if grpcCluster, ok := value.(*GRPCCluster); ok && grpcCluster != nil {
+			if err = grpcCluster.Close(); err != nil {
 				logger.Errorf("can not close grpc connection.", err)
 			}
 		}
