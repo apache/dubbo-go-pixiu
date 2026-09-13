@@ -1,0 +1,1 @@
+import React from 'react'; export function StatusBadge({status}:{status:string}){return <span className={'badge '+status.toLowerCase()}><i/>{status==='Published'?'已发布':status==='Draft'?'草稿':status==='Paused'?'已暂停':status}</span>}

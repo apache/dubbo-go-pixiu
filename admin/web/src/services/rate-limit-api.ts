@@ -1,0 +1,1 @@
+import {request} from './http'; export const rateLimitApi={get:()=>request<any>('/config/api/plugin/ratelimit'),save:(content:string,method='PUT')=>request('/config/api/plugin/ratelimit/',{method,body:new URLSearchParams({content})}),remove:()=>request('/config/api/plugin/ratelimit/',{method:'DELETE'})}

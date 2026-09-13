@@ -7,3 +7,4 @@ dist-ssr
 dev-server.log
 .playwright-cli
 *.tsbuildinfo
+default.etcd/

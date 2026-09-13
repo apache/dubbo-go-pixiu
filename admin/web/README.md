@@ -1,6 +1,6 @@
 # Pixiu Admin Web
 
-Dubbo Go Pixiu 的管理前端，React + TypeScript + Tailwind CSS + Monaco Editor，Vite 构建。
+Dubbo Go Pixiu 的管理前端，React + TypeScript + Vite 构建。
 
 ## 开发
 
