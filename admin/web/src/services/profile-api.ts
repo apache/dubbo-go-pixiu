@@ -1,1 +1,1 @@
-import {request} from './http'; export const profileApi={session:()=>request('/user/getInfo',{method:'POST'}),logout:()=>request('/user/logout',{method:'POST'}),password:(data:any)=>request('/user/password/edit',{method:'POST',body:new URLSearchParams(data)})}
+import {request} from './http'; export const profileApi={session:()=>request<unknown>('/user/getInfo',{method:'POST'}),logout:()=>request<void>('/user/logout',{method:'POST'}),password:(data:Record<string,string>)=>request<void>('/user/password/edit',{method:'POST',body:new URLSearchParams(data)})}

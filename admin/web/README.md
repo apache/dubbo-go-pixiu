@@ -21,6 +21,16 @@ npm run build
 
 产物输出到 `dist/`。
 
+## 质量检查
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
+```
+
+三项检查都应通过后再提交前端改动。
+
 ## Docker Compose 冒烟验证
 
 在仓库根目录启动前端容器并等待 healthcheck 通过：

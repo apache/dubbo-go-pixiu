@@ -9,5 +9,3 @@ export const pixiuAdminApi = {
   rateLimit: { detail: '/config/api/plugin/ratelimit', create: '/config/api/plugin/ratelimit/', update: '/config/api/plugin/ratelimit/', remove: '/config/api/plugin/ratelimit/' },
   opa: { policy: '/config/api/opa/policy' }
 } as const
-
-export const mockSurfaces = [] as const

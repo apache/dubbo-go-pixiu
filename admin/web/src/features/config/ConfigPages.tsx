@@ -9,6 +9,7 @@ import {methodApi} from '../../services/method-api';
 import {resourceApi} from '../../services/resource-api';
 import {baseApi} from '../../services/base-api';
 import {Locale,translateText} from '../../i18n';
+import {asJsonObject,JsonObject,Method} from '../../types/api';
 
 type Kind='cluster'|'listener'|'plugin';
 const templates={
@@ -27,22 +28,22 @@ function Editor({title,value,onChange,onClose,onSave,saving,locale}:{title:strin
 function ErrorState({message,retry,locale}:{message:string;retry:()=>void;locale:Locale}){return <div className="empty"><span>{message}</span><button className="secondary" onClick={retry}>{translateText(locale,'重试')}</button></div>}
 
 type ConfigFilter='All'|'Connected'|'Draft';
-type ConfigRow={item:any;id:string;title:string;subtitle:string;kindLabel:string;detail:string;status:ConfigFilter};
-function configIdentity(kind:Kind,item:any){return kind==='listener'?String(item.name||''):kind==='plugin'?String(item.name||item.groupName||''):String(item.id??item.name??'')}
-function pluginNames(item:any){
- const plugins=Array.isArray(item.plugins)?item.plugins:[];const names=plugins.map((plugin:any)=>plugin.name||plugin.externalLookupName).filter(Boolean);
+type ConfigRow={item:JsonObject;id:string;title:string;subtitle:string;kindLabel:string;detail:string;status:ConfigFilter};
+function configIdentity(kind:Kind,item:JsonObject){return kind==='listener'?String(item.name||''):kind==='plugin'?String(item.name||item.groupName||''):String(item.id??item.name??'')}
+function pluginNames(item:JsonObject){
+ const plugins=Array.isArray(item.plugins)?item.plugins:[];const names=plugins.map((plugin:unknown)=>{const value=asJsonObject(plugin).name??asJsonObject(plugin).externalLookupName;return typeof value==='string'?value:''}).filter(Boolean);
  if(names.length)return names;
  return [...String(item.content||'').matchAll(/^\s*-\s+name:\s*['"]?([^'"\n]+)['"]?\s*$/gm)].map(match=>match[1].trim()).filter(Boolean);
 }
-function configRow(kind:Kind,item:any,index:number,locale:Locale):ConfigRow{
+function configRow(kind:Kind,item:JsonObject,index:number,locale:Locale):ConfigRow{
  const id=configIdentity(kind,item)||`item-${index}`;
  if(kind==='cluster'){
   const endpoint=item.address&&item.port?`${item.address}:${item.port}`:translateText(locale,'未配置端点');
   return {item,id,title:String(item.name||`cluster.${id}`),subtitle:`#${id}`,kindLabel:String(item.type||'Static'),detail:endpoint,status:item.address&&item.port?'Connected':'Draft'}
  }
  if(kind==='listener'){
-  const socket=item.address?.['socket-address']??item.address?.socket_address??{};const endpoint=socket.address&&socket.port?`${socket.address}:${socket.port}`:translateText(locale,'未配置监听地址');
-  const routeCount=item.route_config?.routes?.length??0;
+  const address=asJsonObject(item.address);const socket=asJsonObject(address['socket-address']??address.socket_address);const endpoint=socket.address&&socket.port?`${socket.address}:${socket.port}`:translateText(locale,'未配置监听地址');
+  const routeConfig=asJsonObject(item.route_config);const routeCount=Array.isArray(routeConfig.routes)?routeConfig.routes.length:0;
   return {item,id,title:String(item.name||`listener.${id}`),subtitle:endpoint,kindLabel:'HTTP',detail:locale==='en-US'?`${routeCount} routes`:`${routeCount} 条路由`,status:socket.address&&socket.port?'Connected':'Draft'}
  }
  const names=pluginNames(item);const preview=names.slice(0,2).join(' · ')||translateText(locale,'暂无插件');
@@ -52,13 +53,13 @@ function configRow(kind:Kind,item:any,index:number,locale:Locale):ConfigRow{
 function ConfigListPage({kind,locale}:{kind:Kind;locale:Locale}){
  const spec=kind==='cluster'?{title:'集群',desc:'管理 Dubbo 集群、注册中心和服务端点。',icon:Boxes}:kind==='listener'?{title:'监听器',desc:'管理监听地址、端口、协议和路由匹配。',icon:Network}:{title:'插件组',desc:'管理网关过滤器插件组及其执行顺序。',icon:Code2};
  const tx=(value:string)=>translateText(locale,value);const title=tx(spec.title);const noun=locale==='en-US'?(kind==='cluster'?'cluster':kind==='listener'?'listener':'plugin group'):spec.title;
- const [items,setItems]=useState<any[]>([]);const [query,setQuery]=useState('');const [status,setStatus]=useState<ConfigFilter>('All');const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [editor,setEditor]=useState<{mode:'create'|'edit';id:string;value:string}|null>(null);const [saving,setSaving]=useState(false);const Icon=spec.icon;
+ const [items,setItems]=useState<JsonObject[]>([]);const [query,setQuery]=useState('');const [status,setStatus]=useState<ConfigFilter>('All');const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [editor,setEditor]=useState<{mode:'create'|'edit';id:string;value:string}|null>(null);const [saving,setSaving]=useState(false);const Icon=spec.icon;
  const load=useCallback(async()=>{setLoading(true);setError('');try{const data=kind==='cluster'?await clusterApi.list():kind==='listener'?await listenerApi.list():await pluginGroupApi.list();setItems(Array.isArray(data)?data:[])}catch(e){setError(e instanceof Error?e.message:tx('加载失败'))}finally{setLoading(false)}},[kind,locale]);
  useEffect(()=>{void load()},[load]);
  const openCreate=()=>setEditor({mode:'create',id:'',value:templates[kind]});
- const openEdit=async(item:any)=>{const id=configIdentity(kind,item);setEditor({mode:'edit',id,value:''});try{const value=kind==='cluster'?await clusterApi.detail(id):kind==='listener'?await listenerApi.detail(id):await pluginGroupApi.detail(id);setEditor({mode:'edit',id,value:value||''})}catch(e){setError(e instanceof Error?e.message:tx('加载详情失败'));setEditor(null)}};
+ const openEdit=async(item:JsonObject)=>{const id=configIdentity(kind,item);setEditor({mode:'edit',id,value:''});try{const value=kind==='cluster'?await clusterApi.detail(id):kind==='listener'?await listenerApi.detail(id):await pluginGroupApi.detail(id);setEditor({mode:'edit',id,value:typeof value==='string'?value:''})}catch(e){setError(e instanceof Error?e.message:tx('加载详情失败'));setEditor(null)}};
  const save=async()=>{if(!editor)return;setSaving(true);try{if(kind==='cluster')await clusterApi.save(editor.value,editor.mode==='create'?'PUT':'POST');else if(kind==='listener')await listenerApi.save(editor.value,editor.mode==='create'?'PUT':'POST');else await pluginGroupApi.save(editor.value,editor.mode==='create'?'POST':'PUT');setEditor(null);await load()}catch(e){setError(e instanceof Error?e.message:tx('保存失败'))}finally{setSaving(false)}};
- const remove=async(item:any)=>{const id=configIdentity(kind,item);if(!id||!window.confirm(locale==='en-US'?`Delete ${title} “${id}”?`:`确认删除${spec.title}“${id}”吗？`))return;try{if(kind==='cluster')await clusterApi.remove(id);else if(kind==='listener')await listenerApi.remove(id);else await pluginGroupApi.remove(id);await load()}catch(e){setError(e instanceof Error?e.message:tx('删除失败'))}};
+ const remove=async(item:JsonObject)=>{const id=configIdentity(kind,item);if(!id||!window.confirm(locale==='en-US'?`Delete ${title} “${id}”?`:`确认删除${spec.title}“${id}”吗？`))return;try{if(kind==='cluster')await clusterApi.remove(id);else if(kind==='listener')await listenerApi.remove(id);else await pluginGroupApi.remove(id);await load()}catch(e){setError(e instanceof Error?e.message:tx('删除失败'))}};
  const rows=useMemo(()=>items.map((item,index)=>configRow(kind,item,index,locale)),[items,kind,locale]);const counts=useMemo(()=>({All:rows.length,Connected:rows.filter(row=>row.status==='Connected').length,Draft:rows.filter(row=>row.status==='Draft').length}),[rows]);const filtered=useMemo(()=>rows.filter(row=>(status==='All'||row.status===status)&&`${row.title} ${row.subtitle} ${row.kindLabel} ${row.detail}`.toLowerCase().includes(query.toLowerCase())),[query,rows,status]);
  const statusLabel=(value:ConfigFilter)=>value==='All'?tx('全部'):value==='Connected'?tx('已连接'):tx('待配置');
  const actionTitle=(mode:'create'|'edit')=>locale==='en-US'?`${mode==='create'?'Create':'Edit'} ${noun}`:`${mode==='create'?'新建':'编辑'}${spec.title}`;
@@ -70,28 +71,28 @@ export function ListenerConfigPage({locale}:{locale:Locale}){return <ConfigListP
 export function PluginGroupConfigPage({locale}:{locale:Locale}){return <ConfigListPage kind="plugin" locale={locale}/>}
 
 type RouteStatus='Published'|'Draft'|'Paused';
-type RouteRow={resource:any;method:any;id:string;name:string;path:string;verb:string;target:string;status:RouteStatus};
+type RouteRow={resource:JsonObject;method:Method|null;id:string;name:string;path:string;verb:string;target:string;status:RouteStatus};
 
-function routeIdentity(item:any){return String(item.id??item.ID??'')}
-function routeTarget(method:any){
- const request=method?.integrationRequest??method?.integration_request??{};
+function routeIdentity(item:JsonObject){return String(item.id??item.ID??'')}
+function routeTarget(method:Method){
+ const request=asJsonObject(method.integrationRequest??method.integration_request);
  const application=request.applicationName??request.application_name??request.serviceName??request.service_name;
  const iface=request.interfaceName??request.interface_name??request.interface;
  if(application||iface)return [application,iface].filter(Boolean).join(' / ');
  const host=request.host??request.address??request.url;
  const path=request.path??request.requestPath??request.request_path;
- if(host&&path)return `${host} ${path}`;
- return host||path||'未配置后端目标';
+ if(host&&path)return `${String(host)} ${String(path)}`;
+ return typeof host==='string'?host:typeof path==='string'?path:'未配置后端目标';
 }
-function routeTargetFromYaml(value:any){
+function routeTargetFromYaml(value:unknown){
  if(typeof value!=='string')return '';
  const scalar=(match:RegExpMatchArray|null)=>match?.[1]?.replace(/^['"]|['"]$/g,'').trim()||'';
  const hosts=[...value.matchAll(/(?:^|\n)\s+host:\s*([^\n]+)/g)].map(match=>scalar(match));
  const paths=[...value.matchAll(/(?:^|\n)\s+path:\s*([^\n]+)/g)].map(match=>scalar(match));
- const host=hosts.at(-1)||'';const path=paths.at(-1)||'';
+ const host=hosts[hosts.length-1]||'';const path=paths[paths.length-1]||'';
  return host&&path?`${host} ${path}`:host||path;
 }
-function routeStatus(method:any):RouteStatus{
+function routeStatus(method:Method):RouteStatus{
  if(method?.status==='Draft'||method?.status==='draft'||method?.draft===true)return 'Draft';
  if(method?.onAir===false||method?.on_air===false||method?.status==='Paused'||method?.status==='paused')return 'Paused';
  return 'Published';
@@ -99,13 +100,11 @@ function routeStatus(method:any):RouteStatus{
 
 export function ResourcePage({onCountChange,locale}:{onCountChange?:(count:number)=>void;locale:Locale}){
  const tx=(value:string)=>translateText(locale,value);const title=locale==='en-US'?'API routes':'API 路由';
- const [items,setItems]=useState<any[]>([]);const [rows,setRows]=useState<RouteRow[]>([]);const [query,setQuery]=useState('');const [status,setStatus]=useState<'All'|RouteStatus>('All');const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [editor,setEditor]=useState<{mode:'create'|'edit';id:string;value:string}|null>(null);const [methods,setMethods]=useState<{resourceId:string;items:any[]}|null>(null);const [methodEditor,setMethodEditor]=useState<{mode:'create'|'edit';id:string;value:string}|null>(null);const [saving,setSaving]=useState(false);
- const buildRows=async(next:any[])=>{const grouped=await Promise.all(next.map(async resource=>{const id=routeIdentity(resource);let resourceMethods:any[]=[];try{const data=await methodApi.list(id);resourceMethods=Array.isArray(data)?data:[]}catch{resourceMethods=[]}const name=String(resource.name??resource.routeName??resource.route_name??resource.description??`route.${id}`);return resourceMethods.length?Promise.all(resourceMethods.map(async method=>{let target=routeTarget(method);if(target==='未配置后端目标'&&method.id!=null){try{target=routeTargetFromYaml(await methodApi.detail(id,String(method.id)))||target}catch{}}return {resource,method,id,name,path:String(method.resourcePath??method.resource_path??resource.path??'-'),verb:String(method.httpVerb??method.http_verb??'GET').toUpperCase(),target:tx(target),status:routeStatus(method)}})): [{resource,method:null,id,name,path:String(resource.path??'-'),verb:'—',target:tx(String(resource.target??'未配置后端目标')),status:'Draft' as RouteStatus}]}));return grouped.flat()};
- const load=useCallback(async()=>{setLoading(true);setError('');try{const data=await resourceApi.list();const next=Array.isArray(data)?data:[];setItems(next);setRows(await buildRows(next));onCountChange?.(next.length)}catch(e){setError(e instanceof Error?e.message:tx('加载路由失败'))}finally{setLoading(false)}},[onCountChange,locale]);useEffect(()=>{void load()},[load]);
+ const [rows,setRows]=useState<RouteRow[]>([]);const [query,setQuery]=useState('');const [status,setStatus]=useState<'All'|RouteStatus>('All');const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [editor,setEditor]=useState<{mode:'create'|'edit';id:string;value:string}|null>(null);const [methods,setMethods]=useState<{resourceId:string;items:Method[]}|null>(null);const [methodEditor,setMethodEditor]=useState<{mode:'create'|'edit';id:string;value:string}|null>(null);const [saving,setSaving]=useState(false);
+ const buildRows=async(next:JsonObject[])=>{const grouped=await Promise.all(next.map(async resource=>{const id=routeIdentity(resource);const resourceMethods=await methodApi.list(id);const name=String(resource.name??resource.routeName??resource.route_name??resource.description??`route.${id}`);return resourceMethods.length?Promise.all(resourceMethods.map(async method=>{let target=routeTarget(method);if(target==='未配置后端目标'&&method.id!=null)target=routeTargetFromYaml(await methodApi.detail(id,String(method.id)))||target;return {resource,method,id,name,path:String(method.resourcePath??method.resource_path??resource.path??'-'),verb:String(method.httpVerb??method.http_verb??'GET').toUpperCase(),target:tx(target),status:routeStatus(method)}})): [{resource,method:null,id,name,path:String(resource.path??'-'),verb:'—',target:tx(String(resource.target??'未配置后端目标')),status:'Draft' as RouteStatus}]}));return grouped.flat()};
+ const load=useCallback(async()=>{setLoading(true);setError('');try{const next=await resourceApi.list();setRows(await buildRows(next));onCountChange?.(next.length)}catch(e){setError(e instanceof Error?e.message:tx('加载路由失败'))}finally{setLoading(false)}},[onCountChange,locale]);useEffect(()=>{void load()},[load]);
  const counts=useMemo(()=>({All:rows.length,Published:rows.filter(row=>row.status==='Published').length,Draft:rows.filter(row=>row.status==='Draft').length,Paused:rows.filter(row=>row.status==='Paused').length}),[rows]);const filtered=useMemo(()=>rows.filter(row=>(status==='All'||row.status===status)&&`${row.name} ${row.path} ${row.target}`.toLowerCase().includes(query.toLowerCase())),[query,rows,status]);
  const saveResource=async()=>{if(!editor)return;setSaving(true);try{if(editor.mode==='create')await resourceApi.create(editor.value);else await resourceApi.update(editor.id,editor.value);setEditor(null);await load()}catch(e){setError(e instanceof Error?e.message:tx('保存路由失败'))}finally{setSaving(false)}};
- const openEdit=async(row:RouteRow)=>{try{const value=await resourceApi.detail(row.id);setEditor({mode:'edit',id:row.id,value:value||''})}catch(e){setError(e instanceof Error?e.message:tx('加载路由详情失败'))}};
- const remove=async(row:RouteRow)=>{if(!row.id||!window.confirm(locale==='en-US'?`Delete route ${row.id}?`:`确认删除路由 ${row.id} 吗？`))return;try{await resourceApi.remove(row.id);await load()}catch(e){setError(e instanceof Error?e.message:tx('删除路由失败'))}};
  const openMethods=async(row:RouteRow)=>{try{const data=await methodApi.list(row.id);setMethods({resourceId:row.id,items:Array.isArray(data)?data:[]})}catch(e){setError(e instanceof Error?e.message:tx('加载方法失败'))}};
  const saveMethod=async()=>{if(!methodEditor||!methods)return;setSaving(true);try{if(methodEditor.mode==='create')await methodApi.create(methods.resourceId,methodEditor.value);else await methodApi.update(methods.resourceId,methodEditor.id,methodEditor.value);setMethodEditor(null);setMethods({...methods,items:await methodApi.list(methods.resourceId)});await load()}catch(e){setError(e instanceof Error?e.message:tx('保存方法失败'))}finally{setSaving(false)}};
  const statusLabel=(value:RouteStatus)=>value==='Published'?tx('已发布'):value==='Draft'?tx('草稿'):tx('已暂停');const actionLabel=(mode:'create'|'edit')=>locale==='en-US'?(mode==='create'?'Create ':'Edit '):(mode==='create'?'新建':'编辑');
