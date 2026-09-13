@@ -108,6 +108,36 @@ func TestClusterConfig_EnsureConsistentHashBuildsOnce(t *testing.T) {
 	assert.Same(t, first, cluster.ConsistentHash.Hash)
 }
 
+func TestCloneClusterConfigHandlesConsistentHashByFactoryAvailability(t *testing.T) {
+	customHash := &testConsistentHash{}
+
+	registered := &model.ClusterConfig{
+		LbStr:          model.LoadBalancerRingHashing,
+		ConsistentHash: model.ConsistentHash{Hash: customHash},
+	}
+	registeredClone := model.CloneClusterConfig(registered)
+	assert.Nil(t, registeredClone.ConsistentHash.Hash,
+		"a registered factory can rebuild the hash for the runtime snapshot")
+	assert.Same(t, customHash, registered.ConsistentHash.Hash,
+		"cloning must not mutate the source config")
+
+	unregistered := &model.ClusterConfig{
+		LbStr:          model.LbPolicyType("ProgrammaticCustomHash"),
+		ConsistentHash: model.ConsistentHash{Hash: customHash},
+	}
+	unregisteredClone := model.CloneClusterConfig(unregistered)
+	assert.Same(t, customHash, unregisteredClone.ConsistentHash.Hash,
+		"a programmatic hash must survive when no factory can rebuild it")
+}
+
+type testConsistentHash struct{}
+
+func (*testConsistentHash) Hash(string) uint32             { return 0 }
+func (*testConsistentHash) Get(string) (string, error)     { return "", nil }
+func (*testConsistentHash) GetHash(uint32) (string, error) { return "", nil }
+func (*testConsistentHash) Add(string)                     {}
+func (*testConsistentHash) Remove(string) bool             { return false }
+
 func TestClusterConfig_PrePickEndpointIndexIsRuntimeOnly(t *testing.T) {
 	cluster := &model.ClusterConfig{
 		Name:                 "runtime-cursor",

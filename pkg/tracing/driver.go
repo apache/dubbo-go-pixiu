@@ -33,6 +33,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/client/dubbo"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/tracing/jaeger"
@@ -84,6 +85,7 @@ func InitDriver(bs *model.Bootstrap) *TraceDriver {
 	}
 	provider := newTraceProvider(exp, config)
 	otel.SetTracerProvider(provider)
+	dubbo.SetTracingEnabled(true)
 
 	return &TraceDriver{TracerProvider: provider}
 }

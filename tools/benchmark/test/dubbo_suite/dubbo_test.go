@@ -70,7 +70,7 @@ var _ = Describe("Dubbo protocol performance test", Ordered, func() {
 		dubboServerSession = prepareDubboServer()
 		time.Sleep(5 * time.Second)
 
-		pixiuSession = test.PreparePixiu("../../dist/pixiu", test.CurPath+"/../../protocol/dubbo/pixiu/conf/config.yaml")
+		pixiuSession = test.PreparePixiu("../../dist/pixiu", test.CurPath+"/../../protocol/dubbo/pixiu/conf/config.yaml", 18380)
 		time.Sleep(5 * time.Second)
 	})
 

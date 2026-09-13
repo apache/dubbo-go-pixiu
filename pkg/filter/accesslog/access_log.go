@@ -79,8 +79,9 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *http.HttpContext, chain fi
 	// Make a shallow copy of the factory config to avoid sharing the factory's pointer.
 	cpConf := *factory.conf
 	f := &Filter{
-		conf: &cpConf,
-		alw:  factory.alw,
+		conf:  &cpConf,
+		alw:   factory.alw,
+		start: time.Now(),
 	}
 	chain.AppendDecodeFilters(f)
 	chain.AppendEncodeFilters(f)

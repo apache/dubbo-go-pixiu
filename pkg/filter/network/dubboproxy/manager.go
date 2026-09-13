@@ -110,10 +110,17 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for k := range md {
-			dubboAttachment[k] = md.Get(k)[0]
+			values := md.Get(k)
+			if len(values) == 0 {
+				return nil, errors.Errorf("empty metadata value for key: %s", k)
+			}
+			dubboAttachment[k] = values[0]
 		}
 	}
-	interfaceName := dubboAttachment[constant.InterfaceKey].(string)
+	interfaceName, ok := dubboAttachment[constant.InterfaceKey].(string)
+	if !ok {
+		return nil, errors.Errorf("missing or invalid interface key in metadata: expected string, got %T", dubboAttachment[constant.InterfaceKey])
+	}
 
 	ra, err := dcm.routerCoordinator.RouteByPathAndName(interfaceName, methodName)
 
@@ -144,7 +151,7 @@ func (dcm *DubboProxyConnectionManager) OnTripleData(ctx context.Context, method
 func (dcm *DubboProxyConnectionManager) OnData(data any) (any, error) {
 	old_invoc, ok := data.(*invocation.RPCInvocation)
 	if !ok {
-		panic("create invocation occur some exception for the type is not suitable one.")
+		return nil, errors.Errorf("invalid invocation type: expected *invocation.RPCInvocation, got %T", data)
 	}
 	// need reconstruct RPCInvocation ParameterValues witch is same with arguments. refer to dubbogo/common/proxy/proxy.makeDubboCallProxy
 	arguments := old_invoc.Arguments()

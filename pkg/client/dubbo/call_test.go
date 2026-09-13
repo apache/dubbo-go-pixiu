@@ -35,6 +35,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -145,14 +146,13 @@ func TestResolveFromOutboundRegistryMode(t *testing.T) {
 func TestPreparePayloadRejectsLengthMismatch(t *testing.T) {
 	dc := NewDubboClient()
 
-	types, vals, finalValues, err := dc.preparePayload(&DubboOutboundRequest{
+	types, vals, err := dc.preparePayload(&DubboOutboundRequest{
 		Arguments:  []any{"only-one"},
 		ParamTypes: []string{"java.lang.String", "int"},
 	})
 
 	assert.Nil(t, types)
 	assert.Nil(t, vals)
-	assert.Nil(t, finalValues)
 	assert.EqualError(t, err, "arguments/paramTypes length mismatch: 1 vs 2")
 }
 
@@ -228,6 +228,26 @@ func TestCallUsesOutboundOnly(t *testing.T) {
 	res, err := dc.Call(context.Background(), req)
 	require.NoError(t, err)
 	assert.Equal(t, "ok", res)
+}
+
+func TestWithAttachmentsPropagatesExternalSpanWhenTracingDisabled(t *testing.T) {
+	restorePropagator(t, propagation.TraceContext{})
+	previousTracingEnabled := tracingEnabled.Load()
+	t.Cleanup(func() { SetTracingEnabled(previousTracingEnabled) })
+	SetTracingEnabled(false)
+
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    [16]byte{1},
+		SpanID:     [8]byte{2},
+		TraceFlags: trace.FlagsSampled,
+		Remote:     true,
+	})
+	ctx := trace.ContextWithRemoteSpanContext(context.Background(), spanContext)
+	ctx = withAttachments(ctx, nil)
+
+	attachments, ok := ctx.Value(dubboConstant.AttachmentKey).(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "00-01000000000000000000000000000000-0200000000000000-01", attachments["traceparent"])
 }
 
 func TestCallAppliesTimeout(t *testing.T) {

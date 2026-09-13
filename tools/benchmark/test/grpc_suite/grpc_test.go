@@ -65,7 +65,7 @@ var _ = Describe("gRPC protocol performance test", Ordered, func() {
 
 		time.Sleep(1 * time.Second)
 
-		pixiuSession = test.PreparePixiu("../../dist/pixiu", test.CurPath+"/../../protocol/grpc/pixiu/conf/config.yaml")
+		pixiuSession = test.PreparePixiu("../../dist/pixiu", test.CurPath+"/../../protocol/grpc/pixiu/conf/config.yaml", 18381)
 
 		time.Sleep(3 * time.Second)
 
@@ -133,7 +133,7 @@ var _ = Describe("gRPC protocol performance test", Ordered, func() {
 		experiment := gmeasure.NewExperiment("pixiu to gRPC protocol performance test")
 		AddReportEntry(experiment.Name, experiment)
 
-		urlPrefix := "http://localhost:8881/api/v1/benchmark.BenchmarkService/"
+		urlPrefix := "http://localhost:8882/api/v1/benchmark.BenchmarkService/"
 
 		experiment.Sample(func(idx int) {
 			defer GinkgoRecover()

@@ -18,6 +18,10 @@
 package filter
 
 import (
+	"sync"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -36,6 +40,21 @@ type defaultFilterChain struct {
 
 	encodeFilters      []HttpEncodeFilter
 	encodeFiltersIndex int
+	release            func()
+	releaseOnce        sync.Once
+}
+
+func (c *defaultFilterChain) setRelease(release func()) {
+	c.release = release
+}
+
+// Release releases resources leased by this request's filter chain.
+func (c *defaultFilterChain) Release() {
+	c.releaseOnce.Do(func() {
+		if c.release != nil {
+			c.release()
+		}
+	})
 }
 
 func NewDefaultFilterChain() FilterChain {

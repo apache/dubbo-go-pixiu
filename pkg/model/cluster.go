@@ -57,7 +57,16 @@ var (
 )
 
 type (
-	// ClusterConfig a single upstream cluster
+	// ClusterConfig represents the desired state of an upstream cluster.
+	// It is created from YAML, xDS, or ClusterManager APIs. After publication
+	// to a runtime Cluster the runtime holds its own deep copy — mutations to
+	// ClusterConfig are invisible to the running cluster until the next
+	// explicit update.
+	//
+	// Runtime state (cursors, health, snapshots) belongs on cluster.Cluster,
+	// not here. PrePickEndpointIndex is retained only for the legacy
+	// LoadBalancer.Handler interface; new code should use
+	// PickContext.RoundRobinCursor.
 	ClusterConfig struct {
 		Name                 string              `yaml:"name" json:"name"` // Name the cluster unique name
 		TypeStr              string              `yaml:"type" json:"type"` // Type the cluster discovery type string value
@@ -67,7 +76,8 @@ type (
 		ConsistentHash       ConsistentHash      `yaml:"consistent" json:"consistent"` // Consistent hash config info
 		HealthChecks         []HealthCheckConfig `yaml:"health_checks" json:"health_checks"`
 		Endpoints            []*Endpoint         `yaml:"endpoints" json:"endpoints"`
-		PrePickEndpointIndex uint32              `yaml:"-" json:"-"` // runtime-only round-robin cursor state
+		PrePickEndpointIndex uint32              `yaml:"-" json:"-"` // runtime-only round-robin cursor state (legacy Handler compat)
+		ConfigID             uint64              `yaml:"-" json:"-"` // stable identity for config-runtime association
 	}
 
 	// EdsClusterConfig todo remove un-used EdsClusterConfig
@@ -304,4 +314,41 @@ func cloneLLMMeta(meta *LLMMeta) *LLMMeta {
 	cloned := *meta
 	cloned.RetryPolicy.Config = copyutil.CloneStringAnyMap(meta.RetryPolicy.Config)
 	return &cloned
+}
+
+// CloneClusterConfig returns a deep copy of c suitable for handing to a new
+// runtime Cluster. The clone owns its Endpoints and HealthChecks slices.
+// ConsistentHash.Hash (a mutable runtime object) is set to nil when the policy
+// has a registered factory, so the runtime can rebuild it from its endpoint
+// snapshot. For an unregistered/custom policy, a programmatically supplied
+// Hash is preserved because there is no factory available to reconstruct it;
+// custom implementations are responsible for their own concurrency safety.
+// configID is preserved so callers can detect config-object identity changes.
+// PrePickEndpointIndex is NOT copied — runtime cursor state belongs on the
+// runtime, not in the config clone.
+func CloneClusterConfig(c *ClusterConfig) *ClusterConfig {
+	if c == nil {
+		return nil
+	}
+	clone := *c
+	clone.Endpoints = CloneEndpoints(c.Endpoints)
+	clone.HealthChecks = cloneHealthChecks(c.HealthChecks)
+	clone.ConsistentHash = c.ConsistentHash
+	if c.HasConsistentHashFactory() {
+		clone.ConsistentHash.Hash = nil
+	}
+	return &clone
+}
+
+func cloneHealthChecks(checks []HealthCheckConfig) []HealthCheckConfig {
+	if checks == nil {
+		return nil
+	}
+	cloned := make([]HealthCheckConfig, len(checks))
+	for i, hc := range checks {
+		cloned[i] = hc
+		cloned[i].CommonCallbacks = append([]string(nil), hc.CommonCallbacks...)
+		cloned[i].SessionConfig = copyutil.CloneStringAnyMap(hc.SessionConfig)
+	}
+	return cloned
 }

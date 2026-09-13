@@ -28,13 +28,12 @@ import (
 import (
 	"github.com/agiledragon/gomonkey/v2"
 
-	"github.com/golang/mock/gomock"
-
 	"github.com/stretchr/testify/require"
 
 	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
+	"go.uber.org/mock/gomock"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

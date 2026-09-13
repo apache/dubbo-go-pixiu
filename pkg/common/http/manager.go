@@ -114,6 +114,14 @@ func (hcm *HttpConnectionManager) Handle(hc *pch.HttpContext) error {
 	return hcm.handleHTTPRequest(hc)
 }
 
+// Close releases resources held by the HTTP filter chain.
+func (hcm *HttpConnectionManager) Close() error {
+	if hcm.filterManager == nil {
+		return nil
+	}
+	return hcm.filterManager.Close()
+}
+
 func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
 	hc := hcm.pool.Get().(*pch.HttpContext)
 	defer hcm.pool.Put(hc)
@@ -136,6 +144,9 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) (resultE
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		hcm.writeResponse(c)
 		return err
+	}
+	if releaser, ok := filterChain.(interface{ Release() }); ok {
+		defer releaser.Release()
 	}
 
 	// recover any err when filterChain run

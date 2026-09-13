@@ -104,7 +104,15 @@ func (ls *HttpListenerService) ShutDown(wg any) error {
 		cancel()
 		wg.(*sync.WaitGroup).Done()
 	}()
-	return ls.srv.Shutdown(ctx)
+	if ls.srv == nil {
+		return ls.CloseFilterChain()
+	}
+	serverErr := ls.srv.Shutdown(ctx)
+	filterErr := ls.CloseFilterChain()
+	if serverErr != nil {
+		return serverErr
+	}
+	return filterErr
 }
 
 func (ls *HttpListenerService) httpsListener() error {
