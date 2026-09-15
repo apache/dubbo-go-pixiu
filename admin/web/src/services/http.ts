@@ -23,10 +23,17 @@ import { clearSession, readSession, redirectToLogin } from './session'
 export class ApiError extends Error {
   code: string
   raw: string
-  constructor(message: string, code = '', raw = '') {
+  issues: Array<{ path: string; code: string; message: string }>
+  constructor(
+    message: string,
+    code = '',
+    raw = '',
+    issues: Array<{ path: string; code: string; message: string }> = [],
+  ) {
     super(message)
     this.code = code
     this.raw = raw
+    this.issues = issues
   }
 }
 
@@ -43,6 +50,26 @@ function isAuthFailure(status: number, bodyData: unknown) {
   if (body.code !== API_STATUS.NOT_FOUND) return false
   const message = typeof body.data === 'string' ? body.data.toLowerCase() : ''
   return /token|login|access|authoriz|认证|登录|权限/.test(message)
+}
+
+function errorDetails(data: unknown) {
+  if (!data || typeof data !== 'object' || Array.isArray(data))
+    return { message: '', issues: [] as Array<{ path: string; code: string; message: string }> }
+  const value = data as { message?: unknown; issues?: unknown }
+  const issues = Array.isArray(value.issues)
+    ? value.issues.filter(
+        (issue): issue is { path: string; code: string; message: string } =>
+          Boolean(issue) &&
+          typeof issue === 'object' &&
+          typeof (issue as { path?: unknown }).path === 'string' &&
+          typeof (issue as { code?: unknown }).code === 'string' &&
+          typeof (issue as { message?: unknown }).message === 'string',
+      )
+    : []
+  return {
+    message: typeof value.message === 'string' ? value.message : '',
+    issues,
+  }
 }
 
 export function isNotFoundError(error: unknown) {
@@ -112,13 +139,13 @@ export async function request<T>(path: string, init: RequestInit = {}) {
         String(envelope.data || raw),
       )
     }
+    const details = errorDetails(envelope.data)
     const message =
       typeof envelope.data === 'string'
         ? envelope.data
-        : typeof envelope.message === 'string'
-          ? envelope.message
-          : `请求失败（HTTP ${r.status}）`
-    throw new ApiError(message, String(envelope.code || `HTTP_${r.status}`), raw)
+        : details.message ||
+          (typeof envelope.message === 'string' ? envelope.message : `请求失败（HTTP ${r.status}）`)
+    throw new ApiError(message, String(envelope.code || `HTTP_${r.status}`), raw, details.issues)
   }
   if (envelope.code && envelope.code !== API_STATUS.SUCCESS) {
     if (isAuthFailure(r.status, envelope)) {
@@ -126,15 +153,17 @@ export async function request<T>(path: string, init: RequestInit = {}) {
       redirectToLogin()
       throw new ApiError('登录状态已失效，请重新登录', 'AUTH_REQUIRED', String(envelope.data || ''))
     }
+    const details = errorDetails(envelope.data)
     const message =
       typeof envelope.data === 'string'
         ? envelope.data
-        : envelope.code === API_STATUS.NOT_FOUND
-          ? '数据不存在'
-          : envelope.code === API_STATUS.CONCURRENT
-            ? '操作冲突，请刷新后重试'
-            : '请求失败'
-    throw new ApiError(message, String(envelope.code), String(envelope.data || ''))
+        : details.message ||
+          (envelope.code === API_STATUS.NOT_FOUND
+            ? '数据不存在'
+            : envelope.code === API_STATUS.CONCURRENT
+              ? '操作冲突，请刷新后重试'
+              : '请求失败')
+    throw new ApiError(message, String(envelope.code), String(envelope.data || ''), details.issues)
   }
   if (!('data' in envelope)) throw new ApiError('接口响应缺少 data 字段', 'BAD_RESPONSE', raw)
   return envelope.data as T

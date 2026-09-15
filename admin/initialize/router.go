@@ -83,6 +83,23 @@ func Routers() *gin.Engine {
 		taR.PUT("/config/api/resource/method", configInfo.ModifyMethodInfo)
 		taR.DELETE("/config/api/resource/method", configInfo.DeleteMethodInfo)
 
+		// AdminRouteBinding API. These endpoints keep the high-level Admin
+		// object separate from the legacy Resource/Method API. Each route has
+		// an independent draft/publish boundary; publishing one route still
+		// updates its generated legacy keys in one etcd transaction.
+		taR.GET("/config/api/route/schema", configInfo.GetRouteBindingSchema)
+		taR.GET("/config/api/route/list", configInfo.GetRouteBindingList)
+		taR.GET("/config/api/route/detail", configInfo.GetRouteBindingDetail)
+		taR.POST("/config/api/route", configInfo.CreateRouteBinding)
+		taR.PUT("/config/api/route", configInfo.ModifyRouteBinding)
+		taR.DELETE("/config/api/route", configInfo.DeleteRouteBinding)
+		taR.POST("/config/api/route/validate", configInfo.ValidateRouteBinding)
+		taR.POST("/config/api/route/preview", configInfo.PreviewRouteBinding)
+		taR.PUT("/config/api/route/publish", configInfo.PublishRouteBinding)
+		taR.GET("/config/api/route/status", configInfo.GetRouteBindingStatus)
+		taR.GET("/config/api/route/diff", configInfo.GetRouteBindingDiff)
+		taR.GET("/config/api/route/publish/status", configInfo.GetRouteBindingPublishStatus)
+
 		taR.GET("/config/api/opa/policy", opa.GetOPAPolicy)
 		taR.PUT("/config/api/opa/policy", opa.PutOPAPolicy)
 		taR.DELETE("/config/api/opa/policy", opa.DeleteOPAPolicy)

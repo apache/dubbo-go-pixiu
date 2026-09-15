@@ -36,11 +36,12 @@ import { listenerApi } from '../../services/listener-api'
 import { pluginGroupApi } from '../../services/plugin-group-api'
 import { rateLimitApi } from '../../services/rate-limit-api'
 import { opaApi } from '../../services/opa-api'
-import { methodApi } from '../../services/method-api'
-import { resourceApi } from '../../services/resource-api'
 import { baseApi } from '../../services/base-api'
 import { Locale, translateText } from '../../i18n'
-import { asJsonObject, JsonObject, Method } from '../../types/api'
+import { RouteBindingEditor } from './RouteBindingEditor'
+import { routeBindingApi } from '../../services/route-binding-api'
+import { asJsonObject, JsonObject } from '../../types/api'
+import type { RouteBinding, RouteBindingPublishStatus } from '../../types/api'
 
 type Kind = 'cluster' | 'listener' | 'plugin'
 const templates = {
@@ -49,9 +50,6 @@ const templates = {
     'name: http-listener\naddress:\n  socket-address:\n    address: 0.0.0.0\n    port: 8888\nroute_config:\n  routes: []\n',
   plugin:
     'groupName: group1\nplugins:\n  - name: rate limit\n    version: 0.0.1\n    priority: 1000\n    externalLookupName: ExternalPluginRateLimit\n',
-  resource: 'path: /api/v1/example\ntype: restful\ndescription: example route\ntimeout: 1s\n',
-  method:
-    'httpVerb: GET\nonAir: true\ntimeout: 1s\ninboundRequest:\n  requestType: http\nintegrationRequest:\n  requestType: http\n  host: 127.0.0.1:8889\n  path: /example\n',
 }
 
 function Editor({
@@ -507,56 +505,52 @@ export function PluginGroupConfigPage({ locale }: { locale: Locale }) {
   return <ConfigListPage kind="plugin" locale={locale} />
 }
 
-type RouteStatus = 'Published' | 'Draft' | 'Paused'
+type RouteStatus = 'Published' | 'Draft'
 type RouteRow = {
-  resource: JsonObject
-  method: Method | null
+  binding: RouteBinding
   id: string
   name: string
   path: string
   verb: string
   target: string
   status: RouteStatus
+  publishedRevision: number
 }
 
-function routeIdentity(item: JsonObject) {
-  return String(item.id ?? item.ID ?? '')
+function routeObjectsMatch(left: RouteBinding, right: RouteBinding) {
+  return JSON.stringify(left.object) === JSON.stringify(right.object)
 }
-function routeTarget(method: Method) {
-  const request = asJsonObject(method.integrationRequest ?? method.integration_request)
-  const application =
-    request.applicationName ??
-    request.application_name ??
-    request.serviceName ??
-    request.service_name
-  const iface = request.interfaceName ?? request.interface_name ?? request.interface
-  if (application || iface) return [application, iface].filter(Boolean).join(' / ')
-  const host = request.host ?? request.address ?? request.url
-  const path = request.path ?? request.requestPath ?? request.request_path
-  if (host && path) return `${String(host)} ${String(path)}`
-  return typeof host === 'string' ? host : typeof path === 'string' ? path : '未配置后端目标'
-}
-function routeTargetFromYaml(value: unknown) {
-  if (typeof value !== 'string') return ''
-  const scalar = (match: RegExpMatchArray | null) =>
-    match?.[1]?.replace(/^['"]|['"]$/g, '').trim() || ''
-  const hosts = [...value.matchAll(/(?:^|\n)\s+host:\s*([^\n]+)/g)].map((match) => scalar(match))
-  const paths = [...value.matchAll(/(?:^|\n)\s+path:\s*([^\n]+)/g)].map((match) => scalar(match))
-  const host = hosts[hosts.length - 1] || ''
-  const path = paths[paths.length - 1] || ''
-  return host && path ? `${host} ${path}` : host || path
-}
-function routeStatus(method: Method): RouteStatus {
-  if (method?.status === 'Draft' || method?.status === 'draft' || method?.draft === true)
-    return 'Draft'
-  if (
-    method?.onAir === false ||
-    method?.on_air === false ||
-    method?.status === 'Paused' ||
-    method?.status === 'paused'
-  )
-    return 'Paused'
-  return 'Published'
+
+function routeRow(
+  binding: RouteBinding,
+  published: Map<string, RouteBinding>,
+  locale: Locale,
+): RouteRow {
+  const object = binding.object
+  const spec = asJsonObject(object.spec)
+  const entry = asJsonObject(spec.entry)
+  const target = asJsonObject(spec.target)
+  const name = String(object.metadata?.name || `route.${binding.resourceId}`)
+  const publishedBinding = published.get(name)
+  const targetLabel = [target.application, target.interface]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join(' / ')
+
+  return {
+    binding,
+    id: name,
+    name,
+    path: String(entry.path || '-'),
+    verb: String(entry.method || 'GET').toUpperCase(),
+    target:
+      targetLabel ||
+      (typeof target.cluster === 'string' && target.cluster.trim()
+        ? target.cluster
+        : translateText(locale, '未配置后端目标')),
+    status:
+      publishedBinding && routeObjectsMatch(binding, publishedBinding) ? 'Published' : 'Draft',
+    publishedRevision: publishedBinding?.revision || 0,
+  }
 }
 
 export function ResourcePage({
@@ -575,70 +569,25 @@ export function ResourcePage({
   const [error, setError] = useState('')
   const [editor, setEditor] = useState<{
     mode: 'create' | 'edit'
-    id: string
-    value: string
+    name: string
+    binding: RouteBinding | null
+    loading: boolean
+    published: boolean
+    publishStatus: RouteBindingPublishStatus | null
   } | null>(null)
-  const [methods, setMethods] = useState<{ resourceId: string; items: Method[] } | null>(null)
-  const [methodEditor, setMethodEditor] = useState<{
-    mode: 'create' | 'edit'
-    id: string
-    value: string
-  } | null>(null)
-  const [saving, setSaving] = useState(false)
-  const buildRows = async (next: JsonObject[]) => {
-    const grouped = await Promise.all(
-      next.map(async (resource) => {
-        const id = routeIdentity(resource)
-        const resourceMethods = await methodApi.list(id)
-        const name = String(
-          resource.name ??
-            resource.routeName ??
-            resource.route_name ??
-            resource.description ??
-            `route.${id}`,
-        )
-        return resourceMethods.length
-          ? Promise.all(
-              resourceMethods.map(async (method) => {
-                let target = routeTarget(method)
-                if (target === '未配置后端目标' && method.id != null)
-                  target =
-                    routeTargetFromYaml(await methodApi.detail(id, String(method.id))) || target
-                return {
-                  resource,
-                  method,
-                  id,
-                  name,
-                  path: String(method.resourcePath ?? method.resource_path ?? resource.path ?? '-'),
-                  verb: String(method.httpVerb ?? method.http_verb ?? 'GET').toUpperCase(),
-                  target: tx(target),
-                  status: routeStatus(method),
-                }
-              }),
-            )
-          : [
-              {
-                resource,
-                method: null,
-                id,
-                name,
-                path: String(resource.path ?? '-'),
-                verb: '—',
-                target: tx(String(resource.target ?? '未配置后端目标')),
-                status: 'Draft' as RouteStatus,
-              },
-            ]
-      }),
-    )
-    return grouped.flat()
-  }
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const next = await resourceApi.list()
-      setRows(await buildRows(next))
-      onCountChange?.(next.length)
+      const [draftBindings, publishedBindings] = await Promise.all([
+        routeBindingApi.list('draft'),
+        routeBindingApi.list('published'),
+      ])
+      const published = new Map(
+        publishedBindings.map((binding) => [binding.object.metadata.name, binding]),
+      )
+      setRows(draftBindings.map((binding) => routeRow(binding, published, locale)))
+      onCountChange?.(draftBindings.length)
     } catch (e) {
       setError(e instanceof Error ? e.message : tx('加载路由失败'))
     } finally {
@@ -653,7 +602,6 @@ export function ResourcePage({
       All: rows.length,
       Published: rows.filter((row) => row.status === 'Published').length,
       Draft: rows.filter((row) => row.status === 'Draft').length,
-      Paused: rows.filter((row) => row.status === 'Paused').length,
     }),
     [rows],
   )
@@ -666,54 +614,68 @@ export function ResourcePage({
       ),
     [query, rows, status],
   )
-  const saveResource = async () => {
-    if (!editor) return
-    setSaving(true)
+  const openCreate = () =>
+    setEditor({
+      mode: 'create',
+      name: '',
+      binding: null,
+      loading: false,
+      published: false,
+      publishStatus: null,
+    })
+  const openEdit = async (row: RouteRow) => {
+    const name = row.binding.object.metadata.name
+    setEditor({
+      mode: 'edit',
+      name,
+      binding: null,
+      loading: true,
+      published: row.status === 'Published',
+      publishStatus: {
+        name,
+        draftRevision: row.binding.revision,
+        publishedRevision: row.publishedRevision,
+        draftExists: true,
+        publishedExists: row.status === 'Published',
+        dirty: row.status !== 'Published',
+      },
+    })
     try {
-      if (editor.mode === 'create') await resourceApi.create(editor.value)
-      else await resourceApi.update(editor.id, editor.value)
+      const [binding, routeStatus] = await Promise.all([
+        routeBindingApi.detail(name, 'draft'),
+        routeBindingApi.status(name),
+      ])
+      setEditor({
+        mode: 'edit',
+        name,
+        binding,
+        loading: false,
+        published: Boolean(routeStatus.publishedExists && !routeStatus.dirty),
+        publishStatus: routeStatus,
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tx('加载路由详情失败'))
       setEditor(null)
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : tx('保存路由失败'))
-    } finally {
-      setSaving(false)
     }
   }
-  const openMethods = async (row: RouteRow) => {
-    try {
-      const data = await methodApi.list(row.id)
-      setMethods({ resourceId: row.id, items: Array.isArray(data) ? data : [] })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : tx('加载方法失败'))
-    }
+  const statusLabel = (value: RouteStatus) => (value === 'Published' ? tx('已发布') : tx('草稿'))
+  if (editor) {
+    return (
+      <RouteBindingEditor
+        locale={locale}
+        mode={editor.mode}
+        binding={editor.binding}
+        loading={editor.loading}
+        published={editor.published}
+        publishStatus={editor.publishStatus}
+        onBack={() => {
+          setEditor(null)
+          void load()
+        }}
+        onSaved={() => load()}
+      />
+    )
   }
-  const saveMethod = async () => {
-    if (!methodEditor || !methods) return
-    setSaving(true)
-    try {
-      if (methodEditor.mode === 'create')
-        await methodApi.create(methods.resourceId, methodEditor.value)
-      else await methodApi.update(methods.resourceId, methodEditor.id, methodEditor.value)
-      setMethodEditor(null)
-      setMethods({ ...methods, items: await methodApi.list(methods.resourceId) })
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : tx('保存方法失败'))
-    } finally {
-      setSaving(false)
-    }
-  }
-  const statusLabel = (value: RouteStatus) =>
-    value === 'Published' ? tx('已发布') : value === 'Draft' ? tx('草稿') : tx('已暂停')
-  const actionLabel = (mode: 'create' | 'edit') =>
-    locale === 'en-US'
-      ? mode === 'create'
-        ? 'Create '
-        : 'Edit '
-      : mode === 'create'
-        ? '新建'
-        : '编辑'
   return (
     <div className="page-resource route-prototype">
       <div className="placeholder-head">
@@ -731,10 +693,7 @@ export function ResourcePage({
             <RefreshCw size={14} />
             {tx('刷新')}
           </button>
-          <button
-            className="primary"
-            onClick={() => setEditor({ mode: 'create', id: '', value: templates.resource })}
-          >
+          <button className="primary" onClick={openCreate}>
             <Plus size={15} />
             {locale === 'en-US' ? 'Create API route' : '新建 API 路由'}
           </button>
@@ -756,7 +715,7 @@ export function ResourcePage({
             />
           </label>
           <div className="filters">
-            {(['All', 'Published', 'Draft', 'Paused'] as const).map((value) => (
+            {(['All', 'Published', 'Draft'] as const).map((value) => (
               <button
                 key={value}
                 className={`filter ${status === value ? 'active' : ''}`}
@@ -781,10 +740,7 @@ export function ResourcePage({
                 ? 'No live resources yet. Use the button above to create the first route.'
                 : '真实资源列表为空，点击右上角创建第一条路由。'}
             </span>
-            <button
-              className="primary"
-              onClick={() => setEditor({ mode: 'create', id: '', value: templates.resource })}
-            >
+            <button className="primary" onClick={openCreate}>
               {locale === 'en-US' ? 'Create API route' : '新建 API 路由'}
             </button>
           </div>
@@ -825,24 +781,17 @@ export function ResourcePage({
                       </span>
                     </td>
                     <td>
-                      <span className="mono unavailable-value">—</span>
+                      <span className="mono unavailable-value">-</span>
                     </td>
                     <td>
-                      <span className="muted">—</span>
+                      <span className="muted">-</span>
                     </td>
                     <td>
-                      <button
-                        className="row-menu"
-                        title={tx('查看路由操作')}
-                        aria-label={
-                          locale === 'en-US'
-                            ? `View actions for ${row.name}`
-                            : `查看 ${row.name} 的路由操作`
-                        }
-                        onClick={() => void openMethods(row)}
-                      >
-                        •••
-                      </button>
+                      <div className="row-actions route-row-actions">
+                        <button className="link-btn" onClick={() => void openEdit(row)}>
+                          {tx('编辑')}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -856,79 +805,6 @@ export function ResourcePage({
           </div>
         )}
       </div>
-      {editor && (
-        <Editor
-          locale={locale}
-          title={`${locale === 'en-US' ? (editor.mode === 'create' ? 'Create' : 'Edit') + ' API route' : editor.mode === 'create' ? '新建 API 路由' : '编辑 API 路由'}`}
-          value={editor.value}
-          onChange={(value) => setEditor({ ...editor, value })}
-          onClose={() => setEditor(null)}
-          onSave={() => void saveResource()}
-          saving={saving}
-        />
-      )}{' '}
-      {methods && (
-        <div className="drawer-backdrop" onClick={() => setMethods(null)}>
-          <aside className="drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-head">
-              <div>
-                <span className="eyebrow">RESOURCE METHODS</span>
-                <h2>
-                  {locale === 'en-US' ? 'Route methods ·' : '路由方法 ·'} {methods.resourceId}
-                </h2>
-              </div>
-              <button className="icon-btn" onClick={() => setMethods(null)}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="form" style={{ flex: 1 }}>
-              {methods.items.length === 0 ? (
-                <div className="empty">{tx('暂无方法')}</div>
-              ) : (
-                methods.items.map((item, index) => (
-                  <div className="panel" key={item.id || index}>
-                    <b>
-                      {item.id || index + 1} · {item.httpVerb || 'GET'}
-                    </b>
-                    <small className="muted">{item.resourcePath || '-'}</small>
-                    <button
-                      className="link-btn"
-                      onClick={async () => {
-                        try {
-                          const value = await methodApi.detail(methods.resourceId, String(item.id))
-                          setMethodEditor({ mode: 'edit', id: String(item.id), value: value || '' })
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : tx('加载方法详情失败'))
-                        }
-                      }}
-                    >
-                      {tx('编辑 YAML')}
-                    </button>
-                  </div>
-                ))
-              )}
-              <button
-                className="secondary"
-                onClick={() => setMethodEditor({ mode: 'create', id: '', value: templates.method })}
-              >
-                <Plus size={14} />
-                {tx('新建方法')}
-              </button>
-            </div>
-          </aside>
-        </div>
-      )}
-      {methodEditor && (
-        <Editor
-          locale={locale}
-          title={`${actionLabel(methodEditor.mode)}${locale === 'en-US' ? 'method' : '方法'}`}
-          value={methodEditor.value}
-          onChange={(value) => setMethodEditor({ ...methodEditor, value })}
-          onClose={() => setMethodEditor(null)}
-          onSave={() => void saveMethod()}
-          saving={saving}
-        />
-      )}
     </div>
   )
 }
