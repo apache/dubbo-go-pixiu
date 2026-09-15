@@ -78,7 +78,7 @@ func TestSnapshotServedThroughExtensionConfigDiscovery(t *testing.T) {
 	dialContext := func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
 	}
-	conn, err := grpc.DialContext(ctx, "bufnet",
+	conn, err := grpc.NewClient("bufnet",
 		grpc.WithContextDialer(dialContext),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

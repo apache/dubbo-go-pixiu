@@ -375,8 +375,7 @@ func TestAggGrpcApiClient_ReconnectsWithLastAcceptedVersions(t *testing.T) {
 		_ = listener.Close()
 	})
 
-	conn, err := grpc.DialContext(
-		context.Background(),
+	conn, err := grpc.NewClient(
 		"bufnet",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

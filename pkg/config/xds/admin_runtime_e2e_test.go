@@ -619,7 +619,9 @@ func runtimeE2EToken(t *testing.T) string {
 	t.Helper()
 	claims := auth.CustomClaims{
 		Username: "xds-e2e",
-		StandardClaims: jwt.StandardClaims{
+		// SA1019: the upstream auth.CustomClaims embeds the deprecated
+		// jwt.StandardClaims; migrate it together with the auth package.
+		StandardClaims: jwt.StandardClaims{ //nolint:staticcheck // upstream CustomClaims requires it
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
