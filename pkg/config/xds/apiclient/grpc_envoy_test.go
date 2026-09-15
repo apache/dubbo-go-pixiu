@@ -375,8 +375,11 @@ func TestAggGrpcApiClient_ReconnectsWithLastAcceptedVersions(t *testing.T) {
 		_ = listener.Close()
 	})
 
+	// grpc.NewClient defaults to the DNS resolver, which cannot resolve the
+	// synthetic "bufnet" target; the passthrough scheme keeps the endpoint
+	// verbatim so the custom dialer receives it.
 	conn, err := grpc.NewClient(
-		"bufnet",
+		"passthrough:///bufnet",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

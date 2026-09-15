@@ -78,7 +78,10 @@ func TestSnapshotServedThroughExtensionConfigDiscovery(t *testing.T) {
 	dialContext := func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
 	}
-	conn, err := grpc.NewClient("bufnet",
+	// grpc.NewClient defaults to the DNS resolver, which cannot resolve the
+	// synthetic "bufnet" target; the passthrough scheme keeps the endpoint
+	// verbatim so the custom dialer receives it.
+	conn, err := grpc.NewClient("passthrough:///bufnet",
 		grpc.WithContextDialer(dialContext),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

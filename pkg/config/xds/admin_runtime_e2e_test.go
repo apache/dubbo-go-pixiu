@@ -206,9 +206,15 @@ func TestRuntimeE2EDubboProviderProcess(t *testing.T) {
 
 	port, err := strconv.Atoi(os.Getenv(runtimeE2EProviderPortEnv))
 	require.NoError(t, err)
+	// The protocol IP is intentionally left empty. dubbo-go always exports its
+	// internal MetadataService on the same port with an empty IP, and
+	// DubboProtocol.openServer caches listeners per url.Location. A concrete IP
+	// would give this service "127.0.0.1:<port>", i.e. a second location whose
+	// listen overlaps the wildcard MetadataService listener; Linux rejects that
+	// with EADDRINUSE while BSD/macOS tolerates it. Sharing the wildcard
+	// location makes both services reuse one listener.
 	srv, err := rpcserver.NewServer(rpcserver.WithServerProtocol(
 		protocol.WithDubbo(),
-		protocol.WithIp("127.0.0.1"),
 		protocol.WithPort(port),
 	))
 	require.NoError(t, err)
@@ -429,13 +435,15 @@ func runtimeE2EEtcdEndpoint(t *testing.T) string {
 	return clientURL.String()
 }
 
+// runtimeE2EReservedPorts records every probe port this test binary has handed
+// out. Each probe closes its listener immediately, so the kernel can hand the
+// same port to a later probe; two consumers configured with it would then
+// fight over one bind.
+var runtimeE2EReservedPorts sync.Map
+
 func runtimeE2EReservedURL(t *testing.T) url.URL {
 	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	address := listener.Addr().String()
-	require.NoError(t, listener.Close())
-	parsed, err := url.Parse("http://" + address)
+	parsed, err := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", reserveRuntimeE2EPort(t)))
 	require.NoError(t, err)
 	return *parsed
 }
@@ -600,13 +608,23 @@ func splitAddress(t *testing.T, address string) (string, int) {
 	return host, port
 }
 
+// reserveRuntimeE2EPort returns a loopback port that no earlier reservation in
+// this process returned. The probe listener is closed before returning, so the
+// port is only preflighted: a consumer binding it later can still race the
+// kernel's transient port pool, which is why the port must not be shared.
 func reserveRuntimeE2EPort(t *testing.T) int {
 	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	port := listener.Addr().(*net.TCPAddr).Port
-	require.NoError(t, listener.Close())
-	return port
+	for attempt := 0; attempt < 100; attempt++ {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		port := listener.Addr().(*net.TCPAddr).Port
+		require.NoError(t, listener.Close())
+		if _, used := runtimeE2EReservedPorts.LoadOrStore(port, struct{}{}); !used {
+			return port
+		}
+	}
+	t.Fatal("could not reserve an unused loopback port")
+	return 0
 }
 
 func runtimeE2EUpstream(name string) http.Handler {
