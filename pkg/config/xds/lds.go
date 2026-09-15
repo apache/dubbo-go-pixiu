@@ -23,9 +23,9 @@ import (
 )
 
 import (
-	"gopkg.in/yaml.v3"
-
 	"github.com/pkg/errors"
+
+	"gopkg.in/yaml.v3"
 )
 
 import (

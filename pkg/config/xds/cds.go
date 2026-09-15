@@ -20,7 +20,9 @@ package xds
 import (
 	"fmt"
 	"strconv"
+)
 
+import (
 	"github.com/pkg/errors"
 )
 

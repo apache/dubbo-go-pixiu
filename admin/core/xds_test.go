@@ -26,12 +26,12 @@ import (
 )
 
 import (
-	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
-	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 import (
-	clientv3 "go.etcd.io/etcd/client/v3"
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
+	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
 )
 
 type fakeSnapshotPublisher struct {

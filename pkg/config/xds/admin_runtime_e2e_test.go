@@ -47,13 +47,16 @@ import (
 	envoyserver "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/golang-jwt/jwt/v4"
+
 	"github.com/stretchr/testify/require"
 
-	"google.golang.org/grpc"
-
 	clientv3 "go.etcd.io/etcd/client/v3"
+
 	"go.etcd.io/etcd/server/v3/embed"
+
+	"google.golang.org/grpc"
 )
 
 import (

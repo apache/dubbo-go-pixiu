@@ -36,10 +36,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoyServer "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
-
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 import (

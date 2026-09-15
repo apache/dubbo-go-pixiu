@@ -19,11 +19,15 @@ package logic
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/require"
 )
 
-import adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
+import (
+	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
+)
 
 func TestDecodeXDSResourcesPropagatesMalformedYAML(t *testing.T) {
 	previous := adminconfig.Bootstrap

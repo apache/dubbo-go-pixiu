@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"github.com/stretchr/testify/require"
 )
 
