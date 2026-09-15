@@ -19,7 +19,9 @@ package schema
 
 import (
 	"fmt"
+)
 
+import (
 	"gopkg.in/yaml.v3"
 )
 

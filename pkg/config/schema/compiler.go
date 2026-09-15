@@ -22,9 +22,13 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+)
 
+import (
 	"gopkg.in/yaml.v3"
+)
 
+import (
 	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 

@@ -17,7 +17,9 @@
 
 package schema
 
-import "github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
+)
 
 const KindAdminRouteBinding = "AdminRouteBinding"
 
