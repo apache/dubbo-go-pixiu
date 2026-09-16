@@ -72,109 +72,109 @@ export type RouteTarget = AdminRouteBindingObject['spec']['target']
 type EditableTargetKey = Exclude<keyof RouteTarget, 'protocol'>
 
 type HeaderProps = {
-  isEnglish: boolean
-  routeLabel: string
-  entry: RouteEntry
-  publishStatus: RouteBindingPublishStatus | null
-  dirty: boolean
-  published: boolean
-  enabled: boolean
-  currentStatus: string
-  lifecycleStatus: string
-  busy: BusyAction
-  yamlError: string
-  onBack: () => void
-  onValidate: () => void
-  onSave: () => void
-  onPublish: () => void
+  readonly isEnglish: boolean
+  readonly routeLabel: string
+  readonly entry: RouteEntry
+  readonly publishStatus: RouteBindingPublishStatus | null
+  readonly dirty: boolean
+  readonly published: boolean
+  readonly enabled: boolean
+  readonly currentStatus: string
+  readonly lifecycleStatus: string
+  readonly busy: BusyAction
+  readonly yamlError: string
+  readonly onBack: () => void
+  readonly onValidate: () => void
+  readonly onSave: () => void
+  readonly onPublish: () => void
 }
 
 type TabsProps = {
-  isEnglish: boolean
-  activeTab: EditorTab
-  onChange: (tab: EditorTab) => void
+  readonly isEnglish: boolean
+  readonly activeTab: EditorTab
+  readonly onChange: (tab: EditorTab) => void
 }
 
 type IdentityCardProps = {
-  isEnglish: boolean
-  mode: 'create' | 'edit'
-  entry: RouteEntry
-  name: string
-  issueMessage: IssueMessage
-  onNameChange: (value: string) => void
-  onPathChange: (value: string) => void
-  onMethodChange: (value: string) => void
+  readonly isEnglish: boolean
+  readonly mode: 'create' | 'edit'
+  readonly entry: RouteEntry
+  readonly name: string
+  readonly issueMessage: IssueMessage
+  readonly onNameChange: (value: string) => void
+  readonly onPathChange: (value: string) => void
+  readonly onMethodChange: (value: string) => void
 }
 
 type TargetCardProps = {
-  isEnglish: boolean
-  target: RouteTarget
-  issueMessage: IssueMessage
-  onChange: (key: EditableTargetKey, value: string) => void
+  readonly isEnglish: boolean
+  readonly target: RouteTarget
+  readonly issueMessage: IssueMessage
+  readonly onChange: (key: EditableTargetKey, value: string) => void
 }
 
 type ParamCardProps = {
-  isEnglish: boolean
-  params: RouteBindingParam[]
-  issueMessage: IssueMessage
-  onAdd: () => void
-  onUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
-  onRemove: (index: number) => void
+  readonly isEnglish: boolean
+  readonly params: RouteBindingParam[]
+  readonly issueMessage: IssueMessage
+  readonly onAdd: () => void
+  readonly onUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
+  readonly onRemove: (index: number) => void
 }
 
 type PublishCardProps = {
-  isEnglish: boolean
-  enabled: boolean
-  validate: boolean
-  onEnabledChange: (enabled: boolean) => void
-  onValidateChange: (validate: boolean) => void
+  readonly isEnglish: boolean
+  readonly enabled: boolean
+  readonly validate: boolean
+  readonly onEnabledChange: (enabled: boolean) => void
+  readonly onValidateChange: (validate: boolean) => void
 }
 
 type FormViewProps = IdentityCardProps & TargetCardProps & ParamCardProps & PublishCardProps
 
 type DiffViewProps = {
-  isEnglish: boolean
-  diffData: RouteBindingDiff | null
-  busy: BusyAction
-  onRefresh: () => void
+  readonly isEnglish: boolean
+  readonly diffData: RouteBindingDiff | null
+  readonly busy: BusyAction
+  readonly onRefresh: () => void
 }
 
 type PreviewViewProps = {
-  isEnglish: boolean
-  activeTab: 'preview' | 'yaml'
-  busy: BusyAction
-  previewYaml: string
-  routeYaml: string
-  yamlError: string
-  onApplyYaml: () => void
-  onChangeYaml: (value: string) => void
-  onPreview: () => void
+  readonly isEnglish: boolean
+  readonly activeTab: 'preview' | 'yaml'
+  readonly busy: BusyAction
+  readonly previewYaml: string
+  readonly routeYaml: string
+  readonly yamlError: string
+  readonly onApplyYaml: () => void
+  readonly onChangeYaml: (value: string) => void
+  readonly onPreview: () => void
 }
 
 type ContentProps = {
-  isEnglish: boolean
-  loading: boolean
-  activeTab: EditorTab
-  mode: 'create' | 'edit'
-  object: AdminRouteBindingObject
-  busy: BusyAction
-  diffData: RouteBindingDiff | null
-  previewYaml: string
-  routeYaml: string
-  yamlError: string
-  issueMessage: IssueMessage
-  onNameChange: (value: string) => void
-  onEntryChange: (key: 'path' | 'method', value: string) => void
-  onTargetChange: (key: EditableTargetKey, value: string) => void
-  onParamAdd: () => void
-  onParamUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
-  onParamRemove: (index: number) => void
-  onEnabledChange: (enabled: boolean) => void
-  onValidateChange: (validate: boolean) => void
-  onRefreshDiff: () => void
-  onApplyYaml: () => void
-  onChangeYaml: (value: string) => void
-  onPreview: () => void
+  readonly isEnglish: boolean
+  readonly loading: boolean
+  readonly activeTab: EditorTab
+  readonly mode: 'create' | 'edit'
+  readonly object: AdminRouteBindingObject
+  readonly busy: BusyAction
+  readonly diffData: RouteBindingDiff | null
+  readonly previewYaml: string
+  readonly routeYaml: string
+  readonly yamlError: string
+  readonly issueMessage: IssueMessage
+  readonly onNameChange: (value: string) => void
+  readonly onEntryChange: (key: 'path' | 'method', value: string) => void
+  readonly onTargetChange: (key: EditableTargetKey, value: string) => void
+  readonly onParamAdd: () => void
+  readonly onParamUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
+  readonly onParamRemove: (index: number) => void
+  readonly onEnabledChange: (enabled: boolean) => void
+  readonly onValidateChange: (validate: boolean) => void
+  readonly onRefreshDiff: () => void
+  readonly onApplyYaml: () => void
+  readonly onChangeYaml: (value: string) => void
+  readonly onPreview: () => void
 }
 
 function actionLabel(
@@ -216,6 +216,20 @@ function previewDescription(isEnglish: boolean, activeTab: 'preview' | 'yaml') {
   return isEnglish
     ? 'Generated by the current AdminRouteBinding compiler.'
     : '由当前 AdminRouteBinding 编译器生成。'
+}
+
+function routeStateClass(dirty: boolean, published: boolean) {
+  if (dirty || !published) return 'draft'
+  return 'published'
+}
+
+function yamlSyncLabel(isEnglish: boolean, yamlError: string) {
+  if (yamlError) return isEnglish ? 'Syntax error' : '语法错误'
+  return isEnglish ? 'Synced with form' : '已与表单同步'
+}
+
+function yamlSyncClass(yamlError: string) {
+  return yamlError ? 'error' : 'synced'
 }
 
 export function RouteEditorHeader({
@@ -264,9 +278,7 @@ export function RouteEditorHeader({
             <span className="route-editor-path">
               {entry.path || (isEnglish ? 'Path required' : '需要填写路径')}
             </span>
-            <span
-              className={`route-editor-state ${dirty ? 'draft' : published ? 'published' : 'draft'}`}
-            >
+            <span className={`route-editor-state ${routeStateClass(dirty, published)}`}>
               <i /> {currentStatus}
             </span>
             <span className={`route-editor-lifecycle ${enabled ? 'enabled' : 'disabled'}`}>
@@ -313,7 +325,11 @@ export function RouteEditorHeader({
   )
 }
 
-export function RouteEditorContract({ isEnglish }: { isEnglish: boolean }) {
+type ContractProps = {
+  readonly isEnglish: boolean
+}
+
+export function RouteEditorContract({ isEnglish }: ContractProps) {
   return (
     <div className="route-editor-contract">
       <span className="route-contract-mark">{isEnglish ? 'ATOMIC PUBLISH' : '原子发布'}</span>
@@ -326,7 +342,11 @@ export function RouteEditorContract({ isEnglish }: { isEnglish: boolean }) {
   )
 }
 
-export function RouteEditorNotice({ notice }: { notice: Notice }) {
+type NoticeProps = {
+  readonly notice: Notice
+}
+
+export function RouteEditorNotice({ notice }: NoticeProps) {
   if (notice.tone === 'error') {
     return (
       <div className="route-editor-notice error" role="alert">
@@ -464,13 +484,9 @@ function RouteIdentityCard({
           />
           {pathIssue && <small className="route-field-error">{pathIssue}</small>}
         </label>
-        <div className="route-field route-field-wide">
-          <span>{isEnglish ? 'HTTP method' : '请求方法'}</span>
-          <div
-            className="route-method-options"
-            role="group"
-            aria-label={isEnglish ? 'HTTP method' : '请求方法'}
-          >
+        <fieldset className="route-field route-field-wide route-method-fieldset">
+          <legend>{isEnglish ? 'HTTP method' : '请求方法'}</legend>
+          <div className="route-method-options">
             {HTTP_METHODS.map((method) => (
               <button
                 className={entry.method === method ? 'active' : ''}
@@ -484,18 +500,18 @@ function RouteIdentityCard({
             ))}
           </div>
           {methodIssue && <small className="route-field-error">{methodIssue}</small>}
-        </div>
+        </fieldset>
       </div>
     </section>
   )
 }
 
 type TargetFieldProps = {
-  label: string
-  value: string
-  placeholder: string
-  issue: string
-  onChange: (value: string) => void
+  readonly label: string
+  readonly value: string
+  readonly placeholder: string
+  readonly issue: string
+  readonly onChange: (value: string) => void
 }
 
 function TargetField({ label, value, placeholder, issue, onChange }: TargetFieldProps) {
@@ -579,12 +595,12 @@ function RouteTargetCard({ isEnglish, target, issueMessage, onChange }: TargetCa
 }
 
 type ParamRowProps = {
-  isEnglish: boolean
-  param: RouteBindingParam
-  index: number
-  issueMessage: IssueMessage
-  onUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
-  onRemove: (index: number) => void
+  readonly isEnglish: boolean
+  readonly param: RouteBindingParam
+  readonly index: number
+  readonly issueMessage: IssueMessage
+  readonly onUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
+  readonly onRemove: (index: number) => void
 }
 
 function RouteParamRow({
@@ -813,8 +829,8 @@ function DiffRow({
   isEnglish,
   change,
 }: {
-  isEnglish: boolean
-  change: RouteBindingDiff['changes'][number]
+  readonly isEnglish: boolean
+  readonly change: RouteBindingDiff['changes'][number]
 }) {
   return (
     <div className="route-diff-row" key={change.path}>
@@ -943,6 +959,59 @@ function RoutePreviewBody({
   )
 }
 
+type PreviewActionProps = Pick<
+  PreviewViewProps,
+  'isEnglish' | 'activeTab' | 'busy' | 'yamlError' | 'onApplyYaml' | 'onPreview'
+>
+
+function RoutePreviewAction({
+  isEnglish,
+  activeTab,
+  busy,
+  yamlError,
+  onApplyYaml,
+  onPreview,
+}: PreviewActionProps) {
+  if (activeTab === 'yaml') {
+    return (
+      <button
+        className="secondary"
+        type="button"
+        disabled={busy !== '' || Boolean(yamlError)}
+        onClick={onApplyYaml}
+      >
+        <CheckCircle2 size={14} />
+        {isEnglish ? 'Sync to form' : '同步到表单'}
+      </button>
+    )
+  }
+  return (
+    <button className="secondary" type="button" disabled={busy !== ''} onClick={onPreview}>
+      <Eye size={14} />
+      {actionLabel(isEnglish, busy, 'preview', isEnglish ? 'Generate preview' : '生成预览')}
+    </button>
+  )
+}
+
+type PreviewMetaProps = Pick<PreviewViewProps, 'isEnglish' | 'activeTab' | 'yamlError'>
+
+function RoutePreviewMeta({ isEnglish, activeTab, yamlError }: PreviewMetaProps) {
+  const isYaml = activeTab === 'yaml'
+  return (
+    <div className="route-preview-meta">
+      <FileCode2 size={15} />
+      <span>{isYaml ? 'route-binding.yaml' : 'api_config.yaml'}</span>
+      {isYaml ? (
+        <span className={`route-yaml-sync ${yamlSyncClass(yamlError)}`}>
+          {yamlSyncLabel(isEnglish, yamlError)}
+        </span>
+      ) : (
+        <span className="muted">{isEnglish ? 'Read only' : '只读'}</span>
+      )}
+    </div>
+  )
+}
+
 function RoutePreviewView({
   isEnglish,
   activeTab,
@@ -954,7 +1023,6 @@ function RoutePreviewView({
   onChangeYaml,
   onPreview,
 }: PreviewViewProps) {
-  const isYaml = activeTab === 'yaml'
   return (
     <section className="panel route-preview-panel">
       <div className="panel-head">
@@ -962,40 +1030,16 @@ function RoutePreviewView({
           <h2>{previewTitle(isEnglish, activeTab)}</h2>
           <span>{previewDescription(isEnglish, activeTab)}</span>
         </div>
-        {isYaml ? (
-          <button
-            className="secondary"
-            type="button"
-            disabled={busy !== '' || Boolean(yamlError)}
-            onClick={onApplyYaml}
-          >
-            <CheckCircle2 size={14} />
-            {isEnglish ? 'Sync to form' : '同步到表单'}
-          </button>
-        ) : (
-          <button className="secondary" type="button" disabled={busy !== ''} onClick={onPreview}>
-            <Eye size={14} />
-            {actionLabel(isEnglish, busy, 'preview', isEnglish ? 'Generate preview' : '生成预览')}
-          </button>
-        )}
+        <RoutePreviewAction
+          isEnglish={isEnglish}
+          activeTab={activeTab}
+          busy={busy}
+          yamlError={yamlError}
+          onApplyYaml={onApplyYaml}
+          onPreview={onPreview}
+        />
       </div>
-      <div className="route-preview-meta">
-        <FileCode2 size={15} />
-        <span>{isYaml ? 'route-binding.yaml' : 'api_config.yaml'}</span>
-        {isYaml ? (
-          <span className={`route-yaml-sync ${yamlError ? 'error' : 'synced'}`}>
-            {yamlError
-              ? isEnglish
-                ? 'Syntax error'
-                : '语法错误'
-              : isEnglish
-                ? 'Synced with form'
-                : '已与表单同步'}
-          </span>
-        ) : (
-          <span className="muted">{isEnglish ? 'Read only' : '只读'}</span>
-        )}
-      </div>
+      <RoutePreviewMeta isEnglish={isEnglish} activeTab={activeTab} yamlError={yamlError} />
       <RoutePreviewBody
         isEnglish={isEnglish}
         activeTab={activeTab}

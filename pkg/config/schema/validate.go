@@ -89,6 +89,14 @@ func validateEnvelope(object AdminObject) []ValidationIssue {
 }
 
 func validateFields(path string, values map[string]any, fields map[string]*FieldSchema, allowUnknown bool) []ValidationIssue {
+	issues := validateKnownFields(path, values, fields)
+	if allowUnknown {
+		return issues
+	}
+	return append(issues, validateUnknownFields(path, values, fields)...)
+}
+
+func validateKnownFields(path string, values map[string]any, fields map[string]*FieldSchema) []ValidationIssue {
 	issues := make([]ValidationIssue, 0)
 	names := make([]string, 0, len(fields))
 	for name := range fields {
@@ -108,18 +116,20 @@ func validateFields(path string, values map[string]any, fields map[string]*Field
 		}
 		issues = append(issues, validateValue(fieldPath, value, field)...)
 	}
+	return issues
+}
 
-	if !allowUnknown {
-		unknown := make([]string, 0)
-		for name := range values {
-			if _, exists := fields[name]; !exists {
-				unknown = append(unknown, name)
-			}
+func validateUnknownFields(path string, values map[string]any, fields map[string]*FieldSchema) []ValidationIssue {
+	unknown := make([]string, 0)
+	for name := range values {
+		if _, exists := fields[name]; !exists {
+			unknown = append(unknown, name)
 		}
-		sort.Strings(unknown)
-		for _, name := range unknown {
-			issues = append(issues, issue(joinPath(path, name), "unknown", "field is not registered"))
-		}
+	}
+	sort.Strings(unknown)
+	issues := make([]ValidationIssue, 0, len(unknown))
+	for _, name := range unknown {
+		issues = append(issues, issue(joinPath(path, name), "unknown", "field is not registered"))
 	}
 	return issues
 }

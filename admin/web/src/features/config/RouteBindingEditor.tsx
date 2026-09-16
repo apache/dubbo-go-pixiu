@@ -41,14 +41,14 @@ import {
 import type { BusyAction, EditorTab, Notice } from './RouteBindingEditorSections'
 
 type RouteBindingEditorProps = {
-  locale: Locale
-  mode: 'create' | 'edit'
-  binding?: RouteBinding | null
-  loading: boolean
-  published: boolean
-  publishStatus?: RouteBindingPublishStatus | null
-  onBack: () => void
-  onSaved: () => void | Promise<void>
+  readonly locale: Locale
+  readonly mode: 'create' | 'edit'
+  readonly binding?: RouteBinding | null
+  readonly loading: boolean
+  readonly published: boolean
+  readonly publishStatus?: RouteBindingPublishStatus | null
+  readonly onBack: () => void
+  readonly onSaved: () => void | Promise<void>
 }
 
 function createDefaultObject(): AdminRouteBindingObject {
@@ -168,6 +168,31 @@ function issueFor(issues: RouteBindingValidationIssue[], path: string) {
   return issues.find((issue) => issue.path === path)?.message || ''
 }
 
+function currentStatusLabel(
+  isEnglish: boolean,
+  dirty: boolean,
+  published: boolean,
+  translate: (value: string) => string,
+) {
+  if (dirty) return isEnglish ? 'Unsaved changes' : '有未保存改动'
+  if (published) return translate('已发布')
+  return translate('草稿')
+}
+
+function lifecycleStatusLabel(isEnglish: boolean, enabled: boolean) {
+  if (enabled) return isEnglish ? 'Enabled' : '已启用'
+  return isEnglish ? 'Disabled' : '已停用'
+}
+
+function publishSuccessMessage(isEnglish: boolean, deleted: boolean) {
+  if (isEnglish) {
+    return deleted
+      ? 'The current route was removed atomically.'
+      : 'The current route was published atomically.'
+  }
+  return deleted ? '当前路由已通过 etcd 事务原子删除。' : '当前路由已通过 etcd 事务原子发布。'
+}
+
 export function RouteBindingEditor({
   locale,
   mode: initialMode,
@@ -226,20 +251,8 @@ export function RouteBindingEditor({
   const entry = object.spec.entry
   const signature = useMemo(() => objectSignature(object), [object])
   const routeLabel = object.metadata.name || (isEnglish ? 'New API route' : '新建 API 路由')
-  const currentStatus = dirty
-    ? isEnglish
-      ? 'Unsaved changes'
-      : '有未保存改动'
-    : published
-      ? tx('已发布')
-      : tx('草稿')
-  const lifecycleStatus = object.spec.enabled
-    ? isEnglish
-      ? 'Enabled'
-      : '已启用'
-    : isEnglish
-      ? 'Disabled'
-      : '已停用'
+  const currentStatus = currentStatusLabel(isEnglish, dirty, published, tx)
+  const lifecycleStatus = lifecycleStatusLabel(isEnglish, object.spec.enabled)
 
   const updateObject = (next: AdminRouteBindingObject) => {
     setObject(next)
@@ -438,13 +451,7 @@ export function RouteBindingEditor({
       setDiffData(null)
       setNotice({
         tone: 'success',
-        text: isEnglish
-          ? result.deletedCount
-            ? 'The current route was removed atomically.'
-            : 'The current route was published atomically.'
-          : result.deletedCount
-            ? '当前路由已通过 etcd 事务原子删除。'
-            : '当前路由已通过 etcd 事务原子发布。',
+        text: publishSuccessMessage(isEnglish, result.deletedCount > 0),
       })
       await onSaved()
     } catch (error: unknown) {

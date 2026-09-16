@@ -127,18 +127,14 @@ type routeBindingEntry struct {
 // Resource/Method layout so the current Pixiu watcher can consume it.
 type RouteBindingStore struct {
 	kv       routeBindingKV
-	ctx      context.Context
 	root     string
 	registry *schema.Registry
 }
 
 // NewRouteBindingStore creates a store over an etcd v3 client.
-func NewRouteBindingStore(kv routeBindingKV, ctx context.Context, root string, registry *schema.Registry) (*RouteBindingStore, error) {
+func NewRouteBindingStore(kv routeBindingKV, root string, registry *schema.Registry) (*RouteBindingStore, error) {
 	if kv == nil {
 		return nil, errors.New("route binding etcd client is nil")
-	}
-	if ctx == nil {
-		ctx = context.Background()
 	}
 	root = strings.TrimRight(strings.TrimSpace(root), "/")
 	if root == "" {
@@ -151,7 +147,7 @@ func NewRouteBindingStore(kv routeBindingKV, ctx context.Context, root string, r
 			return nil, fmt.Errorf("create route binding schema registry: %w", err)
 		}
 	}
-	return &RouteBindingStore{kv: kv, ctx: ctx, root: root, registry: registry}, nil
+	return &RouteBindingStore{kv: kv, root: root, registry: registry}, nil
 }
 
 // NewAdminRouteBindingStore creates the production store from the Admin
@@ -167,7 +163,14 @@ func NewAdminRouteBindingStore() (*RouteBindingStore, error) {
 	if rawClient == nil {
 		return nil, errors.New("admin raw etcd client is nil")
 	}
-	return NewRouteBindingStore(rawClient, adminconfig.Client.GetCtx(), adminconfig.Bootstrap.GetPath(), nil)
+	return NewRouteBindingStore(rawClient, adminconfig.Bootstrap.GetPath(), nil)
+}
+
+func routeBindingContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }
 
 // Registry returns the schema registry used by this store.
@@ -177,8 +180,9 @@ func (s *RouteBindingStore) Registry() *schema.Registry {
 
 // List returns high-level route bindings from either the draft or published
 // namespace. Empty namespaces are returned as an empty slice.
-func (s *RouteBindingStore) List(unpublished bool) ([]RouteBinding, error) {
-	entries, err := s.listEntries(s.bindingPrefix(unpublished))
+func (s *RouteBindingStore) List(ctx context.Context, unpublished bool) ([]RouteBinding, error) {
+	ctx = routeBindingContext(ctx)
+	entries, err := s.listEntries(ctx, s.bindingPrefix(unpublished))
 	if err != nil {
 		return nil, err
 	}
@@ -191,12 +195,13 @@ func (s *RouteBindingStore) List(unpublished bool) ([]RouteBinding, error) {
 
 // Get returns one high-level route binding from either the draft or published
 // namespace.
-func (s *RouteBindingStore) Get(name string, unpublished bool) (RouteBinding, error) {
+func (s *RouteBindingStore) Get(ctx context.Context, name string, unpublished bool) (RouteBinding, error) {
+	ctx = routeBindingContext(ctx)
 	name, err := normalizeRouteBindingName(name)
 	if err != nil {
 		return RouteBinding{}, err
 	}
-	entry, exists, _, err := s.getEntry(s.bindingPrefix(unpublished), name)
+	entry, exists, _, err := s.getEntry(ctx, s.bindingPrefix(unpublished), name)
 	if err != nil {
 		return RouteBinding{}, err
 	}
@@ -243,7 +248,8 @@ func (s *RouteBindingStore) Preview(object schema.AdminObject) (schema.AdminObje
 // draft namespace. POST callers use create=true; PUT callers use create=false.
 // expectedRevision is the draft key's mod revision and may be zero to allow
 // an unconditional write.
-func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, expectedRevision int64) (RouteBinding, error) {
+func (s *RouteBindingStore) SaveDraft(ctx context.Context, object schema.AdminObject, create bool, expectedRevision int64) (RouteBinding, error) {
+	ctx = routeBindingContext(ctx)
 	if err := validateSaveDraftRequest(create, expectedRevision); err != nil {
 		return RouteBinding{}, err
 	}
@@ -253,7 +259,7 @@ func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, ex
 	}
 	name := normalized.Metadata.Name
 	draftPrefix := s.bindingPrefix(true)
-	draftEntry, draftExists, draftRevision, err := s.getEntry(draftPrefix, name)
+	draftEntry, draftExists, draftRevision, err := s.getEntry(ctx, draftPrefix, name)
 	if err != nil {
 		return RouteBinding{}, err
 	}
@@ -261,7 +267,7 @@ func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, ex
 		return RouteBinding{}, err
 	}
 
-	resourceID, methodID, err := s.resolveRuntimeIdentity(name, draftEntry, draftExists)
+	resourceID, methodID, err := s.resolveRuntimeIdentity(ctx, name, draftEntry, draftExists)
 	if err != nil {
 		return RouteBinding{}, err
 	}
@@ -275,11 +281,11 @@ func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, ex
 	if err != nil {
 		return RouteBinding{}, fmt.Errorf("encode route binding %q: %w", name, err)
 	}
-	if err := s.commitDraft(name, draftPrefix, value, create, expectedRevision); err != nil {
+	if err := s.commitDraft(ctx, name, draftPrefix, value, create, expectedRevision); err != nil {
 		return RouteBinding{}, err
 	}
 
-	saved, exists, revision, err := s.getEntry(draftPrefix, name)
+	saved, exists, revision, err := s.getEntry(ctx, draftPrefix, name)
 	if err != nil {
 		return RouteBinding{}, err
 	}
@@ -310,10 +316,10 @@ func validateDraftSaveState(name string, create bool, expectedRevision int64, ex
 	return nil
 }
 
-func (s *RouteBindingStore) resolveRuntimeIdentity(name string, draft routeBindingEntry, draftExists bool) (int, int, error) {
+func (s *RouteBindingStore) resolveRuntimeIdentity(ctx context.Context, name string, draft routeBindingEntry, draftExists bool) (int, int, error) {
 	resourceID, methodID := draft.record.ResourceID, draft.record.MethodID
 	if !draftExists {
-		published, exists, _, err := s.getEntry(s.bindingPrefix(false), name)
+		published, exists, _, err := s.getEntry(ctx, s.bindingPrefix(false), name)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -323,7 +329,7 @@ func (s *RouteBindingStore) resolveRuntimeIdentity(name string, draft routeBindi
 	}
 	if resourceID <= 0 {
 		var err error
-		resourceID, err = s.allocateRuntimeID()
+		resourceID, err = s.allocateRuntimeID(ctx)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -337,7 +343,7 @@ func (s *RouteBindingStore) resolveRuntimeIdentity(name string, draft routeBindi
 	return resourceID, methodID, nil
 }
 
-func (s *RouteBindingStore) commitDraft(name, draftPrefix string, value []byte, create bool, expectedRevision int64) error {
+func (s *RouteBindingStore) commitDraft(ctx context.Context, name, draftPrefix string, value []byte, create bool, expectedRevision int64) error {
 	comparisons := make([]clientv3.Cmp, 0, 1)
 	if create {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(s.bindingKey(draftPrefix, name)), "=", 0))
@@ -348,7 +354,7 @@ func (s *RouteBindingStore) commitDraft(name, draftPrefix string, value []byte, 
 		clientv3.OpPut(s.bindingKey(draftPrefix, name), string(value)),
 		clientv3.OpPut(s.draftRevisionKey(), strconv.FormatInt(time.Now().UnixNano(), 10)),
 	}
-	transaction := s.kv.Txn(s.ctx)
+	transaction := s.kv.Txn(ctx)
 	if len(comparisons) > 0 {
 		transaction = transaction.If(comparisons...)
 	}
@@ -368,7 +374,8 @@ func (s *RouteBindingStore) commitDraft(name, draftPrefix string, value []byte, 
 // DeleteDraft removes a draft. If only a published binding exists, the
 // deletion is still recorded by advancing the draft revision; the next
 // PublishAll transaction will remove that published route atomically.
-func (s *RouteBindingStore) DeleteDraft(name string, expectedRevision int64) error {
+func (s *RouteBindingStore) DeleteDraft(ctx context.Context, name string, expectedRevision int64) error {
+	ctx = routeBindingContext(ctx)
 	if expectedRevision < 0 {
 		return errors.New("expected revision must not be negative")
 	}
@@ -377,11 +384,11 @@ func (s *RouteBindingStore) DeleteDraft(name string, expectedRevision int64) err
 		return err
 	}
 	draftPrefix := s.bindingPrefix(true)
-	_, exists, revision, err := s.getEntry(draftPrefix, name)
+	_, exists, revision, err := s.getEntry(ctx, draftPrefix, name)
 	if err != nil {
 		return err
 	}
-	_, publishedExists, _, err := s.getEntry(s.bindingPrefix(false), name)
+	_, publishedExists, _, err := s.getEntry(ctx, s.bindingPrefix(false), name)
 	if err != nil {
 		return err
 	}
@@ -391,7 +398,7 @@ func (s *RouteBindingStore) DeleteDraft(name string, expectedRevision int64) err
 	if expectedRevision > 0 && (!exists || revision != expectedRevision) {
 		return fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
 	}
-	draftMarkerRevision, draftMarkerExists, err := s.markerRevision(s.draftRevisionKey())
+	draftMarkerRevision, draftMarkerExists, err := s.markerRevision(ctx, s.draftRevisionKey())
 	if err != nil {
 		return err
 	}
@@ -414,7 +421,7 @@ func (s *RouteBindingStore) DeleteDraft(name string, expectedRevision int64) err
 		operations = append(operations, clientv3.OpDelete(s.bindingKey(draftPrefix, name)))
 	}
 	operations = append(operations, clientv3.OpPut(s.draftRevisionKey(), strconv.FormatInt(time.Now().UnixNano(), 10)))
-	transaction := s.kv.Txn(s.ctx)
+	transaction := s.kv.Txn(ctx)
 	if len(comparisons) > 0 {
 		transaction = transaction.If(comparisons...)
 	}
@@ -432,7 +439,8 @@ func (s *RouteBindingStore) DeleteDraft(name string, expectedRevision int64) err
 // and method, the published high-level binding, and the publish marker are
 // written or deleted in one etcd transaction. Other routes' draft and
 // published values are left untouched.
-func (s *RouteBindingStore) Publish(name string, expectedDraftRevision int64) (RouteBindingPublishResult, error) {
+func (s *RouteBindingStore) Publish(ctx context.Context, name string, expectedDraftRevision int64) (RouteBindingPublishResult, error) {
+	ctx = routeBindingContext(ctx)
 	if expectedDraftRevision < 0 {
 		return RouteBindingPublishResult{}, errors.New("expected draft revision must not be negative")
 	}
@@ -440,153 +448,194 @@ func (s *RouteBindingStore) Publish(name string, expectedDraftRevision int64) (R
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
-
-	draftPrefix := s.bindingPrefix(true)
-	publishedPrefix := s.bindingPrefix(false)
-	draft, draftExists, draftRevision, err := s.getEntry(draftPrefix, name)
+	state, err := s.readPublishState(ctx, name)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
-	published, publishedExists, publishedRevision, err := s.getEntry(publishedPrefix, name)
-	if err != nil {
-		return RouteBindingPublishResult{}, err
-	}
-	if !draftExists && !publishedExists {
-		return RouteBindingPublishResult{}, fmt.Errorf("%w: %s", ErrRouteBindingNotFound, name)
-	}
-	if expectedDraftRevision > 0 && (!draftExists || draftRevision != expectedDraftRevision) {
+	if expectedDraftRevision > 0 && (!state.draftExists || state.draftRevision != expectedDraftRevision) {
 		return RouteBindingPublishResult{}, fmt.Errorf("%w: %s", ErrRouteBindingPublishConflict, name)
 	}
-
-	publishedEntries, err := s.listEntries(publishedPrefix)
+	publishedEntries, err := s.listEntries(ctx, state.publishedPrefix)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
-
-	var candidate *compiledRouteEntry
-	if draftExists {
-		entries := make([]routeBindingEntry, 0, len(publishedEntries)+1)
-		for _, entry := range publishedEntries {
-			if entry.record.Object.Metadata.Name != name {
-				entries = append(entries, entry)
-			}
-		}
-		entries = append(entries, draft)
-		compiled, compileErr := s.compileSnapshot(entries)
-		if compileErr != nil {
-			return RouteBindingPublishResult{}, compileErr
-		}
-		for index := range compiled {
-			if compiled[index].object.Metadata.Name == name {
-				candidate = &compiled[index]
-				break
-			}
-		}
-		if candidate == nil {
-			return RouteBindingPublishResult{}, fmt.Errorf("route binding %q was not compiled", name)
-		}
-	}
-
-	comparisons := make([]clientv3.Cmp, 0, 2)
-	if draftExists {
-		// Always compare the value observed above, even when the caller omitted
-		// expectedDraftRevision. This closes the read/modify/write race.
-		comparisons = append(comparisons,
-			clientv3.Compare(clientv3.ModRevision(s.bindingKey(draftPrefix, name)), "=", draftRevision))
-	} else {
-		comparisons = append(comparisons,
-			clientv3.Compare(clientv3.ModRevision(s.bindingKey(publishedPrefix, name)), "=", publishedRevision))
-	}
-	publishedMarkerRevision, publishedMarkerExists, err := s.markerRevision(s.publishedRevisionKey())
+	candidate, err := s.compilePublishCandidate(name, state.draft, state.draftExists, publishedEntries)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
-	if publishedMarkerExists {
-		comparisons = append(comparisons,
-			clientv3.Compare(clientv3.ModRevision(s.publishedRevisionKey()), "=", publishedMarkerRevision))
-	} else {
-		comparisons = append(comparisons,
-			clientv3.Compare(clientv3.CreateRevision(s.publishedRevisionKey()), "=", 0))
+	comparisons, err := s.buildPublishComparisons(ctx, state)
+	if err != nil {
+		return RouteBindingPublishResult{}, err
 	}
-
-	operations := make([]clientv3.Op, 0, 4)
-	publishedCount, deletedCount := 0, 0
-	if candidate != nil {
-		compiled := candidate.legacy
-		if publishedExists && published.record.ResourceID != compiled.Resource.ID {
-			operations = append(operations,
-				clientv3.OpDelete(s.runtimeResourceKey(published.record.ResourceID), clientv3.WithPrefix()))
-		} else if publishedExists && published.record.MethodID != compiled.Method.ID {
-			operations = append(operations,
-				clientv3.OpDelete(s.runtimeMethodKey(published.record.ResourceID, published.record.MethodID)))
-		}
-		resourceValue, methodValue, marshalErr := marshalCompiledRuntimeRoute(compiled)
-		if marshalErr != nil {
-			return RouteBindingPublishResult{}, fmt.Errorf("encode route binding %q for runtime: %w", name, marshalErr)
-		}
-		recordValue, marshalErr := json.Marshal(routeBindingRecord{
-			Object:     candidate.object,
-			ResourceID: compiled.Resource.ID,
-			MethodID:   compiled.Method.ID,
-		})
-		if marshalErr != nil {
-			return RouteBindingPublishResult{}, fmt.Errorf("encode published route binding %q: %w", name, marshalErr)
-		}
-		operations = append(operations,
-			clientv3.OpPut(s.runtimeResourceKey(compiled.Resource.ID), string(resourceValue)),
-			clientv3.OpPut(s.runtimeMethodKey(compiled.Resource.ID, compiled.Method.ID), string(methodValue)),
-			clientv3.OpPut(s.bindingKey(publishedPrefix, name), string(recordValue)))
-		publishedCount = 1
-	} else {
-		operations = append(operations,
-			clientv3.OpDelete(s.runtimeResourceKey(published.record.ResourceID), clientv3.WithPrefix()),
-			clientv3.OpDelete(s.bindingKey(publishedPrefix, name)))
-		deletedCount = 1
+	operations, publishedCount, deletedCount, err := s.buildSinglePublishOperations(state, candidate)
+	if err != nil {
+		return RouteBindingPublishResult{}, err
 	}
 	operations = append(operations,
 		clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(time.Now().UnixNano(), 10)))
 
-	response, err := s.kv.Txn(s.ctx).If(comparisons...).Then(operations...).Commit()
+	response, err := s.kv.Txn(ctx).If(comparisons...).Then(operations...).Commit()
 	if err != nil {
 		return RouteBindingPublishResult{}, fmt.Errorf("publish route binding %q: %w", name, err)
 	}
 	if !response.Succeeded {
 		return RouteBindingPublishResult{}, fmt.Errorf("%w: %s", ErrRouteBindingPublishConflict, name)
 	}
-
-	publishedRevision = 0
-	if candidate != nil {
-		_, exists, revision, getErr := s.getEntry(publishedPrefix, name)
-		if getErr != nil {
-			return RouteBindingPublishResult{}, getErr
-		}
-		if !exists {
-			return RouteBindingPublishResult{}, fmt.Errorf("route binding %q disappeared after publish", name)
-		}
-		publishedRevision = revision
+	publishedRevision, err := s.publishedRouteRevision(ctx, state.publishedPrefix, name, candidate)
+	if err != nil {
+		return RouteBindingPublishResult{}, err
 	}
 	return RouteBindingPublishResult{
 		Name:              name,
 		Revision:          response.Header.Revision,
-		DraftRevision:     draftRevision,
+		DraftRevision:     state.draftRevision,
 		PublishedRevision: publishedRevision,
 		PublishedCount:    publishedCount,
 		DeletedCount:      deletedCount,
 	}, nil
 }
 
+type routeBindingPublishState struct {
+	draftPrefix       string
+	publishedPrefix   string
+	draft             routeBindingEntry
+	draftExists       bool
+	draftRevision     int64
+	published         routeBindingEntry
+	publishedExists   bool
+	publishedRevision int64
+}
+
+func (s *RouteBindingStore) readPublishState(ctx context.Context, name string) (routeBindingPublishState, error) {
+	state := routeBindingPublishState{
+		draftPrefix:     s.bindingPrefix(true),
+		publishedPrefix: s.bindingPrefix(false),
+	}
+	var err error
+	state.draft, state.draftExists, state.draftRevision, err = s.getEntry(ctx, state.draftPrefix, name)
+	if err != nil {
+		return routeBindingPublishState{}, err
+	}
+	state.published, state.publishedExists, state.publishedRevision, err = s.getEntry(ctx, state.publishedPrefix, name)
+	if err != nil {
+		return routeBindingPublishState{}, err
+	}
+	if !state.draftExists && !state.publishedExists {
+		return routeBindingPublishState{}, fmt.Errorf("%w: %s", ErrRouteBindingNotFound, name)
+	}
+	return state, nil
+}
+
+func (s *RouteBindingStore) compilePublishCandidate(name string, draft routeBindingEntry, draftExists bool, published []routeBindingEntry) (*compiledRouteEntry, error) {
+	if !draftExists {
+		return nil, nil
+	}
+	entries := make([]routeBindingEntry, 0, len(published)+1)
+	for _, entry := range published {
+		if entry.record.Object.Metadata.Name != name {
+			entries = append(entries, entry)
+		}
+	}
+	entries = append(entries, draft)
+	compiled, err := s.compileSnapshot(entries)
+	if err != nil {
+		return nil, err
+	}
+	for index := range compiled {
+		if compiled[index].object.Metadata.Name == name {
+			return &compiled[index], nil
+		}
+	}
+	return nil, fmt.Errorf("route binding %q was not compiled", name)
+}
+
+func (s *RouteBindingStore) buildPublishComparisons(ctx context.Context, state routeBindingPublishState) ([]clientv3.Cmp, error) {
+	comparisons := make([]clientv3.Cmp, 0, 2)
+	if state.draftExists {
+		// Always compare the value observed above, even when the caller omitted
+		// expectedDraftRevision. This closes the read/modify/write race.
+		comparisons = append(comparisons,
+			clientv3.Compare(clientv3.ModRevision(s.bindingKey(state.draftPrefix, state.draft.record.Object.Metadata.Name)), "=", state.draftRevision))
+	} else {
+		comparisons = append(comparisons,
+			clientv3.Compare(clientv3.ModRevision(s.bindingKey(state.publishedPrefix, state.published.record.Object.Metadata.Name)), "=", state.publishedRevision))
+	}
+	publishedMarkerRevision, publishedMarkerExists, err := s.markerRevision(ctx, s.publishedRevisionKey())
+	if err != nil {
+		return nil, err
+	}
+	if publishedMarkerExists {
+		comparisons = append(comparisons,
+			clientv3.Compare(clientv3.ModRevision(s.publishedRevisionKey()), "=", publishedMarkerRevision))
+		return comparisons, nil
+	}
+	comparisons = append(comparisons,
+		clientv3.Compare(clientv3.CreateRevision(s.publishedRevisionKey()), "=", 0))
+	return comparisons, nil
+}
+
+func (s *RouteBindingStore) buildSinglePublishOperations(state routeBindingPublishState, candidate *compiledRouteEntry) ([]clientv3.Op, int, int, error) {
+	if candidate == nil {
+		return []clientv3.Op{
+			clientv3.OpDelete(s.runtimeResourceKey(state.published.record.ResourceID), clientv3.WithPrefix()),
+			clientv3.OpDelete(s.bindingKey(state.publishedPrefix, state.published.record.Object.Metadata.Name)),
+		}, 0, 1, nil
+	}
+	compiled := candidate.legacy
+	operations := make([]clientv3.Op, 0, 4)
+	if state.publishedExists && state.published.record.ResourceID != compiled.Resource.ID {
+		operations = append(operations,
+			clientv3.OpDelete(s.runtimeResourceKey(state.published.record.ResourceID), clientv3.WithPrefix()))
+	} else if state.publishedExists && state.published.record.MethodID != compiled.Method.ID {
+		operations = append(operations,
+			clientv3.OpDelete(s.runtimeMethodKey(state.published.record.ResourceID, state.published.record.MethodID)))
+	}
+	resourceValue, methodValue, err := marshalCompiledRuntimeRoute(compiled)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("encode route binding %q for runtime: %w", candidate.object.Metadata.Name, err)
+	}
+	recordValue, err := json.Marshal(routeBindingRecord{
+		Object:     candidate.object,
+		ResourceID: compiled.Resource.ID,
+		MethodID:   compiled.Method.ID,
+	})
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("encode published route binding %q: %w", candidate.object.Metadata.Name, err)
+	}
+	operations = append(operations,
+		clientv3.OpPut(s.runtimeResourceKey(compiled.Resource.ID), string(resourceValue)),
+		clientv3.OpPut(s.runtimeMethodKey(compiled.Resource.ID, compiled.Method.ID), string(methodValue)),
+		clientv3.OpPut(s.bindingKey(state.publishedPrefix, candidate.object.Metadata.Name), string(recordValue)))
+	return operations, 1, 0, nil
+}
+
+func (s *RouteBindingStore) publishedRouteRevision(ctx context.Context, prefix, name string, candidate *compiledRouteEntry) (int64, error) {
+	if candidate == nil {
+		return 0, nil
+	}
+	_, exists, revision, err := s.getEntry(ctx, prefix, name)
+	if err != nil {
+		return 0, err
+	}
+	if !exists {
+		return 0, fmt.Errorf("route binding %q disappeared after publish", name)
+	}
+	return revision, nil
+}
+
 // Status returns draft and published revisions for one route. The revisions
 // are independent of other route bindings in the same config namespace.
-func (s *RouteBindingStore) Status(name string) (RouteBindingPublishStatus, error) {
+func (s *RouteBindingStore) Status(ctx context.Context, name string) (RouteBindingPublishStatus, error) {
+	ctx = routeBindingContext(ctx)
 	name, err := normalizeRouteBindingName(name)
 	if err != nil {
 		return RouteBindingPublishStatus{}, err
 	}
-	draft, draftExists, draftRevision, err := s.getEntry(s.bindingPrefix(true), name)
+	draft, draftExists, draftRevision, err := s.getEntry(ctx, s.bindingPrefix(true), name)
 	if err != nil {
 		return RouteBindingPublishStatus{}, err
 	}
-	published, publishedExists, publishedRevision, err := s.getEntry(s.bindingPrefix(false), name)
+	published, publishedExists, publishedRevision, err := s.getEntry(ctx, s.bindingPrefix(false), name)
 	if err != nil {
 		return RouteBindingPublishStatus{}, err
 	}
@@ -609,16 +658,17 @@ func (s *RouteBindingStore) Status(name string) (RouteBindingPublishStatus, erro
 
 // Diff compares one route's draft and published objects. It does not read or
 // mutate any other route's draft state.
-func (s *RouteBindingStore) Diff(name string) (RouteBindingDiff, error) {
+func (s *RouteBindingStore) Diff(ctx context.Context, name string) (RouteBindingDiff, error) {
+	ctx = routeBindingContext(ctx)
 	name, err := normalizeRouteBindingName(name)
 	if err != nil {
 		return RouteBindingDiff{}, err
 	}
-	draft, draftExists, _, err := s.getEntry(s.bindingPrefix(true), name)
+	draft, draftExists, _, err := s.getEntry(ctx, s.bindingPrefix(true), name)
 	if err != nil {
 		return RouteBindingDiff{}, err
 	}
-	published, publishedExists, _, err := s.getEntry(s.bindingPrefix(false), name)
+	published, publishedExists, _, err := s.getEntry(ctx, s.bindingPrefix(false), name)
 	if err != nil {
 		return RouteBindingDiff{}, err
 	}
@@ -763,20 +813,21 @@ func valueOrNil(value any, exists bool) any {
 // generated legacy resources/methods, stale-route deletions, and the published
 // revision marker together. A draft marker compare prevents a concurrent save
 // or delete from being silently omitted from the snapshot.
-func (s *RouteBindingStore) PublishAll(expectedDraftRevision int64) (RouteBindingPublishResult, error) {
+func (s *RouteBindingStore) PublishAll(ctx context.Context, expectedDraftRevision int64) (RouteBindingPublishResult, error) {
+	ctx = routeBindingContext(ctx)
 	if expectedDraftRevision < 0 {
 		return RouteBindingPublishResult{}, errors.New("expected draft revision must not be negative")
 	}
-	draftEntries, err := s.listEntries(s.bindingPrefix(true))
+	draftEntries, err := s.listEntries(ctx, s.bindingPrefix(true))
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
-	publishedEntries, err := s.listEntries(s.bindingPrefix(false))
+	publishedEntries, err := s.listEntries(ctx, s.bindingPrefix(false))
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
 
-	draftRevision, draftMarkerExists, err := s.markerRevision(s.draftRevisionKey())
+	draftRevision, draftMarkerExists, err := s.markerRevision(ctx, s.draftRevisionKey())
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
@@ -802,7 +853,7 @@ func (s *RouteBindingStore) PublishAll(expectedDraftRevision int64) (RouteBindin
 	operations = append(operations,
 		clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(draftRevision, 10)),
 	)
-	response, err := s.kv.Txn(s.ctx).If(comparisons...).Then(operations...).Commit()
+	response, err := s.kv.Txn(ctx).If(comparisons...).Then(operations...).Commit()
 	if err != nil {
 		return RouteBindingPublishResult{}, fmt.Errorf("publish route bindings: %w", err)
 	}
@@ -818,12 +869,13 @@ func (s *RouteBindingStore) PublishAll(expectedDraftRevision int64) (RouteBindin
 }
 
 // PublishStatus returns the current draft and published marker revisions.
-func (s *RouteBindingStore) PublishStatus() (RouteBindingPublishStatus, error) {
-	draftRevision, _, err := s.markerRevision(s.draftRevisionKey())
+func (s *RouteBindingStore) PublishStatus(ctx context.Context) (RouteBindingPublishStatus, error) {
+	ctx = routeBindingContext(ctx)
+	draftRevision, _, err := s.markerRevision(ctx, s.draftRevisionKey())
 	if err != nil {
 		return RouteBindingPublishStatus{}, err
 	}
-	publishedRevision, _, err := s.markerRevision(s.publishedRevisionKey())
+	publishedRevision, _, err := s.markerRevision(ctx, s.publishedRevisionKey())
 	if err != nil {
 		return RouteBindingPublishStatus{}, err
 	}
@@ -872,20 +924,43 @@ func (s *RouteBindingStore) compileSnapshot(entries []routeBindingEntry) ([]comp
 }
 
 func (s *RouteBindingStore) buildPublishOperations(compiled []compiledRouteEntry, published []routeBindingEntry) ([]clientv3.Op, int, int, error) {
+	oldByName, _, err := indexPublishedRoutes(published)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	newByName, newIDs := indexCompiledRoutes(compiled)
+	operations := make([]clientv3.Op, 0, len(compiled)*3+len(published)*2)
+	deletedOperations, deletedCount, err := s.buildDeletedPublishOperations(oldByName, newByName, newIDs)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	operations = append(operations, deletedOperations...)
+	compiledOperations, err := s.buildCompiledPublishOperations(compiled, oldByName)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	operations = append(operations, compiledOperations...)
+	return operations, len(compiled), deletedCount, nil
+}
+
+func indexPublishedRoutes(published []routeBindingEntry) (map[string]routeBindingEntry, map[int]string, error) {
 	oldByName := make(map[string]routeBindingEntry, len(published))
 	oldIDs := make(map[int]string, len(published))
 	for _, entry := range published {
 		if entry.record.ResourceID <= 0 || entry.record.MethodID <= 0 {
-			return nil, 0, 0, fmt.Errorf("published route binding %q has invalid runtime identity", entry.record.Object.Metadata.Name)
+			return nil, nil, fmt.Errorf("published route binding %q has invalid runtime identity", entry.record.Object.Metadata.Name)
 		}
 		name := entry.record.Object.Metadata.Name
 		oldByName[name] = entry
 		if previous, exists := oldIDs[entry.record.ResourceID]; exists && previous != name {
-			return nil, 0, 0, fmt.Errorf("published route bindings %q and %q share runtime resource id %d", previous, name, entry.record.ResourceID)
+			return nil, nil, fmt.Errorf("published route bindings %q and %q share runtime resource id %d", previous, name, entry.record.ResourceID)
 		}
 		oldIDs[entry.record.ResourceID] = name
 	}
+	return oldByName, oldIDs, nil
+}
 
+func indexCompiledRoutes(compiled []compiledRouteEntry) (map[string]compiledRouteEntry, map[int]string) {
 	newByName := make(map[string]compiledRouteEntry, len(compiled))
 	newIDs := make(map[int]string, len(compiled))
 	for _, entry := range compiled {
@@ -893,8 +968,15 @@ func (s *RouteBindingStore) buildPublishOperations(compiled []compiledRouteEntry
 		newByName[name] = entry
 		newIDs[entry.legacy.Resource.ID] = name
 	}
+	return newByName, newIDs
+}
 
-	operations := make([]clientv3.Op, 0, len(compiled)*3+len(published)*2)
+func (s *RouteBindingStore) buildDeletedPublishOperations(
+	oldByName map[string]routeBindingEntry,
+	newByName map[string]compiledRouteEntry,
+	newIDs map[int]string,
+) ([]clientv3.Op, int, error) {
+	operations := make([]clientv3.Op, 0, len(oldByName)*2)
 	deletedCount := 0
 	for name, old := range oldByName {
 		_, exists := newByName[name]
@@ -902,7 +984,7 @@ func (s *RouteBindingStore) buildPublishOperations(compiled []compiledRouteEntry
 			continue
 		}
 		if owner, reused := newIDs[old.record.ResourceID]; reused {
-			return nil, 0, 0, fmt.Errorf("cannot delete published route binding %q because runtime resource id %d is reused by %q", name, old.record.ResourceID, owner)
+			return nil, 0, fmt.Errorf("cannot delete published route binding %q because runtime resource id %d is reused by %q", name, old.record.ResourceID, owner)
 		}
 		operations = append(operations,
 			clientv3.OpDelete(s.runtimeResourceKey(old.record.ResourceID), clientv3.WithPrefix()),
@@ -910,20 +992,23 @@ func (s *RouteBindingStore) buildPublishOperations(compiled []compiledRouteEntry
 		)
 		deletedCount++
 	}
+	return operations, deletedCount, nil
+}
 
+func (s *RouteBindingStore) buildCompiledPublishOperations(
+	compiled []compiledRouteEntry,
+	oldByName map[string]routeBindingEntry,
+) ([]clientv3.Op, error) {
+	operations := make([]clientv3.Op, 0, len(compiled)*3)
 	for _, entry := range compiled {
 		name := entry.object.Metadata.Name
 		old, existed := oldByName[name]
-		if existed && old.record.ResourceID != entry.legacy.Resource.ID {
-			// The old identity was deleted above only when the name is present in
-			// the new snapshot, so delete it here before writing the new identity.
-			operations = append(operations, clientv3.OpDelete(s.runtimeResourceKey(old.record.ResourceID), clientv3.WithPrefix()))
-		} else if existed && old.record.MethodID != entry.legacy.Method.ID {
-			operations = append(operations, clientv3.OpDelete(s.runtimeMethodKey(old.record.ResourceID, old.record.MethodID)))
-		}
+		// The old identity is deleted before writing the new identity when a
+		// route keeps its name but changes its runtime identity.
+		operations = append(operations, s.runtimeIdentityReplacementOperations(old, existed, entry.legacy)...)
 		resourceValue, methodValue, err := marshalCompiledRuntimeRoute(entry.legacy)
 		if err != nil {
-			return nil, 0, 0, fmt.Errorf("encode route binding %q for runtime: %w", name, err)
+			return nil, fmt.Errorf("encode route binding %q for runtime: %w", name, err)
 		}
 		recordValue, err := json.Marshal(routeBindingRecord{
 			Object:     entry.object,
@@ -931,7 +1016,7 @@ func (s *RouteBindingStore) buildPublishOperations(compiled []compiledRouteEntry
 			MethodID:   entry.legacy.Method.ID,
 		})
 		if err != nil {
-			return nil, 0, 0, fmt.Errorf("encode published route binding %q: %w", name, err)
+			return nil, fmt.Errorf("encode published route binding %q: %w", name, err)
 		}
 		operations = append(operations,
 			clientv3.OpPut(s.runtimeResourceKey(entry.legacy.Resource.ID), string(resourceValue)),
@@ -939,7 +1024,24 @@ func (s *RouteBindingStore) buildPublishOperations(compiled []compiledRouteEntry
 			clientv3.OpPut(s.bindingKey(s.bindingPrefix(false), name), string(recordValue)),
 		)
 	}
-	return operations, len(compiled), deletedCount, nil
+	return operations, nil
+}
+
+func (s *RouteBindingStore) runtimeIdentityReplacementOperations(
+	old routeBindingEntry,
+	existed bool,
+	compiled schema.CompiledRoute,
+) []clientv3.Op {
+	if !existed {
+		return nil
+	}
+	if old.record.ResourceID != compiled.Resource.ID {
+		return []clientv3.Op{clientv3.OpDelete(s.runtimeResourceKey(old.record.ResourceID), clientv3.WithPrefix())}
+	}
+	if old.record.MethodID != compiled.Method.ID {
+		return []clientv3.Op{clientv3.OpDelete(s.runtimeMethodKey(old.record.ResourceID, old.record.MethodID))}
+	}
+	return nil
 }
 
 func marshalCompiledRuntimeRoute(compiled schema.CompiledRoute) ([]byte, []byte, error) {
@@ -1022,8 +1124,8 @@ func routeBindingIntegrationRequestYAMLFrom(request legacyconfig.IntegrationRequ
 	}
 }
 
-func (s *RouteBindingStore) listEntries(prefix string) ([]routeBindingEntry, error) {
-	response, err := s.kv.Get(s.ctx, prefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
+func (s *RouteBindingStore) listEntries(ctx context.Context, prefix string) ([]routeBindingEntry, error) {
+	response, err := s.kv.Get(ctx, prefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
 	if err != nil {
 		return nil, fmt.Errorf("list route bindings under %q: %w", prefix, err)
 	}
@@ -1045,9 +1147,9 @@ func (s *RouteBindingStore) listEntries(prefix string) ([]routeBindingEntry, err
 	return entries, nil
 }
 
-func (s *RouteBindingStore) getEntry(prefix, name string) (routeBindingEntry, bool, int64, error) {
+func (s *RouteBindingStore) getEntry(ctx context.Context, prefix, name string) (routeBindingEntry, bool, int64, error) {
 	key := s.bindingKey(prefix, name)
-	response, err := s.kv.Get(s.ctx, key)
+	response, err := s.kv.Get(ctx, key)
 	if err != nil {
 		return routeBindingEntry{}, false, 0, fmt.Errorf("get route binding %q: %w", name, err)
 	}
@@ -1065,8 +1167,8 @@ func (s *RouteBindingStore) getEntry(prefix, name string) (routeBindingEntry, bo
 	return entry, true, entry.revision, nil
 }
 
-func (s *RouteBindingStore) markerRevision(key string) (int64, bool, error) {
-	response, err := s.kv.Get(s.ctx, key)
+func (s *RouteBindingStore) markerRevision(ctx context.Context, key string) (int64, bool, error) {
+	response, err := s.kv.Get(ctx, key)
 	if err != nil {
 		return 0, false, fmt.Errorf("get route binding revision marker %q: %w", key, err)
 	}
@@ -1076,56 +1178,82 @@ func (s *RouteBindingStore) markerRevision(key string) (int64, bool, error) {
 	return response.Kvs[0].ModRevision, true, nil
 }
 
-func (s *RouteBindingStore) allocateRuntimeID() (int, error) {
+type routeBindingIDCounter struct {
+	value    int
+	revision int64
+}
+
+func (s *RouteBindingStore) allocateRuntimeID(ctx context.Context) (int, error) {
 	counterKey := s.root + "/" + ResourceID
 	resourcePrefix := s.root + "/" + routeBindingRuntimeResourceDir + "/"
 	for attempt := 0; attempt < maxRouteBindingIDRetries; attempt++ {
-		counterResponse, err := s.kv.Get(s.ctx, counterKey)
+		id, allocated, err := s.tryAllocateRuntimeID(ctx, counterKey, resourcePrefix)
 		if err != nil {
-			return 0, fmt.Errorf("read route binding resource id counter: %w", err)
+			return 0, err
 		}
-		current, counterRevision := 0, int64(0)
-		if len(counterResponse.Kvs) > 0 {
-			current, err = strconv.Atoi(string(counterResponse.Kvs[0].Value))
-			if err != nil || current < 0 {
-				return 0, fmt.Errorf("invalid resource id counter %q", string(counterResponse.Kvs[0].Value))
-			}
-			counterRevision = counterResponse.Kvs[0].ModRevision
-		}
-
-		maxExisting := current
-		resourceResponse, err := s.kv.Get(s.ctx, resourcePrefix, clientv3.WithPrefix())
-		if err != nil {
-			return 0, fmt.Errorf("scan route binding resource ids: %w", err)
-		}
-		for _, kv := range resourceResponse.Kvs {
-			relative := strings.TrimPrefix(string(kv.Key), resourcePrefix)
-			if strings.Contains(relative, "/") {
-				continue
-			}
-			id, parseErr := strconv.Atoi(relative)
-			if parseErr == nil && id > maxExisting {
-				maxExisting = id
-			}
-		}
-
-		next := maxExisting + 1
-		comparison := clientv3.Compare(clientv3.CreateRevision(counterKey), "=", 0)
-		if counterRevision > 0 {
-			comparison = clientv3.Compare(clientv3.ModRevision(counterKey), "=", counterRevision)
-		}
-		response, err := s.kv.Txn(s.ctx).
-			If(comparison).
-			Then(clientv3.OpPut(counterKey, strconv.Itoa(next))).
-			Commit()
-		if err != nil {
-			return 0, fmt.Errorf("allocate route binding resource id: %w", err)
-		}
-		if response.Succeeded {
-			return next, nil
+		if allocated {
+			return id, nil
 		}
 	}
 	return 0, fmt.Errorf("%w: resource id allocation retries exhausted", ErrRouteBindingConflict)
+}
+
+func (s *RouteBindingStore) tryAllocateRuntimeID(ctx context.Context, counterKey, resourcePrefix string) (int, bool, error) {
+	counter, err := s.readRuntimeIDCounter(ctx, counterKey)
+	if err != nil {
+		return 0, false, err
+	}
+	resourceResponse, err := s.kv.Get(ctx, resourcePrefix, clientv3.WithPrefix())
+	if err != nil {
+		return 0, false, fmt.Errorf("scan route binding resource ids: %w", err)
+	}
+	next := maxRuntimeResourceID(resourceResponse, resourcePrefix, counter.value) + 1
+	comparison := clientv3.Compare(clientv3.CreateRevision(counterKey), "=", 0)
+	if counter.revision > 0 {
+		comparison = clientv3.Compare(clientv3.ModRevision(counterKey), "=", counter.revision)
+	}
+	response, err := s.kv.Txn(ctx).
+		If(comparison).
+		Then(clientv3.OpPut(counterKey, strconv.Itoa(next))).
+		Commit()
+	if err != nil {
+		return 0, false, fmt.Errorf("allocate route binding resource id: %w", err)
+	}
+	return next, response.Succeeded, nil
+}
+
+func (s *RouteBindingStore) readRuntimeIDCounter(ctx context.Context, counterKey string) (routeBindingIDCounter, error) {
+	response, err := s.kv.Get(ctx, counterKey)
+	if err != nil {
+		return routeBindingIDCounter{}, fmt.Errorf("read route binding resource id counter: %w", err)
+	}
+	counter := routeBindingIDCounter{}
+	if len(response.Kvs) == 0 {
+		return counter, nil
+	}
+	value := string(response.Kvs[0].Value)
+	current, err := strconv.Atoi(value)
+	if err != nil || current < 0 {
+		return routeBindingIDCounter{}, fmt.Errorf("invalid resource id counter %q", value)
+	}
+	counter.value = current
+	counter.revision = response.Kvs[0].ModRevision
+	return counter, nil
+}
+
+func maxRuntimeResourceID(response *clientv3.GetResponse, resourcePrefix string, current int) int {
+	maxExisting := current
+	for _, kv := range response.Kvs {
+		relative := strings.TrimPrefix(string(kv.Key), resourcePrefix)
+		if strings.Contains(relative, "/") {
+			continue
+		}
+		id, parseErr := strconv.Atoi(relative)
+		if parseErr == nil && id > maxExisting {
+			maxExisting = id
+		}
+	}
+	return maxExisting
 }
 
 func routeBindingView(entry routeBindingEntry) RouteBinding {

@@ -94,7 +94,7 @@ func GetRouteBindingList(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	bindings, err := store.List(routeBindingUnpublished(c))
+	bindings, err := store.List(c.Request.Context(), routeBindingUnpublished(c))
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -122,7 +122,7 @@ func GetRouteBindingDetail(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	binding, err := store.Get(name, routeBindingUnpublished(c))
+	binding, err := store.Get(c.Request.Context(), name, routeBindingUnpublished(c))
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -152,7 +152,7 @@ func CreateRouteBinding(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	binding, err := store.SaveDraft(object, true, expectedRevision)
+	binding, err := store.SaveDraft(c.Request.Context(), object, true, expectedRevision)
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -181,7 +181,7 @@ func ModifyRouteBinding(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	binding, err := store.SaveDraft(object, false, expectedRevision)
+	binding, err := store.SaveDraft(c.Request.Context(), object, false, expectedRevision)
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -211,7 +211,7 @@ func DeleteRouteBinding(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	if err := store.DeleteDraft(name, expectedRevision); err != nil {
+	if err := store.DeleteDraft(c.Request.Context(), name, expectedRevision); err != nil {
 		writeRouteBindingError(c, err)
 		return
 	}
@@ -313,7 +313,7 @@ func PublishRouteBinding(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	result, err := store.Publish(name, expectedRevision)
+	result, err := store.Publish(c.Request.Context(), name, expectedRevision)
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -344,7 +344,7 @@ func GetRouteBindingStatus(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	status, err := store.Status(name)
+	status, err := store.Status(c.Request.Context(), name)
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -375,7 +375,7 @@ func GetRouteBindingDiff(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	diff, err := store.Diff(name)
+	diff, err := store.Diff(c.Request.Context(), name)
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -397,7 +397,7 @@ func GetRouteBindingPublishStatus(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	status, err := store.PublishStatus()
+	status, err := store.PublishStatus(c.Request.Context())
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return

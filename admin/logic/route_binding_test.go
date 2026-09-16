@@ -49,7 +49,7 @@ func TestRouteBindingStoreSavePublishAndDelete(t *testing.T) {
 
 func saveAndPublishTestRoute(t *testing.T, store *RouteBindingStore) RouteBinding {
 	t.Helper()
-	saved, err := store.SaveDraft(testRouteBinding("user-get", "/api/users/:id", "GET"), true, 0)
+	saved, err := store.SaveDraft(context.Background(), testRouteBinding("user-get", "/api/users/:id", "GET"), true, 0)
 	if err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
@@ -60,11 +60,11 @@ func saveAndPublishTestRoute(t *testing.T, store *RouteBindingStore) RouteBindin
 		t.Fatal("SaveDraft returned zero key revision")
 	}
 
-	status, err := store.PublishStatus()
+	status, err := store.PublishStatus(context.Background())
 	if err != nil {
 		t.Fatalf("PublishStatus: %v", err)
 	}
-	result, err := store.PublishAll(status.DraftRevision)
+	result, err := store.PublishAll(context.Background(), status.DraftRevision)
 	if err != nil {
 		t.Fatalf("PublishAll: %v", err)
 	}
@@ -103,7 +103,7 @@ func assertPublishedRuntimeRoute(t *testing.T, store *RouteBindingStore, saved R
 
 func assertPublishedTestRoute(t *testing.T, store *RouteBindingStore) {
 	t.Helper()
-	published, err := store.List(false)
+	published, err := store.List(context.Background(), false)
 	if err != nil {
 		t.Fatalf("List published: %v", err)
 	}
@@ -114,14 +114,14 @@ func assertPublishedTestRoute(t *testing.T, store *RouteBindingStore) {
 
 func deleteAndAssertTestRoute(t *testing.T, store *RouteBindingStore, saved RouteBinding) {
 	t.Helper()
-	if err := store.DeleteDraft("user-get", saved.Revision); err != nil {
+	if err := store.DeleteDraft(context.Background(), "user-get", saved.Revision); err != nil {
 		t.Fatalf("DeleteDraft: %v", err)
 	}
-	status, err := store.PublishStatus()
+	status, err := store.PublishStatus(context.Background())
 	if err != nil {
 		t.Fatalf("PublishStatus after delete: %v", err)
 	}
-	result, err := store.PublishAll(status.DraftRevision)
+	result, err := store.PublishAll(context.Background(), status.DraftRevision)
 	if err != nil {
 		t.Fatalf("PublishAll after delete: %v", err)
 	}
@@ -132,44 +132,44 @@ func deleteAndAssertTestRoute(t *testing.T, store *RouteBindingStore, saved Rout
 	if fake.fakeHasKey(store.runtimeResourceKey(saved.ResourceID)) || fake.fakeHasKey(store.runtimeMethodKey(saved.ResourceID, saved.MethodID)) {
 		t.Fatal("published runtime keys remain after atomic deletion")
 	}
-	if _, err := store.Get("user-get", false); err == nil {
+	if _, err := store.Get(context.Background(), "user-get", false); err == nil {
 		t.Fatal("deleted binding still exists in published namespace")
 	}
 }
 
 func TestRouteBindingStorePublishOneKeepsOtherRoutesDraft(t *testing.T) {
 	store := newTestRouteBindingStore(t)
-	first, err := store.SaveDraft(testRouteBinding("user-get", "/api/users", "GET"), true, 0)
+	first, err := store.SaveDraft(context.Background(), testRouteBinding("user-get", "/api/users", "GET"), true, 0)
 	if err != nil {
 		t.Fatalf("first SaveDraft: %v", err)
 	}
-	second, err := store.SaveDraft(testRouteBinding("order-get", "/api/orders", "GET"), true, 0)
+	second, err := store.SaveDraft(context.Background(), testRouteBinding("order-get", "/api/orders", "GET"), true, 0)
 	if err != nil {
 		t.Fatalf("second SaveDraft: %v", err)
 	}
 
-	result, err := store.Publish("user-get", first.Revision)
+	result, err := store.Publish(context.Background(), "user-get", first.Revision)
 	if err != nil {
 		t.Fatalf("Publish one route: %v", err)
 	}
 	if result.Name != "user-get" || result.PublishedCount != 1 || result.DeletedCount != 0 {
 		t.Fatalf("single-route publish result: %+v", result)
 	}
-	if _, err := store.Get("order-get", false); err == nil {
+	if _, err := store.Get(context.Background(), "order-get", false); err == nil {
 		t.Fatal("publishing user-get unexpectedly published order-get")
 	}
-	if _, err := store.Get("order-get", true); err != nil {
+	if _, err := store.Get(context.Background(), "order-get", true); err != nil {
 		t.Fatalf("order-get draft disappeared: %v", err)
 	}
 
-	status, err := store.Status("user-get")
+	status, err := store.Status(context.Background(), "user-get")
 	if err != nil {
 		t.Fatalf("user-get Status: %v", err)
 	}
 	if !status.DraftExists || !status.PublishedExists || status.Dirty {
 		t.Fatalf("user-get status: %+v", status)
 	}
-	status, err = store.Status("order-get")
+	status, err = store.Status(context.Background(), "order-get")
 	if err != nil {
 		t.Fatalf("order-get Status: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestRouteBindingStorePublishOneKeepsOtherRoutesDraft(t *testing.T) {
 		t.Fatalf("order-get status: %+v", status)
 	}
 
-	diff, err := store.Diff("order-get")
+	diff, err := store.Diff(context.Background(), "order-get")
 	if err != nil {
 		t.Fatalf("order-get Diff: %v", err)
 	}
@@ -185,14 +185,14 @@ func TestRouteBindingStorePublishOneKeepsOtherRoutesDraft(t *testing.T) {
 		t.Fatalf("order-get diff: %+v", diff)
 	}
 
-	result, err = store.Publish("order-get", second.Revision)
+	result, err = store.Publish(context.Background(), "order-get", second.Revision)
 	if err != nil {
 		t.Fatalf("Publish second route: %v", err)
 	}
 	if result.Name != "order-get" || result.PublishedCount != 1 {
 		t.Fatalf("second single-route publish result: %+v", result)
 	}
-	published, err := store.List(false)
+	published, err := store.List(context.Background(), false)
 	if err != nil {
 		t.Fatalf("List published: %v", err)
 	}
@@ -206,11 +206,11 @@ func TestRouteBindingStorePublishesDisabledRuntimeMethod(t *testing.T) {
 	object := testRouteBinding("user-disabled", "/api/users/disabled", "GET")
 	object.Spec["enabled"] = false
 
-	saved, err := store.SaveDraft(object, true, 0)
+	saved, err := store.SaveDraft(context.Background(), object, true, 0)
 	if err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
-	if _, err := store.Publish("user-disabled", saved.Revision); err != nil {
+	if _, err := store.Publish(context.Background(), "user-disabled", saved.Revision); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
 
@@ -223,7 +223,7 @@ func TestRouteBindingStorePublishesDisabledRuntimeMethod(t *testing.T) {
 		t.Fatal("disabled route was published with enable=true")
 	}
 
-	published, err := store.Get("user-disabled", false)
+	published, err := store.Get(context.Background(), "user-disabled", false)
 	if err != nil {
 		t.Fatalf("Get published route: %v", err)
 	}
@@ -234,37 +234,37 @@ func TestRouteBindingStorePublishesDisabledRuntimeMethod(t *testing.T) {
 
 func TestRouteBindingStorePublishRejectsConcurrentDraftChange(t *testing.T) {
 	store := newTestRouteBindingStore(t)
-	saved, err := store.SaveDraft(testRouteBinding("user-get", "/api/users/:id", "GET"), true, 0)
+	saved, err := store.SaveDraft(context.Background(), testRouteBinding("user-get", "/api/users/:id", "GET"), true, 0)
 	if err != nil {
 		t.Fatalf("initial SaveDraft: %v", err)
 	}
-	status, err := store.PublishStatus()
+	status, err := store.PublishStatus(context.Background())
 	if err != nil {
 		t.Fatalf("PublishStatus: %v", err)
 	}
-	if _, err := store.SaveDraft(testRouteBinding("order-get", "/api/orders/:id", "GET"), true, 0); err != nil {
+	if _, err := store.SaveDraft(context.Background(), testRouteBinding("order-get", "/api/orders/:id", "GET"), true, 0); err != nil {
 		t.Fatalf("concurrent SaveDraft: %v", err)
 	}
-	if _, err := store.PublishAll(status.DraftRevision); !strings.Contains(err.Error(), ErrRouteBindingPublishConflict.Error()) {
+	if _, err := store.PublishAll(context.Background(), status.DraftRevision); !strings.Contains(err.Error(), ErrRouteBindingPublishConflict.Error()) {
 		t.Fatalf("stale publish error: want %q, got %v", ErrRouteBindingPublishConflict, err)
 	}
 	if fakeRouteBindingStoreKV(t, store).fakeHasKey(store.runtimeResourceKey(saved.ResourceID)) {
 		t.Fatal("stale publish changed runtime keys")
 	}
-	if _, err := store.Get("order-get", false); err == nil {
+	if _, err := store.Get(context.Background(), "order-get", false); err == nil {
 		t.Fatal("stale publish wrote a published binding")
 	}
 }
 
 func TestRouteBindingStoreRejectsDuplicatePublishedRoute(t *testing.T) {
 	store := newTestRouteBindingStore(t)
-	if _, err := store.SaveDraft(testRouteBinding("user-get-a", "/api/users", "GET"), true, 0); err != nil {
+	if _, err := store.SaveDraft(context.Background(), testRouteBinding("user-get-a", "/api/users", "GET"), true, 0); err != nil {
 		t.Fatalf("first SaveDraft: %v", err)
 	}
-	if _, err := store.SaveDraft(testRouteBinding("user-get-b", "/api/users", "GET"), true, 0); err != nil {
+	if _, err := store.SaveDraft(context.Background(), testRouteBinding("user-get-b", "/api/users", "GET"), true, 0); err != nil {
 		t.Fatalf("second SaveDraft: %v", err)
 	}
-	if _, err := store.PublishAll(0); err == nil || !strings.Contains(err.Error(), "conflicts") {
+	if _, err := store.PublishAll(context.Background(), 0); err == nil || !strings.Contains(err.Error(), "conflicts") {
 		t.Fatalf("duplicate publish error: %v", err)
 	}
 	fake := fakeRouteBindingStoreKV(t, store)
@@ -275,19 +275,19 @@ func TestRouteBindingStoreRejectsDuplicatePublishedRoute(t *testing.T) {
 
 func TestRouteBindingStoreSaveUsesPublishedRuntimeIdentity(t *testing.T) {
 	store := newTestRouteBindingStore(t)
-	saved, err := store.SaveDraft(testRouteBinding("user-get", "/api/users", "GET"), true, 0)
+	saved, err := store.SaveDraft(context.Background(), testRouteBinding("user-get", "/api/users", "GET"), true, 0)
 	if err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
-	if _, err := store.PublishAll(0); err != nil {
+	if _, err := store.PublishAll(context.Background(), 0); err != nil {
 		t.Fatalf("PublishAll: %v", err)
 	}
-	if err := store.DeleteDraft("user-get", saved.Revision); err != nil {
+	if err := store.DeleteDraft(context.Background(), "user-get", saved.Revision); err != nil {
 		t.Fatalf("DeleteDraft: %v", err)
 	}
 	updated := testRouteBinding("user-get", "/api/users/:id", "GET")
 	updated.Spec["target"].(map[string]any)["method"] = "GetUserByID"
-	restored, err := store.SaveDraft(updated, false, 0)
+	restored, err := store.SaveDraft(context.Background(), updated, false, 0)
 	if err != nil {
 		t.Fatalf("SaveDraft from published identity: %v", err)
 	}
@@ -302,7 +302,7 @@ func newTestRouteBindingStore(t *testing.T) *RouteBindingStore {
 	if err != nil {
 		t.Fatalf("NewBuiltinRegistry: %v", err)
 	}
-	store, err := NewRouteBindingStore(newFakeRouteBindingKV(), context.Background(), "/pixiu/config/api", registry)
+	store, err := NewRouteBindingStore(newFakeRouteBindingKV(), "/pixiu/config/api", registry)
 	if err != nil {
 		t.Fatalf("NewRouteBindingStore: %v", err)
 	}

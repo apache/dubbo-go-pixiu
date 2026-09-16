@@ -522,6 +522,10 @@ function routeObjectsMatch(left: RouteBinding, right: RouteBinding) {
   return JSON.stringify(left.object) === JSON.stringify(right.object)
 }
 
+function routeDisplayString(value: unknown, fallback: string) {
+  return typeof value === 'string' && value.trim() ? value : fallback
+}
+
 function routeRow(
   binding: RouteBinding,
   published: Map<string, RouteBinding>,
@@ -543,8 +547,8 @@ function routeRow(
     binding,
     id: name,
     name,
-    path: String(entry.path || '-'),
-    verb: String(entry.method || 'GET').toUpperCase(),
+    path: routeDisplayString(entry.path, '-'),
+    verb: routeDisplayString(entry.method, 'GET').toUpperCase(),
     target:
       targetLabel ||
       (typeof target.cluster === 'string' && target.cluster.trim()

@@ -72,6 +72,38 @@ function errorDetails(data: unknown) {
   }
 }
 
+function primitiveString(value: unknown, fallback = '') {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return value.toString()
+  }
+  return fallback
+}
+
+function responseDataString(value: unknown, fallback = '') {
+  return primitiveString(value, fallback)
+}
+
+function httpErrorMessage(
+  data: unknown,
+  details: ReturnType<typeof errorDetails>,
+  envelopeMessage: unknown,
+  fallback: string,
+) {
+  if (typeof data === 'string') return data
+  if (details.message) return details.message
+  if (typeof envelopeMessage === 'string') return envelopeMessage
+  return fallback
+}
+
+function codeErrorMessage(data: unknown, details: ReturnType<typeof errorDetails>, code: unknown) {
+  if (typeof data === 'string') return data
+  if (details.message) return details.message
+  if (code === API_STATUS.NOT_FOUND) return '数据不存在'
+  if (code === API_STATUS.CONCURRENT) return '操作冲突，请刷新后重试'
+  return '请求失败'
+}
+
 export function isNotFoundError(error: unknown) {
   return error instanceof ApiError && error.code === API_STATUS.NOT_FOUND
 }
@@ -85,12 +117,12 @@ export function parseArrayResponse<T>(data: unknown): T[] {
       throw new ApiError(
         '接口返回的数据不是有效 JSON',
         'BAD_RESPONSE',
-        error instanceof Error ? error.message : String(error),
+        error instanceof Error ? error.message : primitiveString(error, '未知错误'),
       )
     }
   }
   if (!Array.isArray(parsed))
-    throw new ApiError('接口返回的数据格式无效', 'BAD_RESPONSE', String(data))
+    throw new ApiError('接口返回的数据格式无效', 'BAD_RESPONSE', responseDataString(data))
   return parsed as T[]
 }
 
@@ -136,34 +168,41 @@ export async function request<T>(path: string, init: RequestInit = {}) {
       throw new ApiError(
         '登录状态已失效，请重新登录',
         'AUTH_REQUIRED',
-        String(envelope.data || raw),
+        responseDataString(envelope.data, raw),
       )
     }
     const details = errorDetails(envelope.data)
-    const message =
-      typeof envelope.data === 'string'
-        ? envelope.data
-        : details.message ||
-          (typeof envelope.message === 'string' ? envelope.message : `请求失败（HTTP ${r.status}）`)
-    throw new ApiError(message, String(envelope.code || `HTTP_${r.status}`), raw, details.issues)
+    const message = httpErrorMessage(
+      envelope.data,
+      details,
+      envelope.message,
+      `请求失败（HTTP ${r.status}）`,
+    )
+    throw new ApiError(
+      message,
+      primitiveString(envelope.code, `HTTP_${r.status}`),
+      raw,
+      details.issues,
+    )
   }
   if (envelope.code && envelope.code !== API_STATUS.SUCCESS) {
     if (isAuthFailure(r.status, envelope)) {
       clearSession()
       redirectToLogin()
-      throw new ApiError('登录状态已失效，请重新登录', 'AUTH_REQUIRED', String(envelope.data || ''))
+      throw new ApiError(
+        '登录状态已失效，请重新登录',
+        'AUTH_REQUIRED',
+        responseDataString(envelope.data),
+      )
     }
     const details = errorDetails(envelope.data)
-    const message =
-      typeof envelope.data === 'string'
-        ? envelope.data
-        : details.message ||
-          (envelope.code === API_STATUS.NOT_FOUND
-            ? '数据不存在'
-            : envelope.code === API_STATUS.CONCURRENT
-              ? '操作冲突，请刷新后重试'
-              : '请求失败')
-    throw new ApiError(message, String(envelope.code), String(envelope.data || ''), details.issues)
+    const message = codeErrorMessage(envelope.data, details, envelope.code)
+    throw new ApiError(
+      message,
+      primitiveString(envelope.code),
+      responseDataString(envelope.data),
+      details.issues,
+    )
   }
   if (!('data' in envelope)) throw new ApiError('接口响应缺少 data 字段', 'BAD_RESPONSE', raw)
   return envelope.data as T

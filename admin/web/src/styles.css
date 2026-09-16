@@ -258,7 +258,7 @@ main {
   margin-bottom: 28px;
 }
 .eyebrow {
-  font-family: 'Space Mono';
+  font-family: 'Space Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.14em;
   color: #819091;
@@ -282,7 +282,9 @@ main {
   border: 0;
   border-radius: 7px;
   padding: 10px 14px;
-  font: 600 12px 'DM Sans';
+  font:
+    600 12px 'DM Sans',
+    sans-serif;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -395,7 +397,9 @@ main {
   justify-content: space-between;
   padding: 4px 0 24px;
   color: #9ba6a7;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
 }
 .chart-area {
   flex: 1;
@@ -435,7 +439,9 @@ main {
   display: flex;
   justify-content: space-between;
   color: #9ba6a7;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
 }
 .rank-row {
   display: flex;
@@ -448,7 +454,9 @@ main {
   border-color: #293335;
 }
 .rank-no {
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   color: #97a3a4;
 }
 .rank-name {
@@ -467,7 +475,9 @@ main {
   margin-top: 3px;
 }
 .rank-row > strong {
-  font: 12px 'Space Mono';
+  font:
+    12px 'Space Mono',
+    monospace;
   color: #4dbca8;
 }
 .link-btn {
@@ -489,7 +499,9 @@ table {
 }
 th {
   text-align: left;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #8d999a;
@@ -516,7 +528,9 @@ td:first-child small {
   margin-top: 4px;
 }
 .method {
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   padding: 4px 7px;
   border-radius: 4px;
   background: #eaf5f2;
@@ -572,7 +586,9 @@ td:first-child small {
   background: #c77777;
 }
 .mono {
-  font: 11px 'Space Mono';
+  font:
+    11px 'Space Mono',
+    monospace;
 }
 .toolbar {
   display: flex;
@@ -601,7 +617,9 @@ td:first-child small {
   background: transparent;
   padding: 10px 0;
   width: 100%;
-  font: 12px 'DM Sans';
+  font:
+    12px 'DM Sans',
+    sans-serif;
   color: inherit;
 }
 .filters {
@@ -626,7 +644,9 @@ td:first-child small {
   color: #71decb;
 }
 .filter span {
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   margin-left: 3px;
 }
 .empty {
@@ -748,7 +768,9 @@ td:first-child small {
   border-radius: 6px;
   background: #fff;
   padding: 0 10px;
-  font: 12px 'DM Sans';
+  font:
+    12px 'DM Sans',
+    sans-serif;
   color: #273334;
   outline: none;
 }
@@ -792,7 +814,9 @@ td:first-child small {
   flex: 1;
 }
 .section-label {
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #8a9697;
@@ -827,7 +851,9 @@ td:first-child small {
   display: flex;
   justify-content: space-between;
   color: #7e8b8c;
-  font: 11px 'Space Mono';
+  font:
+    11px 'Space Mono',
+    monospace;
   margin-bottom: 12px;
 }
 .code-preview pre {
@@ -835,7 +861,9 @@ td:first-child small {
   color: #b7d9d1;
   padding: 18px;
   border-radius: 7px;
-  font: 11px/1.8 'Space Mono';
+  font:
+    11px/1.8 'Space Mono',
+    monospace;
   overflow: auto;
 }
 .drawer-foot {
@@ -963,7 +991,9 @@ td:first-child small {
   border-radius: 5px;
   background: #f0e7ff;
   color: #7c3aed;
-  font: 700 10px 'Space Mono';
+  font:
+    700 10px 'Space Mono',
+    monospace;
   letter-spacing: 0.08em;
   border: 1px solid #dfcfff;
 }
@@ -1012,7 +1042,9 @@ td:first-child small {
   color: #a6d9cf;
   border-radius: 7px;
   padding: 15px;
-  font: 12px 'Space Mono';
+  font:
+    12px 'Space Mono',
+    monospace;
   margin: 28px 0 12px;
 }
 .contract-card small {
@@ -1035,7 +1067,9 @@ td:first-child small {
   color: #647273;
   border-radius: 6px;
   padding: 5px 8px;
-  font: 700 10px 'Space Mono';
+  font:
+    700 10px 'Space Mono',
+    monospace;
   cursor: pointer;
 }
 .dark .lang-btn {
@@ -1286,7 +1320,9 @@ td:first-child small {
   padding: 0;
   background: transparent;
   color: #32a996;
-  font: 600 12px 'DM Sans';
+  font:
+    600 12px 'DM Sans',
+    sans-serif;
   cursor: pointer;
 }
 .route-editor-back:hover {
@@ -1294,7 +1330,9 @@ td:first-child small {
 }
 .route-editor-context {
   color: #7f8a8b;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1323,20 +1361,22 @@ td:first-child small {
   gap: 6px;
   border-radius: 5px;
   padding: 5px 8px;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
 }
 .route-revision {
   border: 1px solid #dbe4e4;
-  color: #687779;
+  color: #526463;
   background: #f6f9f9;
 }
 .route-revision.draft {
-  color: #ae6d2f;
+  color: #8a521c;
   background: #fff8ee;
   border-color: #f0dfc7;
 }
 .route-revision.published {
-  color: #218b79;
+  color: #176b5d;
   background: #edf8f5;
   border-color: #ccebe4;
 }
@@ -1361,12 +1401,14 @@ td:first-child small {
   font-size: 12px;
 }
 .route-editor-path {
-  font: 11px 'Space Mono';
+  font:
+    11px 'Space Mono',
+    monospace;
   color: #8a9798;
 }
 .route-editor-state {
   padding: 0;
-  font-family: 'DM Sans';
+  font-family: 'DM Sans', sans-serif;
   color: #7a8889;
 }
 .route-editor-state i {
@@ -1388,7 +1430,7 @@ td:first-child small {
   padding: 0;
   color: #708080;
   font-size: 10px;
-  font-family: 'DM Sans';
+  font-family: 'DM Sans', sans-serif;
 }
 .route-editor-lifecycle i {
   width: 6px;
@@ -1415,14 +1457,16 @@ td:first-child small {
   border: 1px solid #e1e9e9;
   border-radius: 8px;
   background: #f8fbfb;
-  color: #738182;
+  color: #566665;
   padding: 10px 12px;
   margin-bottom: 14px;
   font-size: 12px;
 }
 .route-contract-mark {
   color: #268d7c;
-  font: 700 10px 'Space Mono';
+  font:
+    700 10px 'Space Mono',
+    monospace;
   letter-spacing: 0.06em;
   white-space: nowrap;
 }
@@ -1436,7 +1480,7 @@ td:first-child small {
   font-size: 12px;
 }
 .route-editor-notice.success {
-  color: #237f70;
+  color: #166b5e;
   background: #edf8f5;
   border: 1px solid #c9ebe3;
 }
@@ -1461,7 +1505,9 @@ td:first-child small {
   background: transparent;
   color: #8a9697;
   padding: 10px 0 9px;
-  font: 12px 'DM Sans';
+  font:
+    12px 'DM Sans',
+    sans-serif;
   cursor: pointer;
 }
 .route-editor-tabs button:hover:not(:disabled) {
@@ -1504,10 +1550,16 @@ td:first-child small {
   color: #687577;
   font-size: 11px;
 }
+.route-method-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
 .route-field-wide {
   grid-column: 1 / -1;
 }
 .route-field > span,
+.route-field > legend,
 .route-param-field > span {
   color: #687577;
   font-size: 11px;
@@ -1524,7 +1576,9 @@ td:first-child small {
   padding: 0 10px;
   color: #273334;
   outline: none;
-  font: 12px 'DM Sans';
+  font:
+    12px 'DM Sans',
+    sans-serif;
 }
 .route-field input::placeholder,
 .route-param-field input::placeholder {
@@ -1546,7 +1600,7 @@ td:first-child small {
   opacity: 1;
   cursor: not-allowed;
   background: #f3f7f7;
-  color: #718081;
+  color: #526463;
 }
 .route-field small,
 .route-param-field small {
@@ -1573,7 +1627,9 @@ td:first-child small {
   background: transparent;
   color: #7d898a;
   padding: 10px 9px;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   cursor: pointer;
 }
 .route-method-options button:last-child {
@@ -1581,10 +1637,10 @@ td:first-child small {
 }
 .route-method-options button:hover {
   background: #f0f7f5;
-  color: #238d7b;
+  color: #176b5e;
 }
 .route-method-options button.active {
-  background: #438e7f;
+  background: #337568;
   color: #f3fffb;
 }
 .route-param-panel {
@@ -1612,7 +1668,9 @@ td:first-child small {
 .route-param-header {
   color: #8b9798;
   padding: 13px 0 9px;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -1642,7 +1700,7 @@ td:first-child small {
 }
 .route-icon-action:hover {
   background: #fff1f0;
-  color: #c05e63;
+  color: #a13e45;
   border-color: #f0d2d0;
 }
 .route-param-empty,
@@ -1738,15 +1796,21 @@ td:first-child small {
   gap: 7px;
   margin: 4px 22px 0;
   color: #758384;
-  font: 11px 'Space Mono';
+  font:
+    11px 'Space Mono',
+    monospace;
 }
 .route-preview-meta .muted {
   margin-left: auto;
-  font: 11px 'DM Sans';
+  font:
+    11px 'DM Sans',
+    sans-serif;
 }
 .route-yaml-sync {
   margin-left: auto;
-  font: 11px 'DM Sans';
+  font:
+    11px 'DM Sans',
+    sans-serif;
 }
 .route-yaml-sync.synced {
   color: #238d7b;
@@ -1763,7 +1827,9 @@ td:first-child small {
   border-radius: 7px;
   background: #101718;
   color: #b7d9d1;
-  font: 11px/1.8 'Space Mono';
+  font:
+    11px/1.8 'Space Mono',
+    monospace;
   white-space: pre-wrap;
 }
 .route-yaml-editor {
@@ -1824,7 +1890,9 @@ td:first-child small {
   align-self: start;
   padding-top: 4px;
   color: #52716d;
-  font: 11px/1.5 'Space Mono';
+  font:
+    11px/1.5 'Space Mono',
+    monospace;
   overflow-wrap: anywhere;
 }
 .route-diff-value {
@@ -1844,13 +1912,17 @@ td:first-child small {
   display: block;
   margin-bottom: 6px;
   color: #7c8b8a;
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   text-transform: uppercase;
 }
 .route-diff-value pre {
   margin: 0;
   color: #30403f;
-  font: 11px/1.55 'Space Mono';
+  font:
+    11px/1.55 'Space Mono',
+    monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1966,7 +2038,7 @@ td:first-child small {
   color: #8ee8d8;
 }
 .dark .route-method-options button.active {
-  background: #398477;
+  background: #2c6c61;
   color: #f3fffb;
 }
 .dark .route-param-row {
@@ -2609,7 +2681,9 @@ main {
   color: #7d8a8b;
 }
 .change-time {
-  font: 10px 'Space Mono';
+  font:
+    10px 'Space Mono',
+    monospace;
   color: #8e999a;
   white-space: nowrap;
 }
