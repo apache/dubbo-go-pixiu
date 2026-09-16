@@ -146,6 +146,18 @@ type refEndpoint struct {
 	Clusters []*clusterpb.Cluster
 }
 
+type adsClusterCache struct {
+	references  map[string]refEndpoint
+	assignments map[string]*endpointpb.ClusterLoadAssignment
+}
+
+func newADSClusterCache() *adsClusterCache {
+	return &adsClusterCache{
+		references:  make(map[string]refEndpoint),
+		assignments: make(map[string]*endpointpb.ClusterLoadAssignment),
+	}
+}
+
 func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 	if g.typeUrl != resource.ClusterType {
 		close(output)
@@ -166,8 +178,8 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 		resource.ClusterType:  {resourceNames: append([]string(nil), g.resourceNames...)},
 		resource.EndpointType: {},
 	}
-	references := make(map[string]refEndpoint)
-	stream, err := g.connectADS(ctx, states, references)
+	cache := newADSClusterCache()
+	stream, err := g.connectADS(ctx, states, cache.references)
 	if err != nil {
 		cancel()
 		close(output)
@@ -181,13 +193,13 @@ func (g *AggGrpcApiClient) pipeline(output chan *DeltaResources) error {
 		defer cancel()
 		defer close(output)
 		for {
-			if err := g.consumeADSStream(ctx, stream, states, references, output); err != nil && !errors.Is(err, context.Canceled) {
+			if err := g.consumeADSStream(ctx, stream, states, cache, output); err != nil && !errors.Is(err, context.Canceled) {
 				logger.Errorf("ADS stream closed: %v", err)
 			}
 			if ctx.Err() != nil {
 				return
 			}
-			stream, err = g.connectADS(ctx, states, references)
+			stream, err = g.connectADS(ctx, states, cache.references)
 			if err != nil {
 				return
 			}
@@ -220,7 +232,7 @@ func (g *AggGrpcApiClient) connectADS(ctx context.Context, states map[string]*ad
 	}
 }
 
-func (g *AggGrpcApiClient) consumeADSStream(ctx context.Context, stream discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient, states map[string]*adsResourceState, references map[string]refEndpoint, output chan<- *DeltaResources) error {
+func (g *AggGrpcApiClient) consumeADSStream(ctx context.Context, stream discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient, states map[string]*adsResourceState, cache *adsClusterCache, output chan<- *DeltaResources) error {
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
@@ -232,33 +244,49 @@ func (g *AggGrpcApiClient) consumeADSStream(ctx context.Context, stream discover
 		switch resp.TypeUrl {
 		case resource.ClusterType:
 			newReferences, applyErr := g.decodeCDSReferences(resp.Resources)
-			if applyErr == nil && len(newReferences) == 0 {
-				applyErr = publishADSClusters(ctx, output, &xdsmodel.PixiuExtensionClusters{})
+			candidateAssignments := retainEDSAssignments(cache.assignments, newReferences)
+			// Before the first EDS response there is no runtime xDS state to
+			// replace. Once an assignment has been accepted, every CDS update is
+			// published immediately so removed references cannot remain live while
+			// waiting for another EDS response.
+			if applyErr == nil && (len(cache.assignments) > 0 || len(newReferences) == 0) {
+				var clusters *xdsmodel.PixiuExtensionClusters
+				clusters, applyErr = convertCachedEDS(candidateAssignments, newReferences)
+				if applyErr == nil {
+					applyErr = publishADSClusters(ctx, output, clusters)
+				}
 			}
 			if applyErr == nil {
-				clear(references)
-				for name, ref := range newReferences {
-					references[name] = ref
-				}
+				cache.references = newReferences
+				cache.assignments = candidateAssignments
 				states[resource.ClusterType].versionInfo = resp.VersionInfo
 			}
 			if err := stream.Send(g.makeADSRequest(resource.ClusterType, states[resource.ClusterType], resp.Nonce, applyErr)); err != nil {
 				return err
 			}
-			if applyErr != nil || len(references) == 0 {
+			if applyErr != nil {
 				continue
 			}
-			states[resource.EndpointType].resourceNames = referenceNames(references)
+			states[resource.EndpointType].resourceNames = referenceNames(cache.references)
+			if len(cache.references) == 0 {
+				continue
+			}
 			if err := stream.Send(g.makeADSRequest(resource.EndpointType, states[resource.EndpointType], "", nil)); err != nil {
 				return err
 			}
 
 		case resource.EndpointType:
-			clusters, applyErr := decodeAndConvertEDS(resp.Resources, references)
-			if applyErr == nil {
-				applyErr = publishADSClusters(ctx, output, clusters)
+			updates, applyErr := decodeEDSAssignments(resp.Resources, cache.references)
+			candidateAssignments := mergeEDSAssignments(cache.assignments, updates)
+			if applyErr == nil && len(updates) > 0 {
+				var clusters *xdsmodel.PixiuExtensionClusters
+				clusters, applyErr = convertCachedEDS(candidateAssignments, cache.references)
+				if applyErr == nil {
+					applyErr = publishADSClusters(ctx, output, clusters)
+				}
 			}
 			if applyErr == nil {
+				cache.assignments = candidateAssignments
 				states[resource.EndpointType].versionInfo = resp.VersionInfo
 			}
 			if err := stream.Send(g.makeADSRequest(resource.EndpointType, states[resource.EndpointType], resp.Nonce, applyErr)); err != nil {
@@ -316,19 +344,64 @@ func validateEnvoyCDSCluster(cluster *clusterpb.Cluster) (bool, error) {
 	return true, nil
 }
 
-func decodeAndConvertEDS(resources []*anypb.Any, references map[string]refEndpoint) (*xdsmodel.PixiuExtensionClusters, error) {
-	assignments := make([]*endpointpb.ClusterLoadAssignment, 0, len(resources))
-	for _, raw := range resources {
+func decodeEDSAssignments(resources []*anypb.Any, references map[string]refEndpoint) (map[string]*endpointpb.ClusterLoadAssignment, error) {
+	assignments := make(map[string]*endpointpb.ClusterLoadAssignment, len(resources))
+	seen := make(map[string]struct{}, len(resources))
+	for index, raw := range resources {
 		assignment := &endpointpb.ClusterLoadAssignment{}
 		if raw == nil {
-			return nil, errors.New("EDS resource is nil")
+			return nil, errors.Errorf("EDS resource %d is nil", index)
 		}
 		if err := raw.UnmarshalTo(assignment); err != nil {
-			return nil, errors.Wrap(err, "can not decode EDS resource")
+			return nil, errors.Wrapf(err, "can not decode EDS resource %d", index)
 		}
-		assignments = append(assignments, assignment)
+		if assignment.ClusterName == "" {
+			return nil, errors.Errorf("EDS resource %d must have a cluster name", index)
+		}
+		if _, duplicate := seen[assignment.ClusterName]; duplicate {
+			return nil, errors.Errorf("duplicate EDS assignment %q", assignment.ClusterName)
+		}
+		seen[assignment.ClusterName] = struct{}{}
+		if _, requested := references[assignment.ClusterName]; !requested {
+			continue
+		}
+		assignments[assignment.ClusterName] = assignment
 	}
-	return convertClusterLoadAssignments(assignments, references)
+	return assignments, nil
+}
+
+func retainEDSAssignments(assignments map[string]*endpointpb.ClusterLoadAssignment, references map[string]refEndpoint) map[string]*endpointpb.ClusterLoadAssignment {
+	retained := make(map[string]*endpointpb.ClusterLoadAssignment, len(assignments))
+	for name, assignment := range assignments {
+		if _, referenced := references[name]; referenced {
+			retained[name] = assignment
+		}
+	}
+	return retained
+}
+
+func mergeEDSAssignments(current, updates map[string]*endpointpb.ClusterLoadAssignment) map[string]*endpointpb.ClusterLoadAssignment {
+	merged := make(map[string]*endpointpb.ClusterLoadAssignment, len(current)+len(updates))
+	for name, assignment := range current {
+		merged[name] = assignment
+	}
+	for name, assignment := range updates {
+		merged[name] = assignment
+	}
+	return merged
+}
+
+func convertCachedEDS(assignments map[string]*endpointpb.ClusterLoadAssignment, references map[string]refEndpoint) (*xdsmodel.PixiuExtensionClusters, error) {
+	names := make([]string, 0, len(assignments))
+	for name := range assignments {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	ordered := make([]*endpointpb.ClusterLoadAssignment, 0, len(names))
+	for _, name := range names {
+		ordered = append(ordered, assignments[name])
+	}
+	return convertClusterLoadAssignments(ordered, references)
 }
 
 func publishADSClusters(ctx context.Context, output chan<- *DeltaResources, clusters *xdsmodel.PixiuExtensionClusters) error {

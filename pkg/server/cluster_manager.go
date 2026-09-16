@@ -194,6 +194,7 @@ func (cm *ClusterManager) UpsertXDSCluster(c *model.ClusterConfig) error {
 // published, so a rejected xDS response cannot partially mutate live state.
 func (cm *ClusterManager) ReplaceXDSClusters(clusters []*model.ClusterConfig) error {
 	cm.rw.Lock()
+	oldEndpoints := endpointAddressSnapshot(cm.store.Config)
 	candidate := &ClusterStore{
 		Version:     cm.store.Version,
 		clustersMap: make(map[string]*cluster.Cluster, len(cm.store.clustersMap)+len(clusters)),
@@ -240,6 +241,9 @@ func (cm *ClusterManager) ReplaceXDSClusters(clusters []*model.ClusterConfig) er
 		)
 	}
 	candidate.IncreaseVersion()
+	newEndpoints := endpointAddressSnapshot(candidate.Config)
+	eventVersion := cm.nextEndpointEventIDLocked()
+	changes := endpointStateChanges(oldEndpoints, newEndpoints, eventVersion)
 	replacedClusters := make([]*cluster.Cluster, 0, len(cm.xdsManaged))
 	for name := range cm.xdsManaged {
 		if runtimeCluster := cm.store.clustersMap[name]; runtimeCluster != nil {
@@ -251,6 +255,7 @@ func (cm *ClusterManager) ReplaceXDSClusters(clusters []*model.ClusterConfig) er
 	cm.rw.Unlock()
 
 	stopClusters(replacedClusters)
+	cm.notifyEndpointChanges(changes)
 	return nil
 }
 

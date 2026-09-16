@@ -259,6 +259,14 @@ func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) erro
 			}
 		}
 	}
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		closePrepared()
+		closeStagedListeners(staged)
+	}()
 
 	for _, listenerConfig := range listeners {
 		if listenerConfig == nil {
@@ -279,7 +287,6 @@ func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) erro
 			}
 			transactional, prepared, err := prepareListenerRefreshSafely(active.ListenerService, *listenerConfig)
 			if err != nil {
-				closePrepared()
 				lm.rwLock.Unlock()
 				return errors.Wrapf(err, "prepare xDS listener %q", key)
 			}
@@ -289,8 +296,6 @@ func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) erro
 
 		service, err := createListenerServiceSafely(listenerConfig, lm.bootstrap, gate)
 		if err != nil {
-			closePrepared()
-			closeStagedListeners(staged)
 			lm.rwLock.Unlock()
 			return errors.Wrapf(err, "create xDS listener %q", key)
 		}
@@ -302,8 +307,6 @@ func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) erro
 	for key, active := range staged {
 		if err := startListenerServiceSafely(active.ListenerService); err != nil {
 			gate.Unlock()
-			closePrepared()
-			closeStagedListeners(staged)
 			lm.rwLock.Unlock()
 			return errors.Wrapf(err, "start xDS listener %q", key)
 		}
@@ -331,6 +334,7 @@ func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) erro
 		setListenerActive(active.ListenerService, true)
 	}
 	lm.xdsManaged = newManaged
+	committed = true
 	gate.Unlock()
 	lm.rwLock.Unlock()
 

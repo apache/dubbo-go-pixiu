@@ -193,22 +193,14 @@ func TestAggGrpcApiClient_ConsumeADSStream(t *testing.T) {
 		resource.ClusterType:  {},
 		resource.EndpointType: {},
 	}
-	references := make(map[string]refEndpoint)
+	cache := newADSClusterCache()
 	output := make(chan *DeltaResources, 1)
 	done := make(chan error, 1)
 	go func() {
-		done <- client.consumeADSStream(context.Background(), stream, states, references, output)
+		done <- client.consumeADSStream(context.Background(), stream, states, cache, output)
 	}()
 
 	update := <-output
-	require.Len(t, stream.sent, 2)
-	require.Equal(t, resource.ClusterType, stream.sent[0].TypeUrl)
-	require.Equal(t, "cds-v1", stream.sent[0].VersionInfo)
-	require.Equal(t, "cds-nonce", stream.sent[0].ResponseNonce)
-	require.Equal(t, resource.EndpointType, stream.sent[1].TypeUrl)
-	require.Equal(t, []string{"orders-eds"}, stream.sent[1].ResourceNames)
-	require.Empty(t, stream.sent[1].ResponseNonce)
-
 	converted := &xdsmodel.PixiuExtensionClusters{}
 	require.NoError(t, update.NewResources[0].To(converted))
 	require.Len(t, converted.Clusters, 1)
@@ -217,6 +209,12 @@ func TestAggGrpcApiClient_ConsumeADSStream(t *testing.T) {
 
 	require.ErrorIs(t, <-done, io.EOF)
 	require.Len(t, stream.sent, 3)
+	require.Equal(t, resource.ClusterType, stream.sent[0].TypeUrl)
+	require.Equal(t, "cds-v1", stream.sent[0].VersionInfo)
+	require.Equal(t, "cds-nonce", stream.sent[0].ResponseNonce)
+	require.Equal(t, resource.EndpointType, stream.sent[1].TypeUrl)
+	require.Equal(t, []string{"orders-eds"}, stream.sent[1].ResourceNames)
+	require.Empty(t, stream.sent[1].ResponseNonce)
 	require.Equal(t, "eds-v2", stream.sent[2].VersionInfo)
 	require.Equal(t, "eds-nonce", stream.sent[2].ResponseNonce)
 	require.Equal(t, "cds-v1", states[resource.ClusterType].versionInfo)
@@ -254,7 +252,7 @@ func TestAggGrpcApiClient_NACKsInvalidCDSBeforeRecordingVersion(t *testing.T) {
 	}
 	output := make(chan *DeltaResources, 1)
 
-	err = client.consumeADSStream(context.Background(), stream, states, make(map[string]refEndpoint), output)
+	err = client.consumeADSStream(context.Background(), stream, states, newADSClusterCache(), output)
 	require.ErrorIs(t, err, io.EOF)
 	require.Len(t, stream.sent, 1)
 	require.Equal(t, resource.ClusterType, stream.sent[0].TypeUrl)
@@ -268,6 +266,77 @@ func TestAggGrpcApiClient_NACKsInvalidCDSBeforeRecordingVersion(t *testing.T) {
 		t.Fatal("invalid CDS must not be published to the cluster manager")
 	default:
 	}
+}
+
+func TestAggGrpcApiClient_MergesPartialEDSAndDeletesClustersFromCDS(t *testing.T) {
+	clusterAResource, err := anypb.New(testEnvoyEDSCluster(t, "cluster-a", "a-eds", clusterpb.Cluster_ROUND_ROBIN))
+	require.NoError(t, err)
+	clusterBResource, err := anypb.New(testEnvoyEDSCluster(t, "cluster-b", "b-eds", clusterpb.Cluster_ROUND_ROBIN))
+	require.NoError(t, err)
+	assignmentA := testClusterLoadAssignment("a-eds", "10.0.0.1", 20880)
+	assignmentB := testClusterLoadAssignment("b-eds", "10.0.0.2", 20881)
+	assignmentAUpdated := testClusterLoadAssignment("a-eds", "10.0.0.3", 20882)
+	assignmentAResource, err := anypb.New(assignmentA)
+	require.NoError(t, err)
+	assignmentBResource, err := anypb.New(assignmentB)
+	require.NoError(t, err)
+	assignmentAUpdatedResource, err := anypb.New(assignmentAUpdated)
+	require.NoError(t, err)
+
+	stream := &recordingADSStream{
+		ctx: context.Background(),
+		responses: []*discoverypb.DiscoveryResponse{
+			{TypeUrl: resource.ClusterType, VersionInfo: "cds-v1", Nonce: "cds-1", Resources: []*anypb.Any{clusterAResource, clusterBResource}},
+			{TypeUrl: resource.EndpointType, VersionInfo: "eds-v1", Nonce: "eds-1", Resources: []*anypb.Any{assignmentAResource, assignmentBResource}},
+			{TypeUrl: resource.EndpointType, VersionInfo: "eds-v2", Nonce: "eds-2", Resources: []*anypb.Any{assignmentAUpdatedResource}},
+			{TypeUrl: resource.EndpointType, VersionInfo: "eds-v3", Nonce: "eds-3"},
+			{TypeUrl: resource.ClusterType, VersionInfo: "cds-v2", Nonce: "cds-2", Resources: []*anypb.Any{clusterBResource}},
+		},
+	}
+	client := &AggGrpcApiClient{dubboServiceFilter: map[string]struct{}{}}
+	states := map[string]*adsResourceState{
+		resource.ClusterType:  {},
+		resource.EndpointType: {},
+	}
+	cache := newADSClusterCache()
+	output := make(chan *DeltaResources, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- client.consumeADSStream(context.Background(), stream, states, cache, output)
+	}()
+
+	initial := clustersByName(completeADSClusterUpdate(t, <-output).Clusters)
+	require.Equal(t, "10.0.0.1", initial["cluster-a"].Endpoints[0].Address.Address)
+	require.Equal(t, "10.0.0.2", initial["cluster-b"].Endpoints[0].Address.Address)
+
+	partial := clustersByName(completeADSClusterUpdate(t, <-output).Clusters)
+	require.Equal(t, "10.0.0.3", partial["cluster-a"].Endpoints[0].Address.Address)
+	require.Equal(t, "10.0.0.2", partial["cluster-b"].Endpoints[0].Address.Address, "an omitted EDS resource must retain its last accepted assignment")
+
+	afterCDSDelete := clustersByName(completeADSClusterUpdate(t, <-output).Clusters)
+	require.NotContains(t, afterCDSDelete, "cluster-a")
+	require.Contains(t, afterCDSDelete, "cluster-b")
+
+	require.ErrorIs(t, <-done, io.EOF)
+	require.Equal(t, "cds-v2", states[resource.ClusterType].versionInfo)
+	require.Equal(t, "eds-v3", states[resource.EndpointType].versionInfo)
+	require.Equal(t, []string{"b-eds"}, states[resource.EndpointType].resourceNames)
+	require.NotContains(t, cache.assignments, "a-eds")
+	require.Contains(t, cache.assignments, "b-eds")
+	require.Len(t, stream.sent, 7)
+	require.Equal(t, "eds-v3", stream.sent[4].VersionInfo, "an empty EDS response must be ACKed without clearing cached assignments")
+}
+
+func TestDecodeEDSAssignmentsRejectsDuplicateResourceNames(t *testing.T) {
+	assignmentResource, err := anypb.New(testClusterLoadAssignment("orders-eds", "10.0.0.1", 20880))
+	require.NoError(t, err)
+
+	_, err = decodeEDSAssignments(
+		[]*anypb.Any{assignmentResource, assignmentResource},
+		map[string]refEndpoint{"orders-eds": {Clusters: []*clusterpb.Cluster{{Name: "orders"}}}},
+	)
+
+	require.ErrorContains(t, err, "duplicate EDS assignment")
 }
 
 type reconnectADSServer struct {
@@ -440,6 +509,37 @@ func testEnvoyEDSCluster(t *testing.T, name string, serviceName string, policy c
 			"istio": istio,
 		}},
 	}
+}
+
+func testClusterLoadAssignment(name, address string, port uint32) *endpointpb.ClusterLoadAssignment {
+	return &endpointpb.ClusterLoadAssignment{
+		ClusterName: name,
+		Endpoints: []*endpointpb.LocalityLbEndpoints{{
+			LbEndpoints: []*endpointpb.LbEndpoint{
+				testEnvoyEndpoint(address, port, corepb.HealthStatus_HEALTHY, 1, nil),
+			},
+		}},
+	}
+}
+
+func completeADSClusterUpdate(t *testing.T, update *DeltaResources) *xdsmodel.PixiuExtensionClusters {
+	t.Helper()
+	require.NotNil(t, update)
+	clusters := &xdsmodel.PixiuExtensionClusters{}
+	require.Len(t, update.NewResources, 1)
+	require.NoError(t, update.NewResources[0].To(clusters))
+	update.Complete(nil)
+	return clusters
+}
+
+func clustersByName(clusters []*xdsmodel.Cluster) map[string]*xdsmodel.Cluster {
+	result := make(map[string]*xdsmodel.Cluster, len(clusters))
+	for _, cluster := range clusters {
+		if cluster != nil {
+			result[cluster.Name] = cluster
+		}
+	}
+	return result
 }
 
 func testEnvoyEndpoint(address string, port uint32, health corepb.HealthStatus, weight uint32, metadata *structpb.Struct) *endpointpb.LbEndpoint {

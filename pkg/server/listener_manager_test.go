@@ -46,6 +46,10 @@ type legacyListenerService struct {
 	config model.Listener
 }
 
+type closeTrackingListenerService struct {
+	closed int
+}
+
 var _ listener.ListenerService = (*legacyListenerService)(nil)
 
 func (s *legacyListenerService) Start() error       { return nil }
@@ -55,6 +59,11 @@ func (s *legacyListenerService) Refresh(config model.Listener) error {
 	s.config = config
 	return nil
 }
+
+func (s *closeTrackingListenerService) Start() error                 { return nil }
+func (s *closeTrackingListenerService) Close() error                 { s.closed++; return nil }
+func (s *closeTrackingListenerService) ShutDown(any) error           { return nil }
+func (s *closeTrackingListenerService) Refresh(model.Listener) error { return nil }
 
 func (s *transactionListenerService) Start() error       { return nil }
 func (s *transactionListenerService) Close() error       { return nil }
@@ -268,4 +277,101 @@ func TestListenerManager_ReplaceXDSListenersRollsBackEarlierRefresh(t *testing.T
 	assert.Equal(t, "old-two", serviceTwo.config.Name)
 	assert.Same(t, oldOne, lm.activeListenerService[keyOne].config)
 	assert.Same(t, oldTwo, lm.activeListenerService[keyTwo].config)
+}
+
+func TestListenerManager_ReplaceXDSListenersClosesStagedOnLaterPrepareFailure(t *testing.T) {
+	const trackingProtocol model.ProtocolType = 1000
+	var stagedService *closeTrackingListenerService
+	listener.SetListenerServiceFactory(trackingProtocol, func(*model.Listener, *model.Bootstrap) (listener.ListenerService, error) {
+		stagedService = &closeTrackingListenerService{}
+		return stagedService, nil
+	})
+
+	oldListener := &model.Listener{Name: "last-good", ProtocolStr: "HTTP", Protocol: model.ProtocolTypeHTTP}
+	oldListener.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: 18080}
+	oldKey := resolveListenerName(oldListener)
+	lm := &ListenerManager{
+		bootstrap: &model.Bootstrap{},
+		activeListenerService: map[string]*wrapListenerService{
+			oldKey: {ListenerService: &transactionListenerService{config: *oldListener, failName: "rejected-refresh"}, config: oldListener},
+		},
+		xdsManaged: map[string]struct{}{oldKey: {}},
+		rwLock:     &sync.RWMutex{},
+		updateGate: &sync.RWMutex{},
+	}
+	stagedListener := &model.Listener{Name: "staged", ProtocolStr: "TRACKING", Protocol: trackingProtocol}
+	stagedListener.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: 18081}
+	rejectedRefresh := *oldListener
+	rejectedRefresh.Name = "rejected-refresh"
+
+	err := lm.ReplaceXDSListeners([]*model.Listener{stagedListener, &rejectedRefresh})
+
+	require.ErrorContains(t, err, "refresh rejected")
+	require.NotNil(t, stagedService)
+	require.Equal(t, 1, stagedService.closed)
+	require.False(t, lm.HasListener(resolveListenerName(stagedListener)))
+	require.Equal(t, []string{oldKey}, lm.XDSListenerNames())
+}
+
+func TestListenerManager_ReplaceXDSListenersClosesStagedOnValidationFailure(t *testing.T) {
+	const trackingProtocol model.ProtocolType = 1001
+	tests := []struct {
+		name      string
+		configure func(*ListenerManager, *model.Listener) []*model.Listener
+		errorText string
+	}{
+		{
+			name: "nil listener",
+			configure: func(_ *ListenerManager, staged *model.Listener) []*model.Listener {
+				return []*model.Listener{staged, nil}
+			},
+			errorText: "config is nil",
+		},
+		{
+			name: "duplicate key",
+			configure: func(_ *ListenerManager, staged *model.Listener) []*model.Listener {
+				return []*model.Listener{staged, staged}
+			},
+			errorText: "duplicate xDS listener",
+		},
+		{
+			name: "static conflict",
+			configure: func(manager *ListenerManager, staged *model.Listener) []*model.Listener {
+				staticListener := &model.Listener{Name: "static", ProtocolStr: "HTTP", Protocol: model.ProtocolTypeHTTP}
+				staticListener.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: 18082}
+				manager.activeListenerService[resolveListenerName(staticListener)] = &wrapListenerService{
+					ListenerService: &legacyListenerService{config: *staticListener},
+					config:          staticListener,
+				}
+				return []*model.Listener{staged, staticListener}
+			},
+			errorText: "conflicts with a non-xDS listener",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stagedService *closeTrackingListenerService
+			listener.SetListenerServiceFactory(trackingProtocol, func(*model.Listener, *model.Bootstrap) (listener.ListenerService, error) {
+				stagedService = &closeTrackingListenerService{}
+				return stagedService, nil
+			})
+			manager := &ListenerManager{
+				bootstrap:             &model.Bootstrap{},
+				activeListenerService: make(map[string]*wrapListenerService),
+				xdsManaged:            make(map[string]struct{}),
+				rwLock:                &sync.RWMutex{},
+				updateGate:            &sync.RWMutex{},
+			}
+			staged := &model.Listener{Name: "staged", ProtocolStr: "TRACKING", Protocol: trackingProtocol}
+			staged.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: 18081}
+
+			err := manager.ReplaceXDSListeners(tt.configure(manager, staged))
+
+			require.ErrorContains(t, err, tt.errorText)
+			require.NotNil(t, stagedService)
+			require.Equal(t, 1, stagedService.closed)
+			require.False(t, manager.HasListener(resolveListenerName(staged)))
+		})
+	}
 }
