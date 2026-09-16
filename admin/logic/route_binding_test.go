@@ -425,8 +425,7 @@ func (t *fakeRouteBindingTxn) Commit() (*clientv3.TxnResponse, error) {
 }
 
 func (f *fakeRouteBindingKV) evaluateComparison(comparison clientv3.Cmp) bool {
-	key := string(comparison.KeyBytes())
-	value, exists := f.values[key]
+	value, exists := f.values[string(comparison.KeyBytes())]
 	actual := int64(0)
 	switch comparison.Target {
 	case pb.Compare_CREATE:
