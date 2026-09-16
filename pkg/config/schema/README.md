@@ -28,11 +28,12 @@ registered as Admin form objects.
 `spec map[string]any`. `ObjectSchema` and `FieldSchema` define the form,
 defaults, and validation rules for the dynamic values.
 
-The built-in `AdminRouteBinding` schema has four user-facing sections:
+The built-in `AdminRouteBinding` schema has five user-facing sections:
 
 - `entry`: HTTP protocol, path, and method.
 - `target`: Dubbo application, interface, method, version, group, and cluster.
 - `params`: ordered HTTP-source to Dubbo-argument mappings.
+- `enabled`: whether the published route accepts requests; it defaults to `true`.
 - `publish`: Admin control-plane intent; it is never emitted into Pixiu YAML.
 
 Typed plugin fields can be inserted below `spec.extensions` through the same

@@ -78,6 +78,9 @@ func TestValidateRouteBindingReturnsDefaults(t *testing.T) {
 	if result.Data.Object.Spec["target"].(map[string]any)["protocol"] != "dubbo" {
 		t.Fatalf("target defaults: %+v", result.Data.Object.Spec["target"])
 	}
+	if result.Data.Object.Spec["enabled"] != true {
+		t.Fatalf("enabled default: %+v", result.Data.Object.Spec["enabled"])
+	}
 	if result.Data.Object.Spec["publish"].(map[string]any)["mode"] != "draft" {
 		t.Fatalf("publish defaults: %+v", result.Data.Object.Spec["publish"])
 	}

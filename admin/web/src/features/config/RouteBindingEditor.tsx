@@ -102,6 +102,7 @@ function createDefaultObject(): AdminRouteBindingObject {
         cluster: '',
       },
       params: [],
+      enabled: true,
       publish: { mode: 'draft', validate: true },
       extensions: {},
     },
@@ -154,6 +155,7 @@ function normaliseObject(value: unknown): AdminRouteBindingObject {
         cluster: stringValue(rawTarget.cluster),
       },
       params,
+      enabled: typeof spec.enabled === 'boolean' ? spec.enabled : true,
       publish: {
         mode: stringValue(rawPublish.mode, 'draft'),
         validate: typeof rawPublish.validate === 'boolean' ? rawPublish.validate : true,
@@ -274,6 +276,13 @@ export function RouteBindingEditor({
     : published
       ? tx('已发布')
       : tx('草稿')
+  const lifecycleStatus = object.spec.enabled
+    ? isEnglish
+      ? 'Enabled'
+      : '已启用'
+    : isEnglish
+      ? 'Disabled'
+      : '已停用'
 
   const updateObject = (next: AdminRouteBindingObject) => {
     setObject(next)
@@ -378,6 +387,9 @@ export function RouteBindingEditor({
       ...object,
       spec: { ...object.spec, publish: { ...object.spec.publish, validate } },
     })
+
+  const setRouteEnabled = (enabled: boolean) =>
+    updateObject({ ...object, spec: { ...object.spec, enabled } })
 
   const validate = async () => {
     setBusy('validate')
@@ -574,6 +586,11 @@ export function RouteBindingEditor({
               className={`route-editor-state ${dirty ? 'draft' : published ? 'published' : 'draft'}`}
             >
               <i /> {currentStatus}
+            </span>
+            <span
+              className={`route-editor-lifecycle ${object.spec.enabled ? 'enabled' : 'disabled'}`}
+            >
+              <i /> {lifecycleStatus}
             </span>
           </div>
         </div>
@@ -985,22 +1002,35 @@ export function RouteBindingEditor({
 
           <section className="panel route-publish-panel">
             <div>
-              <h2>{isEnglish ? 'Publish settings' : '发布设置'}</h2>
+              <h2>{isEnglish ? 'Release and lifecycle' : '发布与生命周期'}</h2>
               <span>
                 {isEnglish
-                  ? 'Draft changes are validated before the atomic publish.'
-                  : '草稿变更会在原子发布前完成校验。'}
+                  ? 'Both lifecycle changes and validation preferences are published with this route.'
+                  : '路由启停和校验偏好都会随当前路由一起发布。'}
               </span>
             </div>
-            <label className="route-switch">
-              <input
-                type="checkbox"
-                checked={object.spec.publish.validate}
-                onChange={(event) => setPublishValidation(event.target.checked)}
-              />
-              <span className="route-switch-track" />
-              <span>{isEnglish ? 'Validate before publish' : '发布前校验'}</span>
-            </label>
+            <div className="route-switches">
+              <label className="route-switch">
+                <input
+                  type="checkbox"
+                  checked={object.spec.enabled}
+                  aria-label={isEnglish ? 'Enable route' : '启用路由'}
+                  onChange={(event) => setRouteEnabled(event.target.checked)}
+                />
+                <span className="route-switch-track" />
+                <span>{isEnglish ? 'Route enabled' : '启用路由'}</span>
+              </label>
+              <label className="route-switch">
+                <input
+                  type="checkbox"
+                  checked={object.spec.publish.validate}
+                  aria-label={isEnglish ? 'Validate before publish' : '发布前校验'}
+                  onChange={(event) => setPublishValidation(event.target.checked)}
+                />
+                <span className="route-switch-track" />
+                <span>{isEnglish ? 'Validate before publish' : '发布前校验'}</span>
+              </label>
+            </div>
           </section>
         </>
       ) : activeTab === 'diff' ? (

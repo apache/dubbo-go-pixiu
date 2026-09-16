@@ -514,6 +514,7 @@ type RouteRow = {
   verb: string
   target: string
   status: RouteStatus
+  enabled: boolean
   publishedRevision: number
 }
 
@@ -532,6 +533,8 @@ function routeRow(
   const target = asJsonObject(spec.target)
   const name = String(object.metadata?.name || `route.${binding.resourceId}`)
   const publishedBinding = published.get(name)
+  const runtimeBinding = publishedBinding || binding
+  const runtimeSpec = asJsonObject(runtimeBinding.object.spec)
   const targetLabel = [target.application, target.interface]
     .filter((value) => typeof value === 'string' && value.trim())
     .join(' / ')
@@ -549,6 +552,7 @@ function routeRow(
         : translateText(locale, '未配置后端目标')),
     status:
       publishedBinding && routeObjectsMatch(binding, publishedBinding) ? 'Published' : 'Draft',
+    enabled: runtimeSpec.enabled !== false,
     publishedRevision: publishedBinding?.revision || 0,
   }
 }
@@ -752,7 +756,8 @@ export function ResourcePage({
                   <th>Route</th>
                   <th>{tx('请求方法')}</th>
                   <th>{tx('后端目标')}</th>
-                  <th>Status</th>
+                  <th>{tx('发布状态')}</th>
+                  <th>{tx('运行状态')}</th>
                   <th>Requests</th>
                   <th>Updated</th>
                   <th aria-label={tx('操作')} />
@@ -778,6 +783,12 @@ export function ResourcePage({
                       <span className={`badge ${row.status.toLowerCase()}`}>
                         <i />
                         {statusLabel(row.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${row.enabled ? 'enabled' : 'disabled'}`}>
+                        <i />
+                        {row.enabled ? tx('已启用') : tx('已停用')}
                       </span>
                     </td>
                     <td>

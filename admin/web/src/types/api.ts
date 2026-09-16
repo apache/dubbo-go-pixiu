@@ -68,6 +68,7 @@ export type AdminRouteBindingObject = {
       cluster: string
     }
     params: RouteBindingParam[]
+    enabled: boolean
     publish: {
       mode: string
       validate: boolean

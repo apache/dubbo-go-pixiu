@@ -64,6 +64,7 @@ func TestNormalizeAppliesFormDefaultsWithoutMutatingInput(t *testing.T) {
 	assert.Equal(t, "http", entry["protocol"])
 	assert.Equal(t, "dubbo", target["protocol"])
 	assert.Equal(t, []any{}, normalized.Spec["params"])
+	assert.Equal(t, true, normalized.Spec["enabled"])
 	assert.Equal(t, "draft", publish["mode"])
 	assert.Equal(t, true, publish["validate"])
 }
@@ -102,6 +103,17 @@ func TestCompileAdminRouteBindingToLegacyResourceAndMethod(t *testing.T) {
 	legacy := compiled.LegacyAPIConfig()
 	require.Len(t, legacy.Resources, 1)
 	require.Len(t, legacy.Resources[0].Methods, 1)
+}
+
+func TestCompileAdminRouteBindingPreservesDisabledState(t *testing.T) {
+	object := validRouteBindingObject()
+	object.Spec["enabled"] = false
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+
+	compiled, err := CompileAdminRouteBinding(registry, object)
+	require.NoError(t, err)
+	assert.False(t, compiled.Method.Enable)
 }
 
 func TestPreviewYAMLContainsOnlyLegacyAPIConfig(t *testing.T) {

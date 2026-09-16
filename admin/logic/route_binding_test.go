@@ -183,6 +183,37 @@ func TestRouteBindingStorePublishOneKeepsOtherRoutesDraft(t *testing.T) {
 	}
 }
 
+func TestRouteBindingStorePublishesDisabledRuntimeMethod(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	object := testRouteBinding("user-disabled", "/api/users/disabled", "GET")
+	object.Spec["enabled"] = false
+
+	saved, err := store.SaveDraft(object, true, 0)
+	if err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	if _, err := store.Publish("user-disabled", saved.Revision); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	fake := fakeRouteBindingStoreKV(t, store)
+	var method legacyconfig.Method
+	if err := commonyaml.UnmarshalYML(fake.fakeValue(store.runtimeMethodKey(saved.ResourceID, saved.MethodID)), &method); err != nil {
+		t.Fatalf("decode generated Method: %v", err)
+	}
+	if method.Enable {
+		t.Fatal("disabled route was published with enable=true")
+	}
+
+	published, err := store.Get("user-disabled", false)
+	if err != nil {
+		t.Fatalf("Get published route: %v", err)
+	}
+	if published.Object.Spec["enabled"] != false {
+		t.Fatalf("published enabled state: %+v", published.Object.Spec["enabled"])
+	}
+}
+
 func TestRouteBindingStorePublishRejectsConcurrentDraftChange(t *testing.T) {
 	store := newTestRouteBindingStore(t)
 	saved, err := store.SaveDraft(testRouteBinding("user-get", "/api/users/:id", "GET"), true, 0)

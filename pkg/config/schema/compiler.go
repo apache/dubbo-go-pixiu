@@ -68,9 +68,10 @@ func CompileAdminRouteBinding(registry *Registry, object AdminObject) (CompiledR
 	path := stringField(entry, "path")
 	entryProtocol := stringField(entry, "protocol")
 	targetProtocol := stringField(target, "protocol")
+	enabled, _ := normalized.Spec["enabled"].(bool)
 	method := legacyconfig.Method{
 		ResourcePath: path,
-		Enable:       true,
+		Enable:       enabled,
 		Timeout:      defaultRouteTimeout,
 		HTTPVerb:     stringField(entry, "method"),
 		InboundRequest: legacyconfig.InboundRequest{

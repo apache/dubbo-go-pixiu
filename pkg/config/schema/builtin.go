@@ -130,6 +130,12 @@ func adminRouteBindingSchema() ObjectSchema {
 				},
 				UI: UIHints{Component: "parameter-binding-table", Group: "params", Order: 30},
 			},
+			"enabled": {
+				Type:        FieldTypeBoolean,
+				Default:     true,
+				Description: "Whether Pixiu accepts requests for the published route",
+				UI:          UIHints{Component: "switch", Group: "lifecycle", Order: 10},
+			},
 			"publish": {
 				Type:    FieldTypeObject,
 				Default: map[string]any{},
