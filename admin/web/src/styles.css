@@ -1695,6 +1695,16 @@ td:first-child small {
   margin-left: auto;
   font: 11px 'DM Sans';
 }
+.route-yaml-sync {
+  margin-left: auto;
+  font: 11px 'DM Sans';
+}
+.route-yaml-sync.synced {
+  color: #238d7b;
+}
+.route-yaml-sync.error {
+  color: #c15e63;
+}
 .route-preview-code {
   margin: 14px 22px 22px;
   padding: 18px;
@@ -1706,6 +1716,32 @@ td:first-child small {
   color: #b7d9d1;
   font: 11px/1.8 'Space Mono';
   white-space: pre-wrap;
+}
+.route-yaml-editor {
+  display: block;
+  width: calc(100% - 44px);
+  border: 1px solid #d7e2e1;
+  resize: vertical;
+  outline: none;
+  white-space: pre;
+  tab-size: 2;
+}
+.route-yaml-editor:focus {
+  border-color: #35ad98;
+  box-shadow: 0 0 0 3px #35ad9822;
+}
+.route-yaml-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: -8px 22px 22px;
+  padding: 9px 11px;
+  border: 1px solid #f1d1cf;
+  border-radius: 7px;
+  color: #ad5155;
+  background: #fff2f1;
+  font-size: 11px;
+  line-height: 1.5;
 }
 .route-preview-empty {
   margin: 14px 22px 22px;
@@ -1905,6 +1941,23 @@ td:first-child small {
 }
 .dark .route-preview-meta {
   color: #a4b2b0;
+}
+.dark .route-yaml-sync.synced {
+  color: #8ee8d8;
+}
+.dark .route-yaml-sync.error {
+  color: #f2a3a3;
+}
+.dark .route-yaml-editor {
+  border-color: #354345;
+}
+.dark .route-yaml-editor:focus {
+  border-color: #4fd9c2;
+}
+.dark .route-yaml-error {
+  border-color: #693a3d;
+  color: #f2a3a3;
+  background: #42272a;
 }
 .dark .route-preview-empty {
   border-color: #354345;

@@ -30,6 +30,7 @@ import {
   Send,
   Trash2,
 } from 'lucide-react'
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { Locale, translateText } from '../../i18n'
 import { routeBindingApi } from '../../services/route-binding-api'
 import { ApiError } from '../../services/http'
@@ -166,6 +167,28 @@ function objectSignature(value: AdminRouteBindingObject) {
   return JSON.stringify(value)
 }
 
+function stringifyRouteBindingYaml(value: AdminRouteBindingObject) {
+  return stringifyYaml(value, { indent: 2, lineWidth: 0 })
+}
+
+function formatYamlError(error: unknown) {
+  if (!(error instanceof Error)) return String(error)
+  const linePos = (error as Error & { linePos?: Array<{ line: number; col: number }> }).linePos?.[0]
+  return linePos ? `${error.message} (${linePos.line}:${linePos.col})` : error.message
+}
+
+function parseRouteBindingYaml(value: string) {
+  try {
+    const parsed = parseYaml(value) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('YAML 顶层必须是对象')
+    }
+    return { object: normaliseObject(parsed), error: '' }
+  } catch (error: unknown) {
+    return { object: null, error: formatYamlError(error) }
+  }
+}
+
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
 }
@@ -212,6 +235,10 @@ export function RouteBindingEditor({
   const [issues, setIssues] = useState<RouteBindingValidationIssue[]>([])
   const [notice, setNotice] = useState<Notice | null>(null)
   const [previewYaml, setPreviewYaml] = useState('')
+  const [routeYaml, setRouteYaml] = useState(() =>
+    stringifyRouteBindingYaml(binding ? normaliseObject(binding.object) : createDefaultObject()),
+  )
+  const [yamlError, setYamlError] = useState('')
   const [diffData, setDiffData] = useState<RouteBindingDiff | null>(null)
   const hydratedBindingKey = useRef('')
 
@@ -220,8 +247,9 @@ export function RouteBindingEditor({
     const bindingKey = `${binding.object.metadata.name}:${binding.revision}`
     if (hydratedBindingKey.current === bindingKey) return
     hydratedBindingKey.current = bindingKey
+    const normalized = normaliseObject(binding.object)
     setMode(initialMode)
-    setObject(normaliseObject(binding.object))
+    setObject(normalized)
     setRevision(binding.revision || 0)
     setPublished(initialPublished)
     setPublishStatus(initialPublishStatus || null)
@@ -229,6 +257,8 @@ export function RouteBindingEditor({
     setIssues([])
     setNotice(null)
     setPreviewYaml('')
+    setRouteYaml(stringifyRouteBindingYaml(normalized))
+    setYamlError('')
     setDiffData(null)
     setActiveTab('form')
   }, [binding, initialMode, initialPublishStatus, initialPublished, loading])
@@ -247,11 +277,57 @@ export function RouteBindingEditor({
 
   const updateObject = (next: AdminRouteBindingObject) => {
     setObject(next)
+    setRouteYaml(stringifyRouteBindingYaml(next))
+    setYamlError('')
     setDirty(true)
     setIssues([])
     setNotice(null)
     setPreviewYaml('')
     setDiffData(null)
+  }
+
+  const updateYaml = (value: string) => {
+    setRouteYaml(value)
+    setDirty(true)
+    setIssues([])
+    setNotice(null)
+    setPreviewYaml('')
+    setDiffData(null)
+
+    const parsed = parseRouteBindingYaml(value)
+    if (!parsed.object) {
+      setYamlError(parsed.error)
+      return
+    }
+    if (mode === 'edit' && parsed.object.metadata.name !== object.metadata.name) {
+      setYamlError(
+        isEnglish ? 'metadata.name cannot change while editing.' : '编辑时不能修改 metadata.name。',
+      )
+      return
+    }
+    setYamlError('')
+    setObject(parsed.object)
+  }
+
+  const applyYamlToForm = () => {
+    const parsed = parseRouteBindingYaml(routeYaml)
+    if (!parsed.object) {
+      setYamlError(parsed.error)
+      return
+    }
+    if (mode === 'edit' && parsed.object.metadata.name !== object.metadata.name) {
+      setYamlError(
+        isEnglish ? 'metadata.name cannot change while editing.' : '编辑时不能修改 metadata.name。',
+      )
+      return
+    }
+    setObject(parsed.object)
+    setYamlError('')
+    setIssues([])
+    setNotice({
+      tone: 'success',
+      text: isEnglish ? 'YAML is synced to the form.' : 'YAML 已同步到表单。',
+    })
   }
 
   const updateEntry = (key: 'path' | 'method', value: string) =>
@@ -311,6 +387,8 @@ export function RouteBindingEditor({
       const normalized = normaliseObject(result.object)
       const changed = objectSignature(normalized) !== signature
       setObject(normalized)
+      setRouteYaml(stringifyRouteBindingYaml(normalized))
+      setYamlError('')
       setDirty((current) => current || changed)
       setIssues([])
       setNotice({
@@ -346,6 +424,8 @@ export function RouteBindingEditor({
           : await routeBindingApi.update(object, revision)
       const normalized = normaliseObject(saved.object)
       setObject(normalized)
+      setRouteYaml(stringifyRouteBindingYaml(normalized))
+      setYamlError('')
       setMode('edit')
       setRevision(saved.revision || 0)
       setDirty(false)
@@ -437,6 +517,8 @@ export function RouteBindingEditor({
       const result = await routeBindingApi.preview(object)
       const normalized = normaliseObject(result.object)
       setObject(normalized)
+      setRouteYaml(stringifyRouteBindingYaml(normalized))
+      setYamlError('')
       setDirty((current) => current || objectSignature(normalized) !== signature)
       setPreviewYaml(result.yaml)
       setIssues([])
@@ -454,7 +536,7 @@ export function RouteBindingEditor({
       void loadDiff()
       return
     }
-    if ((tab === 'preview' || tab === 'yaml') && !previewYaml) void preview(tab)
+    if (tab === 'preview' && !previewYaml) void preview()
   }
 
   const issueMessage = (path: string) => issueFor(issues, path)
@@ -499,7 +581,7 @@ export function RouteBindingEditor({
           <button
             className="secondary"
             type="button"
-            disabled={busy !== ''}
+            disabled={busy !== '' || Boolean(yamlError)}
             onClick={() => void validate()}
           >
             <CheckCircle2 size={14} />
@@ -508,7 +590,7 @@ export function RouteBindingEditor({
           <button
             className="secondary"
             type="button"
-            disabled={busy !== ''}
+            disabled={busy !== '' || Boolean(yamlError)}
             onClick={() => void saveDraft()}
           >
             <Save size={14} />
@@ -523,7 +605,7 @@ export function RouteBindingEditor({
           <button
             className="primary"
             type="button"
-            disabled={busy !== ''}
+            disabled={busy !== '' || Boolean(yamlError)}
             onClick={() => void publish()}
           >
             <Send size={14} />
@@ -990,32 +1072,78 @@ export function RouteBindingEditor({
               </h2>
               <span>
                 {isEnglish
-                  ? 'Generated by the current AdminRouteBinding compiler.'
-                  : '由当前 AdminRouteBinding 编译器生成。'}
+                  ? activeTab === 'yaml'
+                    ? 'Edit the AdminRouteBinding source. Valid changes sync back to the form.'
+                    : 'Generated by the current AdminRouteBinding compiler.'
+                  : activeTab === 'yaml'
+                    ? '编辑 AdminRouteBinding 源配置，语法有效的改动会同步回表单。'
+                    : '由当前 AdminRouteBinding 编译器生成。'}
               </span>
             </div>
-            <button
-              className="secondary"
-              type="button"
-              disabled={busy !== ''}
-              onClick={() => void preview(activeTab === 'yaml' ? 'yaml' : 'preview')}
-            >
-              <Eye size={14} />
-              {busy === 'preview'
-                ? isEnglish
-                  ? 'Generating...'
-                  : '生成中...'
-                : isEnglish
-                  ? 'Generate preview'
-                  : '生成预览'}
-            </button>
+            {activeTab === 'yaml' ? (
+              <button
+                className="secondary"
+                type="button"
+                disabled={busy !== '' || Boolean(yamlError)}
+                onClick={applyYamlToForm}
+              >
+                <CheckCircle2 size={14} />
+                {isEnglish ? 'Sync to form' : '同步到表单'}
+              </button>
+            ) : (
+              <button
+                className="secondary"
+                type="button"
+                disabled={busy !== ''}
+                onClick={() => void preview()}
+              >
+                <Eye size={14} />
+                {busy === 'preview'
+                  ? isEnglish
+                    ? 'Generating...'
+                    : '生成中...'
+                  : isEnglish
+                    ? 'Generate preview'
+                    : '生成预览'}
+              </button>
+            )}
           </div>
           <div className="route-preview-meta">
             <FileCode2 size={15} />
-            <span>api_config.yaml</span>
-            <span className="muted">{isEnglish ? 'Read only' : '只读'}</span>
+            <span>{activeTab === 'yaml' ? 'route-binding.yaml' : 'api_config.yaml'}</span>
+            {activeTab === 'yaml' ? (
+              <span className={`route-yaml-sync ${yamlError ? 'error' : 'synced'}`}>
+                {yamlError
+                  ? isEnglish
+                    ? 'Syntax error'
+                    : '语法错误'
+                  : isEnglish
+                    ? 'Synced with form'
+                    : '已与表单同步'}
+              </span>
+            ) : (
+              <span className="muted">{isEnglish ? 'Read only' : '只读'}</span>
+            )}
           </div>
-          {previewYaml ? (
+          {activeTab === 'yaml' ? (
+            <>
+              <textarea
+                className="route-preview-code route-yaml-editor"
+                value={routeYaml}
+                spellCheck={false}
+                aria-label={isEnglish ? 'Editable route YAML' : '可编辑路由 YAML'}
+                aria-invalid={Boolean(yamlError)}
+                aria-describedby={yamlError ? 'route-yaml-error' : undefined}
+                onChange={(event) => updateYaml(event.target.value)}
+              />
+              {yamlError && (
+                <div className="route-yaml-error" id="route-yaml-error" role="alert">
+                  <AlertCircle size={15} />
+                  <span>{isEnglish ? `YAML error: ${yamlError}` : `YAML 错误：${yamlError}`}</span>
+                </div>
+              )}
+            </>
+          ) : previewYaml ? (
             <pre className="route-preview-code">{previewYaml}</pre>
           ) : (
             <div className="route-preview-empty">
