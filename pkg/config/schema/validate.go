@@ -127,63 +127,93 @@ func validateFields(path string, values map[string]any, fields map[string]*Field
 func validateValue(path string, value any, field *FieldSchema) []ValidationIssue {
 	switch field.Type {
 	case FieldTypeString:
-		valueString, ok := value.(string)
-		if !ok {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
-		if field.Pattern != "" {
-			matched, _ := regexp.MatchString(field.Pattern, valueString)
-			if !matched {
-				return []ValidationIssue{issue(path, "pattern", fmt.Sprintf("must match %q", field.Pattern))}
-			}
-		}
+		return validateStringValue(path, value, field)
 	case FieldTypeInteger:
-		number, ok := numericValue(value)
-		if !ok || math.Trunc(number) != number {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
-		if field.Minimum != nil && number < *field.Minimum {
-			return []ValidationIssue{issue(path, "minimum", fmt.Sprintf("must be at least %v", *field.Minimum))}
-		}
+		return validateIntegerValue(path, value, field)
 	case FieldTypeBoolean:
-		if _, ok := value.(bool); !ok {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
+		return validateBooleanValue(path, value, field)
 	case FieldTypeObject:
-		object, ok := value.(map[string]any)
-		if !ok {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
-		return validateFields(path, object, field.Properties, field.AllowUnknown)
+		return validateObjectValue(path, value, field)
 	case FieldTypeArray:
-		items, ok := value.([]any)
-		if !ok {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
-		issues := make([]ValidationIssue, 0)
-		for index, item := range items {
-			issues = append(issues, validateValue(fmt.Sprintf("%s[%d]", path, index), item, field.Items)...)
-		}
-		return issues
+		return validateArrayValue(path, value, field)
 	case FieldTypeMap:
-		entries, ok := value.(map[string]any)
-		if !ok {
-			return []ValidationIssue{typeIssue(path, field.Type, value)}
-		}
-		keys := make([]string, 0, len(entries))
-		for key := range entries {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		issues := make([]ValidationIssue, 0)
-		for _, key := range keys {
-			issues = append(issues, validateValue(joinPath(path, key), entries[key], field.AdditionalProperties)...)
-		}
-		return issues
+		return validateMapValue(path, value, field)
 	default:
 		return []ValidationIssue{issue(path, "schema", fmt.Sprintf("unsupported field type %q", field.Type))}
 	}
+}
 
+func validateStringValue(path string, value any, field *FieldSchema) []ValidationIssue {
+	valueString, ok := value.(string)
+	if !ok {
+		return []ValidationIssue{typeIssue(path, field.Type, value)}
+	}
+	if field.Pattern != "" {
+		matched, _ := regexp.MatchString(field.Pattern, valueString)
+		if !matched {
+			return []ValidationIssue{issue(path, "pattern", fmt.Sprintf("must match %q", field.Pattern))}
+		}
+	}
+	return validateEnumValue(path, value, field)
+}
+
+func validateIntegerValue(path string, value any, field *FieldSchema) []ValidationIssue {
+	number, ok := numericValue(value)
+	if !ok || math.Trunc(number) != number {
+		return []ValidationIssue{typeIssue(path, field.Type, value)}
+	}
+	if field.Minimum != nil && number < *field.Minimum {
+		return []ValidationIssue{issue(path, "minimum", fmt.Sprintf("must be at least %v", *field.Minimum))}
+	}
+	return validateEnumValue(path, value, field)
+}
+
+func validateBooleanValue(path string, value any, field *FieldSchema) []ValidationIssue {
+	if _, ok := value.(bool); !ok {
+		return []ValidationIssue{typeIssue(path, field.Type, value)}
+	}
+	return validateEnumValue(path, value, field)
+}
+
+func validateObjectValue(path string, value any, field *FieldSchema) []ValidationIssue {
+	object, ok := value.(map[string]any)
+	if !ok {
+		return []ValidationIssue{typeIssue(path, field.Type, value)}
+	}
+	return validateFields(path, object, field.Properties, field.AllowUnknown)
+}
+
+func validateArrayValue(path string, value any, field *FieldSchema) []ValidationIssue {
+	items, ok := value.([]any)
+	if !ok {
+		return []ValidationIssue{typeIssue(path, field.Type, value)}
+	}
+	issues := make([]ValidationIssue, 0)
+	for index, item := range items {
+		itemPath := fmt.Sprintf("%s[%d]", path, index)
+		issues = append(issues, validateValue(itemPath, item, field.Items)...)
+	}
+	return issues
+}
+
+func validateMapValue(path string, value any, field *FieldSchema) []ValidationIssue {
+	entries, ok := value.(map[string]any)
+	if !ok {
+		return []ValidationIssue{typeIssue(path, field.Type, value)}
+	}
+	keys := make([]string, 0, len(entries))
+	for key := range entries {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	issues := make([]ValidationIssue, 0)
+	for _, key := range keys {
+		issues = append(issues, validateValue(joinPath(path, key), entries[key], field.AdditionalProperties)...)
+	}
+	return issues
+}
+
+func validateEnumValue(path string, value any, field *FieldSchema) []ValidationIssue {
 	if len(field.Enum) != 0 && !enumContains(field.Enum, value) {
 		return []ValidationIssue{issue(path, "enum", fmt.Sprintf("must be one of %v", field.Enum))}
 	}

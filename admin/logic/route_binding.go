@@ -244,11 +244,8 @@ func (s *RouteBindingStore) Preview(object schema.AdminObject) (schema.AdminObje
 // expectedRevision is the draft key's mod revision and may be zero to allow
 // an unconditional write.
 func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, expectedRevision int64) (RouteBinding, error) {
-	if expectedRevision < 0 {
-		return RouteBinding{}, errors.New("expected revision must not be negative")
-	}
-	if create && expectedRevision > 0 {
-		return RouteBinding{}, errors.New("create route binding does not accept an expected revision")
+	if err := validateSaveDraftRequest(create, expectedRevision); err != nil {
+		return RouteBinding{}, err
 	}
 	normalized, err := s.Normalize(object)
 	if err != nil {
@@ -260,36 +257,13 @@ func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, ex
 	if err != nil {
 		return RouteBinding{}, err
 	}
-	if create && draftExists {
-		return RouteBinding{}, fmt.Errorf("%w: %s", ErrRouteBindingAlreadyExists, name)
-	}
-	if expectedRevision > 0 && (!draftExists || draftRevision != expectedRevision) {
-		return RouteBinding{}, fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
+	if err := validateDraftSaveState(name, create, expectedRevision, draftExists, draftRevision); err != nil {
+		return RouteBinding{}, err
 	}
 
-	resourceID, methodID := 0, 0
-	if draftExists {
-		resourceID, methodID = draftEntry.record.ResourceID, draftEntry.record.MethodID
-	} else {
-		publishedEntry, publishedExists, _, getErr := s.getEntry(s.bindingPrefix(false), name)
-		if getErr != nil {
-			return RouteBinding{}, getErr
-		}
-		if publishedExists {
-			resourceID, methodID = publishedEntry.record.ResourceID, publishedEntry.record.MethodID
-		}
-	}
-	if resourceID <= 0 {
-		resourceID, err = s.allocateRuntimeID()
-		if err != nil {
-			return RouteBinding{}, err
-		}
-	}
-	if methodID <= 0 {
-		// One AdminRouteBinding currently compiles to exactly one Method. Method
-		// IDs are scoped below the resource, so sharing the stable route ID is
-		// safe and avoids a second allocation transaction.
-		methodID = resourceID
+	resourceID, methodID, err := s.resolveRuntimeIdentity(name, draftEntry, draftExists)
+	if err != nil {
+		return RouteBinding{}, err
 	}
 
 	record := routeBindingRecord{
@@ -301,7 +275,69 @@ func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, ex
 	if err != nil {
 		return RouteBinding{}, fmt.Errorf("encode route binding %q: %w", name, err)
 	}
+	if err := s.commitDraft(name, draftPrefix, value, create, expectedRevision); err != nil {
+		return RouteBinding{}, err
+	}
 
+	saved, exists, revision, err := s.getEntry(draftPrefix, name)
+	if err != nil {
+		return RouteBinding{}, err
+	}
+	if !exists {
+		return RouteBinding{}, fmt.Errorf("route binding %q disappeared after save", name)
+	}
+	saved.revision = revision
+	return routeBindingView(saved), nil
+}
+
+func validateSaveDraftRequest(create bool, expectedRevision int64) error {
+	if expectedRevision < 0 {
+		return errors.New("expected revision must not be negative")
+	}
+	if create && expectedRevision > 0 {
+		return errors.New("create route binding does not accept an expected revision")
+	}
+	return nil
+}
+
+func validateDraftSaveState(name string, create bool, expectedRevision int64, exists bool, revision int64) error {
+	if create && exists {
+		return fmt.Errorf("%w: %s", ErrRouteBindingAlreadyExists, name)
+	}
+	if expectedRevision > 0 && (!exists || revision != expectedRevision) {
+		return fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
+	}
+	return nil
+}
+
+func (s *RouteBindingStore) resolveRuntimeIdentity(name string, draft routeBindingEntry, draftExists bool) (int, int, error) {
+	resourceID, methodID := draft.record.ResourceID, draft.record.MethodID
+	if !draftExists {
+		published, exists, _, err := s.getEntry(s.bindingPrefix(false), name)
+		if err != nil {
+			return 0, 0, err
+		}
+		if exists {
+			resourceID, methodID = published.record.ResourceID, published.record.MethodID
+		}
+	}
+	if resourceID <= 0 {
+		var err error
+		resourceID, err = s.allocateRuntimeID()
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	if methodID <= 0 {
+		// One AdminRouteBinding currently compiles to exactly one Method. Method
+		// IDs are scoped below the resource, so sharing the stable route ID is
+		// safe and avoids a second allocation transaction.
+		methodID = resourceID
+	}
+	return resourceID, methodID, nil
+}
+
+func (s *RouteBindingStore) commitDraft(name, draftPrefix string, value []byte, create bool, expectedRevision int64) error {
 	comparisons := make([]clientv3.Cmp, 0, 1)
 	if create {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(s.bindingKey(draftPrefix, name)), "=", 0))
@@ -318,24 +354,15 @@ func (s *RouteBindingStore) SaveDraft(object schema.AdminObject, create bool, ex
 	}
 	response, err := transaction.Then(operations...).Commit()
 	if err != nil {
-		return RouteBinding{}, fmt.Errorf("save route binding %q: %w", name, err)
+		return fmt.Errorf("save route binding %q: %w", name, err)
 	}
-	if !response.Succeeded {
-		if create {
-			return RouteBinding{}, fmt.Errorf("%w: %s", ErrRouteBindingAlreadyExists, name)
-		}
-		return RouteBinding{}, fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
+	if response.Succeeded {
+		return nil
 	}
-
-	saved, exists, revision, err := s.getEntry(draftPrefix, name)
-	if err != nil {
-		return RouteBinding{}, err
+	if create {
+		return fmt.Errorf("%w: %s", ErrRouteBindingAlreadyExists, name)
 	}
-	if !exists {
-		return RouteBinding{}, fmt.Errorf("route binding %q disappeared after save", name)
-	}
-	saved.revision = revision
-	return routeBindingView(saved), nil
+	return fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
 }
 
 // DeleteDraft removes a draft. If only a published binding exists, the

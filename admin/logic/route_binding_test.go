@@ -41,7 +41,14 @@ import (
 
 func TestRouteBindingStoreSavePublishAndDelete(t *testing.T) {
 	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	assertPublishedRuntimeRoute(t, store, saved)
+	assertPublishedTestRoute(t, store)
+	deleteAndAssertTestRoute(t, store, saved)
+}
 
+func saveAndPublishTestRoute(t *testing.T, store *RouteBindingStore) RouteBinding {
+	t.Helper()
 	saved, err := store.SaveDraft(testRouteBinding("user-get", "/api/users/:id", "GET"), true, 0)
 	if err != nil {
 		t.Fatalf("SaveDraft: %v", err)
@@ -67,7 +74,11 @@ func TestRouteBindingStoreSavePublishAndDelete(t *testing.T) {
 	if result.Revision == 0 || result.DraftRevision != status.DraftRevision {
 		t.Fatalf("publish revisions: %+v, status=%+v", result, status)
 	}
+	return saved
+}
 
+func assertPublishedRuntimeRoute(t *testing.T, store *RouteBindingStore, saved RouteBinding) {
+	t.Helper()
 	fake := fakeRouteBindingStoreKV(t, store)
 	resourceValue := fake.fakeValue(store.runtimeResourceKey(saved.ResourceID))
 	methodValue := fake.fakeValue(store.runtimeMethodKey(saved.ResourceID, saved.MethodID))
@@ -88,7 +99,10 @@ func TestRouteBindingStoreSavePublishAndDelete(t *testing.T) {
 	if method.IntegrationRequest.Interface != "com.example.UserService" || method.IntegrationRequest.Method != "GetUser" {
 		t.Fatalf("generated integration request: %+v", method.IntegrationRequest)
 	}
+}
 
+func assertPublishedTestRoute(t *testing.T, store *RouteBindingStore) {
+	t.Helper()
 	published, err := store.List(false)
 	if err != nil {
 		t.Fatalf("List published: %v", err)
@@ -96,21 +110,25 @@ func TestRouteBindingStoreSavePublishAndDelete(t *testing.T) {
 	if len(published) != 1 || published[0].Object.Metadata.Name != "user-get" {
 		t.Fatalf("published bindings: %+v", published)
 	}
+}
 
+func deleteAndAssertTestRoute(t *testing.T, store *RouteBindingStore, saved RouteBinding) {
+	t.Helper()
 	if err := store.DeleteDraft("user-get", saved.Revision); err != nil {
 		t.Fatalf("DeleteDraft: %v", err)
 	}
-	status, err = store.PublishStatus()
+	status, err := store.PublishStatus()
 	if err != nil {
 		t.Fatalf("PublishStatus after delete: %v", err)
 	}
-	result, err = store.PublishAll(status.DraftRevision)
+	result, err := store.PublishAll(status.DraftRevision)
 	if err != nil {
 		t.Fatalf("PublishAll after delete: %v", err)
 	}
 	if result.PublishedCount != 0 || result.DeletedCount != 1 {
 		t.Fatalf("delete publish result: %+v", result)
 	}
+	fake := fakeRouteBindingStoreKV(t, store)
 	if fake.fakeHasKey(store.runtimeResourceKey(saved.ResourceID)) || fake.fakeHasKey(store.runtimeMethodKey(saved.ResourceID, saved.MethodID)) {
 		t.Fatal("published runtime keys remain after atomic deletion")
 	}
