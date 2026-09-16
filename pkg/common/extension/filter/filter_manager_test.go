@@ -54,12 +54,19 @@ type (
 	DemoFilter struct {
 		str string
 	}
+	prepareErrorFactory struct{}
 	// Config describe the config of ResponseFilter
 	Config struct {
 		Foo string `json:"foo,omitempty" yaml:"foo,omitempty"`
 		Bar string `json:"bar,omitempty" yaml:"bar,omitempty"`
 	}
 )
+
+func (f *prepareErrorFactory) Config() any  { return &struct{}{} }
+func (f *prepareErrorFactory) Apply() error { return nil }
+func (f *prepareErrorFactory) PrepareFilterChain(*contexthttp.HttpContext, FilterChain) error {
+	return fmt.Errorf("prepare rejected")
+}
 
 func (p *Plugin) Kind() string {
 	return Kind
@@ -175,7 +182,7 @@ func TestReloadAndCloseDoNotReopenManager(t *testing.T) {
 }
 
 func runFilter(t *testing.T, fm *FilterManager, filtersConf []*model.HTTPFilter) {
-	fm.ReLoad(filtersConf)
+	assert.NoError(t, fm.ReLoadChecked(filtersConf))
 
 	filters := fm.GetFactory()
 	assert.Equal(t, len(filtersConf), len(filters))
@@ -183,7 +190,30 @@ func runFilter(t *testing.T, fm *FilterManager, filtersConf []*model.HTTPFilter)
 	baseContext := &contexthttp.HttpContext{}
 	baseContext.Reset()
 
-	chain := fm.CreateFilterChain(baseContext)
+	chain, err := fm.CreateFilterChainChecked(baseContext)
+	assert.NoError(t, err)
 	chain.OnDecode(baseContext)
 	chain.OnEncode(baseContext)
+}
+
+func TestCreateFilterChainReturnsPrepareError(t *testing.T) {
+	factory := HttpFilterFactory(&prepareErrorFactory{})
+	fm := NewEmptyFilterManager()
+	fm.filtersArray = []*HttpFilterFactory{&factory}
+
+	_, err := fm.CreateFilterChainChecked(&contexthttp.HttpContext{})
+	assert.ErrorContains(t, err, "prepare rejected")
+}
+
+func TestCreateFilterChainPreservesBestEffortCompatibility(t *testing.T) {
+	rejected := HttpFilterFactory(&prepareErrorFactory{})
+	accepted := HttpFilterFactory(&DemoFilterFactory{conf: &Config{Foo: "Cat", Bar: "The Walnut"}})
+	fm := NewEmptyFilterManager()
+	fm.filtersArray = []*HttpFilterFactory{&rejected, &accepted}
+
+	chain := fm.CreateFilterChain(&contexthttp.HttpContext{})
+	legacyChain, ok := chain.(*defaultFilterChain)
+	assert.True(t, ok)
+	assert.Len(t, legacyChain.decodeFilters, 1)
+	assert.Len(t, legacyChain.encodeFilters, 1)
 }

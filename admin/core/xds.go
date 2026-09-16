@@ -21,13 +21,10 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"strconv"
 	"time"
 )
 
 import (
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	endpointservice "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
@@ -36,32 +33,24 @@ import (
 	routeservice "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
 	runtimeservice "github.com/envoyproxy/go-control-plane/envoy/service/runtime/v3"
 	secretservice "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	envoyServer "github.com/envoyproxy/go-control-plane/pkg/server/v3"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
-
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
-	"github.com/apache/dubbo-go-pixiu/admin/logic"
-	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
-	"github.com/apache/dubbo-go-pixiu/pkg/config"
-	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
+	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 var (
-	port   = uint(18000)
-	nodeID = "test-id"
-
-	snaphost cache.SnapshotCache
+	snapshotCache   cache.SnapshotCache
+	snapshotBuilder = adminxds.NewSnapshotBuilder(adminxds.LogicResourceLoader{})
 )
 
 const (
@@ -69,6 +58,7 @@ const (
 	grpcKeepaliveTimeout     = 5 * time.Second
 	grpcKeepaliveMinTime     = 30 * time.Second
 	grpcMaxConcurrentStreams = 1000000
+	configWatchRetryDelay    = time.Second
 )
 
 func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
@@ -85,32 +75,44 @@ func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
 
 // StartxDsServer RunXDSServerWithCache starts an xDS server at the gi.ven port.
 func StartxDsServer() error {
-	// Create a snaphost
-	snaphost = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
+	xdsConfig := adminconfig.Bootstrap.GetXDSConfig()
+	adminxds.DefaultStatusStore.Reset(xdsConfig.NodeID)
 
-	// Create the config that we'll serve to Envoy
-	config := GenerateSnapshotPixiu()
-	if err := config.Consistent(); err != nil {
-		logger.Errorf("config inconsistency: %+v\n%+v", config, err)
-		os.Exit(1)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", xdsConfig.ListenPort))
+	if err != nil {
+		adminxds.DefaultStatusStore.RecordListenError(err)
+		return err
 	}
+	defer lis.Close()
+	adminxds.DefaultStatusStore.RecordListening()
 
-	// Add the config to the snaphost
-	if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
-		logger.Errorf("config error %q for %+v", err, config)
-		os.Exit(1)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	go watchConfigAndReload()
+	// Create a snapshot cache.
+	snapshotCache = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
+	publisher := adminxds.NewSnapshotPublisher(
+		xdsConfig.NodeID,
+		snapshotBuilder,
+		snapshotCache,
+		adminxds.DefaultStatusStore,
+	)
+
+	// Establishing the watch before rebuilding closes the startup gap: writes
+	// that race with the full read remain queued on the watch channel.
+	go watchConfigAndReload(ctx, publisher)
 
 	// Run the xDS server
-	ctx := context.Background()
-	srv := envoyServer.NewServer(ctx, snaphost, nil)
-	return runXDSServer(ctx, srv, port)
+	srv := envoyServer.NewServer(ctx, snapshotCache, nil)
+	if err := runXDSServer(srv, lis); err != nil {
+		adminxds.DefaultStatusStore.RecordListenError(err)
+		return err
+	}
+	return nil
 }
 
-// runXDSServer starts an xDS server at the given port.
-func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error {
+// runXDSServer serves xDS on an already-bound listener.
+func runXDSServer(srv envoyServer.Server, lis net.Listener) error {
 	// gRPC golang library sets a very small upper bound for the number gRPC/h2
 	// streams over a single TCP connection. If a proxy multiplexes requests over
 	// a single connection to the management server, then it might lead to
@@ -129,168 +131,89 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, port uint) error 
 	)
 	grpcServer := grpc.NewServer(grpcOptions...)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return err
-	}
-
 	registerServer(grpcServer, srv)
 
-	logger.Infof("management server listening on %d\n", port)
-	if err = grpcServer.Serve(lis); err != nil {
-		return nil
+	logger.Infof("management server listening on %s", lis.Addr())
+	if err := grpcServer.Serve(lis); err != nil {
+		return err
 	}
 	return nil
 }
 
-func watchConfigAndReload() {
-	ch, err := adminconfig.Client.WatchWithPrefix(adminconfig.Bootstrap.EtcdConfig.Path)
+type snapshotPublisher interface {
+	Publish(ctx context.Context) error
+}
 
-	if err != nil {
-		logger.Errorf("watch config error %q", err)
-		panic(err)
+type configWatcher interface {
+	WatchWithPrefix(key string) (clientv3.WatchChan, error)
+}
+
+func watchConfigAndReload(ctx context.Context, publisher snapshotPublisher) {
+	if adminconfig.Client == nil {
+		err := fmt.Errorf("watch xDS configuration: etcd client is not initialized")
+		adminxds.DefaultStatusStore.RecordError(err)
+		logger.Error(err)
+		return
 	}
+	watchConfigWithRetry(ctx, adminconfig.Client, adminconfig.Bootstrap.EtcdConfig.Path, publisher, configWatchRetryDelay)
+}
 
-	for range ch {
-		logger.Info("get etcd config change")
-		// Create the config that we'll serve to Envoy
-		config := GenerateSnapshotPixiu()
-		if err := config.Consistent(); err != nil {
-			logger.Errorf("config inconsistency: %+v\n%+v", config, err)
-			os.Exit(1)
+func watchConfigWithRetry(ctx context.Context, watcher configWatcher, path string, publisher snapshotPublisher, retryDelay time.Duration) {
+	for {
+		ch, err := watcher.WatchWithPrefix(path)
+		if err == nil {
+			// Establish the watch before rebuilding on both startup and reconnect.
+			// Events that happen during the rebuild remain queued on the channel.
+			if publishErr := publisher.Publish(ctx); publishErr != nil {
+				logger.Errorf("rebuild xDS snapshot after watch establishment failed: %+v", publishErr)
+			}
+			err = consumeConfigWatch(ctx, ch, publisher)
+		} else {
+			err = fmt.Errorf("watch xDS configuration: %w", err)
+		}
+		if ctx.Err() != nil {
+			return
 		}
 
-		// Add the config to the snaphost
-		if err := snaphost.SetSnapshot(context.Background(), nodeID, config); err != nil {
-			logger.Errorf("config error %q for %+v", err, config)
-			os.Exit(1)
+		adminxds.DefaultStatusStore.RecordError(err)
+		logger.Error(err)
+		timer := time.NewTimer(retryDelay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return
+		case <-timer.C:
 		}
 	}
 }
 
-// makeHTTPFilter returns a handler for the given resource.
-func makeHTTPFilter(listener config.Listener) *model.FilterChain {
-	var filters, routes []any
-
-	for _, f := range listener.HTTPFilters {
-		filters = append(filters, map[string]any{
-			"name":   f.Name,
-			"config": f.Config,
-		})
+func consumeConfigWatch(ctx context.Context, ch clientv3.WatchChan, publisher snapshotPublisher) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case response, ok := <-ch:
+			if !ok {
+				if ctx.Err() != nil {
+					return nil
+				}
+				return fmt.Errorf("watch xDS configuration: etcd watch channel closed")
+			}
+			if err := response.Err(); err != nil {
+				return fmt.Errorf("watch xDS configuration: %w", err)
+			}
+			if response.Canceled {
+				return fmt.Errorf("watch xDS configuration: etcd watch canceled")
+			}
+			if len(response.Events) == 0 {
+				continue
+			}
+			logger.Info("get etcd config change")
+			if err := publisher.Publish(ctx); err != nil {
+				logger.Errorf("reload xDS snapshot failed: %+v", err)
+			}
+		}
 	}
-
-	for _, r := range listener.RouteConfig.Routes {
-		routes = append(filters, map[string]any{
-			"match": map[string]any{
-				"prefix": r.Match.Prefix,
-			},
-			"route": map[string]any{
-				"cluster":                         r.Route.Cluster,
-				"cluster_not_found_response_code": r.Route.ClusterNotFoundResponseCode,
-			},
-		})
-	}
-
-	return &model.FilterChain{
-		Filters: []*model.NetworkFilter{
-			{
-				Name: constant.HTTPConnectManagerFilter,
-				Config: &model.NetworkFilter_Struct{
-					Struct: func() *structpb.Struct {
-						v, err := structpb.NewStruct(map[string]any{
-							"route_config": map[string]any{
-								"routes": routes,
-							},
-							"http_filters": filters,
-						})
-						if err != nil {
-							panic(err)
-						}
-						return v
-					}(),
-				},
-			},
-		},
-	}
-}
-
-func makeListeners() *model.PixiuExtensionListeners {
-	listeners, err := logic.BizGetListeners()
-	if err != nil {
-		logger.Errorf("get listeners error %q", err)
-		return nil
-	}
-
-	if len(listeners) == 0 {
-		return nil
-	}
-
-	pbListeners := &model.PixiuExtensionListeners{}
-	for _, listener := range listeners {
-		pbListeners.Listeners = append(pbListeners.Listeners, &model.Listener{
-			Name: listener.Name,
-			Address: &model.Address{
-				SocketAddress: &model.SocketAddress{
-					Address: listener.Address.SocketAddress.Address,
-					Port:    int64(listener.Address.SocketAddress.Port),
-				},
-				Name: listener.Address.Name,
-			},
-			FilterChain: makeHTTPFilter(listener),
-		})
-	}
-	return pbListeners
-}
-
-func makeClusters() *model.PixiuExtensionClusters {
-	clusters, err := logic.BizGetClusters()
-	if err != nil {
-		logger.Errorf("get clusters error %q", err)
-		return nil
-	}
-
-	if len(clusters) == 0 {
-		return nil
-	}
-
-	pbCluster := &model.PixiuExtensionClusters{}
-
-	for _, c := range clusters {
-		pbCluster.Clusters = append(pbCluster.Clusters, &model.Cluster{
-			Name:    c.Name,
-			TypeStr: c.Type,
-			Endpoints: []*model.Endpoint{
-				{
-					Id: c.Name + strconv.Itoa(c.ID),
-					Address: &model.SocketAddress{
-						Address: c.Address,
-						Port:    int64(c.Port),
-					},
-				},
-			},
-		})
-	}
-
-	return pbCluster
-}
-
-// GenerateSnapshotPixiu returns a snapshot with a single cluster and endpoint.
-func GenerateSnapshotPixiu() *cache.Snapshot {
-	ldsResource, _ := anypb.New(makeListeners())
-	cdsResource, _ := anypb.New(makeClusters())
-	snap, _ := cache.NewSnapshot("2",
-		map[resource.Type][]types.Resource{
-			resource.ExtensionConfigType: {
-				&core.TypedExtensionConfig{
-					Name:        constant.ClusterType,
-					TypedConfig: cdsResource,
-				},
-				&core.TypedExtensionConfig{
-					Name:        constant.ListenerType,
-					TypedConfig: ldsResource,
-				},
-			},
-		},
-	)
-	return snap
 }

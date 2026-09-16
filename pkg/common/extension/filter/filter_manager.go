@@ -58,20 +58,55 @@ func NewEmptyFilterManager() *FilterManager {
 	return &FilterManager{filters: make(map[string]HttpFilterFactory)}
 }
 
+// CreateFilterChain preserves the original best-effort public API: factories
+// that fail are logged and skipped, while filters prepared successfully by
+// other factories remain in the returned chain. Configuration publication uses
+// CreateFilterChainChecked so errors can reject the complete resource.
 func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
-	chain := NewDefaultFilterChain()
+	chain, factories := fm.newLeasedFilterChain()
+	for index, f := range factories {
+		if f == nil || *f == nil {
+			logger.Errorf("create HTTP filter chain: HTTP filter factory %d is nil", index)
+			continue
+		}
+		if err := (*f).PrepareFilterChain(ctx, chain); err != nil {
+			logger.Errorf("create HTTP filter chain: prepare HTTP filter %d: %v", index, err)
+		}
+	}
+	return chain
+}
 
+func (fm *FilterManager) CreateFilterChainChecked(ctx *http.HttpContext) (FilterChain, error) {
+	chain, factories := fm.newLeasedFilterChain()
+	for index, f := range factories {
+		if f == nil || *f == nil {
+			releaseFilterChain(chain)
+			return nil, errors.Errorf("HTTP filter factory %d is nil", index)
+		}
+		if err := (*f).PrepareFilterChain(ctx, chain); err != nil {
+			releaseFilterChain(chain)
+			return nil, errors.Wrapf(err, "prepare HTTP filter %d", index)
+		}
+	}
+	return chain, nil
+}
+
+func (fm *FilterManager) newLeasedFilterChain() (FilterChain, []*HttpFilterFactory) {
+	chain := NewDefaultFilterChain()
 	fm.mu.RLock()
-	defer fm.mu.RUnlock()
 	factories := append([]*HttpFilterFactory(nil), fm.filtersArray...)
 	fm.leaseFactories(factories)
+	fm.mu.RUnlock()
 	chain.(*defaultFilterChain).setRelease(func() {
 		fm.releaseFactories(factories)
 	})
-	for _, f := range factories {
-		_ = (*f).PrepareFilterChain(ctx, chain)
+	return chain, factories
+}
+
+func releaseFilterChain(chain FilterChain) {
+	if releaser, ok := chain.(interface{ Release() }); ok {
+		releaser.Release()
 	}
-	return chain
 }
 
 // GetFactory get all filter from manager
@@ -87,32 +122,76 @@ func (fm *FilterManager) Load() {
 	fm.ReLoad(fm.filterConfigs)
 }
 
+func (fm *FilterManager) LoadChecked() error {
+	return fm.ReLoadChecked(fm.filterConfigs)
+}
+
 // ReLoad filter configs
 func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
+	if err := fm.reload(filters, false); err != nil {
+		logger.Errorf("reload HTTP filters: %v", err)
+	}
+}
+
+func (fm *FilterManager) ReLoadChecked(filters []*model.HTTPFilter) error {
+	return fm.reload(filters, true)
+}
+
+func (fm *FilterManager) reload(filters []*model.HTTPFilter, strict bool) error {
 	fm.mu.RLock()
 	closed := fm.closed
 	fm.mu.RUnlock()
 	if closed {
-		return
+		if strict {
+			return errors.New("filter manager is closed")
+		}
+		return nil
 	}
 
 	tmp := make(map[string]HttpFilterFactory)
 	filtersArray := make([]*HttpFilterFactory, 0, len(filters))
-	for _, f := range filters {
-		apply, err := fm.Apply(f.Name, f.Config)
-		if err != nil {
-			logger.Errorf("apply [%s] init fail, %s", f.Name, err.Error())
+	for i, f := range filters {
+		var err error
+		name := ""
+		if f == nil || f.Name == "" {
+			err = errors.Errorf("HTTP filter %d has an empty name", i)
+		} else {
+			name = f.Name
+			var apply HttpFilterFactory
+			apply, err = fm.Apply(f.Name, f.Config)
+			if err == nil {
+				tmp[f.Name] = apply
+				filtersArray = append(filtersArray, &apply)
+			}
+		}
+		if err == nil {
 			continue
 		}
-		tmp[f.Name] = apply
-		filtersArray = append(filtersArray, &apply)
+		// Prefer the filter name so the error (and the NACK ErrorDetail that
+		// carries it) identifies which filter failed; unnamed entries fall
+		// back to their position in the config.
+		if strict {
+			fm.closeAndLog(filtersArray)
+			if name == "" {
+				return errors.Wrapf(err, "apply HTTP filter %d", i)
+			}
+			return errors.Wrapf(err, "apply HTTP filter %q", name)
+		}
+		if name == "" {
+			logger.Errorf("apply HTTP filter %d failed: %v", i, err)
+			continue
+		}
+		logger.Errorf("apply HTTP filter %q failed: %v", name, err)
 	}
 	// avoid filter inconsistency
 	fm.mu.Lock()
 	if fm.closed {
 		fm.mu.Unlock()
 		fm.closeAndLog(filtersArray)
-		return
+		if strict {
+			return errors.New("filter manager is closed")
+		}
+		return nil
 	}
 	oldFilters := fm.filtersArray
 	fm.filters = tmp
@@ -120,6 +199,7 @@ func (fm *FilterManager) ReLoad(filters []*model.HTTPFilter) {
 	ready := fm.retireFactories(oldFilters)
 	fm.mu.Unlock()
 	fm.closeAndLog(ready)
+	return nil
 }
 
 func (fm *FilterManager) leaseFactories(factories []*HttpFilterFactory) {

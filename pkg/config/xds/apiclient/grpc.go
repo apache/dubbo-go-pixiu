@@ -33,8 +33,10 @@ import (
 	"github.com/pkg/errors"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	grpcstatus "google.golang.org/grpc/status"
 
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -64,9 +66,7 @@ type (
 		exitCh             chan struct{}
 	}
 	xdsState struct {
-		nonce        string
 		deltaVersion map[string]string
-		versionInfo  string
 	}
 )
 
@@ -145,101 +145,141 @@ func (g *GrpcExtensionApiClient) Delta() (chan *DeltaResources, error) {
 }
 
 func (g *GrpcExtensionApiClient) runDelta(output chan<- *DeltaResources) error {
-	var delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient
-	var cancel context.CancelFunc
-	var xState xdsState
-	backoff := func() {
-		for {
-			//back off
-			var err error
-			var ctx context.Context // context to sync exitCh
-			ctx, cancel = context.WithCancel(context.TODO())
-			delta, err = g.sendInitDeltaRequest(ctx, &xState)
-			if err != nil {
-				logger.Error("can not receive delta discovery request, will back off 1 sec later", err)
-				select {
-				case <-time.After(1 * time.Second):
-				case <-g.exitCh:
-					logger.Infof("get close single.")
-					return
-				}
-
-				continue //backoff
+	ctx, cancel := context.WithCancel(context.Background())
+	if g.exitCh != nil {
+		go func() {
+			select {
+			case <-g.exitCh:
+				cancel()
+			case <-ctx.Done():
 			}
-			return //success
-		}
+		}()
 	}
 
-	backoff()
-	if delta == nil { // delta instance not created because exitCh
-		return nil
-	}
-	go func() {
-		//waiting exitCh close
-		for range g.exitCh {
-		}
+	xState := &xdsState{deltaVersion: make(map[string]string)}
+	delta, err := g.connectDelta(ctx, xState)
+	if err != nil {
 		cancel()
-	}()
-	//get message
-	go func() {
-		for { // delta response backoff.
-			for { //loop consume recv data form xds server(sendInitDeltaRequest)
-				resp, err := delta.Recv()
-				if err != nil { //todo backoff retry
-					logger.Error("can not receive delta discovery request", err)
-					break
-				}
-				g.handleDeltaResponse(resp, &xState, output)
+		close(output)
+		if stderr.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	}
 
-				err = g.subscribeOnGoingChang(delta, &xState)
-				if err != nil {
-					logger.Error("can not recv delta discovery request", err)
-					break
-				}
+	go func() {
+		defer cancel()
+		defer close(output)
+		for {
+			if err := g.consumeDeltaStream(ctx, delta, xState, output); err != nil && !stderr.Is(err, context.Canceled) {
+				logger.Errorf("delta extension config stream closed: %v", err)
 			}
-			backoff()
+			if ctx.Err() != nil {
+				return
+			}
+			var err error
+			delta, err = g.connectDelta(ctx, xState)
+			if err != nil {
+				return
+			}
 		}
 	}()
-
 	return nil
 }
 
-func (g *GrpcExtensionApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResponse, xState *xdsState, output chan<- *DeltaResources) {
-	// save the xds state
-	xState.deltaVersion = make(map[string]string, 1)
-	xState.nonce = resp.Nonce
-
-	resources := &DeltaResources{
-		NewResources:    make([]*ProtoAny, 0, 1),
-		RemovedResource: make([]string, 0, 1),
+func (g *GrpcExtensionApiClient) connectDelta(ctx context.Context, xState *xdsState) (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
+	for {
+		delta, err := g.sendInitDeltaRequest(ctx, xState)
+		if err == nil {
+			return delta, nil
+		}
+		logger.Errorf("can not start delta extension config stream; retrying in 1s: %v", err)
+		select {
+		case <-time.After(time.Second):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
+}
+
+func (g *GrpcExtensionApiClient) consumeDeltaStream(ctx context.Context, delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, xState *xdsState, output chan<- *DeltaResources) error {
+	for {
+		resp, err := delta.Recv()
+		if err != nil {
+			return err
+		}
+
+		resources, decodeErr := g.handleDeltaResponse(resp)
+		if decodeErr != nil {
+			if err := g.respondToDelta(delta, resp.Nonce, decodeErr); err != nil {
+				return err
+			}
+			continue
+		}
+
+		select {
+		case output <- resources:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		var applyErr error
+		select {
+		case applyErr = <-resources.applyResult:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if applyErr == nil {
+			acceptDeltaResources(xState, resources)
+		}
+		if err := g.respondToDelta(delta, resp.Nonce, applyErr); err != nil {
+			return err
+		}
+	}
+}
+
+func (g *GrpcExtensionApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResponse) (*DeltaResources, error) {
+	if resp == nil {
+		return nil, errors.New("delta discovery response is nil")
+	}
+	resources := newDeltaResources()
 	logger.Infof("get xDS message nonce, %s", resp.Nonce)
 	for _, res := range resp.RemovedResources {
-		logger.Infof("remove resource found ", res)
-		resources.RemovedResource = append(resources.RemovedResource, res)
+		logger.Infof("remove resource found %s", res)
+		resources.RemovedResources = append(resources.RemovedResources, res)
 	}
 
 	for _, res := range resp.Resources {
 		logger.Infof("new resource found %s version=%s", res.Name, res.Version)
-		xState.deltaVersion[res.Name] = res.Version
 		elems, err := g.decodeSource(res.Resource)
 		if err != nil {
-			logger.Infof("can not decode source %s version=%s", res.Name, res.Version, err)
+			return nil, errors.Wrapf(err, "decode resource %s version=%s", res.Name, res.Version)
 		}
 		resources.NewResources = append(resources.NewResources, elems)
+		resources.versions[res.Name] = res.Version
 	}
-	//notify the resource change handler
-	output <- resources
+	return resources, nil
 }
 
-func (g *GrpcExtensionApiClient) subscribeOnGoingChang(delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, xState *xdsState) error {
-	err := delta.Send(&discoverypb.DeltaDiscoveryRequest{
-		Node:                    g.makeNode(),
-		TypeUrl:                 resource.ExtensionConfigType,
-		InitialResourceVersions: xState.deltaVersion,
-		ResponseNonce:           xState.nonce,
-	})
-	return err
+func acceptDeltaResources(xState *xdsState, resources *DeltaResources) {
+	for _, name := range resources.RemovedResources {
+		delete(xState.deltaVersion, name)
+	}
+	for name, version := range resources.versions {
+		xState.deltaVersion[name] = version
+	}
+}
+
+func (g *GrpcExtensionApiClient) respondToDelta(delta extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, nonce string, applyErr error) error {
+	req := &discoverypb.DeltaDiscoveryRequest{
+		Node:          g.makeNode(),
+		TypeUrl:       resource.ExtensionConfigType,
+		ResponseNonce: nonce,
+	}
+	if applyErr != nil {
+		req.ErrorDetail = grpcstatus.New(codes.InvalidArgument, applyErr.Error()).Proto()
+	}
+	return delta.Send(req)
 }
 
 func (g *GrpcExtensionApiClient) sendInitDeltaRequest(ctx context.Context, xState *xdsState) (extensionpb.ExtensionConfigDiscoveryService_DeltaExtensionConfigsClient, error) {
@@ -253,8 +293,6 @@ func (g *GrpcExtensionApiClient) sendInitDeltaRequest(ctx context.Context, xStat
 		ResourceNamesSubscribe:   []string{g.typeUrl},
 		ResourceNamesUnsubscribe: nil,
 		InitialResourceVersions:  xState.deltaVersion,
-		ResponseNonce:            xState.nonce,
-		ErrorDetail:              nil,
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "can not send delta discovery request")
@@ -332,8 +370,8 @@ func (g *GRPCClusterManager) GetGrpcCluster(name string) (*GRPCCluster, error) {
 func (g *GRPCClusterManager) Close() (err error) {
 	//todo enhance the close process when concurrent
 	g.clusters.Range(func(_, value any) bool {
-		if conn := value.(*grpc.ClientConn); conn != nil {
-			if err = conn.Close(); err != nil {
+		if grpcCluster, ok := value.(*GRPCCluster); ok && grpcCluster != nil {
+			if err = grpcCluster.Close(); err != nil {
 				logger.Errorf("can not close grpc connection.", err)
 			}
 		}

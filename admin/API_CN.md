@@ -451,3 +451,44 @@ cache-control: no-cache
 * `policy_id`: OPA policy id（可选）
 * `server_url`: OPA 服务地址（可选）
 * `bearer_token`: OPA Bearer Token（可选）
+
+## 六、xDS 诊断
+
+### 6.1 获取 xDS 发布状态
+
+该接口需要 Admin JWT，返回 xDS 监听状态、最近一次成功发布的快照版本、资源数量、
+发布时间、最近一次监听或候选配置错误，以及各条 xDS 资源链路的明确支持状态。
+
+```http
+GET /config/api/xds/status HTTP/1.1
+Host: 127.0.0.1:8080
+token: <admin-jwt>
+```
+
+`ready` 只有在 xDS 端口已监听且至少一个快照成功发布时为 true；`degraded`
+表示监听启动或新候选配置失败。
+
+**返回**：
+
+```json
+{
+  "code": "10001",
+  "data": {
+    "node_id": "test-id",
+    "snapshot_version": "42",
+    "listener_count": 1,
+    "cluster_count": 2,
+    "listen_port": 18000,
+    "listening": true,
+    "ready": true,
+    "degraded": false,
+    "resource_support": {
+      "extension_config_listener": "supported",
+      "extension_config_cluster": "supported",
+      "standard_cds": "experimental",
+      "standard_eds": "experimental",
+      "standard_lds": "unsupported"
+    }
+  }
+}
+```

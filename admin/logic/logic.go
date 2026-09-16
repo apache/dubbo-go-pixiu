@@ -349,12 +349,21 @@ func BizGetClusters() ([]config.Cluster, error) {
 	)
 	kList, vList, err = adminconfig.Client.GetChildrenKVList(getRootPath(Clusters))
 	if err != nil {
+		if errors.Is(err, gxetcd.ErrKVPairNotFound) {
+			return []config.Cluster{}, nil
+		}
 		logger.Debugf("get clusters error from etcd, %+v, %+v, %s", kList, vList, err)
 		return nil, perrors.WithMessage(err, "get clusters error")
 	}
 
-	var ret []config.Cluster
+	return decodeClusters(kList, vList)
+}
 
+func decodeClusters(kList, vList []string) ([]config.Cluster, error) {
+	if len(kList) != len(vList) {
+		return nil, perrors.Errorf("cluster key/value length mismatch: %d != %d", len(kList), len(vList))
+	}
+	ret := make([]config.Cluster, 0, len(kList))
 	for i, k := range kList {
 		// only handle resource, filter method
 		re := getCheckClusterRegexp()
@@ -363,9 +372,8 @@ func BizGetClusters() ([]config.Cluster, error) {
 		}
 		v := vList[i]
 		res := &config.Cluster{}
-		err := yaml.UnmarshalYML([]byte(v), res)
-		if err != nil {
-			logger.Errorf("UnmarshalYML err, %v\n", err)
+		if err := yaml.UnmarshalYML([]byte(v), res); err != nil {
+			return nil, perrors.Wrapf(err, "decode cluster configuration at %q", k)
 		}
 		ret = append(ret, *res)
 	}
@@ -435,12 +443,21 @@ func BizGetCluster(id string) (string, error) {
 func BizGetListeners() ([]config.Listener, error) {
 	kList, vList, err := adminconfig.Client.GetChildrenKVList(getRootPath(Listeners))
 	if err != nil {
+		if errors.Is(err, gxetcd.ErrKVPairNotFound) {
+			return []config.Listener{}, nil
+		}
 		logger.Debugf("get listeners error from etcd, %+v, %+v, %s", kList, vList, err)
 		return nil, perrors.WithMessage(err, "get listeners error")
 	}
 
-	var ret []config.Listener
+	return decodeListeners(kList, vList)
+}
 
+func decodeListeners(kList, vList []string) ([]config.Listener, error) {
+	if len(kList) != len(vList) {
+		return nil, perrors.Errorf("listener key/value length mismatch: %d != %d", len(kList), len(vList))
+	}
+	ret := make([]config.Listener, 0, len(kList))
 	for i, k := range kList {
 		// only handle resource, filter method
 		re := getCheckListenerRegexp()
@@ -449,9 +466,8 @@ func BizGetListeners() ([]config.Listener, error) {
 		}
 		v := vList[i]
 		res := &config.Listener{}
-		err := yaml.UnmarshalYML([]byte(v), res)
-		if err != nil {
-			logger.Errorf("UnmarshalYML err, %v\n", err)
+		if err := yaml.UnmarshalYML([]byte(v), res); err != nil {
+			return nil, perrors.Wrapf(err, "decode listener configuration at %q", k)
 		}
 		ret = append(ret, *res)
 	}

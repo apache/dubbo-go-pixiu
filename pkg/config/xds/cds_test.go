@@ -43,12 +43,25 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/server/controls/mocks"
 )
 
+type replaceXDSClusterManager struct {
+	controls.ClusterManager
+	replace func([]*model.ClusterConfig) error
+}
+
+type legacyClusterManager struct {
+	controls.ClusterManager
+}
+
+func (m *replaceXDSClusterManager) ReplaceXDSClusters(clusters []*model.ClusterConfig) error {
+	return m.replace(clusters)
+}
+
 func makeClusters() *xdsmodel.PixiuExtensionClusters {
 	return &xdsmodel.PixiuExtensionClusters{
 		Clusters: []*xdsmodel.Cluster{
 			{
 				Name:    "http-baidu",
-				TypeStr: "http",
+				TypeStr: "Static",
 				Endpoints: []*xdsmodel.Endpoint{{
 					Id: "backend",
 					Address: &xdsmodel.SocketAddress{
@@ -67,7 +80,7 @@ func getCdsConfig() *core.TypedExtensionConfig {
 			Clusters: []*xdsmodel.Cluster{
 				{
 					Name:    "http-baidu",
-					TypeStr: "http",
+					TypeStr: "Static",
 					Endpoints: []*xdsmodel.Endpoint{{
 						Id: "backend",
 						Address: &xdsmodel.SocketAddress{
@@ -103,7 +116,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 	})
 	defer patches.Reset()
 
-	clusterMg.EXPECT().HasCluster(gomock.Any()).DoAndReturn(func(clusterName string) bool {
+	clusterMg.EXPECT().HasCluster(gomock.Any()).AnyTimes().DoAndReturn(func(clusterName string) bool {
 		_, ok := cluster[clusterName]
 		return ok
 	})
@@ -115,6 +128,12 @@ func TestCdsManager_Fetch(t *testing.T) {
 		addCluster = c
 	})
 	clusterMg.EXPECT().RemoveCluster(gomock.Any()).AnyTimes()
+	replacingClusterMg := &replaceXDSClusterManager{ClusterManager: clusterMg, replace: func(clusters []*model.ClusterConfig) error {
+		if len(clusters) > 0 {
+			addCluster = clusters[0]
+		}
+		return nil
+	}}
 	clusterMg.EXPECT().CloneXdsControlStore().AnyTimes().DoAndReturn(func() (controls.ClusterStore, error) {
 		store := mocks.NewMockClusterStore(ctrl)
 		store.EXPECT().Config().AnyTimes()
@@ -160,7 +179,7 @@ func TestCdsManager_Fetch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &CdsManager{
 				DiscoverApi: &apiclient.GrpcExtensionApiClient{},
-				clusterMg:   clusterMg,
+				clusterMg:   replacingClusterMg,
 			}
 			//reset context value.
 			fetchError = tt.mockError
@@ -192,11 +211,186 @@ func TestCdsManager_Fetch(t *testing.T) {
 func TestCdsManager_makeCluster(t *testing.T) {
 	c := &CdsManager{}
 	cluster := makeClusters().Clusters[0]
-	modelCluster := c.makeCluster(cluster)
+	modelCluster, err := c.makeCluster(cluster)
 	assert := require.New(t)
+	assert.NoError(err)
 	assert.Equal(cluster.Name, modelCluster.Name)
 	assert.Equal(cluster.TypeStr, modelCluster.TypeStr)
 	assert.Equal(cluster.Endpoints[0].Name, modelCluster.Endpoints[0].Name)
 	assert.Equal(cluster.Endpoints[0].Address.Address, modelCluster.Endpoints[0].Address.Address)
 	assert.Equal(cluster.Endpoints[0].Address.Port, int64(modelCluster.Endpoints[0].Address.Port))
+}
+
+func TestCdsManager_MakeEndpointsPreservesEDSHealth(t *testing.T) {
+	manager := &CdsManager{}
+	endpoints, err := manager.makeEndpoints([]*xdsmodel.Endpoint{{
+		Id:       "endpoint-1",
+		Address:  &xdsmodel.SocketAddress{Address: "10.0.0.1", Port: 20880},
+		Metadata: map[string]string{endpointHealthMetadataKey: "true"},
+	}})
+
+	require.NoError(t, err)
+	require.Len(t, endpoints, 1)
+	require.True(t, endpoints[0].UnHealthy)
+}
+
+func TestCdsManagerRejectsInvalidExtensionClustersBeforePublication(t *testing.T) {
+	tests := []struct {
+		name    string
+		cluster *xdsmodel.Cluster
+		want    string
+	}{
+		{
+			name: "unknown discovery type",
+			cluster: &xdsmodel.Cluster{
+				Name: "orders", TypeStr: "made-up",
+			},
+			want: "unsupported discovery type",
+		},
+		{
+			name: "unknown load balancer",
+			cluster: &xdsmodel.Cluster{
+				Name: "orders", TypeStr: "Static", LbStr: "LeastRequest",
+			},
+			want: "unsupported load-balancing policy",
+		},
+		{
+			name: "port above uint16",
+			cluster: &xdsmodel.Cluster{
+				Name: "orders", TypeStr: "Static",
+				Endpoints: []*xdsmodel.Endpoint{{Id: "orders-1", Address: &xdsmodel.SocketAddress{Address: "127.0.0.1", Port: 65536}}},
+			},
+			want: "invalid socket address",
+		},
+		{
+			name: "duplicate endpoint ID",
+			cluster: &xdsmodel.Cluster{
+				Name: "orders", TypeStr: "Static",
+				Endpoints: []*xdsmodel.Endpoint{
+					{Id: "duplicate", Address: &xdsmodel.SocketAddress{Address: "127.0.0.1", Port: 20880}},
+					{Id: "duplicate", Address: &xdsmodel.SocketAddress{Address: "127.0.0.2", Port: 20880}},
+				},
+			},
+			want: "duplicate endpoint ID",
+		},
+		{
+			name: "unknown EDS API type",
+			cluster: &xdsmodel.Cluster{
+				Name: "orders", TypeStr: "EDS",
+				EdsClusterConfig: &xdsmodel.EdsClusterConfig{EdsConfig: &xdsmodel.ConfigSource{
+					ApiConfigSource: &xdsmodel.ApiConfigSource{APITypeStr: "made-up"},
+				}},
+			},
+			want: "unsupported EDS API type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			clusterMg := mocks.NewMockClusterManager(ctrl)
+			manager := &CdsManager{clusterMg: clusterMg}
+
+			err := manager.setupCluster([]*xdsmodel.Cluster{tt.cluster})
+			require.ErrorContains(t, err, tt.want)
+		})
+	}
+}
+
+func TestCdsManagerDefaultsOmittedLoadBalancerToRand(t *testing.T) {
+	manager := &CdsManager{}
+	cluster, err := manager.makeCluster(&xdsmodel.Cluster{Name: "orders", TypeStr: "Static"})
+	require.NoError(t, err)
+	require.Equal(t, model.LoadBalancerRand, cluster.LbStr)
+}
+
+func TestCdsManagerRejectsManagerWithoutTransactionalReplacement(t *testing.T) {
+	manager := &CdsManager{clusterMg: &legacyClusterManager{}}
+	err := manager.setupCluster([]*xdsmodel.Cluster{{
+		Name:    "orders",
+		TypeStr: "Static",
+		Endpoints: []*xdsmodel.Endpoint{{
+			Id:      "orders-1",
+			Address: &xdsmodel.SocketAddress{Address: "127.0.0.1", Port: 20880},
+		}},
+	}})
+
+	require.ErrorContains(t, err, "does not support transactional xDS replacement")
+}
+
+func TestCdsManager_StandardEDSClusterDoesNotRequireNestedConfigSource(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	replacingClusterMg := &replaceXDSClusterManager{ClusterManager: clusterMg, replace: func(clusters []*model.ClusterConfig) error {
+		require.Len(t, clusters, 1)
+		require.Equal(t, "orders", clusters[0].Name)
+		require.Equal(t, "orders-eds", clusters[0].EdsClusterConfig.ServiceName)
+		require.Equal(t, "10.0.0.1", clusters[0].Endpoints[0].Address.Address)
+		return nil
+	}}
+	manager := &CdsManager{clusterMg: replacingClusterMg}
+
+	require.NotPanics(t, func() {
+		require.NoError(t, manager.setupCluster([]*xdsmodel.Cluster{{
+			Name:             "orders",
+			TypeStr:          "Static",
+			LbStr:            "RoundRobin",
+			EdsClusterConfig: &xdsmodel.EdsClusterConfig{ServiceName: "orders-eds"},
+			Endpoints: []*xdsmodel.Endpoint{{
+				Id:      "10.0.0.1:20880",
+				Address: &xdsmodel.SocketAddress{Address: "10.0.0.1", Port: 20880},
+			}},
+		}}))
+	})
+}
+
+func TestCdsManager_ApplyDelta(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	owned := map[string]*model.ClusterConfig{
+		"old-dynamic": {Name: "old-dynamic"},
+	}
+	replacingClusterMg := &replaceXDSClusterManager{ClusterManager: clusterMg, replace: func(clusters []*model.ClusterConfig) error {
+		clear(owned)
+		for _, cluster := range clusters {
+			owned[cluster.Name] = cluster
+		}
+		return nil
+	}}
+	manager := &CdsManager{clusterMg: replacingClusterMg}
+
+	// An empty delta response is a no-op. Omission is not deletion in Delta xDS.
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{}))
+	require.Contains(t, owned, "old-dynamic")
+
+	// The extension resource is an aggregate, so a new payload replaces the
+	// xDS-owned aggregate while leaving static resources untouched.
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		NewResources: []*apiclient.ProtoAny{apiclient.NewProtoAny(getCdsConfig())},
+	}))
+	require.NotContains(t, owned, "old-dynamic")
+	require.Contains(t, owned, "http-baidu")
+
+	// An explicitly delivered empty aggregate is authoritative and therefore
+	// removes the clusters previously held by that aggregate.
+	emptyClusters, err := anypb.New(&xdsmodel.PixiuExtensionClusters{})
+	require.NoError(t, err)
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		NewResources: []*apiclient.ProtoAny{apiclient.NewProtoAny(&core.TypedExtensionConfig{
+			Name:        constant.ClusterType,
+			TypedConfig: emptyClusters,
+		})},
+	}))
+	require.NotContains(t, owned, "http-baidu")
+
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		NewResources: []*apiclient.ProtoAny{apiclient.NewProtoAny(getCdsConfig())},
+	}))
+	require.Contains(t, owned, "http-baidu")
+
+	// Removing the subscribed extension resource clears only xDS-owned state.
+	require.NoError(t, manager.applyDelta(&apiclient.DeltaResources{
+		RemovedResources: []string{constant.ClusterType},
+	}))
+	require.NotContains(t, owned, "http-baidu")
 }
