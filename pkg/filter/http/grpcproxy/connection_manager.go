@@ -373,6 +373,14 @@ func (m *grpcConnectionManager) RemoveEndpoint(clusterName, endpoint string) {
 // a connection created after the endpoint was re-added.
 func (m *grpcConnectionManager) UpdateEndpointState(clusterName, endpoint string, present bool, eventVersion uint64) {
 	key := grpcConnectionKey(clusterName, endpoint)
+	// Lifecycle callbacks are delivered outside the cluster manager lock and can
+	// therefore arrive out of order. Once a bounded tombstone has been evicted,
+	// its version watermark is no longer available to reject an old removal.
+	// The cluster snapshot is authoritative in that case: do not let a delayed
+	// removal turn an endpoint that is currently present back into a tombstone.
+	if !present && m.isEndpointPresent(key, endpoint) {
+		return
+	}
 	m.mu.Lock()
 	m.initEndpointStateLocked()
 	if m.closed {
