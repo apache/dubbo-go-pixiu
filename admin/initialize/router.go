@@ -33,6 +33,8 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/admin/doc"
 )
 
+const routeBindingAPIPath = "/config/api/route"
+
 // Routers init router
 func Routers() *gin.Engine {
 	var router = gin.Default()
@@ -82,6 +84,23 @@ func Routers() *gin.Engine {
 		taR.POST("/config/api/resource/method", configInfo.CreateMethodInfo)
 		taR.PUT("/config/api/resource/method", configInfo.ModifyMethodInfo)
 		taR.DELETE("/config/api/resource/method", configInfo.DeleteMethodInfo)
+
+		// AdminRouteBinding API. These endpoints keep the high-level Admin
+		// object separate from the legacy Resource/Method API. Each route has
+		// an independent draft/publish boundary; publishing one route still
+		// updates its generated legacy keys in one etcd transaction.
+		taR.GET(routeBindingAPIPath+"/schema", configInfo.GetRouteBindingSchema)
+		taR.GET(routeBindingAPIPath+"/list", configInfo.GetRouteBindingList)
+		taR.GET(routeBindingAPIPath+"/detail", configInfo.GetRouteBindingDetail)
+		taR.POST(routeBindingAPIPath, configInfo.CreateRouteBinding)
+		taR.PUT(routeBindingAPIPath, configInfo.ModifyRouteBinding)
+		taR.DELETE(routeBindingAPIPath, configInfo.DeleteRouteBinding)
+		taR.POST(routeBindingAPIPath+"/validate", configInfo.ValidateRouteBinding)
+		taR.POST(routeBindingAPIPath+"/preview", configInfo.PreviewRouteBinding)
+		taR.PUT(routeBindingAPIPath+"/publish", configInfo.PublishRouteBinding)
+		taR.GET(routeBindingAPIPath+"/status", configInfo.GetRouteBindingStatus)
+		taR.GET(routeBindingAPIPath+"/diff", configInfo.GetRouteBindingDiff)
+		taR.GET(routeBindingAPIPath+"/publish/status", configInfo.GetRouteBindingPublishStatus)
 
 		taR.GET("/config/api/opa/policy", opa.GetOPAPolicy)
 		taR.PUT("/config/api/opa/policy", opa.PutOPAPolicy)
