@@ -122,6 +122,9 @@ func (g *GrpcExtensionApiClient) Fetch(localVersion string) ([]*ProtoAny, error)
 }
 
 func (g *GrpcExtensionApiClient) decodeSource(resource *anypb.Any) (*ProtoAny, error) {
+	if resource == nil {
+		return nil, errors.New("typed extension resource is nil")
+	}
 	extension := envoyconfigcorev3.TypedExtensionConfig{}
 	err := resource.UnmarshalTo(&extension)
 	if err != nil {
@@ -208,6 +211,9 @@ func (g *GrpcExtensionApiClient) consumeDeltaStream(ctx context.Context, delta e
 		if err != nil {
 			return err
 		}
+		if resp == nil {
+			return errors.New("delta discovery response is nil")
+		}
 
 		resources, decodeErr := g.handleDeltaResponse(resp)
 		if decodeErr != nil {
@@ -241,6 +247,28 @@ func (g *GrpcExtensionApiClient) consumeDeltaStream(ctx context.Context, delta e
 func (g *GrpcExtensionApiClient) handleDeltaResponse(resp *discoverypb.DeltaDiscoveryResponse) (*DeltaResources, error) {
 	if resp == nil {
 		return nil, errors.New("delta discovery response is nil")
+	}
+	resourceNames := make(map[string]struct{}, len(resp.RemovedResources)+len(resp.Resources))
+	for index, name := range resp.RemovedResources {
+		if name == "" {
+			return nil, errors.Errorf("removed delta resource %d has an empty name", index)
+		}
+		if _, duplicate := resourceNames[name]; duplicate {
+			return nil, errors.Errorf("duplicate resource name %q in delta response", name)
+		}
+		resourceNames[name] = struct{}{}
+	}
+	for index, res := range resp.Resources {
+		if res == nil {
+			return nil, errors.Errorf("delta resource %d is nil", index)
+		}
+		if res.Name == "" {
+			return nil, errors.Errorf("delta resource %d has an empty name", index)
+		}
+		if _, duplicate := resourceNames[res.Name]; duplicate {
+			return nil, errors.Errorf("duplicate resource name %q in delta response", res.Name)
+		}
+		resourceNames[res.Name] = struct{}{}
 	}
 	resources := newDeltaResources()
 	logger.Infof("get xDS message nonce, %s", resp.Nonce)

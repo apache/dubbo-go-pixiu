@@ -138,6 +138,57 @@ func TestSnapshotBuilderConvertsClusters(t *testing.T) {
 	}
 }
 
+func TestSnapshotBuilderNormalizesValidatedFields(t *testing.T) {
+	listener := config.Listener{Name: " http "}
+	listener.Address.SocketAddress.Address = " 0.0.0.0 "
+	listener.Address.SocketAddress.Port = 8080
+	listener.RouteConfig.Routes = make([]struct {
+		Match struct {
+			Prefix string `yaml:"prefix" json:"prefix"`
+		} `yaml:"match" json:"match"`
+		Route struct {
+			Cluster                     string `yaml:"cluster" json:"cluster"`
+			ClusterNotFoundResponseCode int    `yaml:"cluster_not_found_response_code" json:"cluster_not_found_response_code"`
+		} `yaml:"route" json:"route"`
+	}, 1)
+	listener.RouteConfig.Routes[0].Route.Cluster = " backend "
+	cluster := config.Cluster{
+		Name:    " backend ",
+		Type:    " Static ",
+		Address: " 127.0.0.1 ",
+		Port:    20880,
+		ID:      4,
+	}
+
+	result, err := NewSnapshotBuilder(fakeResourceLoader{
+		listeners: []config.Listener{listener},
+		clusters:  []config.Cluster{cluster},
+	}).Build("normalized")
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+
+	listeners := unpackListeners(t, result)
+	gotListener := listeners.Listeners[0]
+	if gotListener.Name != "http" || gotListener.Address.SocketAddress.Address != "0.0.0.0" {
+		t.Fatalf("listener fields were not normalized: %+v", gotListener)
+	}
+	filterConfig := gotListener.FilterChain.Filters[0].GetStruct().AsMap()
+	routes := filterConfig["route_config"].(map[string]any)["routes"].([]any)
+	if got := routes[0].(map[string]any)["route"].(map[string]any)["cluster"]; got != "backend" {
+		t.Fatalf("route cluster: want backend, got %v", got)
+	}
+
+	clusters := unpackClusters(t, result)
+	gotCluster := clusters.Clusters[0]
+	if gotCluster.Name != "backend" || gotCluster.TypeStr != "Static" {
+		t.Fatalf("cluster identity was not normalized: %+v", gotCluster)
+	}
+	if gotCluster.Endpoints[0].Id != "backend4" || gotCluster.Endpoints[0].Address.Address != "127.0.0.1" {
+		t.Fatalf("cluster endpoint was not normalized: %+v", gotCluster.Endpoints[0])
+	}
+}
+
 func TestSnapshotBuilderReturnsFilterConversionError(t *testing.T) {
 	listener := config.Listener{Name: "invalid-filter"}
 	listener.Address.SocketAddress.Address = "0.0.0.0"

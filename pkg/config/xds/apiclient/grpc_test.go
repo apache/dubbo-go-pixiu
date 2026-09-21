@@ -199,6 +199,97 @@ func TestGrpcExtensionApiClient_HandleDeltaResponse(t *testing.T) {
 		}},
 	})
 	require.Error(t, err)
+
+	tests := []struct {
+		name     string
+		response *discoverypb.DeltaDiscoveryResponse
+		want     string
+	}{
+		{name: "nil response", want: "response is nil"},
+		{
+			name:     "nil resource",
+			response: &discoverypb.DeltaDiscoveryResponse{Resources: []*discoverypb.Resource{nil}},
+			want:     "resource 0 is nil",
+		},
+		{
+			name: "empty resource name",
+			response: &discoverypb.DeltaDiscoveryResponse{Resources: []*discoverypb.Resource{{
+				Resource: outerResource,
+			}}},
+			want: "empty name",
+		},
+		{
+			name: "duplicate resource name",
+			response: &discoverypb.DeltaDiscoveryResponse{Resources: []*discoverypb.Resource{
+				{Name: "resource-a", Version: "v2", Resource: outerResource},
+				{Name: "resource-a", Version: "v3", Resource: outerResource},
+			}},
+			want: "duplicate resource name",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var responseErr error
+			require.NotPanics(t, func() {
+				_, responseErr = client.handleDeltaResponse(tt.response)
+			})
+			require.ErrorContains(t, responseErr, tt.want)
+		})
+	}
+}
+
+func TestGrpcExtensionApiClient_ConsumeRejectsNilResponseWithoutPanic(t *testing.T) {
+	client := &GrpcExtensionApiClient{}
+	stream := &recordingDeltaStream{
+		ctx:       context.Background(),
+		responses: []*discoverypb.DeltaDiscoveryResponse{nil},
+	}
+	state := &xdsState{deltaVersion: make(map[string]string)}
+	output := make(chan *DeltaResources, 1)
+
+	var consumeErr error
+	require.NotPanics(t, func() {
+		consumeErr = client.consumeDeltaStream(context.Background(), stream, state, output)
+	})
+	require.ErrorContains(t, consumeErr, "response is nil")
+	require.Empty(t, stream.sent)
+}
+
+func TestGrpcExtensionApiClient_ConsumeNACKsDuplicateResourceNames(t *testing.T) {
+	typedPayload, err := anypb.New(&emptypb.Empty{})
+	require.NoError(t, err)
+	outerResource, err := anypb.New(&corepb.TypedExtensionConfig{
+		Name:        "resource-a",
+		TypedConfig: typedPayload,
+	})
+	require.NoError(t, err)
+	stream := &recordingDeltaStream{
+		ctx: context.Background(),
+		responses: []*discoverypb.DeltaDiscoveryResponse{{
+			Nonce: "duplicate-nonce",
+			Resources: []*discoverypb.Resource{
+				{Name: "resource-a", Version: "v2", Resource: outerResource},
+				{Name: "resource-a", Version: "v3", Resource: outerResource},
+			},
+		}},
+	}
+	client := &GrpcExtensionApiClient{node: &model.Node{Id: "node-1"}}
+	state := &xdsState{deltaVersion: map[string]string{"resource-a": "v1"}}
+	output := make(chan *DeltaResources, 1)
+
+	err = client.consumeDeltaStream(context.Background(), stream, state, output)
+
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, map[string]string{"resource-a": "v1"}, state.deltaVersion)
+	require.Len(t, stream.sent, 1)
+	require.Equal(t, "duplicate-nonce", stream.sent[0].ResponseNonce)
+	require.Equal(t, int32(codes.InvalidArgument), stream.sent[0].ErrorDetail.Code)
+	require.Contains(t, stream.sent[0].ErrorDetail.Message, "duplicate resource name")
+	select {
+	case <-output:
+		t.Fatal("invalid delta response must not be published")
+	default:
+	}
 }
 
 func TestGrpcExtensionApiClient_RespondToDelta(t *testing.T) {

@@ -225,7 +225,7 @@ func makeHTTPFilter(listener config.Listener) (*xdsmodel.FilterChain, error) {
 				"prefix": route.Match.Prefix,
 			},
 			"route": map[string]any{
-				"cluster":                         route.Route.Cluster,
+				"cluster":                         strings.TrimSpace(route.Route.Cluster),
 				"cluster_not_found_response_code": route.Route.ClusterNotFoundResponseCode,
 			},
 		})
@@ -264,10 +264,10 @@ func makeListeners(listeners []config.Listener) (*xdsmodel.PixiuExtensionListene
 			return nil, fmt.Errorf("listener %q: %w", listener.Name, err)
 		}
 		result.Listeners = append(result.Listeners, &xdsmodel.Listener{
-			Name: listener.Name,
+			Name: strings.TrimSpace(listener.Name),
 			Address: &xdsmodel.Address{
 				SocketAddress: &xdsmodel.SocketAddress{
-					Address: listener.Address.SocketAddress.Address,
+					Address: strings.TrimSpace(listener.Address.SocketAddress.Address),
 					Port:    int64(listener.Address.SocketAddress.Port),
 				},
 				Name: listener.Address.Name,
@@ -283,14 +283,15 @@ func makeClusters(clusters []config.Cluster) *xdsmodel.PixiuExtensionClusters {
 		Clusters: make([]*xdsmodel.Cluster, 0, len(clusters)),
 	}
 	for _, cluster := range clusters {
+		name := strings.TrimSpace(cluster.Name)
 		result.Clusters = append(result.Clusters, &xdsmodel.Cluster{
-			Name:    cluster.Name,
-			TypeStr: cluster.Type,
+			Name:    name,
+			TypeStr: strings.TrimSpace(cluster.Type),
 			Endpoints: []*xdsmodel.Endpoint{
 				{
-					Id: cluster.Name + strconv.Itoa(cluster.ID),
+					Id: name + strconv.Itoa(cluster.ID),
 					Address: &xdsmodel.SocketAddress{
-						Address: cluster.Address,
+						Address: strings.TrimSpace(cluster.Address),
 						Port:    int64(cluster.Port),
 					},
 				},
