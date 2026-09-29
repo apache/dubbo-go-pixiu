@@ -156,6 +156,9 @@ type DubboBackendConfig struct {
 	ParameterTypes  []string `yaml:"parameterTypes" json:"parameterTypes,omitempty"`
 	Serialization   string   `yaml:"serialization" json:"serialization,omitempty"`
 	Retries         string   `yaml:"retries" json:"retries,omitempty"`
+	// Generic selects the generic invocation mode: "true" (map, default),
+	// "gson", "protobuf-json" or "bean".
+	Generic string `yaml:"generic" json:"generic,omitempty"`
 }
 
 // HTTPBackendConfig defines the basic dubbo backend config
