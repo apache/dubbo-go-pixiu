@@ -138,18 +138,7 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 
 // handleHTTPRequest handle http request
 func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) (resultErr error) {
-	filterChain, err := hcm.filterManager.CreateFilterChainChecked(c)
-	if err != nil {
-		errResp := pch.InternalError.WithError(err)
-		c.SendLocalReply(errResp.Status, errResp.ToJSON())
-		hcm.writeResponse(c)
-		return err
-	}
-	if releaser, ok := filterChain.(interface{ Release() }); ok {
-		defer releaser.Release()
-	}
-
-	// recover any err when filterChain run
+	// Recover panics from both filter construction and request processing.
 	defer func() {
 		if err := recover(); err != nil {
 			stack := debug.Stack()
@@ -159,6 +148,14 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) (resultE
 			resultErr = errResp
 		}
 	}()
+	filterChain, err := hcm.filterManager.CreateFilterChainChecked(c)
+	if err != nil {
+		errResp := pch.InternalError.WithError(err)
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
+		hcm.writeResponse(c)
+		return err
+	}
+	defer filterChain.Release()
 
 	// todo timeout
 	filterChain.OnDecode(c)

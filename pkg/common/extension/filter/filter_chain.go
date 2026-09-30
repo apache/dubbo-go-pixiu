@@ -34,6 +34,13 @@ type FilterChain interface {
 	OnEncode(ctx *http.HttpContext)
 }
 
+// LeasedFilterChain keeps its factories alive until the caller releases it.
+// Call Release after processing the request, including on error paths.
+type LeasedFilterChain interface {
+	FilterChain
+	Release()
+}
+
 type defaultFilterChain struct {
 	decodeFilters      []HttpDecodeFilter
 	decodeFiltersIndex int

@@ -84,16 +84,18 @@ newer configuration.
 
 ## Compatibility notes
 
-- Listener construction is fail-closed. A bad network or HTTP filter prevents
-  a static listener from starting and causes an xDS listener update to be
-  NACKed. This is stricter than the previous behavior that silently omitted a
-  bad filter; the Pixiu log identifies every rejected static listener.
+- Listener construction is fail-closed. A bad network or HTTP filter keeps that
+  static listener out of the active set, while the gateway process continues to
+  start. An invalid xDS listener update is NACKed. This is stricter than the
+  previous behavior that silently omitted a bad filter; the Pixiu log identifies
+  every rejected static listener.
 - An out-of-tree `ListenerService` still satisfies the public interface, but it
   must additionally implement the optional transactional refresh contract to
   receive xDS listener updates. Otherwise the update is NACKed and its
   last-good listener remains active.
 - `FilterManager.CreateFilterChain` retains its legacy best-effort behavior for
-  out-of-tree callers, and `CreateHttpConnectionManager` remains non-nil for a
+  out-of-tree callers. Its returned chain must be released after use so retired
+  filter factories can close. `CreateHttpConnectionManager` remains non-nil for a
   non-nil top-level config while logging bad nested filters. Pixiu's xDS
   publication path uses the checked builders and rejects incomplete chains.
 - TCP readiness uses a bounded self-dial because dubbo-getty does not expose a

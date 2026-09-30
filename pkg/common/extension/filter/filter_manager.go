@@ -58,12 +58,14 @@ func NewEmptyFilterManager() *FilterManager {
 	return &FilterManager{filters: make(map[string]HttpFilterFactory)}
 }
 
-// CreateFilterChain preserves the original best-effort public API: factories
+// CreateFilterChain preserves the original best-effort behavior: factories
 // that fail are logged and skipped, while filters prepared successfully by
 // other factories remain in the returned chain. Configuration publication uses
-// CreateFilterChainChecked so errors can reject the complete resource.
-func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
+// CreateFilterChainChecked so errors can reject the complete resource. Call
+// Release on the returned chain after the request completes.
+func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) LeasedFilterChain {
 	chain, factories := fm.newLeasedFilterChain()
+	defer releaseFilterChainOnPanic(chain)
 	for index, f := range factories {
 		if f == nil || *f == nil {
 			logger.Errorf("create HTTP filter chain: HTTP filter factory %d is nil", index)
@@ -76,36 +78,39 @@ func (fm *FilterManager) CreateFilterChain(ctx *http.HttpContext) FilterChain {
 	return chain
 }
 
-func (fm *FilterManager) CreateFilterChainChecked(ctx *http.HttpContext) (FilterChain, error) {
+// CreateFilterChainChecked returns a complete chain whose caller must Release it.
+func (fm *FilterManager) CreateFilterChainChecked(ctx *http.HttpContext) (LeasedFilterChain, error) {
 	chain, factories := fm.newLeasedFilterChain()
+	defer releaseFilterChainOnPanic(chain)
 	for index, f := range factories {
 		if f == nil || *f == nil {
-			releaseFilterChain(chain)
+			chain.Release()
 			return nil, errors.Errorf("HTTP filter factory %d is nil", index)
 		}
 		if err := (*f).PrepareFilterChain(ctx, chain); err != nil {
-			releaseFilterChain(chain)
+			chain.Release()
 			return nil, errors.Wrapf(err, "prepare HTTP filter %d", index)
 		}
 	}
 	return chain, nil
 }
 
-func (fm *FilterManager) newLeasedFilterChain() (FilterChain, []*HttpFilterFactory) {
-	chain := NewDefaultFilterChain()
+func (fm *FilterManager) newLeasedFilterChain() (LeasedFilterChain, []*HttpFilterFactory) {
+	chain := NewDefaultFilterChain().(*defaultFilterChain)
 	fm.mu.RLock()
 	factories := append([]*HttpFilterFactory(nil), fm.filtersArray...)
 	fm.leaseFactories(factories)
 	fm.mu.RUnlock()
-	chain.(*defaultFilterChain).setRelease(func() {
+	chain.setRelease(func() {
 		fm.releaseFactories(factories)
 	})
 	return chain, factories
 }
 
-func releaseFilterChain(chain FilterChain) {
-	if releaser, ok := chain.(interface{ Release() }); ok {
-		releaser.Release()
+func releaseFilterChainOnPanic(chain LeasedFilterChain) {
+	if recovered := recover(); recovered != nil {
+		chain.Release()
+		panic(recovered)
 	}
 }
 

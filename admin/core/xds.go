@@ -162,12 +162,7 @@ func watchConfigWithRetry(ctx context.Context, watcher configWatcher, path strin
 	for {
 		ch, err := watcher.WatchWithPrefix(path)
 		if err == nil {
-			// Establish the watch before rebuilding on both startup and reconnect.
-			// Events that happen during the rebuild remain queued on the channel.
-			if publishErr := publisher.Publish(ctx); publishErr != nil {
-				logger.Errorf("rebuild xDS snapshot after watch establishment failed: %+v", publishErr)
-			}
-			err = consumeConfigWatch(ctx, ch, publisher)
+			err = consumeConfigWatch(ctx, ch, publisher, retryDelay)
 		} else {
 			err = fmt.Errorf("watch xDS configuration: %w", err)
 		}
@@ -189,11 +184,32 @@ func watchConfigWithRetry(ctx context.Context, watcher configWatcher, path strin
 	}
 }
 
-func consumeConfigWatch(ctx context.Context, ch clientv3.WatchChan, publisher snapshotPublisher) error {
+func consumeConfigWatch(ctx context.Context, ch clientv3.WatchChan, publisher snapshotPublisher, retryDelay time.Duration) error {
+	if ctx.Err() != nil {
+		return nil
+	}
+	// The watch is established before the first rebuild, so concurrent changes
+	// remain queued while the snapshot is built or retried.
+	retry := time.NewTicker(retryDelay)
+	defer retry.Stop()
+	pending := false
+	publish := func() {
+		if err := publisher.Publish(ctx); err != nil {
+			pending = true
+			logger.Errorf("reload xDS snapshot failed: %+v", err)
+		} else {
+			pending = false
+		}
+	}
+	publish()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-retry.C:
+			if pending {
+				publish()
+			}
 		case response, ok := <-ch:
 			if !ok {
 				if ctx.Err() != nil {
@@ -211,9 +227,7 @@ func consumeConfigWatch(ctx context.Context, ch clientv3.WatchChan, publisher sn
 				continue
 			}
 			logger.Info("get etcd config change")
-			if err := publisher.Publish(ctx); err != nil {
-				logger.Errorf("reload xDS snapshot failed: %+v", err)
-			}
+			publish()
 		}
 	}
 }

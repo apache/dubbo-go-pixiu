@@ -51,7 +51,10 @@ const (
 )
 
 var (
-	eventCh = make(chan string, 3)
+	eventCh                = make(chan string, 3)
+	demoPluginOnce         sync.Once
+	panicPreparePluginOnce sync.Once
+	panicPrepareTestPlugin = &panicPreparePlugin{}
 )
 
 type (
@@ -65,12 +68,33 @@ type (
 	DemoFilter struct {
 		str string
 	}
+	panicPreparePlugin struct {
+		factory *panicPrepareFactory
+	}
+	panicPrepareFactory struct {
+		closes int
+	}
 	// Config describe the config of ResponseFilter
 	Config struct {
 		Foo string `json:"foo,omitempty" yaml:"foo,omitempty"`
 		Bar string `json:"bar,omitempty" yaml:"bar,omitempty"`
 	}
 )
+
+func (p *panicPreparePlugin) Kind() string { return "dgp.filters.http.panic-prepare-test" }
+func (p *panicPreparePlugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
+	return p.factory, nil
+}
+
+func (f *panicPrepareFactory) Config() any  { return &struct{}{} }
+func (f *panicPrepareFactory) Apply() error { return nil }
+func (f *panicPrepareFactory) PrepareFilterChain(*contexthttp.HttpContext, filter.FilterChain) error {
+	panic("prepare panic")
+}
+func (f *panicPrepareFactory) Close() error {
+	f.closes++
+	return nil
+}
 
 func (p *Plugin) Kind() string {
 	return Kind
@@ -115,7 +139,7 @@ func (f *DemoFilterFactory) Apply() error {
 }
 
 func TestCreateHttpConnectionManager(t *testing.T) {
-	filter.RegisterHttpFilter(&Plugin{})
+	demoPluginOnce.Do(func() { filter.RegisterHttpFilter(&Plugin{}) })
 
 	hcmc := model.HttpConnectionManagerConfig{
 		RouteConfig: model.RouteConfiguration{
@@ -168,6 +192,25 @@ func TestCreateHttpConnectionManagerKeepsLegacyNonNilResultForBadFilter(t *testi
 
 	assert.NotNil(t, hcm)
 	assert.Empty(t, hcm.filterManager.GetFactory())
+}
+
+func TestHandleHTTPRequestRecoversPreparePanicAndReleasesFactory(t *testing.T) {
+	panicPreparePluginOnce.Do(func() { filter.RegisterHttpFilter(panicPrepareTestPlugin) })
+	factory := &panicPrepareFactory{}
+	panicPrepareTestPlugin.factory = factory
+	fm := filter.NewEmptyFilterManager()
+	assert.NoError(t, fm.ReLoadChecked([]*model.HTTPFilter{{Name: panicPrepareTestPlugin.Kind()}}))
+	hcm := &HttpConnectionManager{filterManager: fm}
+	response := httptest.NewRecorder()
+	ctx := mock.GetMockHTTPContext(httptest.NewRequest("GET", "/", nil))
+	ctx.Writer = response
+
+	err := hcm.handleHTTPRequest(ctx)
+
+	assert.ErrorContains(t, err, "prepare panic")
+	assert.Equal(t, http.StatusInternalServerError, response.Code)
+	assert.NoError(t, fm.Close())
+	assert.Equal(t, 1, factory.closes)
 }
 
 // test SSE case

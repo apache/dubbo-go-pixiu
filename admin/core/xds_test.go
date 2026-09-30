@@ -23,6 +23,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 )
 
 import (
@@ -77,12 +78,12 @@ func TestConsumeConfigWatchPublishesEachEventBatch(t *testing.T) {
 	close(ch)
 
 	publisher := &fakeSnapshotPublisher{failures: 1}
-	err := consumeConfigWatch(context.Background(), ch, publisher)
+	err := consumeConfigWatch(context.Background(), ch, publisher, time.Hour)
 	if err == nil || !strings.Contains(err.Error(), "watch channel closed") {
 		t.Fatalf("unexpected terminal watch error: %v", err)
 	}
-	if publisher.calls != 2 {
-		t.Fatalf("publish calls: want 2 event batches, got %d", publisher.calls)
+	if publisher.calls != 3 {
+		t.Fatalf("publish calls: want initial and 2 event batches, got %d", publisher.calls)
 	}
 }
 
@@ -93,7 +94,7 @@ func TestConsumeConfigWatchIgnoresProgressResponses(t *testing.T) {
 	cancel()
 
 	publisher := &fakeSnapshotPublisher{}
-	if err := consumeConfigWatch(ctx, ch, publisher); err != nil {
+	if err := consumeConfigWatch(ctx, ch, publisher, time.Millisecond); err != nil {
 		t.Fatalf("consume canceled watch: %v", err)
 	}
 	if publisher.calls != 0 {
@@ -106,7 +107,7 @@ func TestConsumeConfigWatchReturnsWatchError(t *testing.T) {
 	ch <- clientv3.WatchResponse{Canceled: true, CompactRevision: 3}
 	close(ch)
 
-	err := consumeConfigWatch(context.Background(), ch, &fakeSnapshotPublisher{})
+	err := consumeConfigWatch(context.Background(), ch, &fakeSnapshotPublisher{}, time.Millisecond)
 	if err == nil || !strings.Contains(err.Error(), "required revision has been compacted") {
 		t.Fatalf("unexpected compacted watch error: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestWatchConfigWithRetryReconnectsAndResyncs(t *testing.T) {
 		}
 	}}
 
-	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, 0)
+	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, time.Millisecond)
 
 	if watcher.calls != 2 {
 		t.Fatalf("watch attempts: want 2, got %d", watcher.calls)
@@ -150,10 +151,50 @@ func TestWatchConfigWithRetryEstablishesWatchBeforeInitialPublish(t *testing.T) 
 		cancel()
 	}}
 
-	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, 0)
+	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, time.Millisecond)
 
 	if got := strings.Join(sequence, ","); got != "watch,publish" {
 		t.Fatalf("startup sequence: want watch,publish, got %s", got)
+	}
+}
+
+func TestWatchConfigWithRetryRetriesInitialPublishWithoutEvents(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	watcher := &fakeConfigWatcher{channels: []clientv3.WatchChan{make(chan clientv3.WatchResponse)}}
+	publisher := &fakeSnapshotPublisher{failures: 1, onCall: func(call int) {
+		if call == 2 {
+			cancel()
+		}
+	}}
+
+	watchConfigWithRetry(ctx, watcher, "/pixiu/config/api", publisher, time.Millisecond)
+
+	if publisher.calls != 2 || watcher.calls != 1 {
+		t.Fatalf("want retry on the same watch, got %d publications and %d watches", publisher.calls, watcher.calls)
+	}
+}
+
+func TestConsumeConfigWatchRetriesFailedEventWithoutNewEvents(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ch := make(chan clientv3.WatchResponse, 1)
+	ch <- clientv3.WatchResponse{Events: []*clientv3.Event{{}}}
+	publisher := &fakeSnapshotPublisher{}
+	publisher.onCall = func(call int) {
+		if call == 2 {
+			publisher.failures = 1
+		}
+		if call == 3 {
+			cancel()
+		}
+	}
+
+	if err := consumeConfigWatch(ctx, ch, publisher, time.Millisecond); err != nil {
+		t.Fatalf("consume watch: %v", err)
+	}
+	if publisher.calls != 3 {
+		t.Fatalf("want initial, failed event and retry publications, got %d", publisher.calls)
 	}
 }
 
