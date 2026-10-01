@@ -22,6 +22,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 )
 
 import (
@@ -32,6 +33,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
+	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -50,6 +52,11 @@ type closeTrackingListenerService struct {
 	closed int
 }
 
+type handoffTrackingListenerService struct {
+	starts int
+	stops  int
+}
+
 var _ listener.ListenerService = (*legacyListenerService)(nil)
 
 func (s *legacyListenerService) Start() error       { return nil }
@@ -64,6 +71,18 @@ func (s *closeTrackingListenerService) Start() error                 { return ni
 func (s *closeTrackingListenerService) Close() error                 { s.closed++; return nil }
 func (s *closeTrackingListenerService) ShutDown(any) error           { return nil }
 func (s *closeTrackingListenerService) Refresh(model.Listener) error { return nil }
+
+func (s *handoffTrackingListenerService) Start() error {
+	s.starts++
+	return nil
+}
+func (s *handoffTrackingListenerService) StopAccepting() error {
+	s.stops++
+	return nil
+}
+func (s *handoffTrackingListenerService) Close() error                 { return nil }
+func (s *handoffTrackingListenerService) ShutDown(any) error           { return nil }
+func (s *handoffTrackingListenerService) Refresh(model.Listener) error { return nil }
 
 func (s *transactionListenerService) Start() error       { return nil }
 func (s *transactionListenerService) Close() error       { return nil }
@@ -221,6 +240,123 @@ func TestListenerManager_ReplaceXDSListenersNACKsOccupiedPortBeforeCommit(t *tes
 	require.True(t, lm.HasListener(oldKey))
 	require.Equal(t, []string{oldKey}, lm.XDSListenerNames())
 	require.False(t, lm.HasListener(resolveListenerName(candidate)))
+}
+
+func TestListenerManager_ReplaceXDSListenersHandsOffHTTPPort(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		oldProtocol model.ProtocolType
+		oldName     string
+		newProtocol model.ProtocolType
+		newName     string
+	}{
+		{name: "HTTP to HTTP2", oldProtocol: model.ProtocolTypeHTTP, oldName: "HTTP", newProtocol: model.ProtocolTypeHTTP2, newName: "HTTP2"},
+		{name: "HTTP2 to HTTP", oldProtocol: model.ProtocolTypeHTTP2, oldName: "HTTP2", newProtocol: model.ProtocolTypeHTTP, newName: "HTTP"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			reservation, err := net.Listen("tcp", "127.0.0.1:0")
+			require.NoError(t, err)
+			port := reservation.Addr().(*net.TCPAddr).Port
+			require.NoError(t, reservation.Close())
+
+			manager := &ListenerManager{
+				bootstrap:             &model.Bootstrap{},
+				activeListenerService: make(map[string]*wrapListenerService),
+				xdsManaged:            make(map[string]struct{}),
+				rwLock:                &sync.RWMutex{},
+				updateGate:            &sync.RWMutex{},
+			}
+			t.Cleanup(func() { require.NoError(t, manager.ReplaceXDSListeners(nil)) })
+			old := &model.Listener{Name: "before", Protocol: tt.oldProtocol, ProtocolStr: tt.oldName}
+			old.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: port}
+			require.NoError(t, manager.ReplaceXDSListeners([]*model.Listener{old}))
+
+			next := &model.Listener{Name: "after", Protocol: tt.newProtocol, ProtocolStr: tt.newName}
+			next.Address.SocketAddress = old.Address.SocketAddress
+			require.NoError(t, manager.ReplaceXDSListeners([]*model.Listener{next}))
+			require.False(t, manager.HasListener(resolveListenerName(old)))
+			require.True(t, manager.HasListener(resolveListenerName(next)))
+			connection, err := net.DialTimeout("tcp", reservation.Addr().String(), time.Second)
+			require.NoError(t, err)
+			require.NoError(t, connection.Close())
+		})
+	}
+}
+
+func TestListenerManager_ReplaceXDSListenersRestoresOldListenerOnHandoffBindFailure(t *testing.T) {
+	occupied, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = occupied.Close() })
+	port := occupied.Addr().(*net.TCPAddr).Port
+
+	old := &model.Listener{Name: "old", Protocol: model.ProtocolTypeHTTP, ProtocolStr: "HTTP"}
+	old.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: port}
+	oldKey := resolveListenerName(old)
+	service := &handoffTrackingListenerService{}
+	manager := &ListenerManager{
+		bootstrap: &model.Bootstrap{},
+		activeListenerService: map[string]*wrapListenerService{
+			oldKey: {ListenerService: service, config: old},
+		},
+		xdsManaged: map[string]struct{}{oldKey: {}},
+		rwLock:     &sync.RWMutex{},
+		updateGate: &sync.RWMutex{},
+	}
+	next := &model.Listener{Name: "next", Protocol: model.ProtocolTypeHTTP2, ProtocolStr: "HTTP2"}
+	next.Address.SocketAddress = old.Address.SocketAddress
+
+	err = manager.ReplaceXDSListeners([]*model.Listener{next})
+
+	require.ErrorContains(t, err, "address already in use")
+	require.Equal(t, 1, service.stops)
+	require.Equal(t, 1, service.starts)
+	require.True(t, manager.HasListener(oldKey))
+	require.False(t, manager.HasListener(resolveListenerName(next)))
+	require.Equal(t, []string{oldKey}, manager.XDSListenerNames())
+}
+
+func TestListenerManager_ReplaceXDSListenersRestoresEarlierHandoffAfterLaterFailure(t *testing.T) {
+	firstPort, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	secondPort, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	ports := []net.Listener{firstPort, secondPort}
+	if firstPort.Addr().String() > secondPort.Addr().String() {
+		ports[0], ports[1] = ports[1], ports[0]
+	}
+	require.NoError(t, ports[0].Close())
+	t.Cleanup(func() { _ = ports[1].Close() })
+
+	manager := &ListenerManager{
+		bootstrap:             &model.Bootstrap{},
+		activeListenerService: make(map[string]*wrapListenerService),
+		xdsManaged:            make(map[string]struct{}),
+		rwLock:                &sync.RWMutex{},
+		updateGate:            &sync.RWMutex{},
+	}
+	t.Cleanup(func() { require.NoError(t, manager.ReplaceXDSListeners(nil)) })
+	first := &model.Listener{Name: "first", Protocol: model.ProtocolTypeHTTP, ProtocolStr: "HTTP"}
+	first.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: ports[0].Addr().(*net.TCPAddr).Port}
+	require.NoError(t, manager.ReplaceXDSListeners([]*model.Listener{first}))
+	second := &model.Listener{Name: "second", Protocol: model.ProtocolTypeHTTP, ProtocolStr: "HTTP"}
+	second.Address.SocketAddress = model.SocketAddress{Address: "127.0.0.1", Port: ports[1].Addr().(*net.TCPAddr).Port}
+	secondKey := resolveListenerName(second)
+	secondService := &handoffTrackingListenerService{}
+	manager.activeListenerService[secondKey] = &wrapListenerService{config: second, ListenerService: secondService}
+	manager.xdsManaged[secondKey] = struct{}{}
+	firstNext := &model.Listener{Name: "first-next", Protocol: model.ProtocolTypeHTTP2, ProtocolStr: "HTTP2", Address: first.Address}
+	secondNext := &model.Listener{Name: "second-next", Protocol: model.ProtocolTypeHTTP2, ProtocolStr: "HTTP2", Address: second.Address}
+
+	err = manager.ReplaceXDSListeners([]*model.Listener{firstNext, secondNext})
+
+	require.ErrorContains(t, err, "address already in use")
+	require.Equal(t, 1, secondService.starts)
+	require.Equal(t, 1, secondService.stops)
+	require.Equal(t, []string{resolveListenerName(first), secondKey}, manager.XDSListenerNames())
+	require.False(t, manager.HasListener(resolveListenerName(firstNext)))
+	connection, err := net.DialTimeout("tcp", ports[0].Addr().String(), time.Second)
+	require.NoError(t, err)
+	require.NoError(t, connection.Close())
 }
 
 func TestListenerManager_ReplaceXDSListenersRejectsInvalidFilter(t *testing.T) {

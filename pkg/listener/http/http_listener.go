@@ -51,7 +51,8 @@ type (
 	// ListenerService the facade of a listener
 	HttpListenerService struct {
 		*listener.BaseListenerService
-		srv *http.Server
+		srv      *http.Server
+		listener net.Listener
 	}
 
 	// DefaultHttpListener
@@ -84,14 +85,26 @@ func (ls *HttpListenerService) Start() error {
 }
 
 func (ls *HttpListenerService) Close() error {
-	var closeErr error
-	if ls.srv != nil {
-		closeErr = ls.srv.Close()
-	}
+	closeErr := ls.StopAccepting()
 	if filterErr := ls.CloseFilterChain(); closeErr == nil {
 		closeErr = filterErr
 	}
 	return closeErr
+}
+
+// StopAccepting closes the socket while retaining the filter chain for a
+// same-port xDS protocol handoff or rollback.
+func (ls *HttpListenerService) StopAccepting() error {
+	if ls.listener != nil {
+		_ = ls.listener.Close()
+	}
+	if ls.srv == nil {
+		return nil
+	}
+	if err := ls.srv.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		return err
+	}
+	return nil
 }
 
 func (ls *HttpListenerService) ShutDown(wg any) error {
@@ -142,11 +155,13 @@ func (ls *HttpListenerService) httpsListener() error {
 	if err != nil {
 		return errors.Wrapf(err, "bind HTTPS listener %s", ls.srv.Addr)
 	}
+	ls.listener = tcpListener
 	autoLs := tls.NewListener(tcpListener, m.TLSConfig())
 	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
+	server := ls.srv
 	go func() {
-		serveErr := ls.srv.Serve(autoLs)
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		serveErr := server.Serve(autoLs)
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, net.ErrClosed) {
 			logger.Errorf("[dubbo-go-server] httpsListener Serve error: %v", serveErr)
 		}
 	}()
@@ -179,9 +194,11 @@ func (ls *HttpListenerService) httpListener() error {
 	if err != nil {
 		return errors.Wrapf(err, "bind HTTP listener %s", ls.srv.Addr)
 	}
+	ls.listener = netListener
+	server := ls.srv
 	go func() {
-		serveErr := ls.srv.Serve(netListener)
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		serveErr := server.Serve(netListener)
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, net.ErrClosed) {
 			logger.Errorf("[dubbo-go-server] httpListener Serve error: %v", serveErr)
 		} else {
 			logger.Info("[dubbo-go-server] httpListener stopped gracefully.")

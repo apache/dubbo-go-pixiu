@@ -18,6 +18,7 @@
 package http2
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -123,9 +124,10 @@ func (ls *Http2ListenerService) Start() error {
 		Handler: h,
 	}
 
+	server := ls.server
 	go func() {
-		if err := ls.server.Serve(ls.listener); err != nil {
-			if err == http.ErrServerClosed {
+		if err := server.Serve(l); err != nil {
+			if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
 				logger.Infof("Listener %s closed", ls.Config.Name)
 				return
 			}
@@ -136,14 +138,26 @@ func (ls *Http2ListenerService) Start() error {
 }
 
 func (ls *Http2ListenerService) Close() error {
-	var closeErr error
-	if ls.server != nil {
-		closeErr = ls.server.Close()
-	}
+	closeErr := ls.StopAccepting()
 	if filterErr := ls.CloseFilterChain(); closeErr == nil {
 		closeErr = filterErr
 	}
 	return closeErr
+}
+
+// StopAccepting closes the socket while retaining the filter chain for a
+// same-port xDS protocol handoff or rollback.
+func (ls *Http2ListenerService) StopAccepting() error {
+	if ls.listener != nil {
+		_ = ls.listener.Close()
+	}
+	if ls.server == nil {
+		return nil
+	}
+	if err := ls.server.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		return err
+	}
+	return nil
 }
 
 func (ls *Http2ListenerService) ShutDown(wg any) error {

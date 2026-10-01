@@ -89,6 +89,10 @@ newer configuration.
   start. An invalid xDS listener update is NACKed. This is stricter than the
   previous behavior that silently omitted a bad filter; the Pixiu log identifies
   every rejected static listener.
+- An xDS switch between HTTP and HTTP2 on the same address and port briefly
+  closes the old socket before binding the new one. If the new bind fails, Pixiu
+  attempts to restart the old listener before NACKing the update. Another
+  process taking the port during the handoff can prevent that recovery.
 - An out-of-tree `ListenerService` still satisfies the public interface, but it
   must additionally implement the optional transactional refresh contract to
   receive xDS listener updates. Otherwise the update is NACKed and its

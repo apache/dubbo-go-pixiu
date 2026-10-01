@@ -237,7 +237,8 @@ func (lm *ListenerManager) UpsertXDSListener(m *model.Listener) error {
 // ReplaceXDSListeners replaces the complete xDS-owned listener set as one
 // transaction. Every filter chain is fully prepared first; new sockets must
 // bind successfully before the shared request gate publishes all changes.
-// Rejected responses therefore leave the last-good listener set running.
+// An HTTP/HTTP2 swap on the same socket closes the old listener before binding
+// the new one, and restores the old configuration if the new bind fails.
 func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) error {
 	lm.rwLock.Lock()
 	gate := lm.listenerUpdateGateLocked()
@@ -302,13 +303,83 @@ func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) erro
 		setListenerActive(service, false)
 		staged[key] = &wrapListenerService{config: listenerConfig, ListenerService: service}
 	}
+	// HTTP and HTTP2 have different management keys but cannot bind the same
+	// socket at once. Only xDS-owned listeners being removed may hand off a port.
+	handoffs := make(map[string]string)
+	handoffNew := make(map[string]struct{})
+	for newKey, next := range staged {
+		for oldKey := range lm.xdsManaged {
+			if _, keep := newManaged[oldKey]; keep {
+				continue
+			}
+			old := lm.activeListenerService[oldKey]
+			if old == nil || old.config == nil || !isHTTPProtocolHandoff(old.config, next.config) {
+				continue
+			}
+			if _, ok := old.ListenerService.(interface{ StopAccepting() error }); !ok {
+				lm.rwLock.Unlock()
+				return errors.Errorf("xDS listener %q does not support same-port handoff", oldKey)
+			}
+			if _, ok := next.ListenerService.(interface{ StopAccepting() error }); !ok {
+				lm.rwLock.Unlock()
+				return errors.Errorf("xDS listener %q does not support same-port handoff", newKey)
+			}
+			if _, exists := handoffs[oldKey]; exists {
+				lm.rwLock.Unlock()
+				return errors.Errorf("multiple xDS listeners replace socket %s", oldKey)
+			}
+			handoffs[oldKey] = newKey
+			handoffNew[newKey] = struct{}{}
+		}
+	}
 
 	gate.Lock()
 	for key, active := range staged {
+		if _, handoff := handoffNew[key]; handoff {
+			continue
+		}
 		if err := startListenerServiceSafely(active.ListenerService); err != nil {
 			gate.Unlock()
 			lm.rwLock.Unlock()
 			return errors.Wrapf(err, "start xDS listener %q", key)
+		}
+	}
+	closedForHandoff := make(map[string]*wrapListenerService, len(handoffs))
+	rollbackHandoffs := func(cause error) error {
+		for oldKey := range closedForHandoff {
+			newKey := handoffs[oldKey]
+			if next := staged[newKey]; next != nil {
+				if err := stopAcceptingSafely(next.ListenerService); err != nil {
+					cause = errors.Wrapf(cause, "stop rejected xDS listener %q failed: %v", newKey, err)
+				}
+			}
+		}
+		for key, old := range closedForHandoff {
+			if err := startListenerServiceSafely(old.ListenerService); err != nil {
+				cause = errors.Wrapf(cause, "restore xDS listener %q failed: %v", key, err)
+				continue
+			}
+			setListenerActive(old.ListenerService, true)
+		}
+		gate.Unlock()
+		lm.rwLock.Unlock()
+		return cause
+	}
+	handoffKeys := make([]string, 0, len(handoffs))
+	for oldKey := range handoffs {
+		handoffKeys = append(handoffKeys, oldKey)
+	}
+	slices.Sort(handoffKeys)
+	for _, oldKey := range handoffKeys {
+		newKey := handoffs[oldKey]
+		old := lm.activeListenerService[oldKey]
+		setListenerActive(old.ListenerService, false)
+		closedForHandoff[oldKey] = old
+		if err := stopAcceptingSafely(old.ListenerService); err != nil {
+			return rollbackHandoffs(errors.Wrapf(err, "close xDS listener %q for port handoff", oldKey))
+		}
+		if err := startListenerServiceSafely(staged[newKey].ListenerService); err != nil {
+			return rollbackHandoffs(errors.Wrapf(err, "start xDS listener %q after port handoff", newKey))
 		}
 	}
 
@@ -353,6 +424,20 @@ func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) erro
 		}
 	}
 	return nil
+}
+
+func isHTTPProtocolHandoff(old, next *model.Listener) bool {
+	if old == nil || next == nil {
+		return false
+	}
+	if old.Protocol == next.Protocol ||
+		(old.Protocol != model.ProtocolTypeHTTP && old.Protocol != model.ProtocolTypeHTTP2) ||
+		(next.Protocol != model.ProtocolTypeHTTP && next.Protocol != model.ProtocolTypeHTTP2) {
+		return false
+	}
+	oldSocket := old.Address.SocketAddress
+	nextSocket := next.Address.SocketAddress
+	return oldSocket.Port > 0 && oldSocket.Address == nextSocket.Address && oldSocket.Port == nextSocket.Port
 }
 
 func createListenerServiceSafely(listenerConfig *model.Listener, bootstrap *model.Bootstrap, gate *sync.RWMutex) (service listener.ListenerService, err error) {
@@ -404,6 +489,19 @@ func closeListenerServiceSafely(service listener.ListenerService) (err error) {
 		}
 	}()
 	return service.Close()
+}
+
+func stopAcceptingSafely(service listener.ListenerService) (err error) {
+	stopper, ok := service.(interface{ StopAccepting() error })
+	if !ok {
+		return errors.New("listener service does not support same-port handoff")
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("listener stop accepting panicked: %v", recovered)
+		}
+	}()
+	return stopper.StopAccepting()
 }
 
 func setListenerActive(service listener.ListenerService, active bool) {
