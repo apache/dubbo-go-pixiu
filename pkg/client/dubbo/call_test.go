@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -248,6 +249,41 @@ func TestWithAttachmentsPropagatesExternalSpanWhenTracingDisabled(t *testing.T) 
 	attachments, ok := ctx.Value(dubboConstant.AttachmentKey).(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "00-01000000000000000000000000000000-0200000000000000-01", attachments["traceparent"])
+}
+
+func TestCallPropagatesBaggageWithoutSpanWhenTracingDisabled(t *testing.T) {
+	restorePropagator(t, propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	previousTracingEnabled := tracingEnabled.Load()
+	t.Cleanup(func() { SetTracingEnabled(previousTracingEnabled) })
+	SetTracingEnabled(false)
+
+	member, err := baggage.NewMember("tenant", "blue")
+	require.NoError(t, err)
+	bag, err := baggage.New(member)
+	require.NoError(t, err)
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+
+	dc := NewDubboClient()
+	dc.SetConfig(&DubboProxyConfig{})
+	req := &DubboOutboundRequest{
+		Service:       "com.example.UserService",
+		Method:        "GetUser",
+		Address:       "127.0.0.1:20880",
+		Protocol:      "dubbo",
+		Serialization: "hessian2",
+	}
+	cacheServiceForOutbound(t, dc, req, &generic.GenericService{
+		Invoke: func(invokeCtx context.Context, _ string, _ []string, _ []hessian.Object) (any, error) {
+			attachments, ok := invokeCtx.Value(dubboConstant.AttachmentKey).(map[string]any)
+			require.True(t, ok, "Baggage must reach the Dubbo generic invocation")
+			require.Equal(t, "tenant=blue", attachments["baggage"])
+			return "ok", nil
+		},
+	})
+
+	res, err := dc.Call(ctx, req)
+	require.NoError(t, err)
+	require.Equal(t, "ok", res)
 }
 
 func TestCallAppliesTimeout(t *testing.T) {

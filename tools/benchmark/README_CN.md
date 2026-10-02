@@ -27,8 +27,8 @@
 
 | 方法 | Min | Median | Mean | StdDev | Max |
 | --- | --- | --- | --- | --- | --- |
-| GetUser（经 Pixiu） | 200µs | **500µs** | 600µs | 300µs | 2.5ms |
-| GetUsers（经 Pixiu） | 200µs | **500µs** | 500µs | 200µs | 1.7ms |
+| GetUser（经 Pixiu） | 200µs | **1ms** | 1.5ms | 1.9ms | 10.7ms |
+| GetUsers（经 Pixiu） | 300µs | **1.3ms** | 1.4ms | 700µs | 4.1ms |
 | SayHello（经 Pixiu） | 300µs | **800µs** | 900µs | 500µs | 7ms |
 | GetUser（直连） | 200µs | 500µs | 600µs | 300µs | 2.5ms |
 

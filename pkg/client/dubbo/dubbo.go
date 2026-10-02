@@ -103,6 +103,31 @@ type resolvedConsumerDefaults struct {
 	RequestTimeout time.Duration
 }
 
+// lazyTextMapCarrier avoids allocating a map on the no-attachment fast path.
+// A propagator allocates its backing map only if it actually injects a value.
+type lazyTextMapCarrier struct {
+	values map[string]string
+}
+
+func (c *lazyTextMapCarrier) Get(key string) string {
+	return c.values[key]
+}
+
+func (c *lazyTextMapCarrier) Set(key, value string) {
+	if c.values == nil {
+		c.values = make(map[string]string)
+	}
+	c.values[key] = value
+}
+
+func (c *lazyTextMapCarrier) Keys() []string {
+	keys := make([]string, 0, len(c.values))
+	for key := range c.values {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 type resolvedReferSpec struct {
 	Mode                   string
 	Interface              string
@@ -368,14 +393,22 @@ func (dc *Client) preparePayload(req *DubboOutboundRequest) ([]string, []hessian
 }
 
 func withAttachments(ctx context.Context, outbound map[string]any) context.Context {
-	// The internal tracing switch does not describe the caller's context. Keep
-	// the fast path only when there is no outbound state and no externally
-	// supplied span context that the global propagator must inject.
+	// The internal tracing switch does not describe the caller's context. A
+	// propagator may inject baggage even when there is no valid SpanContext, so
+	// the fast path must inspect its output instead of the context's span alone.
 	if !tracingEnabled.Load() &&
 		len(outbound) == 0 &&
-		ctx.Value(constant.AttachmentKey) == nil &&
-		!trace.SpanContextFromContext(ctx).IsValid() {
-		return ctx
+		ctx.Value(constant.AttachmentKey) == nil {
+		carrier := lazyTextMapCarrier{}
+		otel.GetTextMapPropagator().Inject(ctx, &carrier)
+		if len(carrier.values) == 0 {
+			return ctx
+		}
+		attachments := make(map[string]any, len(carrier.values))
+		for key, val := range carrier.values {
+			attachments[key] = val
+		}
+		return context.WithValue(ctx, constant.AttachmentKey, attachments)
 	}
 	attachments := make(map[string]any, len(outbound))
 	if attaRaw := ctx.Value(constant.AttachmentKey); attaRaw != nil {
