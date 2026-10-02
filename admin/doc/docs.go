@@ -114,6 +114,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/config/api/xds/status": {
+            "get": {
+                "description": "Returns xDS listener availability, last-good snapshot metadata, latest errors, readiness, and resource support matrix.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "XDS"
+                ],
+                "summary": "get Admin xDS publication status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
         "/config/api/cluster": {
             "put": {
                 "description": "Create a cluster by passing the YAML/JSON configuration for the cluster through the form's content field.",

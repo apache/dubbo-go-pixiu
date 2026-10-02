@@ -54,12 +54,36 @@ type (
 	DemoFilter struct {
 		str string
 	}
+	prepareErrorFactory  struct{}
+	closeTrackingFactory struct {
+		closes         int
+		panicOnPrepare bool
+	}
 	// Config describe the config of ResponseFilter
 	Config struct {
 		Foo string `json:"foo,omitempty" yaml:"foo,omitempty"`
 		Bar string `json:"bar,omitempty" yaml:"bar,omitempty"`
 	}
 )
+
+func (f *prepareErrorFactory) Config() any  { return &struct{}{} }
+func (f *prepareErrorFactory) Apply() error { return nil }
+func (f *prepareErrorFactory) PrepareFilterChain(*contexthttp.HttpContext, FilterChain) error {
+	return fmt.Errorf("prepare rejected")
+}
+
+func (f *closeTrackingFactory) Config() any  { return &struct{}{} }
+func (f *closeTrackingFactory) Apply() error { return nil }
+func (f *closeTrackingFactory) PrepareFilterChain(*contexthttp.HttpContext, FilterChain) error {
+	if f.panicOnPrepare {
+		panic("prepare panic")
+	}
+	return nil
+}
+func (f *closeTrackingFactory) Close() error {
+	f.closes++
+	return nil
+}
 
 func (p *Plugin) Kind() string {
 	return Kind
@@ -149,7 +173,7 @@ func TestReloadSkipsFailedFactoriesAndDoesNotReopenAfterClose(t *testing.T) {
 	fm := NewEmptyFilterManager()
 	fm.ReLoad([]*model.HTTPFilter{{Name: "missing-filter"}})
 	assert.Empty(t, fm.GetFactory())
-	assert.NotPanics(t, func() { fm.CreateFilterChain(&contexthttp.HttpContext{}) })
+	assert.NotPanics(t, func() { fm.CreateFilterChain(&contexthttp.HttpContext{}).Release() })
 
 	fm.ReLoad([]*model.HTTPFilter{{Name: DEMO}})
 	assert.Len(t, fm.GetFactory(), 1)
@@ -175,7 +199,7 @@ func TestReloadAndCloseDoNotReopenManager(t *testing.T) {
 }
 
 func runFilter(t *testing.T, fm *FilterManager, filtersConf []*model.HTTPFilter) {
-	fm.ReLoad(filtersConf)
+	assert.NoError(t, fm.ReLoadChecked(filtersConf))
 
 	filters := fm.GetFactory()
 	assert.Equal(t, len(filtersConf), len(filters))
@@ -183,7 +207,89 @@ func runFilter(t *testing.T, fm *FilterManager, filtersConf []*model.HTTPFilter)
 	baseContext := &contexthttp.HttpContext{}
 	baseContext.Reset()
 
-	chain := fm.CreateFilterChain(baseContext)
+	chain, err := fm.CreateFilterChainChecked(baseContext)
+	assert.NoError(t, err)
+	defer chain.Release()
 	chain.OnDecode(baseContext)
 	chain.OnEncode(baseContext)
+}
+
+func TestCreateFilterChainReturnsPrepareError(t *testing.T) {
+	factory := HttpFilterFactory(&prepareErrorFactory{})
+	fm := NewEmptyFilterManager()
+	fm.filtersArray = []*HttpFilterFactory{&factory}
+
+	_, err := fm.CreateFilterChainChecked(&contexthttp.HttpContext{})
+	assert.ErrorContains(t, err, "prepare rejected")
+}
+
+func TestCreateFilterChainPreservesBestEffortCompatibility(t *testing.T) {
+	rejected := HttpFilterFactory(&prepareErrorFactory{})
+	accepted := HttpFilterFactory(&DemoFilterFactory{conf: &Config{Foo: "Cat", Bar: "The Walnut"}})
+	fm := NewEmptyFilterManager()
+	fm.filtersArray = []*HttpFilterFactory{&rejected, &accepted}
+
+	chain := fm.CreateFilterChain(&contexthttp.HttpContext{})
+	defer chain.Release()
+	legacyChain, ok := chain.(*defaultFilterChain)
+	assert.True(t, ok)
+	assert.Len(t, legacyChain.decodeFilters, 1)
+	assert.Len(t, legacyChain.encodeFilters, 1)
+}
+
+func TestCreatedFilterChainsReleaseRetiredFactories(t *testing.T) {
+	builders := []struct {
+		name  string
+		build func(*FilterManager) (LeasedFilterChain, error)
+	}{
+		{"best effort", func(fm *FilterManager) (LeasedFilterChain, error) {
+			return fm.CreateFilterChain(&contexthttp.HttpContext{}), nil
+		}},
+		{"checked", func(fm *FilterManager) (LeasedFilterChain, error) {
+			return fm.CreateFilterChainChecked(&contexthttp.HttpContext{})
+		}},
+	}
+	for _, builder := range builders {
+		t.Run(builder.name, func(t *testing.T) {
+			tracking := &closeTrackingFactory{}
+			factory := HttpFilterFactory(tracking)
+			fm := NewEmptyFilterManager()
+			fm.filtersArray = []*HttpFilterFactory{&factory}
+
+			chain, err := builder.build(fm)
+			assert.NoError(t, err)
+			assert.NoError(t, fm.ReLoadChecked(nil))
+			assert.Equal(t, 0, tracking.closes)
+
+			chain.Release()
+			chain.Release()
+			assert.Equal(t, 1, tracking.closes)
+		})
+	}
+}
+
+func TestCreatedFilterChainsReleaseFactoriesOnPreparePanic(t *testing.T) {
+	builders := []struct {
+		name  string
+		build func(*FilterManager)
+	}{
+		{"best effort", func(fm *FilterManager) {
+			fm.CreateFilterChain(&contexthttp.HttpContext{})
+		}},
+		{"checked", func(fm *FilterManager) {
+			_, _ = fm.CreateFilterChainChecked(&contexthttp.HttpContext{})
+		}},
+	}
+	for _, builder := range builders {
+		t.Run(builder.name, func(t *testing.T) {
+			tracking := &closeTrackingFactory{panicOnPrepare: true}
+			factory := HttpFilterFactory(tracking)
+			fm := NewEmptyFilterManager()
+			fm.filtersArray = []*HttpFilterFactory{&factory}
+
+			assert.PanicsWithValue(t, "prepare panic", func() { builder.build(fm) })
+			assert.NoError(t, fm.ReLoadChecked(nil))
+			assert.Equal(t, 1, tracking.closes)
+		})
+	}
 }

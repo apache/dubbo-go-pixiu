@@ -141,7 +141,7 @@ func (m *MockListenerManager) EXPECT() *MockListenerManagerMockRecorder {
 	return m.recorder
 }
 
-// AddOrUpdateListener mocks base method.
+// AddListener mocks base method.
 func (m_2 *MockListenerManager) AddListener(m *model.Listener) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "AddListener", m)
@@ -149,10 +149,39 @@ func (m_2 *MockListenerManager) AddListener(m *model.Listener) error {
 	return ret0
 }
 
-// AddOrUpdateListener indicates an expected call of AddOrUpdateListener.
-func (mr *MockListenerManagerMockRecorder) AddOrUpdateListener(m any) *gomock.Call {
+// AddListener indicates an expected call of AddListener.
+func (mr *MockListenerManagerMockRecorder) AddListener(m any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddListener", reflect.TypeOf((*MockListenerManager)(nil).AddListener), m)
+}
+
+// CloneXdsControlListener mocks base method.
+func (m *MockListenerManager) CloneXdsControlListener() ([]*model.Listener, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloneXdsControlListener")
+	ret0, _ := ret[0].([]*model.Listener)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloneXdsControlListener indicates an expected call of CloneXdsControlListener.
+func (mr *MockListenerManagerMockRecorder) CloneXdsControlListener() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneXdsControlListener", reflect.TypeOf((*MockListenerManager)(nil).CloneXdsControlListener))
+}
+
+// HasListener mocks base method.
+func (m *MockListenerManager) HasListener(name string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasListener", name)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasListener indicates an expected call of HasListener.
+func (mr *MockListenerManagerMockRecorder) HasListener(name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasListener", reflect.TypeOf((*MockListenerManager)(nil).HasListener), name)
 }
 
 // RemoveListener mocks base method.
@@ -165,6 +194,20 @@ func (m *MockListenerManager) RemoveListener(names []string) {
 func (mr *MockListenerManagerMockRecorder) RemoveListener(names any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveListener", reflect.TypeOf((*MockListenerManager)(nil).RemoveListener), names)
+}
+
+// UpdateListener mocks base method.
+func (m *MockListenerManager) UpdateListener(listener *model.Listener) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateListener", listener)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateListener indicates an expected call of UpdateListener.
+func (mr *MockListenerManagerMockRecorder) UpdateListener(listener any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListener", reflect.TypeOf((*MockListenerManager)(nil).UpdateListener), listener)
 }
 
 // MockDynamicResourceManager is a mock of DynamicResourceManager interface.

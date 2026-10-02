@@ -51,6 +51,7 @@ require (
 	github.com/swaggo/swag v1.16.6
 	go.etcd.io/etcd/api/v3 v3.5.7
 	go.etcd.io/etcd/client/v3 v3.5.7
+	go.etcd.io/etcd/server/v3 v3.5.7
 	go.opentelemetry.io/otel v1.45.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0
@@ -70,6 +71,23 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/gorm v1.30.0
 	mosn.io/proxy-wasm-go-host v0.1.0
+)
+
+require (
+	github.com/google/btree v1.0.1 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
+	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
+	github.com/soheilhy/cmux v0.1.5 // indirect
+	github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 // indirect
+	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
+	go.etcd.io/bbolt v1.3.6 // indirect
+	go.etcd.io/etcd/client/v2 v2.305.7 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.5.7 // indirect
+	go.etcd.io/etcd/raft/v3 v3.5.7 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.25.0 // indirect
+	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
+	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 // Pin v2.0.2 to match github.com/go-openapi/spec v0.22.1 test dependencies
