@@ -126,6 +126,40 @@ Supported `mapTo` options:
 - opt.values
 ```
 
+#### Generic mode
+
+`integrationRequest.generic` selects how the generic invocation carries its payload:
+
+```yaml
+- "true"        # default, map mode: values are sent as typed arguments and the result is a map
+- gson          # the request is sent as JSON text and the result is JSON text
+- protobuf-json # the request is sent as protobuf JSON text and the result is protobuf JSON text
+- bean          # Java bean compatible mode
+```
+
+The map mode keeps the `opt.values` and `opt.types` contract above: `values` is the argument list and `types` holds the Java type name of each argument.
+
+The `gson` and `protobuf-json` modes send the whole request message as JSON text, so `values` must contain exactly one element and `parameterTypes` must declare exactly one type, which describes the request message itself:
+
+```yaml
+integrationRequest:
+  requestType: dubbo
+  interface: com.example.Greeter
+  method: SayHello
+  protocol: tri
+  serialization: hessian2
+  generic: protobuf-json
+  parameterTypes:
+    - com.example.HelloRequest
+  mappingParams:
+    - name: requestBody.values
+      mapTo: opt.values
+```
+
+A request body of `{"values":{"name":"test"}}` is sent as the single generic argument `{"name":"test"}`, and the JSON text the provider returns is written as the response body instead of a quoted string.
+
+Provider requirements: over Triple the provider has to declare `serialization: hessian2` and expose the generic `$invoke` entry point. dubbo-go registers it for non-IDL services by default, and for IDL exported services since [apache/dubbo-go#3752](https://github.com/apache/dubbo-go/pull/3752).
+
 #### Options
 
 By configuring mapTo with option keywords(listed below), Pixiu will assemble generic params to invoke.

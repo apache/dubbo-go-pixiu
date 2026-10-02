@@ -51,6 +51,7 @@ type outboundBuildState struct {
 	address       string
 	protocol      string
 	serialization string
+	generic       string
 	arguments     []any
 	paramTypes    []string
 	optValues     []any
@@ -87,6 +88,7 @@ func (h *DubboHandler) BuildOutbound(req *http.Request, api router.API) (*client
 		Address:       state.address,
 		Protocol:      state.protocol,
 		Serialization: state.serialization,
+		Generic:       state.generic,
 		Arguments:     append([]any(nil), state.arguments...),
 		ParamTypes:    append([]string(nil), state.paramTypes...),
 	}, nil
@@ -109,6 +111,10 @@ func (h *DubboHandler) newState(req *http.Request, api router.API) (*outboundBui
 	}
 
 	ir := api.IntegrationRequest
+	generic, err := clientdubbo.NormalizeGenericMode(ir.Generic)
+	if err != nil {
+		return nil, err
+	}
 	return &outboundBuildState{
 		service:       ir.Interface,
 		method:        ir.Method,
@@ -116,6 +122,7 @@ func (h *DubboHandler) newState(req *http.Request, api router.API) (*outboundBui
 		version:       ir.Version,
 		protocol:      h.resolveDeclaredProtocol(ir),
 		serialization: strings.TrimSpace(ir.Serialization),
+		generic:       generic,
 		body:          body,
 	}, nil
 }
@@ -146,9 +153,17 @@ func (h *DubboHandler) applyMapping(state *outboundBuildState, req *http.Request
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 
-	converted, err := clientdubbo.MapTypes(mp.MapType, value)
-	if err != nil {
-		return err
+	// JSON text modes carry the request as text, so the declared type of a
+	// positional mapping describes the message instead of a scalar to convert.
+	var converted any
+	if clientdubbo.IsJSONTextGenericMode(state.generic) {
+		converted = value
+	} else {
+		mapped, mapErr := clientdubbo.MapTypes(mp.MapType, value)
+		if mapErr != nil {
+			return mapErr
+		}
+		converted = mapped
 	}
 
 	if pos >= len(state.arguments) {
@@ -399,6 +414,12 @@ func (h *DubboHandler) finalizeArgumentsAndTypes(state *outboundBuildState, ir c
 		state.arguments = append([]any(nil), state.optValues...)
 	}
 
+	// gson and protobuf-json hand the request message to the provider as text,
+	// so they take one argument instead of a list of typed arguments.
+	if clientdubbo.IsJSONTextGenericMode(state.generic) {
+		return h.finalizeJSONTextArguments(state, ir)
+	}
+
 	// Generic invoke requires values and Java parameter types to stay aligned.
 	if ir.ParameterTypes != nil {
 		state.paramTypes = append([]string(nil), ir.ParameterTypes...)
@@ -444,5 +465,37 @@ func (h *DubboHandler) coerceDeclaredArguments(state *outboundBuildState) error 
 		values[i] = mapped
 	}
 	state.arguments = values
+	return nil
+}
+
+// finalizeJSONTextArguments renders the mapped value as the single JSON text
+// argument that the gson and protobuf-json modes send, and keeps the declared
+// parameter types describing one message. The provider derives the argument
+// type from the method signature, so the declared type is informational here.
+func (h *DubboHandler) finalizeJSONTextArguments(state *outboundBuildState, ir config.IntegrationRequest) error {
+	if len(state.arguments) != 1 {
+		return errors.Errorf("generic mode %s requires exactly one argument, got %d", state.generic, len(state.arguments))
+	}
+
+	payload, err := clientdubbo.EncodeJSONTextArgument(state.arguments[0])
+	if err != nil {
+		return err
+	}
+	state.arguments = []any{payload}
+
+	switch {
+	case ir.ParameterTypes != nil:
+		state.paramTypes = append([]string(nil), ir.ParameterTypes...)
+	case state.optTypes != nil:
+		state.paramTypes = append([]string(nil), state.optTypes...)
+	case strings.TrimSpace(ir.URL) != "":
+		return errors.New("direct generic invoke requires parameterTypes")
+	default:
+		state.paramTypes = clientdubbo.InferJavaClassNames(state.arguments)
+	}
+
+	if len(state.paramTypes) != 1 {
+		return errors.Errorf("generic mode %s requires exactly one parameter type, got %d", state.generic, len(state.paramTypes))
+	}
 	return nil
 }
