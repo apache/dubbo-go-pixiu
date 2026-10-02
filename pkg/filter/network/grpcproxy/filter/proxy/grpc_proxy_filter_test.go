@@ -18,9 +18,57 @@
 package proxy
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 )
+
+import (
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	grpcCtx "github.com/apache/dubbo-go-pixiu/pkg/context/grpc"
+)
+
+func TestFilter_HandleStreamCanonicalMethod(t *testing.T) {
+	var backendMethod string
+	streamErr := errors.New("intercepted backend stream")
+	conn, err := grpc.NewClient(
+		"passthrough:///backend",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStreamInterceptor(func(_ context.Context, _ *grpc.StreamDesc, _ *grpc.ClientConn, method string, _ grpc.Streamer, _ ...grpc.CallOption) (grpc.ClientStream, error) {
+			backendMethod = method
+			return nil, streamErr
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	proxyFilter := &Filter{Config: &Config{ReflectionMode: ReflectionModePassthrough}}
+	proxyFilter.clientConnPool.Store("backend", conn)
+	ctx := &grpcCtx.GrpcContext{
+		Context:     context.Background(),
+		ServiceName: "echo.EchoService",
+		MethodName:  "Echo",
+	}
+
+	status := proxyFilter.handleStream(ctx, "backend")
+	if backendMethod != "/echo.EchoService/Echo" {
+		t.Fatalf("backend method = %q, want %q", backendMethod, "/echo.EchoService/Echo")
+	}
+	if status != filter.Stop {
+		t.Errorf("filter status = %v, want %v", status, filter.Stop)
+	}
+	if ctx.Error == nil {
+		t.Error("expected stream creation error")
+	}
+}
 
 func TestParseDurationWithDefault(t *testing.T) {
 	tests := []struct {
