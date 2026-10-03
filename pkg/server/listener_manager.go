@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -47,9 +48,16 @@ type wrapListenerService struct {
 	config *model.Listener
 }
 
-// ShutdownFunc is the signature for a listener shutdown function.
-// It returns an error if shutdown failed.
-type ShutdownFunc func() error
+type shutdownFunc func() error
+
+// transactionalListenerService is deliberately separate from the public
+// listener.ListenerService interface. Existing out-of-tree listener plugins
+// keep compiling; they may opt into atomic xDS updates by implementing this
+// additional contract.
+type transactionalListenerService interface {
+	PrepareRefresh(model.Listener) (*listener.PreparedUpdate, error)
+	CommitRefresh(*listener.PreparedUpdate) *listener.RetiredUpdate
+}
 
 // ListenerManager the listener manager
 type ListenerManager struct {
@@ -57,21 +65,26 @@ type ListenerManager struct {
 
 	// name(host-port-protocol) -> wrapListenerService
 	activeListenerService map[string]*wrapListenerService
+	// xdsManaged contains only listener keys created through the xDS API.
+	xdsManaged map[string]struct{}
 	//readWriteLock
 	rwLock *sync.RWMutex
-	//shutdownWaitGroup
-	shutdownWG *sync.WaitGroup
+	// updateGate is shared by every listener request path. ReplaceXDSListeners
+	// takes it exclusively while publishing all prepared filter chains.
+	updateGate *sync.RWMutex
 }
 
 // CreateDefaultListenerManager create listener manager from config
 func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 	listeners := map[string]*wrapListenerService{}
+	updateGate := &sync.RWMutex{}
 	sl := bs.GetStaticListeners()
 
 	for _, lsCof := range sl {
-		ls, err := listener.CreateListenerService(lsCof, bs)
+		ls, err := listener.CreateListenerServiceWithUpdateGate(lsCof, bs, updateGate)
 		if err != nil {
 			logger.Errorf("CreateDefaultListenerManager %s error: %v", lsCof.Name, err)
+			continue
 		}
 		listeners[resolveListenerName(lsCof)] = &wrapListenerService{
 			config:          lsCof,
@@ -81,9 +94,10 @@ func CreateDefaultListenerManager(bs *model.Bootstrap) *ListenerManager {
 
 	lm := &ListenerManager{
 		activeListenerService: listeners,
+		xdsManaged:            make(map[string]struct{}),
 		bootstrap:             bs,
 		rwLock:                &sync.RWMutex{},
-		shutdownWG:            &sync.WaitGroup{},
+		updateGate:            updateGate,
 	}
 	lm.gracefulShutdownInit()
 
@@ -103,46 +117,61 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		sig := <-signals
 		logger.Infof("get signal %s, dubbo-go-pixiu will start shutdown.", sig)
 
-		// Handle shutdown signal (extracted for testability)
 		shutdownErrors, timedOut := lm.handleShutdownSignal(sig, timeout)
 
-		// Exit with appropriate code based on shutdown errors
 		if len(shutdownErrors) > 0 {
 			logger.Errorf("Shutdown completed with %d errors", len(shutdownErrors))
-			os.Exit(1)
 		}
 		if timedOut {
 			logger.Warn("Shutdown gracefully timeout, some listeners may not have shut down cleanly")
 		}
-		os.Exit(0)
+		os.Exit(shutdownExitCode(shutdownErrors, timedOut))
 	}()
+}
+
+func shutdownExitCode(shutdownErrors []error, timedOut bool) int {
+	if timedOut || len(shutdownErrors) > 0 {
+		return 1
+	}
+	return 0
 }
 
 // handleShutdownSignal processes a shutdown signal by coordinating listener shutdowns.
 // It returns a slice of errors from failed shutdowns and a boolean indicating timeout.
 // This function is extracted from gracefulShutdownInit for testability.
 func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Duration) ([]error, bool) {
-	// Build shutdown functions for all listeners
-	shutdownFuncs := make([]ShutdownFunc, 0, len(lm.activeListenerService))
+	lm.rwLock.RLock()
+	listeners := make([]*wrapListenerService, 0, len(lm.activeListenerService))
 	for _, listener := range lm.activeListenerService {
+		listeners = append(listeners, listener)
+	}
+	lm.rwLock.RUnlock()
+
+	shutdownWG := &sync.WaitGroup{}
+	shutdownWG.Add(len(listeners))
+	shutdownFuncs := make([]shutdownFunc, 0, len(listeners))
+	for _, listener := range listeners {
 		shutdownFuncs = append(shutdownFuncs, func() error {
-			lm.shutdownWG.Add(1)
-			// Note: listener.ShutDown() internally calls wg.Done()
-			return listener.ShutDown(lm.shutdownWG)
+			return listener.ShutDown(shutdownWG)
 		})
 	}
 
-	// Execute shutdown coordination
 	shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout)
 
-	// those signals' original behavior is exit with dump ths stack, so we try to keep the behavior
-	for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
-		if sig == dumpSignal {
-			debug.WriteHeapDump(os.Stdout.Fd())
-		}
+	if shouldDumpHeap(sig) {
+		debug.WriteHeapDump(os.Stdout.Fd())
 	}
 
 	return shutdownErrors, timedOut
+}
+
+func shouldDumpHeap(sig os.Signal) bool {
+	for _, dumpSignal := range shutdown.DumpHeapShutdownSignals {
+		if sig == dumpSignal {
+			return true
+		}
+	}
+	return false
 }
 
 // shutdownListeners coordinates the shutdown of multiple listeners.
@@ -155,7 +184,7 @@ func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Dura
 // would let a single slow listener be considered "done" early and cause the
 // caller to os.Exit(0) and interrupt the graceful shutdown of listeners that
 // are still within their allowed time (P0 review feedback on PR #993).
-func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]error, bool) {
+func shutdownListeners(shutdownFuncs []shutdownFunc, timeout time.Duration) ([]error, bool) {
 	if len(shutdownFuncs) == 0 {
 		return nil, false
 	}
@@ -168,8 +197,8 @@ func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]e
 
 	var completed int32
 	// Start shutdown for all listeners
-	for _, shutdownFunc := range shutdownFuncs {
-		go func(fn ShutdownFunc) {
+	for _, fn := range shutdownFuncs {
+		go func(fn shutdownFunc) {
 			err := fn()
 			if err != nil {
 				logger.Errorf("Shutdown Error: %+v", err)
@@ -178,7 +207,7 @@ func shutdownListeners(shutdownFuncs []ShutdownFunc, timeout time.Duration) ([]e
 			atomic.AddInt32(&completed, 1)
 			// Signal that this goroutine has completed (after the error send).
 			doneCh <- struct{}{}
-		}(shutdownFunc)
+		}(fn)
 	}
 
 	// Wait for every listener to finish, bounded only by the overall timeout.
@@ -226,7 +255,7 @@ func resolveListenerName(c *model.Listener) string {
 
 func (lm *ListenerManager) AddListener(lsConf *model.Listener) error {
 	logger.Infof("Add Listener %s", lsConf.Name)
-	ls, err := listener.CreateListenerService(lsConf, lm.bootstrap)
+	ls, err := listener.CreateListenerServiceWithUpdateGate(lsConf, lm.bootstrap, lm.listenerUpdateGate())
 	if err != nil {
 		return err
 	}
@@ -257,6 +286,370 @@ func (lm *ListenerManager) UpdateListener(m *model.Listener) error {
 		return err
 	}
 	return nil
+}
+
+// UpsertXDSListener adds or updates a listener owned by xDS. An xDS resource
+// is not allowed to replace a listener created from static configuration.
+func (lm *ListenerManager) UpsertXDSListener(m *model.Listener) error {
+	if m == nil {
+		return errors.New("xDS listener config is nil")
+	}
+
+	listenerKey := resolveListenerName(m)
+	lm.rwLock.Lock()
+	if active, exists := lm.activeListenerService[listenerKey]; exists {
+		if _, owned := lm.xdsManaged[listenerKey]; !owned {
+			lm.rwLock.Unlock()
+			return errors.Errorf("xDS listener %q conflicts with a non-xDS listener", listenerKey)
+		}
+		logger.Infof("Update xDS Listener %s (key: %s)", m.Name, listenerKey)
+		if err := active.Refresh(*m); err != nil {
+			lm.rwLock.Unlock()
+			return errors.Wrapf(err, "refresh xDS listener %q", listenerKey)
+		}
+		active.config = m
+		lm.rwLock.Unlock()
+		return nil
+	}
+
+	gate := lm.listenerUpdateGateLocked()
+	ls, err := listener.CreateListenerServiceWithUpdateGate(m, lm.bootstrap, gate)
+	if err != nil {
+		lm.rwLock.Unlock()
+		return err
+	}
+	setListenerActive(ls, false)
+	gate.Lock()
+	if err := startListenerServiceSafely(ls); err != nil {
+		gate.Unlock()
+		lm.rwLock.Unlock()
+		_ = closeListenerServiceSafely(ls)
+		return errors.Wrapf(err, "start xDS listener %q", listenerKey)
+	}
+	lm.activeListenerService[listenerKey] = &wrapListenerService{
+		config:          m,
+		ListenerService: ls,
+	}
+	lm.xdsManaged[listenerKey] = struct{}{}
+	setListenerActive(ls, true)
+	gate.Unlock()
+	lm.rwLock.Unlock()
+
+	logger.Infof("Add xDS Listener %s (key: %s)", m.Name, listenerKey)
+	return nil
+}
+
+// ReplaceXDSListeners replaces the complete xDS-owned listener set as one
+// transaction. Every filter chain is fully prepared first; new sockets must
+// bind successfully before the shared request gate publishes all changes.
+// An HTTP/HTTP2 swap on the same socket closes the old listener before binding
+// the new one, and restores the old configuration if the new bind fails.
+func (lm *ListenerManager) ReplaceXDSListeners(listeners []*model.Listener) error {
+	lm.rwLock.Lock()
+	gate := lm.listenerUpdateGateLocked()
+
+	newManaged := make(map[string]struct{}, len(listeners))
+	staged := make(map[string]*wrapListenerService)
+	type refreshTarget struct {
+		key           string
+		active        *wrapListenerService
+		transactional transactionalListenerService
+		next          *model.Listener
+		prepared      *listener.PreparedUpdate
+	}
+	refreshes := make([]refreshTarget, 0, len(listeners))
+	closePrepared := func() {
+		for _, target := range refreshes {
+			if err := listener.ClosePreparedUpdate(target.prepared); err != nil {
+				logger.Warnf("close rejected xDS listener %s filter chain: %v", target.key, err)
+			}
+		}
+	}
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		closePrepared()
+		closeStagedListeners(staged)
+	}()
+
+	for _, listenerConfig := range listeners {
+		if listenerConfig == nil {
+			lm.rwLock.Unlock()
+			return errors.New("xDS listener config is nil")
+		}
+		key := resolveListenerName(listenerConfig)
+		if _, duplicate := newManaged[key]; duplicate {
+			lm.rwLock.Unlock()
+			return errors.Errorf("duplicate xDS listener %q", key)
+		}
+		newManaged[key] = struct{}{}
+
+		if active := lm.activeListenerService[key]; active != nil {
+			if _, owned := lm.xdsManaged[key]; !owned {
+				lm.rwLock.Unlock()
+				return errors.Errorf("xDS listener %q conflicts with a non-xDS listener", key)
+			}
+			transactional, prepared, err := prepareListenerRefreshSafely(active.ListenerService, *listenerConfig)
+			if err != nil {
+				lm.rwLock.Unlock()
+				return errors.Wrapf(err, "prepare xDS listener %q", key)
+			}
+			refreshes = append(refreshes, refreshTarget{key: key, active: active, transactional: transactional, next: listenerConfig, prepared: prepared})
+			continue
+		}
+
+		service, err := createListenerServiceSafely(listenerConfig, lm.bootstrap, gate)
+		if err != nil {
+			lm.rwLock.Unlock()
+			return errors.Wrapf(err, "create xDS listener %q", key)
+		}
+		setListenerActive(service, false)
+		staged[key] = &wrapListenerService{config: listenerConfig, ListenerService: service}
+	}
+	// HTTP and HTTP2 have different management keys but cannot bind the same
+	// socket at once. Only xDS-owned listeners being removed may hand off a port.
+	handoffs := make(map[string]string)
+	handoffNew := make(map[string]struct{})
+	for newKey, next := range staged {
+		for oldKey := range lm.xdsManaged {
+			if _, keep := newManaged[oldKey]; keep {
+				continue
+			}
+			old := lm.activeListenerService[oldKey]
+			if old == nil || old.config == nil || !isHTTPProtocolHandoff(old.config, next.config) {
+				continue
+			}
+			if _, ok := old.ListenerService.(interface{ StopAccepting() error }); !ok {
+				lm.rwLock.Unlock()
+				return errors.Errorf("xDS listener %q does not support same-port handoff", oldKey)
+			}
+			if _, ok := next.ListenerService.(interface{ StopAccepting() error }); !ok {
+				lm.rwLock.Unlock()
+				return errors.Errorf("xDS listener %q does not support same-port handoff", newKey)
+			}
+			if _, exists := handoffs[oldKey]; exists {
+				lm.rwLock.Unlock()
+				return errors.Errorf("multiple xDS listeners replace socket %s", oldKey)
+			}
+			handoffs[oldKey] = newKey
+			handoffNew[newKey] = struct{}{}
+		}
+	}
+
+	gate.Lock()
+	for key, active := range staged {
+		if _, handoff := handoffNew[key]; handoff {
+			continue
+		}
+		if err := startListenerServiceSafely(active.ListenerService); err != nil {
+			gate.Unlock()
+			lm.rwLock.Unlock()
+			return errors.Wrapf(err, "start xDS listener %q", key)
+		}
+	}
+	closedForHandoff := make(map[string]*wrapListenerService, len(handoffs))
+	rollbackHandoffs := func(cause error) error {
+		for oldKey := range closedForHandoff {
+			newKey := handoffs[oldKey]
+			if next := staged[newKey]; next != nil {
+				if err := stopAcceptingSafely(next.ListenerService); err != nil {
+					cause = errors.Wrapf(cause, "stop rejected xDS listener %q failed: %v", newKey, err)
+				}
+			}
+		}
+		for key, old := range closedForHandoff {
+			if err := startListenerServiceSafely(old.ListenerService); err != nil {
+				cause = errors.Wrapf(cause, "restore xDS listener %q failed: %v", key, err)
+				continue
+			}
+			setListenerActive(old.ListenerService, true)
+		}
+		gate.Unlock()
+		lm.rwLock.Unlock()
+		return cause
+	}
+	handoffKeys := make([]string, 0, len(handoffs))
+	for oldKey := range handoffs {
+		handoffKeys = append(handoffKeys, oldKey)
+	}
+	slices.Sort(handoffKeys)
+	for _, oldKey := range handoffKeys {
+		newKey := handoffs[oldKey]
+		old := lm.activeListenerService[oldKey]
+		setListenerActive(old.ListenerService, false)
+		closedForHandoff[oldKey] = old
+		if err := stopAcceptingSafely(old.ListenerService); err != nil {
+			return rollbackHandoffs(errors.Wrapf(err, "close xDS listener %q for port handoff", oldKey))
+		}
+		if err := startListenerServiceSafely(staged[newKey].ListenerService); err != nil {
+			return rollbackHandoffs(errors.Wrapf(err, "start xDS listener %q after port handoff", newKey))
+		}
+	}
+
+	removed := make(map[string]*wrapListenerService)
+	for key := range lm.xdsManaged {
+		if _, keep := newManaged[key]; !keep {
+			removed[key] = lm.activeListenerService[key]
+			if removed[key] != nil {
+				setListenerActive(removed[key].ListenerService, false)
+			}
+			delete(lm.activeListenerService, key)
+		}
+	}
+	retiredUpdates := make([]*listener.RetiredUpdate, 0, len(refreshes))
+	for _, target := range refreshes {
+		if old := target.transactional.CommitRefresh(target.prepared); old != nil {
+			retiredUpdates = append(retiredUpdates, old)
+		}
+		target.active.config = target.next
+	}
+	for key, active := range staged {
+		lm.activeListenerService[key] = active
+		setListenerActive(active.ListenerService, true)
+	}
+	lm.xdsManaged = newManaged
+	committed = true
+	gate.Unlock()
+	lm.rwLock.Unlock()
+
+	for _, old := range retiredUpdates {
+		if err := old.Close(); err != nil {
+			logger.Warnf("close replaced xDS listener filter chain: %v", err)
+		}
+	}
+	for key, active := range removed {
+		if active == nil || active.ListenerService == nil {
+			continue
+		}
+		logger.Infof("xDS listener %s closing", key)
+		if err := active.Close(); err != nil {
+			logger.Errorf("close xDS listener %s service error: %s", key, err)
+		}
+	}
+	return nil
+}
+
+func isHTTPProtocolHandoff(old, next *model.Listener) bool {
+	if old == nil || next == nil {
+		return false
+	}
+	if old.Protocol == next.Protocol ||
+		(old.Protocol != model.ProtocolTypeHTTP && old.Protocol != model.ProtocolTypeHTTP2) ||
+		(next.Protocol != model.ProtocolTypeHTTP && next.Protocol != model.ProtocolTypeHTTP2) {
+		return false
+	}
+	oldSocket := old.Address.SocketAddress
+	nextSocket := next.Address.SocketAddress
+	return oldSocket.Port > 0 && oldSocket.Address == nextSocket.Address && oldSocket.Port == nextSocket.Port
+}
+
+func createListenerServiceSafely(listenerConfig *model.Listener, bootstrap *model.Bootstrap, gate *sync.RWMutex) (service listener.ListenerService, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			service = nil
+			err = errors.Errorf("listener factory panicked: %v", recovered)
+		}
+	}()
+	return listener.CreateListenerServiceWithUpdateGate(listenerConfig, bootstrap, gate)
+}
+
+func prepareListenerRefreshSafely(service listener.ListenerService, listenerConfig model.Listener) (transactional transactionalListenerService, update *listener.PreparedUpdate, err error) {
+	if service == nil {
+		return nil, nil, errors.New("listener service is nil")
+	}
+	transactional, ok := service.(transactionalListenerService)
+	if !ok {
+		return nil, nil, errors.New("listener service does not support transactional xDS refresh")
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("listener refresh panicked: %v", recovered)
+		}
+	}()
+	update, err = transactional.PrepareRefresh(listenerConfig)
+	return transactional, update, err
+}
+
+func startListenerServiceSafely(service listener.ListenerService) (err error) {
+	if service == nil {
+		return errors.New("listener service is nil")
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("listener start panicked: %v", recovered)
+		}
+	}()
+	return service.Start()
+}
+
+func closeListenerServiceSafely(service listener.ListenerService) (err error) {
+	if service == nil {
+		return nil
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("listener close panicked: %v", recovered)
+		}
+	}()
+	return service.Close()
+}
+
+func stopAcceptingSafely(service listener.ListenerService) (err error) {
+	stopper, ok := service.(interface{ StopAccepting() error })
+	if !ok {
+		return errors.New("listener service does not support same-port handoff")
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("listener stop accepting panicked: %v", recovered)
+		}
+	}()
+	return stopper.StopAccepting()
+}
+
+func setListenerActive(service listener.ListenerService, active bool) {
+	if controller, ok := service.(interface{ SetActive(bool) }); ok {
+		controller.SetActive(active)
+	}
+}
+
+func closeStagedListeners(staged map[string]*wrapListenerService) {
+	for key, active := range staged {
+		if active == nil {
+			continue
+		}
+		if err := closeListenerServiceSafely(active.ListenerService); err != nil {
+			logger.Warnf("close rejected xDS listener %s: %v", key, err)
+		}
+	}
+}
+
+func (lm *ListenerManager) listenerUpdateGate() *sync.RWMutex {
+	lm.rwLock.Lock()
+	defer lm.rwLock.Unlock()
+	return lm.listenerUpdateGateLocked()
+}
+
+func (lm *ListenerManager) listenerUpdateGateLocked() *sync.RWMutex {
+	if lm.updateGate == nil {
+		lm.updateGate = &sync.RWMutex{}
+	}
+	return lm.updateGate
+}
+
+// XDSListenerNames returns the listener keys currently owned by xDS.
+func (lm *ListenerManager) XDSListenerNames() []string {
+	lm.rwLock.RLock()
+	defer lm.rwLock.RUnlock()
+
+	names := make([]string, 0, len(lm.xdsManaged))
+	for name := range lm.xdsManaged {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 func (lm *ListenerManager) HasListener(name string) bool {
@@ -352,5 +745,30 @@ func (lm *ListenerManager) RemoveListener(names []string) {
 	//remove from activeListenerService
 	for _, name := range names {
 		delete(lm.activeListenerService, name)
+	}
+}
+
+// RemoveXDSListeners removes only listeners owned by xDS. Names belonging to
+// static or other runtime configuration sources are ignored.
+func (lm *ListenerManager) RemoveXDSListeners(names []string) {
+	lm.rwLock.Lock()
+	listeners := make(map[string]*wrapListenerService, len(names))
+	for _, name := range names {
+		if _, owned := lm.xdsManaged[name]; !owned {
+			continue
+		}
+		if active := lm.activeListenerService[name]; active != nil {
+			listeners[name] = active
+		}
+		delete(lm.activeListenerService, name)
+		delete(lm.xdsManaged, name)
+	}
+	lm.rwLock.Unlock()
+
+	for name, active := range listeners {
+		logger.Infof("xDS listener %s closing", name)
+		if err := active.Close(); err != nil {
+			logger.Errorf("close xDS listener %s service error: %s", name, err)
+		}
 	}
 }

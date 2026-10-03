@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -40,12 +41,8 @@ type weightedEndpoint struct {
 // It assigns weights to endpoints and uses these weights to influence the probability of selection.
 type WeightRandom struct{}
 
-func (WeightRandom) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (WeightRandom) UseZeroCopySnapshot() bool {
-	return true
+func (WeightRandom) SnapshotOptIn() snapshotopt.Token {
+	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
 }
 
 func (w WeightRandom) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {
