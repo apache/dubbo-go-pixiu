@@ -18,12 +18,18 @@
 package mcpserver
 
 import (
+	"strings"
+)
+
+import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/router"
+	"github.com/apache/dubbo-go-pixiu/pkg/filter/mcp/mcpserver/transport"
 )
 
 const MCPDataKey = "mcp_data"
@@ -36,12 +42,18 @@ type MCPData struct {
 	RequestID any
 	// SessionID stores MCP session ID for SSE connections
 	SessionID string
+	// SessionGeneration is the transport generation validated at request entry.
+	SessionGeneration uint64
+	// Session is the request-entry validated transport session handle.
+	Session *transport.MCPSession
 	// AcceptSSE indicates if client accepts text/event-stream
 	AcceptSSE bool
 	// AcceptJSON indicates if client accepts application/json
 	AcceptJSON bool
 	// ProtocolVersion stores MCP protocol version from header
 	ProtocolVersion string
+	// AuthorizationReceipt binds a tools/call completion to its authorization.
+	AuthorizationReceipt *router.AuthorizationReceipt
 }
 
 // MCPContext MCP context wrapper that composes HttpContext and provides MCP-specific operations
@@ -81,6 +93,14 @@ func (ctx *MCPContext) SetMCPRequestID(id any) {
 // McpRequestID gets JSON-RPC request ID
 func (ctx *MCPContext) McpRequestID() any {
 	return ctx.mcpData.RequestID
+}
+
+func (ctx *MCPContext) SetAuthorizationReceipt(receipt *router.AuthorizationReceipt) {
+	ctx.mcpData.AuthorizationReceipt = receipt
+}
+
+func (ctx *MCPContext) AuthorizationReceipt() *router.AuthorizationReceipt {
+	return ctx.mcpData.AuthorizationReceipt
 }
 
 // IsMCPToolCall checks if it's a tool call request (by method name)
@@ -125,9 +145,32 @@ func (ctx *MCPContext) SetSessionID(sessionID string) {
 	ctx.mcpData.SessionID = sessionID
 }
 
+// SetValidatedSession stores the request-entry session handle and generation.
+func (ctx *MCPContext) SetValidatedSession(session *transport.MCPSession) {
+	if session == nil {
+		ctx.mcpData.SessionID = ""
+		ctx.mcpData.SessionGeneration = 0
+		ctx.mcpData.Session = nil
+		return
+	}
+	ctx.mcpData.SessionID = session.ID
+	ctx.mcpData.SessionGeneration = session.Generation
+	ctx.mcpData.Session = session
+}
+
 // SessionID gets MCP session ID
 func (ctx *MCPContext) SessionID() string {
 	return ctx.mcpData.SessionID
+}
+
+// SessionGeneration returns the generation validated for this request.
+func (ctx *MCPContext) SessionGeneration() uint64 {
+	return ctx.mcpData.SessionGeneration
+}
+
+// ValidatedSession returns the request-entry session handle.
+func (ctx *MCPContext) ValidatedSession() *transport.MCPSession {
+	return ctx.mcpData.Session
 }
 
 // HasSession checks if context has a session ID
@@ -173,13 +216,13 @@ func (ctx *MCPContext) ProtocolVersion() string {
 func (ctx *MCPContext) ParseAndSetAcceptHeader() {
 	acceptHeader := ctx.Request.Header.Get(constant.HeaderKeyAccept)
 	ctx.mcpData.AcceptJSON = acceptHeader == "" || // Default to JSON for backward compatibility
-		containsMediaType(acceptHeader, constant.HeaderValueApplicationJson) ||
-		containsMediaType(acceptHeader, constant.MediaTypeApplicationWild) ||
-		containsMediaType(acceptHeader, constant.MediaTypeWildcard)
+		strings.Contains(acceptHeader, constant.HeaderValueApplicationJson) ||
+		strings.Contains(acceptHeader, constant.MediaTypeApplicationWild) ||
+		strings.Contains(acceptHeader, constant.MediaTypeWildcard)
 
-	ctx.mcpData.AcceptSSE = containsMediaType(acceptHeader, constant.HeaderValueTextEventStream) ||
-		containsMediaType(acceptHeader, constant.MediaTypeTextWild) ||
-		containsMediaType(acceptHeader, constant.MediaTypeWildcard)
+	ctx.mcpData.AcceptSSE = strings.Contains(acceptHeader, constant.HeaderValueTextEventStream) ||
+		strings.Contains(acceptHeader, constant.MediaTypeTextWild) ||
+		strings.Contains(acceptHeader, constant.MediaTypeWildcard)
 }
 
 // ParseAndSetSessionHeader parses Mcp-Session-Id header and sets session ID
@@ -192,26 +235,4 @@ func (ctx *MCPContext) ParseAndSetSessionHeader() {
 func (ctx *MCPContext) ParseAndSetProtocolVersionHeader() {
 	version := ctx.Request.Header.Get(constant.HeaderKeyMCPProtocolVersion)
 	ctx.mcpData.ProtocolVersion = version
-}
-
-// containsMediaType checks if the Accept header contains the specified media type
-func containsMediaType(acceptHeader, mediaType string) bool {
-	if acceptHeader == "" {
-		return false
-	}
-	// Simple contains check - could be enhanced with proper media type parsing
-	return len(acceptHeader) > 0 && (acceptHeader == mediaType ||
-		len(acceptHeader) >= len(mediaType) && (acceptHeader[:len(mediaType)] == mediaType ||
-			acceptHeader[len(acceptHeader)-len(mediaType):] == mediaType ||
-			containsSubstring(acceptHeader, mediaType)))
-}
-
-// containsSubstring is a helper function for media type checking
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

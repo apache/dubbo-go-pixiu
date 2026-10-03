@@ -156,7 +156,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	}
 
 	// Validate token using provider derived from issuer
-	_, err = f.state.validator.Validate(providerName, token)
+	result, err := f.state.validator.Validate(providerName, token)
 	if err != nil {
 		// Map validator.ValidationError if possible
 		verr := validator.ValidationError{}
@@ -174,6 +174,16 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		}
 		f.unauthorized(hc, code, msg)
 		return filter.Stop
+	}
+
+	// Propagate validated claims to downstream filters (e.g. the MCP tool
+	// router) via the shared context params. This is the only authoritative
+	// source of identity for routing decisions.
+	if result != nil && len(result.Claims) > 0 {
+		if hc.Params == nil {
+			hc.Params = make(map[string]any)
+		}
+		hc.Params[constant.MCPAuthClaimsParamKey] = result.Claims
 	}
 
 	// remove Authorization header to avoid leaking token to downstream services

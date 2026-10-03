@@ -20,7 +20,6 @@ package server
 import (
 	"net/http"
 	"strconv"
-	"sync"
 )
 
 import (
@@ -33,10 +32,14 @@ import (
 
 var server *Server
 
+// blockForever blocks the main goroutine until the process exits.
+// Exposed as a variable to allow tests to replace it.
+var blockForever = func() {
+	select {}
+}
+
 // PX is Pixiu start struct
 type Server struct {
-	startWG sync.WaitGroup
-
 	listenerManager *ListenerManager
 	clusterManager  *ClusterManager
 	adapterManager  *AdapterManager
@@ -90,15 +93,12 @@ func (s *Server) GetTraceDriverManager() *tracing.TraceDriverManager {
 func (s *Server) Start() {
 	conf := config.GetBootstrap()
 
-	s.startWG.Add(1)
-
 	defer func() {
 		if re := recover(); re != nil {
 			logger.Error(re)
 		}
 	}()
 
-	registerOtelMetricMeter(conf.Metric)
 	s.listenerManager.StartListen()
 	s.adapterManager.Start()
 
@@ -123,20 +123,29 @@ func (s *Server) Start() {
 
 // NewServer create server
 func NewServer() *Server {
-	return &Server{
-		startWG: sync.WaitGroup{},
-	}
+	return &Server{}
 }
 
 func Start(bs *model.Bootstrap) error {
 	logger.Infof("[dubbo-go-pixiu] start by config : %+v", bs)
 	// global variable
 	server = NewServer()
+
+	// Register the OTel meter provider BEFORE cluster construction so that
+	// snapshot publication metrics emitted during cluster initialization land
+	// on the real provider rather than the no-op default. Static clusters
+	// publish their initial snapshot in initialize → CreateDefaultClusterManager,
+	// and that emission is the only guaranteed recording for steady-state
+	// clusters with no health transitions.
+	registerOtelMetricMeter(bs.Metric)
+
 	if err := server.initialize(bs); err != nil {
 		return err
 	}
 	server.Start()
-	server.startWG.Wait()
+	// Block forever; the process exits on OS signals (default behavior),
+	// or via ListenerManager.gracefulShutdownInit when graceful shutdown is enabled.
+	blockForever()
 	return nil
 }
 
@@ -145,6 +154,9 @@ func GetServer() *Server {
 }
 
 func GetClusterManager() *ClusterManager {
+	if server == nil {
+		return nil
+	}
 	return server.GetClusterManager()
 }
 

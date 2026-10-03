@@ -1,0 +1,6 @@
+{
+  "name": "dubbo-go-pixiu",
+  "version": "0.1.0",
+  "description": "Agent skills bundled with Apache dubbo-go-pixiu for gateway users — HTTP/Network filters, HTTP-to-Dubbo routing, LLM gateway, and MCP gateway configuration.",
+  "skills": "./skills/"
+}

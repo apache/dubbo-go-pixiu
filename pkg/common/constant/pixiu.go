@@ -73,4 +73,5 @@ const (
 	DefaultLogLevel      = "info"
 	DefaultLimitCpus     = "0"
 	DefaultLogFormat     = ""
+	DefaultReloadPort    = 18380
 )

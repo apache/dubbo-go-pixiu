@@ -219,7 +219,7 @@ func (f *Filter) handleStream(ctx *grpcCtx.GrpcContext, address string) filter.F
 	}
 
 	outCtx := metadata.NewOutgoingContext(ctx.Context, md)
-	fullMethod := ctx.ServiceName + "/" + ctx.MethodName
+	fullMethod := "/" + ctx.ServiceName + "/" + ctx.MethodName
 
 	var codecOpt grpc.CallOption
 	var useReflection bool
