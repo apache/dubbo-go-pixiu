@@ -18,19 +18,13 @@
 package core
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunServerRejectsMissingOrLegacyJWTKeyBeforeInitialization(t *testing.T) {
-	t.Run("unset", func(t *testing.T) {
-		t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "temporary")
-		require.NoError(t, os.Unsetenv("DUBBOGO_PIXIU_JWT_SIGN_KEY"))
-		require.Error(t, RunServer())
-	})
-	for _, key := range []string{"", "dubbo-go-pixiu"} {
+func TestRunServerRejectsUnsafeConfiguredJWTKeyBeforeInitialization(t *testing.T) {
+	for _, key := range []string{"dubbo-go-pixiu", "short-key"} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", key)
 			require.Error(t, RunServer())

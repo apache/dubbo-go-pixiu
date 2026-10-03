@@ -18,10 +18,14 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -94,6 +98,9 @@ var (
 	TokenNotValidYet error = errors.New("Token is not valid yet")
 	TokenMalformed   error = errors.New("This is not a token")
 	TokenInvalid     error = errors.New("Couldn't handle this token")
+	ephemeralKeyOnce sync.Once
+	ephemeralSignKey string
+	ephemeralKeyErr  error
 )
 
 // Custom Claims
@@ -112,9 +119,21 @@ func NewJWT() (*JWT, error) {
 	return &JWT{SigningKey: []byte(key)}, nil
 }
 
-// GetSignKey requires an explicit, non-default key for admin JWTs.
+// GetSignKey uses a process-local random key when no key is configured.
 func GetSignKey() (string, error) {
 	key := os.Getenv(jwtSignKeyEnv)
+	if strings.TrimSpace(key) == "" {
+		ephemeralKeyOnce.Do(func() {
+			material := make([]byte, minSignKeyLength)
+			if _, err := rand.Read(material); err != nil {
+				ephemeralKeyErr = fmt.Errorf("generate admin JWT signing key: %w", err)
+				return
+			}
+			ephemeralSignKey = hex.EncodeToString(material)
+			log.Printf("%s is empty; using a process-local random key. Admin tokens will be invalid after restart; configure a shared key for multiple replicas", jwtSignKeyEnv)
+		})
+		return ephemeralSignKey, ephemeralKeyErr
+	}
 	if err := validateSignKey(key); err != nil {
 		return "", err
 	}

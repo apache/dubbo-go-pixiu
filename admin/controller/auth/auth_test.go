@@ -18,6 +18,7 @@
 package auth
 
 import (
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -69,14 +70,59 @@ func TestGetSignKeyUsesEnvironmentOverride(t *testing.T) {
 	assert.Equal(t, testSignKey, key)
 }
 
-func TestSigningKeyMustBeConfigured(t *testing.T) {
-	t.Run("unset", func(t *testing.T) {
-		t.Setenv(jwtSignKeyEnv, "temporary")
-		require.NoError(t, os.Unsetenv(jwtSignKeyEnv))
-		_, err := NewJWT()
-		require.Error(t, err)
-	})
-	for _, key := range []string{"", "   ", legacySignKey, "short-key"} {
+func TestEmptySigningKeyUsesProcessLocalRandomKey(t *testing.T) {
+	t.Setenv(jwtSignKeyEnv, "")
+	type result struct {
+		key string
+		err error
+	}
+	results := make(chan result, 16)
+	for i := 0; i < cap(results); i++ {
+		go func() {
+			key, err := GetSignKey()
+			results <- result{key: key, err: err}
+		}()
+	}
+	var key string
+	for i := 0; i < cap(results); i++ {
+		got := <-results
+		require.NoError(t, got.err)
+		if key == "" {
+			key = got.key
+		}
+		assert.Equal(t, key, got.key)
+	}
+	material, err := hex.DecodeString(key)
+	require.NoError(t, err)
+	assert.Len(t, material, minSignKeyLength)
+	assert.NotEqual(t, legacySignKey, key)
+
+	for _, blank := range []string{"", "   "} {
+		t.Setenv(jwtSignKeyEnv, blank)
+		got, err := GetSignKey()
+		require.NoError(t, err)
+		assert.Equal(t, key, got)
+	}
+	t.Setenv(jwtSignKeyEnv, "temporary")
+	require.NoError(t, os.Unsetenv(jwtSignKeyEnv))
+	j, err := NewJWT()
+	require.NoError(t, err)
+	assert.Equal(t, key, string(j.SigningKey))
+	claims := CustomClaims{Username: "admin", StandardClaims: jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour).Unix()}}
+	token, err := j.CreateToken(claims)
+	require.NoError(t, err)
+	parsed, err := NewJWT()
+	require.NoError(t, err)
+	_, err = parsed.ParseToken(token)
+	require.NoError(t, err)
+	t.Setenv(jwtSignKeyEnv, testSignKey)
+	configuredKey, err := GetSignKey()
+	require.NoError(t, err)
+	assert.Equal(t, testSignKey, configuredKey)
+}
+
+func TestConfiguredUnsafeSigningKeyIsRejected(t *testing.T) {
+	for _, key := range []string{legacySignKey, "short-key"} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv(jwtSignKeyEnv, key)
 			_, err := NewJWT()
