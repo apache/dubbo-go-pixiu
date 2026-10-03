@@ -19,15 +19,29 @@ package core
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/require"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/admin/global"
+)
+
 func TestRunServerRejectsUnsafeConfiguredJWTKeyBeforeInitialization(t *testing.T) {
+	originalVP, originalLOG := global.VP, global.LOG
+	t.Cleanup(func() {
+		global.VP, global.LOG = originalVP, originalLOG
+	})
+
 	for _, key := range []string{"dubbo-go-pixiu", "short-key"} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", key)
-			require.Error(t, RunServer())
+			err := RunServer()
+			require.ErrorContains(t, err, "DUBBOGO_PIXIU_JWT_SIGN_KEY")
+			require.True(t, global.VP == originalVP, "configuration initialized before key validation")
+			require.True(t, global.LOG == originalLOG, "logger initialized before key validation")
 		})
 	}
 }

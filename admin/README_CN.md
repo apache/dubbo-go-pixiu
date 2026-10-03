@@ -14,8 +14,14 @@
 首先，确保您在项目的根目录（包含 Dockerfile 的目录）下，使用以下命令启动 Pixiu-Admin：
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
+
+### Admin JWT 签名密钥
+
+如果未设置 `DUBBOGO_PIXIU_JWT_SIGN_KEY` 或将其设为空值，Pixiu-Admin 会在进程内生成随机签名密钥。单实例可以直接启动，但重启会使已有的管理端 JWT 失效。若需要重启后保持会话有效，或运行多个副本，应通过密钥管理系统向每个实例提供同一把至少 32 字节的独立随机密钥。Docker Compose 部署也可将其放在私有 `.env` 文件中，并用 `openssl rand -hex 32` 生成；不要提交该文件。
+
+如果显式配置的密钥过短或仍是旧的共享默认值，管理端将拒绝启动。升级后，以旧默认值签发的 token 也不再被接受。
 
 ### 使用源码部署
 
