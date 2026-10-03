@@ -30,8 +30,8 @@ import (
 	_ "dubbo.apache.org/dubbo-go/v3/registry/nacos"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
 
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
 )
 
 import (
@@ -69,7 +69,7 @@ func newNacosSrvListener(url *dubboCommon.URL, client naming_client.INamingClien
 	}
 }
 
-func (z *serviceListener) Callback(services []nacosModel.SubscribeService, err error) {
+func (z *serviceListener) Callback(services []nacosModel.Instance, err error) {
 	if err != nil {
 		logger.Errorf("nacos subscribe callback error:%s", err.Error())
 		return
@@ -88,7 +88,7 @@ func (z *serviceListener) Callback(services []nacosModel.SubscribeService, err e
 			continue
 		}
 		host := services[i].Ip + ":" + strconv.Itoa(int(services[i].Port))
-		instance := generateInstance(services[i])
+		instance := services[i]
 		newInstanceMap[host] = instance
 		if old, ok := z.instanceMap[host]; !ok {
 			// instance does not exist in cache, add it to cache
@@ -207,18 +207,4 @@ func generateURL(instance nacosModel.Instance) *dubboCommon.URL {
 		dubboCommon.WithParams(urlMap),
 		dubboCommon.WithPath(path),
 	)
-}
-
-func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {
-	return nacosModel.Instance{
-		InstanceId:  ss.InstanceId,
-		Ip:          ss.Ip,
-		Port:        ss.Port,
-		ServiceName: ss.ServiceName,
-		Valid:       ss.Valid,
-		Enable:      ss.Enable,
-		Weight:      ss.Weight,
-		Metadata:    ss.Metadata,
-		ClusterName: ss.ClusterName,
-	}
 }

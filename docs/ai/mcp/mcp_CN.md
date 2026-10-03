@@ -402,6 +402,13 @@ static_resources:
 
 Pixiu 支持通过 Nacos 3.0+ 动态发现和管理 MCP 工具配置。通过使用 Nacos 作为注册中心，您可以集中管理 MCP 工具定义，并实现动态配置更新，而无需重启网关。
 
+> **端口要求（v2 SDK）：** Pixiu 的 Nacos 客户端使用 v2 SDK，通过 gRPC 通信。除了你在 `address` 中填写的主端口（默认 `8848`）外，客户端还会建立 **gRPC 端口 = 主端口 + 1000**（默认 `9848`）。当存在防火墙、容器端口映射或反向代理时，两个 TCP 端口都必须可达：
+>
+> - `8848/TCP` —— Nacos 主端口（HTTP 控制台 + API）
+> - `9848/TCP` —— gRPC 端口（主端口 + 1000，供 v2 客户端使用）
+>
+> 如果只开放 `8848`，网关在运行期会连接失败。详见[2.0 兼容性说明](https://nacos.io/en-us/docs/v2/upgrading/2.0.0-compatibility.html)。
+
 #### Adapter 配置 (`adapters`)
 
 要启用 Nacos 集成，您需要在配置文件中添加 `adapters` 部分。适配器负责连接到 Nacos 注册中心并订阅 MCP 服务配置。

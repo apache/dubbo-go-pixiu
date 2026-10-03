@@ -26,9 +26,9 @@ import (
 )
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -44,9 +44,10 @@ type mockNacosClient struct {
 	mu                   sync.Mutex
 	servicesToReturn     nacosModel.ServiceList
 	servicesToReturnErr  error
-	subscribeCallback    func(services []nacosModel.SubscribeService, err error)
+	subscribeCallback    func(services []nacosModel.Instance, err error)
 	subscribedServices   map[string]struct{}
 	unsubscribedServices map[string]struct{}
+	closeClientCount     int
 }
 
 func newMockNacosClient() *mockNacosClient {
@@ -75,6 +76,23 @@ func (m *mockNacosClient) Unsubscribe(param *vo.SubscribeParam) error {
 	defer m.mu.Unlock()
 	m.unsubscribedServices[param.ServiceName] = struct{}{}
 	return nil
+}
+
+func (m *mockNacosClient) ServerHealthy() bool {
+	return true
+}
+
+func (m *mockNacosClient) CloseClient() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.closeClientCount++
+}
+
+// closeClientCalls returns the number of times CloseClient was invoked.
+func (m *mockNacosClient) closeClientCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.closeClientCount
 }
 
 type mockAdapterListener struct {
@@ -280,18 +298,18 @@ func TestServiceCallback(t *testing.T) {
 		SubscribeCallback: l.serviceCallback,
 	})
 
-	instance1 := nacosModel.SubscribeService{
+	instance1 := nacosModel.Instance{
 		InstanceId: "ep-1", ServiceName: "service-A", Enable: true, Healthy: true,
 		Metadata: map[string]string{"id": "ep-1", "name": "inst-1"},
 	}
-	instance2 := nacosModel.SubscribeService{
+	instance2 := nacosModel.Instance{
 		InstanceId: "ep-2", ServiceName: "service-A", Enable: true, Healthy: true,
 		Metadata: map[string]string{"id": "ep-2", "name": "inst-2"},
 	}
 
 	t.Run("Initial instance registration", func(t *testing.T) {
 		adapterListener.reset()
-		client.subscribeCallback([]nacosModel.SubscribeService{instance1, instance2}, nil)
+		client.subscribeCallback([]nacosModel.Instance{instance1, instance2}, nil)
 
 		assert.Len(t, adapterListener.addedEndpoints, 2, "Should add 2 endpoints")
 		assert.Contains(t, adapterListener.addedEndpoints, "ep-1")
@@ -301,7 +319,7 @@ func TestServiceCallback(t *testing.T) {
 
 	t.Run("One instance is removed", func(t *testing.T) {
 		adapterListener.reset()
-		client.subscribeCallback([]nacosModel.SubscribeService{instance1}, nil)
+		client.subscribeCallback([]nacosModel.Instance{instance1}, nil)
 
 		assert.Empty(t, adapterListener.addedEndpoints, "Should not add any new endpoints")
 		assert.Len(t, adapterListener.removedEndpoints, 1, "Should remove 1 endpoint")
@@ -313,7 +331,7 @@ func TestServiceCallback(t *testing.T) {
 		updatedInstance1 := instance1
 		updatedInstance1.Metadata = map[string]string{"id": "ep-1", "name": "inst-1-updated"}
 
-		client.subscribeCallback([]nacosModel.SubscribeService{updatedInstance1}, nil)
+		client.subscribeCallback([]nacosModel.Instance{updatedInstance1}, nil)
 
 		assert.Len(t, adapterListener.addedEndpoints, 1, "Should fire an add/update event for 1 endpoint")
 		assert.Contains(t, adapterListener.addedEndpoints, "ep-1")
@@ -328,18 +346,18 @@ func TestServiceCallback(t *testing.T) {
 		disabledInstance := instance2
 		disabledInstance.Enable = false
 
-		client.subscribeCallback([]nacosModel.SubscribeService{unhealthyInstance, disabledInstance}, nil)
+		client.subscribeCallback([]nacosModel.Instance{unhealthyInstance, disabledInstance}, nil)
 
 		assert.Empty(t, adapterListener.addedEndpoints, "Should not add unhealthy/disabled endpoints")
 		assert.Len(t, adapterListener.removedEndpoints, 1, "Should remove the previously active endpoints")
 	})
 
 	t.Run("No changes in instances", func(t *testing.T) {
-		client.subscribeCallback([]nacosModel.SubscribeService{instance1}, nil)
+		client.subscribeCallback([]nacosModel.Instance{instance1}, nil)
 
 		adapterListener.reset()
 
-		client.subscribeCallback([]nacosModel.SubscribeService{instance1}, nil)
+		client.subscribeCallback([]nacosModel.Instance{instance1}, nil)
 
 		assert.Empty(t, adapterListener.addedEndpoints, "Should not trigger add for unchanged instance")
 		assert.Empty(t, adapterListener.removedEndpoints, "Should not trigger remove for unchanged instance")
@@ -354,7 +372,7 @@ func TestServiceCallbackUsesStableGeneratedEndpointID(t *testing.T) {
 		SubscribeCallback: l.serviceCallback,
 	})
 
-	instance1 := nacosModel.SubscribeService{
+	instance1 := nacosModel.Instance{
 		ServiceName: "service-generated",
 		Enable:      true,
 		Healthy:     true,
@@ -366,7 +384,7 @@ func TestServiceCallbackUsesStableGeneratedEndpointID(t *testing.T) {
 			"llm-meta.api_key": "key-a",
 		},
 	}
-	instance2 := nacosModel.SubscribeService{
+	instance2 := nacosModel.Instance{
 		ServiceName: "service-generated",
 		Enable:      true,
 		Healthy:     true,
@@ -379,7 +397,7 @@ func TestServiceCallbackUsesStableGeneratedEndpointID(t *testing.T) {
 		},
 	}
 
-	client.subscribeCallback([]nacosModel.SubscribeService{instance1, instance2}, nil)
+	client.subscribeCallback([]nacosModel.Instance{instance1, instance2}, nil)
 	assert.Len(t, adapterListener.addedEndpoints, 2)
 
 	var removedID string
@@ -391,7 +409,7 @@ func TestServiceCallbackUsesStableGeneratedEndpointID(t *testing.T) {
 	assert.NotEmpty(t, removedID)
 
 	adapterListener.reset()
-	client.subscribeCallback([]nacosModel.SubscribeService{instance2}, nil)
+	client.subscribeCallback([]nacosModel.Instance{instance2}, nil)
 
 	assert.Empty(t, adapterListener.addedEndpoints)
 	assert.Contains(t, adapterListener.removedEndpoints, removedID)
@@ -405,7 +423,7 @@ func TestServiceCallbackKeepsGeneratedEndpointIDWhenNameChanges(t *testing.T) {
 		SubscribeCallback: l.serviceCallback,
 	})
 
-	instance := nacosModel.SubscribeService{
+	instance := nacosModel.Instance{
 		ServiceName: "service-rename",
 		Ip:          "127.0.0.1",
 		Port:        8080,
@@ -418,7 +436,7 @@ func TestServiceCallbackKeepsGeneratedEndpointIDWhenNameChanges(t *testing.T) {
 		},
 	}
 
-	client.subscribeCallback([]nacosModel.SubscribeService{instance}, nil)
+	client.subscribeCallback([]nacosModel.Instance{instance}, nil)
 	assert.Len(t, adapterListener.addedEndpoints, 1)
 
 	var endpointID string
@@ -435,7 +453,7 @@ func TestServiceCallbackKeepsGeneratedEndpointIDWhenNameChanges(t *testing.T) {
 	}
 
 	adapterListener.reset()
-	client.subscribeCallback([]nacosModel.SubscribeService{renamed}, nil)
+	client.subscribeCallback([]nacosModel.Instance{renamed}, nil)
 
 	assert.Empty(t, adapterListener.removedEndpoints)
 	if assert.Contains(t, adapterListener.addedEndpoints, endpointID) {
@@ -451,7 +469,7 @@ func TestServiceCallbackKeepsNacosInstancesWithoutMetadataIDDistinct(t *testing.
 		SubscribeCallback: l.serviceCallback,
 	})
 
-	instance1 := nacosModel.SubscribeService{
+	instance1 := nacosModel.Instance{
 		InstanceId:  "nacos-instance-a",
 		ServiceName: "service-instance-id",
 		Ip:          "10.0.0.1",
@@ -464,7 +482,7 @@ func TestServiceCallbackKeepsNacosInstancesWithoutMetadataIDDistinct(t *testing.
 			"llm-meta.api_key": "same-key",
 		},
 	}
-	instance2 := nacosModel.SubscribeService{
+	instance2 := nacosModel.Instance{
 		InstanceId:  "nacos-instance-b",
 		ServiceName: "service-instance-id",
 		Ip:          "10.0.0.2",
@@ -478,14 +496,14 @@ func TestServiceCallbackKeepsNacosInstancesWithoutMetadataIDDistinct(t *testing.
 		},
 	}
 
-	client.subscribeCallback([]nacosModel.SubscribeService{instance1, instance2}, nil)
+	client.subscribeCallback([]nacosModel.Instance{instance1, instance2}, nil)
 
 	assert.Len(t, adapterListener.addedEndpoints, 2)
 	assert.Contains(t, adapterListener.addedEndpoints, "nacos-instance-a")
 	assert.Contains(t, adapterListener.addedEndpoints, "nacos-instance-b")
 
 	adapterListener.reset()
-	client.subscribeCallback([]nacosModel.SubscribeService{instance2}, nil)
+	client.subscribeCallback([]nacosModel.Instance{instance2}, nil)
 
 	assert.Empty(t, adapterListener.addedEndpoints)
 	assert.Contains(t, adapterListener.removedEndpoints, "nacos-instance-a")
@@ -543,4 +561,32 @@ func TestLifecycle(t *testing.T) {
 	assert.NotPanics(t, func() {
 		l.Close()
 	})
+}
+
+// TestDoUnsubscribeClosesClient locks in the v2 close path: DoUnsubscribe must
+// close the naming client (CloseClient) in addition to stopping the listener,
+// otherwise the gRPC connection and internal retry goroutines outlive shutdown.
+// See AlexStocks' [P1] review on PR #982.
+func TestDoUnsubscribeClosesClient(t *testing.T) {
+	client := newMockNacosClient()
+	adapterListener := newMockAdapterListener()
+	regConf := &model.Registry{Group: "test_group", Namespace: "test_namespace"}
+
+	reg, err := newNacosRegistryWithClient(*regConf, client, adapterListener)
+	assert.NoError(t, err)
+
+	// Start the background watcher so the close path has a goroutine to drain.
+	reg.DoSubscribe()
+	// Give the watcher a moment to perform its initial discovery pass.
+	time.Sleep(50 * time.Millisecond)
+
+	assert.Equal(t, 0, client.closeClientCalls(), "client must not be closed before unsubscribe")
+
+	assert.NotPanics(t, func() {
+		err := reg.DoUnsubscribe()
+		assert.NoError(t, err)
+	})
+
+	assert.Equal(t, 1, client.closeClientCalls(),
+		"DoUnsubscribe must close the naming client to release the v2 gRPC connection")
 }

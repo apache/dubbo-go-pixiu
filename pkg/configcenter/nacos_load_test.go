@@ -23,11 +23,16 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"testing"
 )
 
 import (
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
+
 	. "github.com/smartystreets/goconvey/convey"
+
+	"github.com/stretchr/testify/assert"
 
 	"go.uber.org/zap/zapcore"
 )
@@ -108,5 +113,49 @@ func TestNacosConfig_onChange(t *testing.T) {
 			// Restore the logger level.
 			logger.SetLoggerLevel(zapcore.InfoLevel)
 		})
+	})
+}
+
+// closeRecorderConfig embeds the SDK config-client interface and records
+// CloseClient calls so NacosConfig.Close can be asserted without a live Nacos
+// server.
+type closeRecorderConfig struct {
+	config_client.IConfigClient
+
+	mu         sync.Mutex
+	closeCount int
+}
+
+func (c *closeRecorderConfig) CloseClient() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.closeCount++
+}
+
+func (c *closeRecorderConfig) closeCalls() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.closeCount
+}
+
+// TestNacosConfig_Close verifies the v2 close path: Close must delegate to the
+// SDK config client's CloseClient so the gRPC connection is released on
+// shutdown. See AlexStocks' [P1] review on PR #982.
+func TestNacosConfig_Close(t *testing.T) {
+	t.Run("closes the underlying client", func(t *testing.T) {
+		recorder := &closeRecorderConfig{}
+		cfg := &NacosConfig{client: recorder}
+
+		assert.Equal(t, 0, recorder.closeCalls(), "client must not be closed before Close")
+
+		cfg.Close()
+
+		assert.Equal(t, 1, recorder.closeCalls(),
+			"Close must delegate to the underlying config client's CloseClient")
+	})
+
+	t.Run("no-op when client is nil", func(t *testing.T) {
+		cfg := &NacosConfig{client: nil}
+		assert.NotPanics(t, func() { cfg.Close() })
 	})
 }

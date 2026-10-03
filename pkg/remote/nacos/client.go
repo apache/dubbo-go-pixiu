@@ -25,11 +25,11 @@ import (
 )
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	"github.com/nacos-group/nacos-sdk-go/common/constant"
-	nacosmodel "github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	nacosmodel "github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	perrors "github.com/pkg/errors"
 )
@@ -56,6 +56,14 @@ func (client *NacosClient) Subscribe(param *vo.SubscribeParam) error {
 
 func (client *NacosClient) Unsubscribe(param *vo.SubscribeParam) error {
 	return client.namingClient.Unsubscribe(param)
+}
+
+// Close releases the underlying v2 naming client. The v2 client holds a gRPC
+// connection and internal retry goroutines that survive Unsubscribe; this
+// delegates to the SDK's CloseClient (which is idempotent via an internal
+// isClosed guard) so Stop/Apply does not leak the connection after shutdown.
+func (client *NacosClient) Close() {
+	client.namingClient.CloseClient()
 }
 
 func NewNacosClient(config *model.RemoteConfig) (*NacosClient, error) {

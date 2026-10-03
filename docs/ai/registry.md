@@ -8,6 +8,18 @@ This document aims to guide LLM service providers on how to dynamically register
 
 The core mechanism of service discovery is that your LLM service registers as a **Nacos instance** and provides a specific set of **metadata** upon registration. The LLM Gateway listens for service changes in Nacos, reads this metadata, and dynamically converts it into a fully functional gateway `endpoint` configuration.
 
+> **Nacos server requirement (v2 SDK)**
+>
+> Pixiu's Nacos integration uses the **Nacos Go SDK v2**, which is **not compatible with Nacos 1.x servers**. A **Nacos 2.x server (2.2.0 or later recommended)** is required.
+>
+> The v2 client talks to the server over **gRPC**. In addition to the main port you configure (the HTTP/API port, `8848` by default), the client opens a **gRPC port = main port + 1000** (`9848` by default). When there is a firewall, container port mapping, or reverse proxy in front of Nacos, **both TCP ports must be reachable**:
+>
+> - `8848/TCP` — Nacos main port (HTTP console + API; this is the port you put in `address`)
+> - `9848/TCP` — gRPC port (derived as main port + 1000, used by the v2 client)
+>
+> If only `8848` is exposed, the gateway will fail to connect at runtime even though the address looks correct. See the official [2.0 compatibility guide](https://nacos.io/en-us/docs/v2/upgrading/2.0.0-compatibility.html) for details.
+
+
 A basic Nacos registration request includes the following key information:
 
 - **`ServiceName`**: The name of your service collection (e.g., `deepseek-service`).
@@ -143,7 +155,7 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 func main() {
@@ -177,7 +189,7 @@ func main() {
 		"llm-meta.fallback": "true",
 
 		// API Keys in JSON string format
-		"llm-meta.api_keys": "key-xxxxxxxx",
+		"llm-meta.api_key": "key-xxxxxxxx",
 
 		// --- Retry Policy Configuration ---
 		"llm-meta.retry_policy.name":   "ExponentialBackoff",
