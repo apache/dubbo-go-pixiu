@@ -112,11 +112,16 @@ docker run --name pixiu-gateway -p 8888:8888 -d \
 ## Pixiu Admin – 可视化控制平面
 
 通过 `pixiu-admin` 管理流量和路由。
-可以通过 Docker Compose 快速启动：
+首次部署时，先生成私有签名密钥，再通过 Docker Compose 启动：
 
 ```bash
-docker-compose up -d
+if [ ! -e .env ]; then
+  (umask 077; printf 'DUBBOGO_PIXIU_JWT_SIGN_KEY=%s\n' "$(openssl rand -hex 32)" > .env)
+fi
+docker compose up -d
 ```
+
+请勿覆盖已有的 `.env` 文件。管理端要求显式配置至少 32 字节的独立随机 `DUBBOGO_PIXIU_JWT_SIGN_KEY`，旧默认值 `dubbo-go-pixiu` 会被拒绝。非 Compose 部署请通过密钥管理系统提供同名环境变量。重启和多副本部署应保持密钥一致；更换密钥会使已有管理端 JWT 失效，用户需要重新登录。不要提交 `.env`。
 
 👉 访问管理员 UI：[http://localhost:8080](http://localhost:8080)
 

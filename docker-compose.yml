@@ -106,6 +106,7 @@ services:
     environment:
       - GO111MODULE=on
       - GOPROXY=https://goproxy.cn,direct
+      - DUBBOGO_PIXIU_JWT_SIGN_KEY=${DUBBOGO_PIXIU_JWT_SIGN_KEY:?Set a unique admin JWT signing key in .env}
     networks:
       - app_network
     depends_on:

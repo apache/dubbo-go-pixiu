@@ -99,7 +99,11 @@ func Login(c *gin.Context) {
 }
 
 func generateToken(c *gin.Context, username string) {
-	j := auth.NewJWT()
+	j, err := auth.NewJWT()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, config.WithError(err))
+		return
+	}
 	claims := auth.CustomClaims{
 		Username: username,
 		StandardClaims: jwt.StandardClaims{

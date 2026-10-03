@@ -635,6 +635,7 @@ func runtimeE2EUpstream(name string) http.Handler {
 
 func runtimeE2EToken(t *testing.T) string {
 	t.Helper()
+	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "a01a0b8fb73528b65480af817f3546ca0c5c28a10e307e3a4885fe81c2db7a29")
 	claims := auth.CustomClaims{
 		Username: "xds-e2e",
 		// SA1019: the upstream auth.CustomClaims embeds the deprecated
@@ -643,7 +644,9 @@ func runtimeE2EToken(t *testing.T) string {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	token, err := auth.NewJWT().CreateToken(claims)
+	j, err := auth.NewJWT()
+	require.NoError(t, err)
+	token, err := j.CreateToken(claims)
 	require.NoError(t, err)
 	return token
 }

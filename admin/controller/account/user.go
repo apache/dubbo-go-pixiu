@@ -43,7 +43,11 @@ import (
 // Logout user logout
 func Logout(c *gin.Context) {
 	// Invalid setting token
-	j := auth.NewJWT()
+	j, err := auth.NewJWT()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, config.WithError(err))
+		return
+	}
 	claims := auth.CustomClaims{
 		StandardClaims: jwt.StandardClaims{
 			NotBefore: int64(time.Now().Unix()), // Signature effective time
