@@ -132,6 +132,41 @@ func TestConfiguredUnsafeSigningKeyIsRejected(t *testing.T) {
 	}
 }
 
+func TestJWTRejectsUnsafeSigningKey(t *testing.T) {
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
+	for _, key := range []string{"", legacySignKey, "short-key"} {
+		t.Run(key, func(t *testing.T) {
+			j := &JWT{SigningKey: []byte(key)}
+			_, err := j.CreateToken(claims)
+			require.ErrorContains(t, err, jwtSignKeyEnv)
+			token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(key))
+			require.NoError(t, err)
+			_, err = j.ParseToken(token)
+			require.ErrorIs(t, err, TokenInvalid)
+		})
+	}
+}
+
+func TestJWTAuthRejectsInvalidSigningKey(t *testing.T) {
+	t.Setenv(jwtSignKeyEnv, "short-key")
+	router := gin.New()
+	reached := false
+	router.GET("/protected", JWTAuth(), func(c *gin.Context) {
+		reached = true
+		c.Status(http.StatusNoContent)
+	})
+	request := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	request.Header.Set("token", "not-a-token")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	require.False(t, reached)
+	require.Equal(t, http.StatusInternalServerError, response.Code)
+	require.Contains(t, response.Body.String(), "authentication is not configured")
+	require.NotContains(t, response.Body.String(), jwtSignKeyEnv)
+}
+
 func TestLegacyDefaultTokenIsRejected(t *testing.T) {
 	j := testJWT(t)
 	claims := CustomClaims{Username: "admin"}
