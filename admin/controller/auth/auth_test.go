@@ -108,7 +108,8 @@ func TestEmptySigningKeyUsesProcessLocalRandomKey(t *testing.T) {
 	j, err := NewJWT()
 	require.NoError(t, err)
 	assert.Equal(t, key, string(j.SigningKey))
-	claims := CustomClaims{Username: "admin", StandardClaims: jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour).Unix()}}
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	token, err := j.CreateToken(claims)
 	require.NoError(t, err)
 	parsed, err := NewJWT()
@@ -133,7 +134,8 @@ func TestConfiguredUnsafeSigningKeyIsRejected(t *testing.T) {
 
 func TestLegacyDefaultTokenIsRejected(t *testing.T) {
 	j := testJWT(t)
-	claims := CustomClaims{Username: "admin", StandardClaims: jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour).Unix()}}
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	oldToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(legacySignKey))
 	require.NoError(t, err)
 	_, err = j.ParseToken(oldToken)
@@ -142,7 +144,8 @@ func TestLegacyDefaultTokenIsRejected(t *testing.T) {
 
 func TestParseTokenRequiresHS256(t *testing.T) {
 	j := testJWT(t)
-	claims := CustomClaims{Username: "admin", StandardClaims: jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour).Unix()}}
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	for _, method := range []*jwt.SigningMethodHMAC{jwt.SigningMethodHS384, jwt.SigningMethodHS512} {
 		t.Run(method.Alg(), func(t *testing.T) {
 			token, err := jwt.NewWithClaims(method, claims).SignedString([]byte(testSignKey))
@@ -158,7 +161,8 @@ func TestJWTAuthDoesNotAcceptLegacyDefaultToken(t *testing.T) {
 	router := gin.New()
 	reached := false
 	router.GET("/protected", JWTAuth(), func(c *gin.Context) { reached = true; c.Status(http.StatusNoContent) })
-	claims := CustomClaims{Username: "admin", StandardClaims: jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour).Unix()}}
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(legacySignKey))
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)

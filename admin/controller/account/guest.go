@@ -101,7 +101,8 @@ func Login(c *gin.Context) {
 func generateToken(c *gin.Context, username string) {
 	j, err := auth.NewJWT()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, config.WithError(err))
+		log.Printf("failed to initialize admin JWT: %v", err)
+		c.JSON(http.StatusInternalServerError, config.WithError(errors.New("authentication is not configured")))
 		return
 	}
 	claims := auth.CustomClaims{
