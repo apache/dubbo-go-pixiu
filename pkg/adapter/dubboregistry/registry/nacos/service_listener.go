@@ -49,13 +49,18 @@ type serviceListener struct {
 	cacheLock   sync.Mutex
 
 	exit            chan struct{}
+	closeOnce       sync.Once
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
+	watchOnce       sync.Once
 }
 
 // WatchAndHandle todo WatchAndHandle is useless for service listener
 func (z *serviceListener) WatchAndHandle() {
-	panic("implement me")
+	// WatchAndHandle is not used by service listener; subscription uses Callback instead.
+	z.watchOnce.Do(func() {
+		logger.Warnf("serviceListener: WatchAndHandle not implemented")
+	})
 }
 
 // newNacosSrvListener creates a new zk service listener
@@ -173,8 +178,10 @@ func (z *serviceListener) NotifyAll(e []*dubboRegistry.ServiceEvent, f func()) {
 
 // Close closes this listener
 func (zkl *serviceListener) Close() {
-	close(zkl.exit)
-	zkl.wg.Wait()
+	zkl.closeOnce.Do(func() {
+		close(zkl.exit)
+		zkl.wg.Wait()
+	})
 }
 
 func generateURL(instance nacosModel.Instance) *dubboCommon.URL {

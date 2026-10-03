@@ -202,19 +202,19 @@ func (n *nacosServiceDiscovery) QueryAllServices() ([]servicediscovery.ServiceIn
 }
 
 func (n *nacosServiceDiscovery) Register() error {
-	panic("implement me")
+	return perrors.New("nacosServiceDiscovery: Register not implemented")
 }
 
 func (n *nacosServiceDiscovery) UnRegister() error {
-	panic("implement me")
+	return perrors.New("nacosServiceDiscovery: UnRegister not implemented")
 }
 
 func (n *nacosServiceDiscovery) Get(s string) []*servicediscovery.ServiceInstance {
-	panic("implement me")
+	return nil
 }
 
 func (n *nacosServiceDiscovery) StartPeriodicalRefresh() error {
-	panic("implement me")
+	return perrors.New("nacosServiceDiscovery: StartPeriodicalRefresh not implemented")
 }
 
 func NewNacosServiceDiscovery(targetService []string, config *model.RemoteConfig, l servicediscovery.ServiceEventListener) (servicediscovery.ServiceDiscovery, error) {

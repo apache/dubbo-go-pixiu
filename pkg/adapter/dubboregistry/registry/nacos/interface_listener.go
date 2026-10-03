@@ -50,6 +50,8 @@ var _ registry.Listener = new(nacosIntfListener)
 
 type nacosIntfListener struct {
 	exit            chan struct{}
+	closeOnce       sync.Once
+	watchOnce       sync.Once
 	client          naming_client.INamingClient
 	regConf         *model.Registry
 	reg             *NacosRegistry
@@ -73,23 +75,29 @@ func newNacosIntfListener(client naming_client.INamingClient, reg *NacosRegistry
 }
 
 func (n *nacosIntfListener) Close() {
-	close(n.exit)
-	n.wg.Wait()
+	n.closeOnce.Do(func() {
+		close(n.exit)
+		n.wg.Wait()
+		n.closeServiceListeners()
+	})
 }
 
 func (n *nacosIntfListener) WatchAndHandle() {
-	n.wg.Add(1)
-	go n.watch()
+	n.watchOnce.Do(func() {
+		n.wg.Add(1)
+		go n.watch()
+	})
 }
 
 func (n *nacosIntfListener) watch() {
 	defer n.wg.Done()
-	var (
-		failTimes  int64 = 0
-		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
-	)
-	defer delayTimer.Stop()
+	var failTimes int64 = 0
 	for {
+		select {
+		case <-n.exit:
+			return
+		default:
+		}
 		serviceList, err := n.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
 			GroupName: n.regConf.Group,
 			NameSpace: n.regConf.Namespace,
@@ -108,15 +116,37 @@ func (n *nacosIntfListener) watch() {
 				logger.Errorf("Error happens on nacos exceed max fail times: %s,so exit listen", MaxFailTimes)
 				return
 			}
-			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
-			<-delayTimer.C
+			if waitForExit(n.exit, ConnDelay*time.Duration(failTimes)) {
+				return
+			}
 			continue
 		}
 		failTimes = 0
 		if err := n.updateServiceList(serviceList.Doms); err != nil {
 			logger.Errorf("update service list failed %s", err)
 		}
-		time.Sleep(time.Second * 5)
+		if waitForExit(n.exit, time.Second*5) {
+			return
+		}
+	}
+}
+
+func waitForExit(exit <-chan struct{}, delay time.Duration) bool {
+	if delay <= 0 {
+		select {
+		case <-exit:
+			return true
+		default:
+			return false
+		}
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-exit:
+		return true
+	case <-timer.C:
+		return false
 	}
 }
 
@@ -125,6 +155,7 @@ type serviceInfo struct {
 	version       string
 	group         string
 	listener      *serviceListener
+	subscription  *vo.SubscribeParam
 }
 
 func (s *serviceInfo) String() string {
@@ -163,9 +194,6 @@ func (n *nacosIntfListener) updateServiceList(serviceList []string) error {
 			l := newNacosSrvListener(url, n.client, n.adapterListener)
 			l.wg.Add(1)
 
-			svcInfo.listener = l
-			n.serviceInfoMap[key] = svcInfo
-
 			sub := &vo.SubscribeParam{
 				ServiceName:       getSubscribeName(url),
 				SubscribeCallback: l.Callback,
@@ -174,20 +202,42 @@ func (n *nacosIntfListener) updateServiceList(serviceList []string) error {
 
 			if err := n.client.Subscribe(sub); err != nil {
 				logger.Errorf("subscribe listener with interfaceKey = %s, error = %s", l, err)
+				l.wg.Done()
+				continue
 			}
 			l.wg.Done()
+			svcInfo.listener = l
+			svcInfo.subscription = sub
+			n.serviceInfoMap[key] = svcInfo
 		}
 	}
 
 	// handle deleted service
 	for k, v := range n.serviceInfoMap {
 		if _, ok := newServiceMap[k]; !ok {
+			n.unsubscribeService(v)
 			delete(n.serviceInfoMap, k)
-			v.listener.Close()
 		}
 	}
 
 	return nil
+}
+
+func (n *nacosIntfListener) closeServiceListeners() {
+	for k, v := range n.serviceInfoMap {
+		n.unsubscribeService(v)
+		delete(n.serviceInfoMap, k)
+	}
+}
+
+func (n *nacosIntfListener) unsubscribeService(svcInfo *serviceInfo) {
+	if svcInfo == nil || svcInfo.listener == nil {
+		return
+	}
+	if err := n.client.Unsubscribe(svcInfo.subscription); err != nil {
+		logger.Errorf("unsubscribe listener with interfaceKey = %s, error = %s", svcInfo.listener, err)
+	}
+	svcInfo.listener.Close()
 }
 
 func getSubscribeName(url *dubboCommon.URL) string {

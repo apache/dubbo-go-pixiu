@@ -55,7 +55,7 @@ func (m *mockFacadeRegistry) DoUnsubscribe() error {
 type mockListener struct{}
 
 func (m *mockListener) WatchAndHandle() {
-	panic("implement me") // NOSONAR
+	// no-op: test mock, not used in these tests
 }
 
 // Close is a mock method.
@@ -65,11 +65,11 @@ func (m *mockListener) Close() {} // NOSONAR
 type mockAdapterListener struct{}
 
 func (m *mockAdapterListener) OnAddEndpoint(r *model.Endpoint) error {
-	panic("implement me") // NOSONAR
+	return nil
 }
 
 func (m *mockAdapterListener) OnRemoveEndpoint(r *model.Endpoint) error {
-	panic("implement me") // NOSONAR
+	return nil
 }
 
 func TestSvcListeners(t *testing.T) {

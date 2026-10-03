@@ -52,8 +52,10 @@ type appServiceListener struct {
 	cacheLock   sync.Mutex
 
 	exit            chan struct{}
+	closeOnce       sync.Once
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
+	watchOnce       sync.Once
 }
 
 func newNacosAppSrvListener(client naming_client.INamingClient, adapterListener common2.RegistryEventListener) *appServiceListener {
@@ -66,12 +68,17 @@ func newNacosAppSrvListener(client naming_client.INamingClient, adapterListener 
 }
 
 func (l *appServiceListener) WatchAndHandle() {
-	panic("implement me")
+	// TODO: implement WatchAndHandle for application-level service discovery
+	l.watchOnce.Do(func() {
+		logger.Warnf("appServiceListener: WatchAndHandle not implemented")
+	})
 }
 
 func (l *appServiceListener) Close() {
-	close(l.exit)
-	l.wg.Wait()
+	l.closeOnce.Do(func() {
+		close(l.exit)
+		l.wg.Wait()
+	})
 }
 
 func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, err error) {
