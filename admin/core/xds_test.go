@@ -218,7 +218,7 @@ func TestStartXDSServerRecordsBindFailure(t *testing.T) {
 	}}
 	adminxds.DefaultStatusStore = adminxds.NewStatusStore("")
 
-	err = StartxDsServer()
+	err = StartxDsServer(context.Background())
 	if err == nil {
 		t.Fatal("expected occupied xDS port to fail")
 	}
