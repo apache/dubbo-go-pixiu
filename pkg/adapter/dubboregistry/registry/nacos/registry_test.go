@@ -20,26 +20,42 @@ package nacos
 import (
 	"sync"
 	"testing"
+	"time"
 )
 
 import (
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	"github.com/stretchr/testify/assert"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/common"
 	"github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry"
 	baseRegistry "github.com/apache/dubbo-go-pixiu/pkg/adapter/dubboregistry/registry/base"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
-// mockNamingClient embeds the SDK interface and only overrides CloseClient so
-// the shutdown path can be asserted without a real gRPC connection.
+// mockNamingClient embeds the SDK interface and overrides the polling and
+// close operations needed to exercise shutdown without a real gRPC connection.
 type mockNamingClient struct {
 	naming_client.INamingClient
 
 	mu             sync.Mutex
 	closeClientCnt int
+	pollStarted    chan struct{}
+	pollOnce       sync.Once
+}
+
+func (m *mockNamingClient) GetAllServicesInfo(vo.GetAllServiceInfoParam) (nacosModel.ServiceList, error) {
+	m.pollOnce.Do(func() {
+		if m.pollStarted != nil {
+			close(m.pollStarted)
+		}
+	})
+	return nacosModel.ServiceList{}, nil
 }
 
 func (m *mockNamingClient) CloseClient() {
@@ -119,4 +135,52 @@ func TestDoUnsubscribe_NoListener(t *testing.T) {
 	err := reg.DoUnsubscribe()
 	assert.Error(t, err)
 	assert.Equal(t, 0, client.closeCalls(), "client must not be closed when there is no listener")
+}
+
+func TestDoUnsubscribeStopsActiveListeners(t *testing.T) {
+	tests := []struct {
+		name         string
+		registryType registry.RegisteredType
+		newListener  func(naming_client.INamingClient, *NacosRegistry, *model.Registry, common.RegistryEventListener) registry.Listener
+	}{
+		{
+			name:         "interface listener",
+			registryType: registry.RegisteredTypeInterface,
+			newListener:  newNacosIntfListener,
+		},
+		{
+			name:         "application listener",
+			registryType: registry.RegisteredTypeApplication,
+			newListener:  newNacosAppListener,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &mockNamingClient{pollStarted: make(chan struct{})}
+			reg := newTestNacosRegistry(client, tt.registryType, nil)
+			listener := tt.newListener(client, reg, &model.Registry{}, &mockRegistryEventListener{})
+			reg.nacosListeners[tt.registryType] = listener
+
+			assert.NoError(t, reg.DoSubscribe())
+			select {
+			case <-client.pollStarted:
+			case <-time.After(time.Second):
+				t.Fatal("listener did not start polling")
+			}
+
+			done := make(chan error, 1)
+			go func() {
+				done <- reg.DoUnsubscribe()
+			}()
+
+			select {
+			case err := <-done:
+				assert.NoError(t, err)
+				assert.Equal(t, 1, client.closeCalls())
+			case <-time.After(2 * time.Second):
+				t.Fatal("DoUnsubscribe blocked waiting for the active listener")
+			}
+		})
+	}
 }

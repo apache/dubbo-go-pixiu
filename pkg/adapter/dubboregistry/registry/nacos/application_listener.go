@@ -74,12 +74,14 @@ func (n *nacosAppListener) WatchAndHandle() {
 
 func (n *nacosAppListener) watch() {
 	defer n.wg.Done()
-	var (
-		failTimes  int64 = 0
-		delayTimer       = time.NewTimer(ConnDelay * time.Duration(failTimes))
-	)
-	defer delayTimer.Stop()
+	var failTimes int64
 	for {
+		select {
+		case <-n.exit:
+			return
+		default:
+		}
+
 		serviceList, err := n.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{
 			GroupName: n.regConf.Group,
 			NameSpace: n.regConf.Namespace,
@@ -98,15 +100,18 @@ func (n *nacosAppListener) watch() {
 				logger.Errorf("Error happens on nacos exceed max fail times: %s,so exit listen", MaxFailTimes)
 				return
 			}
-			delayTimer.Reset(ConnDelay * time.Duration(failTimes))
-			<-delayTimer.C
+			if !waitForNacosPoll(n.exit, ConnDelay*time.Duration(failTimes)) {
+				return
+			}
 			continue
 		}
 		failTimes = 0
 		if err := n.updateServiceList(serviceList.Doms); err != nil {
 			logger.Errorf("update service list failed %s", err)
 		}
-		time.Sleep(time.Second * 5)
+		if !waitForNacosPoll(n.exit, 5*time.Second) {
+			return
+		}
 	}
 }
 

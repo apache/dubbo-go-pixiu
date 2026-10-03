@@ -78,9 +78,16 @@ var (
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := deploy.start()
-			if err != nil {
-				return errors.Wrap(err, "failed to start gateway")
+			startErr := deploy.start()
+			stopErr := deploy.stop()
+			if startErr != nil {
+				if stopErr != nil {
+					logger.Errorf("failed to stop gateway after start error: %s", stopErr.Error())
+				}
+				return errors.Wrap(startErr, "failed to start gateway")
+			}
+			if stopErr != nil {
+				return errors.Wrap(stopErr, "failed to stop gateway")
 			}
 			return nil
 		},
@@ -140,8 +147,10 @@ func (d *DefaultDeployer) start() error {
 }
 
 func (d *DefaultDeployer) stop() error {
-	// TODO implement me
-	return errors.New("stop not implemented")
+	if d.configManger != nil {
+		d.configManger.Close()
+	}
+	return nil
 }
 
 // initDefaultValue If not set both in args and env, set default values
