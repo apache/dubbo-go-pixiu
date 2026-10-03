@@ -252,15 +252,18 @@ func TestCreateGrpExtensionApiClient_ClusterNotFound(t *testing.T) {
 // the same error instead of (nil, nil), preventing panic from calling methods
 // on a nil ClientConn.
 func TestGRPCCluster_GetConnection_PersistInitError(t *testing.T) {
+	dialErr := stderr.New("dial failed")
+	patches := gomonkey.ApplyFunc(grpc.DialContext, func(context.Context, string, ...grpc.DialOption) (*grpc.ClientConn, error) {
+		return nil, dialErr
+	})
+	defer patches.Reset()
+
 	cluster := &model.ClusterConfig{
 		Name:    "cluster-unreachable",
 		TypeStr: "GRPC",
 		Endpoints: []*model.Endpoint{
 			{
-				Address: model.SocketAddress{
-					Address: "localhost",
-					Port:    19999, // Unreachable port
-				},
+				Address: model.SocketAddress{Address: "localhost", Port: 19999},
 			},
 		},
 	}
@@ -274,10 +277,10 @@ func TestGRPCCluster_GetConnection_PersistInitError(t *testing.T) {
 
 	assert := require.New(t)
 
-	// First call should fail to connect
+	// First call should fail to connect.
 	conn1, err1 := g.GetConnection()
 	assert.Error(err1)
-	assert.Contains(err1.Error(), "failed")
+	assert.Contains(err1.Error(), dialErr.Error())
 	assert.Nil(conn1)
 
 	// Second call should return the same error, not (nil, nil)
@@ -319,6 +322,7 @@ func TestGRPCCluster_GetConnection_NoEndpoints(t *testing.T) {
 	assert.Equal(err, err2)
 	assert.Nil(conn2)
 }
+
 func TestGrpcExtensionApiClient_HandleDeltaResponse(t *testing.T) {
 	typedPayload, err := anypb.New(&emptypb.Empty{})
 	require.NoError(t, err)

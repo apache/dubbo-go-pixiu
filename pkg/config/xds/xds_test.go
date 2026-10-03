@@ -222,6 +222,11 @@ func TestAdapter_Start_NilApiManager(t *testing.T) {
 	assert.Contains(err.Error(), "LDS")
 	assert.Nil(ada.lds) // not created because createApiManager failed
 	assert.Nil(ada.cds) // not configured
+	select {
+	case <-ada.exitCh:
+	default:
+		t.Fatal("failed xDS startup must close the exit channel")
+	}
 }
 
 func TestAdapter_Start_CdsNilApiManager(t *testing.T) {

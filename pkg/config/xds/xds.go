@@ -160,7 +160,11 @@ func (a *Xds) Start() error {
 		}
 	}
 
-	return stderr.Join(errs...)
+	if err := stderr.Join(errs...); err != nil {
+		a.Stop()
+		return err
+	}
+	return nil
 }
 
 func (a *Xds) Stop() {
@@ -181,9 +185,8 @@ type Client interface {
 
 // StartXdsClient create XdsClient and run. only one xds client create at first(singleton)
 func StartXdsClient(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) (Client, error) {
-	// Note: on first-call failure once.Do still completes, leaving client == nil, so subsequent
-	// calls return (nil, nil). This is acceptable because the caller fails the whole startup on
-	// the first error and never reaches a second call.
+	// A startup failure is terminal for this singleton. Xds.Start rolls back partial
+	// initialization, and subsequent calls return the cached startup error.
 	once.Do(func() {
 		xdsClient := &Xds{
 			listenerMg:        listenerMg,
