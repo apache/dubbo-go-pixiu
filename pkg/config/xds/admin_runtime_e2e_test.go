@@ -298,11 +298,12 @@ func TestAdminHTTPToRunningPixiuEndToEnd(t *testing.T) {
 		ClusterName: []string{"xds-management"},
 	}
 	node := &model.Node{Id: nodeID}
-	xdsClient := pixiuxds.StartXdsClient(
+	xdsClient, err := pixiuxds.StartXdsClient(
 		listenerManager,
 		clusterManager,
 		runtimeE2EDynamicResources{config: apiConfig, node: node},
 	)
+	require.NoError(t, err)
 	require.NotNil(t, xdsClient)
 	t.Cleanup(func() {
 		xdsClient.Stop()
