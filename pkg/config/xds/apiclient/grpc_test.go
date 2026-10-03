@@ -253,7 +253,7 @@ func TestCreateGrpExtensionApiClient_ClusterNotFound(t *testing.T) {
 // on a nil ClientConn.
 func TestGRPCCluster_GetConnection_PersistInitError(t *testing.T) {
 	dialErr := stderr.New("dial failed")
-	patches := gomonkey.ApplyFunc(grpc.DialContext, func(context.Context, string, ...grpc.DialOption) (*grpc.ClientConn, error) {
+	patches := gomonkey.ApplyFunc(grpc.DialContext, func(context.Context, string, ...grpc.DialOption) (*grpc.ClientConn, error) { //nolint:staticcheck // test intercepts the production blocking dial
 		return nil, dialErr
 	})
 	defer patches.Reset()

@@ -429,7 +429,7 @@ func (g *GRPCCluster) GetConnection() (*grpc.ClientConn, error) {
 		logger.Infof("to connect xds server %s ...", endpoint)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) //todo fix timeout cancel warning
 		defer cancel()
-		conn, err := grpc.DialContext(ctx, endpoint,
+		conn, err := grpc.DialContext(ctx, endpoint, //nolint:staticcheck // startup requires context-bounded blocking dial semantics
 			grpc.WithTransportCredentials(creds),
 			grpc.WithBlock(),
 		)
