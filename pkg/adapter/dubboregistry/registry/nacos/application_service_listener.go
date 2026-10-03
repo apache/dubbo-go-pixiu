@@ -52,6 +52,7 @@ type appServiceListener struct {
 	cacheLock   sync.Mutex
 
 	exit            chan struct{}
+	closeOnce       sync.Once
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
 	watchOnce       sync.Once
@@ -74,8 +75,10 @@ func (l *appServiceListener) WatchAndHandle() {
 }
 
 func (l *appServiceListener) Close() {
-	close(l.exit)
-	l.wg.Wait()
+	l.closeOnce.Do(func() {
+		close(l.exit)
+		l.wg.Wait()
+	})
 }
 
 func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, err error) {

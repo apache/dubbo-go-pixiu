@@ -136,9 +136,6 @@ docker-compose up -d
 
 We warmly welcome all forms of contributions\! Whether it's submitting an issue, proposing a new feature, or contributing code, your participation is vital to the project.
 
-* **Contribution Workflow:**
-  To submit a Pull Request, please submit it to the [dubbo-go-pixiu/dubbo-go-pixiu](https://github.com/dubbo-go-pixiu/dubbo-go-pixiu/) repository. Your code will undergo automated review and manual verification by project maintainers, and will be automatically synchronized to the Apache official repository upon approval.
-
 * **Join Our Community**:
 
   Join our discussion group through Ding talk, WeChat, or Discord.

@@ -46,16 +46,27 @@ type NacosRegistry struct {
 }
 
 func (n *NacosRegistry) DoSubscribe() error {
-	Listener, ok := n.nacosListeners[n.RegisteredType]
+	if n.BaseRegistry == nil {
+		return errors.New("NacosRegistry: base registry is not initialized")
+	}
+	listener, ok := n.nacosListeners[n.RegisteredType]
 	if !ok {
 		return errors.New("Listener for interface level registration does not initialized")
 	}
-	go Listener.WatchAndHandle()
+	listener.WatchAndHandle()
 	return nil
 }
 
 func (n *NacosRegistry) DoUnsubscribe() error {
-	return errors.New("NacosRegistry: DoUnsubscribe not implemented")
+	if n.BaseRegistry == nil {
+		return errors.New("NacosRegistry: base registry is not initialized")
+	}
+	listener, ok := n.nacosListeners[n.RegisteredType]
+	if !ok {
+		return errors.New("Listener for interface level registration does not initialized")
+	}
+	listener.Close()
+	return nil
 }
 
 var _ registry.Registry = new(NacosRegistry)

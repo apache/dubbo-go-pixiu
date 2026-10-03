@@ -31,9 +31,16 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server/controls"
 )
+
+type legacyListenerManager struct {
+	controls.ListenerManager
+}
 
 func TestLdsManager_makeConfig(t *testing.T) {
 	var httpManagerConfigYaml = `
@@ -112,9 +119,10 @@ http_filters:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &LdsManager{}
-			gotM := l.makeConfig(tt.args.filter)
+			gotM, err := l.makeConfig(tt.args.filter)
 			assertions := require.New(t)
 
+			assertions.NoError(err)
 			assertions.Equal(tt.wantM, gotM)
 		})
 	}
@@ -165,16 +173,35 @@ func TestMakeListener(t *testing.T) {
 	if err := protojson.Unmarshal([]byte(json), l); err != nil {
 		t.Fatal(err)
 	}
-	listener := lm.makeListener(l)
-	assert.NotNil(t, listener)
+	listener, err := lm.makeListener(l)
+	require.NoError(t, err)
 	assert.Equal(t, "net/http", listener.Name)
 	assert.Equal(t, "0.0.0.0", listener.Address.SocketAddress.Address)
 	assert.Equal(t, 8080, listener.Address.SocketAddress.Port)
 	assert.Equal(t, 1, len(listener.FilterChain.Filters))
 }
 
+func TestSetupListenersRejectsUnknownProtocolWithoutPublication(t *testing.T) {
+	staticListener := &model.Listener{Name: "last-good"}
+	mock := &mockListenerManager{m: map[string]*model.Listener{"last-good": staticListener}}
+	manager := &LdsManager{listenerMg: mock}
+
+	err := manager.setupListeners([]*xdsmodel.Listener{{
+		Protocol: xdsmodel.Listener_Protocols(99),
+		Address: &xdsmodel.Address{SocketAddress: &xdsmodel.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18080,
+		}},
+		FilterChain: testXDSFilterChain(t),
+	}})
+
+	require.ErrorContains(t, err, "unsupported xDS listener protocol value 99")
+	require.Equal(t, map[string]*model.Listener{"last-good": staticListener}, mock.m)
+}
+
 type mockListenerManager struct {
-	m map[string]*model.Listener
+	m          map[string]*model.Listener
+	xdsManaged map[string]struct{}
 }
 
 func (m *mockListenerManager) AddListener(l *model.Listener) error {
@@ -206,8 +233,24 @@ func (m *mockListenerManager) CloneXdsControlListener() ([]*model.Listener, erro
 	return res, nil
 }
 
+func (m *mockListenerManager) ReplaceXDSListeners(listeners []*model.Listener) error {
+	if m.xdsManaged == nil {
+		m.xdsManaged = make(map[string]struct{})
+	}
+	for name := range m.xdsManaged {
+		delete(m.m, name)
+	}
+	clear(m.xdsManaged)
+	for _, listener := range listeners {
+		m.m[listener.Name] = listener
+		m.xdsManaged[listener.Name] = struct{}{}
+	}
+	return nil
+}
+
 func TestSetupListeners(t *testing.T) {
-	mock := &mockListenerManager{m: map[string]*model.Listener{}}
+	staticListener := &model.Listener{Name: "static-listener"}
+	mock := &mockListenerManager{m: map[string]*model.Listener{"static-listener": staticListener}}
 	lm := &LdsManager{listenerMg: mock}
 
 	listeners := []*xdsmodel.Listener{
@@ -219,7 +262,7 @@ func TestSetupListeners(t *testing.T) {
 					Port:    8080,
 				},
 			},
-			FilterChain: &xdsmodel.FilterChain{},
+			FilterChain: testXDSFilterChain(t),
 		},
 		{
 			Protocol: xdsmodel.Listener_TRIPLE,
@@ -229,7 +272,7 @@ func TestSetupListeners(t *testing.T) {
 					Port:    8081,
 				},
 			},
-			FilterChain: &xdsmodel.FilterChain{},
+			FilterChain: testXDSFilterChain(t),
 		},
 	}
 	lm.setupListeners(listeners)
@@ -248,9 +291,79 @@ func TestSetupListeners(t *testing.T) {
 					Port:    8080,
 				},
 			},
-			FilterChain: &xdsmodel.FilterChain{},
+			FilterChain: testXDSFilterChain(t),
 		},
 	}
 	lm.setupListeners(newListeners)
-	assert.Equal(t, 1, len(mock.m))
+	assert.Equal(t, 2, len(mock.m))
+	assert.Same(t, staticListener, mock.m["static-listener"])
+}
+
+func TestLdsManagerRejectsManagerWithoutTransactionalReplacement(t *testing.T) {
+	manager := &LdsManager{listenerMg: &legacyListenerManager{}}
+	err := manager.setupListeners([]*xdsmodel.Listener{{
+		Protocol: xdsmodel.Listener_HTTP,
+		Address: &xdsmodel.Address{SocketAddress: &xdsmodel.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18080,
+		}},
+		FilterChain: testXDSFilterChain(t),
+	}})
+
+	require.ErrorContains(t, err, "does not support transactional xDS replacement")
+}
+
+func testXDSFilterChain(t *testing.T) *xdsmodel.FilterChain {
+	t.Helper()
+	config, err := structpb2.NewStruct(map[string]any{})
+	require.NoError(t, err)
+	return &xdsmodel.FilterChain{Filters: []*xdsmodel.NetworkFilter{{
+		Name:   "test.network.filter",
+		Config: &xdsmodel.NetworkFilter_Struct{Struct: config},
+	}}}
+}
+
+func TestLdsManagerRejectsMalformedFilterConfigBeforeManager(t *testing.T) {
+	mock := &mockListenerManager{m: make(map[string]*model.Listener)}
+	manager := &LdsManager{listenerMg: mock}
+	listener := &xdsmodel.Listener{
+		Protocol: xdsmodel.Listener_HTTP,
+		Address: &xdsmodel.Address{SocketAddress: &xdsmodel.SocketAddress{
+			Address: "127.0.0.1",
+			Port:    18080,
+		}},
+		FilterChain: &xdsmodel.FilterChain{Filters: []*xdsmodel.NetworkFilter{{
+			Name: "broken",
+			Config: &xdsmodel.NetworkFilter_Json{Json: &xdsmodel.Config{
+				Content: "{not-json",
+			}},
+		}}},
+	}
+
+	err := manager.setupListeners([]*xdsmodel.Listener{listener})
+	require.ErrorContains(t, err, "decode JSON config")
+	require.Empty(t, mock.m)
+}
+
+func TestLdsManager_ApplyDelta(t *testing.T) {
+	staticListener := &model.Listener{Name: "static-listener"}
+	dynamicListener := &model.Listener{Name: "dynamic-listener"}
+	mock := &mockListenerManager{
+		m: map[string]*model.Listener{
+			"static-listener":  staticListener,
+			"dynamic-listener": dynamicListener,
+		},
+		xdsManaged: map[string]struct{}{"dynamic-listener": {}},
+	}
+	manager := &LdsManager{listenerMg: mock}
+
+	manager.applyDelta(&apiclient.DeltaResources{})
+	assert.Same(t, dynamicListener, mock.m["dynamic-listener"])
+	assert.Same(t, staticListener, mock.m["static-listener"])
+
+	manager.applyDelta(&apiclient.DeltaResources{
+		RemovedResources: []string{constant.ListenerType},
+	})
+	assert.NotContains(t, mock.m, "dynamic-listener")
+	assert.Same(t, staticListener, mock.m["static-listener"])
 }

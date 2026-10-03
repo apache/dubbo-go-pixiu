@@ -18,6 +18,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -27,10 +28,17 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/maglev"     // Register Maglev for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/rand"       // Register Rand for cluster-manager tests.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"   // Register RingHash for cluster-manager tests.
@@ -56,6 +64,112 @@ func TestClusterManager(t *testing.T) {
 	cm.SetEndpoint("test2", testEndpoint("2", "127.0.0.1", 18082))
 	assert.Equal(t, "1", cm.PickEndpoint("test", nil).ID)
 	cm.DeleteEndpoint("test2", "1")
+}
+
+func TestClusterManager_XDSOwnershipPreservesStaticCluster(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	cm := testClusterManager(staticCluster)
+
+	require.Error(t, cm.UpsertXDSCluster(testCluster("static", model.LoadBalancerRoundRobin, nil)))
+	require.NoError(t, cm.UpsertXDSCluster(testCluster("dynamic", model.LoadBalancerRoundRobin, nil)))
+	assert.Equal(t, []string{"dynamic"}, cm.XDSClusterNames())
+
+	cm.RemoveXDSClusters([]string{"static", "dynamic"})
+
+	assert.True(t, cm.HasCluster("static"))
+	assert.False(t, cm.HasCluster("dynamic"))
+	assert.Empty(t, cm.XDSClusterNames())
+}
+
+func TestClusterManager_ReplaceXDSClustersIsAtomicOnConflict(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	oldDynamic := testCluster("old-dynamic", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("old", "127.0.0.1", 18080),
+	})
+	cm := testClusterManager(staticCluster)
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{oldDynamic}))
+
+	err := cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		testCluster("new-dynamic", model.LoadBalancerRoundRobin, nil),
+		testCluster("static", model.LoadBalancerRoundRobin, nil),
+	})
+
+	require.ErrorContains(t, err, "conflicts with a non-xDS cluster")
+	assert.True(t, cm.HasCluster("static"))
+	assert.True(t, cm.HasCluster("old-dynamic"))
+	assert.False(t, cm.HasCluster("new-dynamic"))
+	assert.Equal(t, []string{"old-dynamic"}, cm.XDSClusterNames())
+}
+
+func TestClusterManager_ReplaceXDSClustersNotifiesEndpointLifecycle(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	oldEndpoint := testEndpoint("old", "127.0.0.1", 18080)
+	newEndpoint := testEndpoint("new", "127.0.0.1", 18081)
+	oldDynamic := testCluster("dynamic", model.LoadBalancerRoundRobin, []*model.Endpoint{oldEndpoint})
+	newDynamic := testCluster("dynamic", model.LoadBalancerRoundRobin, []*model.Endpoint{newEndpoint})
+	cm := testClusterManager(staticCluster)
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{oldDynamic}))
+
+	var changes []endpointStateChange
+	removeStateHandler := cm.AddEndpointStateHandler(func(clusterName, address string, present bool, version uint64) {
+		changes = append(changes, endpointStateChange{
+			clusterName: clusterName,
+			address:     address,
+			present:     present,
+			version:     version,
+		})
+		assert.Equal(t, present, cm.HasEndpointAddress(clusterName, address), "callbacks must observe the published store")
+	})
+	t.Cleanup(removeStateHandler)
+	var removals []endpointRemoval
+	removeRemovalHandler := cm.AddEndpointRemovalHandler(func(clusterName, address string) {
+		removals = append(removals, endpointRemoval{clusterName: clusterName, address: address})
+	})
+	t.Cleanup(removeRemovalHandler)
+
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{newDynamic}))
+	require.Len(t, changes, 2)
+	changesByAddress := make(map[string]endpointStateChange, len(changes))
+	for _, change := range changes {
+		changesByAddress[change.address] = change
+	}
+	oldAddress := oldEndpoint.Address.GetAddress()
+	newAddress := newEndpoint.Address.GetAddress()
+	require.False(t, changesByAddress[oldAddress].present)
+	require.True(t, changesByAddress[newAddress].present)
+	require.NotZero(t, changesByAddress[oldAddress].version)
+	require.Equal(t, changesByAddress[oldAddress].version, changesByAddress[newAddress].version)
+	require.Equal(t, []endpointRemoval{{clusterName: "dynamic", address: oldAddress}}, removals)
+
+	beforeRejectedUpdate := len(changes)
+	err := cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		newDynamic,
+		testCluster("static", model.LoadBalancerRoundRobin, []*model.Endpoint{newEndpoint}),
+	})
+	require.ErrorContains(t, err, "conflicts with a non-xDS cluster")
+	require.Len(t, changes, beforeRejectedUpdate, "a rejected replacement must not publish endpoint events")
+}
+
+func TestClusterManager_RegistryStoreDoesNotInheritXDSOwnership(t *testing.T) {
+	cm := CreateDefaultClusterManager(&model.Bootstrap{})
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		testCluster("shared", model.LoadBalancerRoundRobin, nil),
+	}))
+	require.Equal(t, []string{"shared"}, cm.XDSClusterNames())
+
+	oldStore, err := cm.CloneStore()
+	require.NoError(t, err)
+	registryStore := cm.NewStore(oldStore.Version)
+	registryStore.AddCluster(testCluster("shared", model.LoadBalancerRoundRobin, []*model.Endpoint{{
+		ID:      "spring-instance",
+		Address: model.SocketAddress{Address: "127.0.0.2", Port: 20880},
+	}}))
+	require.True(t, cm.CompareAndSetStore(registryStore))
+	require.Empty(t, cm.XDSClusterNames())
+
+	err = cm.ReplaceXDSClusters(nil)
+	require.NoError(t, err)
+	require.True(t, cm.HasCluster("shared"), "xDS deletion must not remove a registry-owned cluster")
 }
 
 func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
@@ -173,7 +287,9 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 	cm := testClusterManager(cluster)
 
 	const expectedCursor uint32 = 5
-	atomic.StoreUint32(&cm.store.Config[0].PrePickEndpointIndex, expectedCursor)
+	// Set cursor on the runtime, not the config.
+	oldRuntime := cm.store.clustersMap[cluster.Name]
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	oldStore, err := cm.CloneStore()
 	if !assert.NoError(t, err) {
@@ -187,7 +303,10 @@ func TestClusterManager_CompareAndSetStorePreservesRoundRobinCursorAcrossRefresh
 
 	assert.True(t, cm.CompareAndSetStore(newStore))
 	if assert.Len(t, cm.store.Config, 1) {
-		assert.Equal(t, expectedCursor, atomic.LoadUint32(&cm.store.Config[0].PrePickEndpointIndex))
+		newRuntime := cm.store.clustersMap[cluster.Name]
+		if assert.NotNil(t, newRuntime) {
+			assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
+		}
 	}
 
 	endpoint := cm.PickEndpoint(cluster.Name, nil)
@@ -207,11 +326,11 @@ func TestClusterManager_UpdateClusterRebuildsRuntimeCluster(t *testing.T) {
 	if !assert.NotNil(t, oldRuntime) {
 		return
 	}
-	assert.Same(t, oldConfig, oldRuntime.Config)
+	assert.True(t, oldRuntime.ConfigIsIdenticalTo(oldConfig))
 	assert.Greater(t, healthCheckersLen(oldRuntime), 0)
 
 	const expectedCursor uint32 = 11
-	atomic.StoreUint32(&oldConfig.PrePickEndpointIndex, expectedCursor)
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	newConfig := testCluster(oldConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-2", "127.0.0.1", 19301),
@@ -224,9 +343,9 @@ func TestClusterManager_UpdateClusterRebuildsRuntimeCluster(t *testing.T) {
 		return
 	}
 	assert.NotSame(t, oldRuntime, newRuntime)
-	assert.Same(t, newConfig, newRuntime.Config)
+	assert.True(t, newRuntime.ConfigIsIdenticalTo(newConfig))
 	assert.Same(t, newConfig, cm.store.Config[0])
-	assert.Equal(t, expectedCursor, atomic.LoadUint32(&newConfig.PrePickEndpointIndex))
+	assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
 	assert.Equal(t, 0, healthCheckersLen(oldRuntime))
 	assert.Greater(t, healthCheckersLen(newRuntime), 0)
 }
@@ -272,7 +391,7 @@ func TestClusterManager_CompareAndSetStoreEnsuresRuntimeAndStopsOld(t *testing.T
 	assert.Greater(t, healthCheckersLen(oldRuntime), 0)
 
 	const expectedCursor uint32 = 17
-	atomic.StoreUint32(&oldConfig.PrePickEndpointIndex, expectedCursor)
+	oldRuntime.RoundRobinCursor().Store(expectedCursor)
 
 	newConfig := testCluster(oldConfig.Name, model.LoadBalancerRoundRobin, []*model.Endpoint{
 		testEndpoint("ep-2", "127.0.0.1", 19321),
@@ -291,8 +410,8 @@ func TestClusterManager_CompareAndSetStoreEnsuresRuntimeAndStopsOld(t *testing.T
 	}
 	assert.Same(t, candidate, cm.store)
 	assert.NotSame(t, oldRuntime, newRuntime)
-	assert.Same(t, newConfig, newRuntime.Config)
-	assert.Equal(t, expectedCursor, atomic.LoadUint32(&newConfig.PrePickEndpointIndex))
+	assert.True(t, newRuntime.ConfigIsIdenticalTo(newConfig))
+	assert.Equal(t, expectedCursor, newRuntime.RoundRobinCursor().Load())
 	assert.Equal(t, 0, healthCheckersLen(oldRuntime))
 	assert.Greater(t, healthCheckersLen(newRuntime), 0)
 }
@@ -332,7 +451,7 @@ func TestClusterStore_EnsureRuntimeClustersRepairsRuntimeMap(t *testing.T) {
 
 		assert.Empty(t, replaced)
 		if assert.NotNil(t, store.clustersMap[config.Name]) {
-			assert.Same(t, config, store.clustersMap[config.Name].Config)
+			assert.True(t, store.clustersMap[config.Name].ConfigIsIdenticalTo(config))
 		}
 	})
 
@@ -373,13 +492,13 @@ func TestClusterStore_EnsureRuntimeClustersRepairsRuntimeMap(t *testing.T) {
 		replaced := store.ensureRuntimeClusters()
 		stopClusters(replaced)
 
-		assert.Same(t, correctRuntime, store.clustersMap[correctConfig.Name])
+		assert.True(t, store.clustersMap[correctConfig.Name].ConfigIsIdenticalTo(correctConfig))
 		if assert.NotNil(t, store.clustersMap[missingConfig.Name]) {
-			assert.Same(t, missingConfig, store.clustersMap[missingConfig.Name].Config)
+			assert.True(t, store.clustersMap[missingConfig.Name].ConfigIsIdenticalTo(missingConfig))
 		}
 		if assert.NotNil(t, store.clustersMap[newMismatchedConfig.Name]) {
 			assert.NotSame(t, mismatchedRuntime, store.clustersMap[newMismatchedConfig.Name])
-			assert.Same(t, newMismatchedConfig, store.clustersMap[newMismatchedConfig.Name].Config)
+			assert.True(t, store.clustersMap[newMismatchedConfig.Name].ConfigIsIdenticalTo(newMismatchedConfig))
 		}
 		assert.NotContains(t, store.clustersMap, staleConfig.Name)
 		assert.Contains(t, replaced, mismatchedRuntime)
@@ -426,6 +545,9 @@ func TestClusterManager_SetEndpointExplicitSameIDDifferentAddressRebuildsConsist
 			assert.Equal(t, "ep-1", endpoints[0].ID)
 			assert.Equal(t, "127.0.0.2", endpoints[0].Address.Address)
 
+			// The Config-level hash is built lazily on the legacy pick path now,
+			// so trigger the build before inspecting it directly.
+			cm.store.Config[0].EnsureConsistentHash()
 			hash := cm.store.Config[0].ConsistentHash.Hash
 			if !assert.NotNil(t, hash) {
 				return
@@ -468,12 +590,15 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 		return
 	}
 	assert.NotSame(t, staleRuntime, runtime)
-	assert.Same(t, config, runtime.Config)
+	assert.True(t, runtime.ConfigIsIdenticalTo(config))
 	if assert.Len(t, config.Endpoints, 1) {
 		assert.Equal(t, remainingEndpoint, config.Endpoints[0])
 		assert.NotSame(t, remainingEndpoint, config.Endpoints[0])
 	}
 
+	// The Config-level hash is built lazily on the legacy pick path now,
+	// so trigger the build before inspecting it directly.
+	config.EnsureConsistentHash()
 	hash := config.ConsistentHash.Hash
 	if !assert.NotNil(t, hash) {
 		return
@@ -485,6 +610,131 @@ func TestClusterManager_DeleteEndpointRepairsRuntimeAndConsistentHash(t *testing
 	hosts := hostList.Hosts()
 	assert.NotContains(t, hosts, deletedHost)
 	assert.Contains(t, hosts, remainingHost)
+}
+
+// countingFixedHash is a minimal model.LbConsistentHash fixture for the
+// deferred-rebuild test; only construction is observed (via the registered
+// init func's counter), so the lookup methods are stubs.
+type countingFixedHash struct{}
+
+func (countingFixedHash) Hash(string) uint32             { return 0 }
+func (countingFixedHash) Get(string) (string, error)     { return "", nil }
+func (countingFixedHash) GetHash(uint32) (string, error) { return "", nil }
+func (countingFixedHash) Add(string)                     {}
+func (countingFixedHash) Remove(string) bool             { return false }
+
+// TestClusterManager_SetEndpointDefersConsistentHashRebuild verifies that the
+// Config-level consistent hash is no longer rebuilt eagerly on every config
+// mutation. SetEndpoint churn must trigger zero hash builds (the snapshot pick
+// path never reads Config.ConsistentHash.Hash); the hash is built lazily, once,
+// only when the legacy path calls EnsureConsistentHash.
+func TestClusterManager_SetEndpointDefersConsistentHashRebuild(t *testing.T) {
+	const deferLbPolicy model.LbPolicyType = "DeferRebuildCountingHash"
+	var buildCount int32
+	model.ConsistentHashInitMap[deferLbPolicy] = func(model.ConsistentHash, []*model.Endpoint) model.LbConsistentHash {
+		atomic.AddInt32(&buildCount, 1)
+		return countingFixedHash{}
+	}
+	defer delete(model.ConsistentHashInitMap, deferLbPolicy)
+
+	config := testCluster("defer-hash-rebuild", deferLbPolicy, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19360),
+	})
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	// Initial assembly must not build the Config-level hash.
+	assert.Equal(t, int32(0), atomic.LoadInt32(&buildCount), "AddCluster must not eagerly build the consistent hash")
+
+	for i := 0; i < 5; i++ {
+		cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19361+i))
+	}
+	assert.Equal(t, int32(0), atomic.LoadInt32(&buildCount), "SetEndpoint churn must not build the Config-level hash on the snapshot path")
+
+	stored := cm.store.Config[0]
+	stored.EnsureConsistentHash()
+	stored.EnsureConsistentHash()
+	assert.Equal(t, int32(1), atomic.LoadInt32(&buildCount), "legacy path must build the hash exactly once and reuse it")
+}
+
+func TestClusterManager_PrepareClusterConfigPreservesCustomHashWithoutFactory(t *testing.T) {
+	customHash := &countingFixedHash{}
+	config := testCluster("custom-hash-preserve", model.LbPolicyType("UnregisteredConsistentHash"), []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19370),
+	})
+	config.ConsistentHash.Hash = customHash
+
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+
+	cm.SetEndpoint(config.Name, testEndpoint("ep-1", "127.0.0.2", 19371))
+	assert.Same(t, customHash, cm.store.Config[0].ConsistentHash.Hash)
+}
+
+func TestClusterManager_RuntimePreservesProgrammaticCustomHash(t *testing.T) {
+	const customPolicy model.LbPolicyType = "ProgrammaticCustomHashRuntime"
+	previousBalancer, hadPreviousBalancer := loadbalancer.LoadBalancerStrategy[customPolicy]
+	loadbalancer.LoadBalancerStrategy[customPolicy] = programmaticHashSnapshotBalancer{}
+	defer func() {
+		if hadPreviousBalancer {
+			loadbalancer.LoadBalancerStrategy[customPolicy] = previousBalancer
+		} else {
+			delete(loadbalancer.LoadBalancerStrategy, customPolicy)
+		}
+	}()
+
+	endpoint := testEndpoint("custom-hash-ep", "127.0.0.1", 19372)
+	config := testCluster("custom-hash-runtime", customPolicy, []*model.Endpoint{endpoint})
+	config.ConsistentHash.Hash = fixedEndpointHash{host: endpoint.GetHost()}
+
+	cm := testClusterManager(config)
+	defer stopStoreRuntimes(cm.store)
+
+	picked := cm.PickEndpoint(config.Name, nil)
+	require.NotNil(t, picked)
+	assert.Equal(t, endpoint.ID, picked.ID)
+}
+
+type fixedEndpointHash struct {
+	host string
+}
+
+func (fixedEndpointHash) Hash(string) uint32               { return 0 }
+func (h fixedEndpointHash) Get(string) (string, error)     { return h.host, nil }
+func (h fixedEndpointHash) GetHash(uint32) (string, error) { return h.host, nil }
+func (fixedEndpointHash) Add(string)                       {}
+func (fixedEndpointHash) Remove(string) bool               { return false }
+
+type programmaticHashSnapshotBalancer struct{}
+
+func (programmaticHashSnapshotBalancer) Handler(*model.ClusterConfig, model.LbPolicy) *model.Endpoint {
+	return nil
+}
+
+func (programmaticHashSnapshotBalancer) HandlerWithSnapshot(
+	context loadbalancer.PickContext,
+	_ model.LbPolicy,
+) *model.Endpoint {
+	hash := loadbalancer.ConsistentHashForHealthyEndpoints(context)
+	if hash == nil {
+		return nil
+	}
+	host, err := hash.Get("reviewer-regression")
+	if err != nil {
+		return nil
+	}
+	for _, endpoint := range context.HealthyEndpoints {
+		if endpoint != nil && endpoint.GetHost() == host {
+			return endpoint
+		}
+	}
+	return nil
+}
+
+func (programmaticHashSnapshotBalancer) UseHealthyEndpointsOnly() bool {
+	return true
 }
 
 func TestClusterManager_Race_RoundRobinPickEndpoint(t *testing.T) {
@@ -654,6 +904,23 @@ func TestClusterManager_SetEndpointExplicitSameIDDifferentAddressOverwritesInPla
 	assert.Equal(t, "foo", endpoints[0].ID)
 	assert.Equal(t, "127.0.0.2", endpoints[0].Address.Address)
 	assert.Equal(t, 21101, endpoints[0].Address.Port)
+}
+
+func TestClusterManager_SetEndpointNotifiesAddressReplacement(t *testing.T) {
+	cm := testClusterManager(testCluster("endpoint-removal", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("foo", "127.0.0.1", 21120),
+	}))
+	defer stopStoreRuntimes(cm.store)
+
+	var removed []string
+	removeHandler := cm.AddEndpointRemovalHandler(func(clusterName, address string) {
+		removed = append(removed, clusterName+"\x00"+address)
+	})
+	defer removeHandler()
+
+	cm.SetEndpoint("endpoint-removal", testEndpoint("foo", "127.0.0.2", 21121))
+
+	assert.Equal(t, []string{"endpoint-removal\x00127.0.0.1:21120"}, removed)
 }
 
 // TestClusterManager_SetEndpointExplicitSameIDSameContentIsIdempotent locks
@@ -1037,6 +1304,71 @@ func TestAssembleEndpointsDeduplicatesExplicitID(t *testing.T) {
 			"not the generated- hash, so the operator's choice stays readable")
 }
 
+// TestEndpointIDAssemblyAndSnapshotRebuildAgree locks issue #969: the config
+// assembly path (ClusterStore.assembleClusterEndpoints, used for static/dynamic
+// config) and the snapshot-rebuild path (cluster.NewCluster -> newEndpointSnapshot)
+// must assign byte-identical endpoint IDs for the same cluster. The endpoint ID
+// is the runtime health/cooldown key, so if the two -2/-3 suffix algorithms ever
+// drift, the same endpoint would get a different ID on a snapshot rebuild and
+// split its health state. Both paths now route through model.StableUniqueEndpointID;
+// this test fails if a future change reintroduces a second, diverging copy.
+func TestEndpointIDAssemblyAndSnapshotRebuildAgree(t *testing.T) {
+	const clusterName = "id-agreement"
+
+	idsOf := func(endpoints []*model.Endpoint) []string {
+		ids := make([]string, len(endpoints))
+		for i, endpoint := range endpoints {
+			ids[i] = endpoint.ID
+		}
+		return ids
+	}
+
+	tests := []struct {
+		name      string
+		endpoints func() []*model.Endpoint
+	}{
+		{
+			// Operator wrote the same id: twice — base is the operator ID.
+			name: "explicit duplicate ID",
+			endpoints: func() []*model.Endpoint {
+				return []*model.Endpoint{
+					{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 22001}},
+					{ID: "foo", Address: model.SocketAddress{Address: "127.0.0.1", Port: 22002}},
+				}
+			},
+		},
+		{
+			// No IDs and identical hash material — base is the generated hash.
+			name: "anonymous endpoints with identical hash material",
+			endpoints: func() []*model.Endpoint {
+				return []*model.Endpoint{
+					{Address: model.SocketAddress{Address: "127.0.0.1", Port: 22010}},
+					{Address: model.SocketAddress{Address: "127.0.0.1", Port: 22010}},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assembled := &model.ClusterConfig{Name: clusterName, Endpoints: tt.endpoints()}
+			(&ClusterStore{}).assembleClusterEndpoints(assembled)
+			assembledIDs := idsOf(assembled.Endpoints)
+
+			runtime := cluster.NewCluster(&model.ClusterConfig{Name: clusterName, Endpoints: tt.endpoints()})
+			snapshotIDs := idsOf(runtime.EndpointSnapshot().AllEndpoints())
+
+			assert.Equal(t, assembledIDs, snapshotIDs,
+				"config assembly and snapshot rebuild must assign identical endpoint IDs")
+
+			if assert.Len(t, assembledIDs, 2) {
+				assert.Equal(t, assembledIDs[0]+"-2", assembledIDs[1],
+					"both paths must suffix the colliding second endpoint with -2, not collapse it")
+			}
+		})
+	}
+}
+
 func testClusterManager(clusters ...*model.ClusterConfig) *ClusterManager {
 	return CreateDefaultClusterManager(&model.Bootstrap{
 		StaticResources: model.StaticResources{
@@ -1110,4 +1442,119 @@ func healthCheckerAddresses(runtime *cluster.Cluster) []string {
 		addrs = append(addrs, iter.Key().String())
 	}
 	return addrs
+}
+
+// TestStaticClusterSnapshotMetricsRecordedAtStartup verifies that snapshot
+// publication metrics emitted during static cluster initialization land on the
+// real meter provider. This test models production startup ordering: clusters
+// are created during CreateDefaultClusterManager (called from initialize), and
+// the OTel provider must be installed BEFORE that point so the initial snapshot
+// publish (the only guaranteed emission for steady-state clusters) is recorded.
+//
+// Regression guard for: if registerOtelMetricMeter is moved back after cluster
+// construction, static clusters' initial publish lands on the no-op delegating
+// provider, and the counter/gauges remain empty in steady state.
+func TestStaticClusterSnapshotMetricsRecordedAtStartup(t *testing.T) {
+	// Step 1: Install a ManualReader meter provider BEFORE cluster construction.
+	// This models the corrected startup order: registerOtelMetricMeter(bs.Metric)
+	// is called in Start(bs) before server.initialize(bs).
+	reader := installClusterSnapshotMetricsReader(t)
+
+	// Step 2: Construct a cluster manager with static clusters, simulating what
+	// happens during initialize → CreateDefaultClusterManager.
+	staticCluster := testCluster("static-metrics-test", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("ep-1", "127.0.0.1", 19001),
+		testEndpoint("ep-2", "127.0.0.1", 19002),
+	})
+	_ = CreateDefaultClusterManager(&model.Bootstrap{
+		StaticResources: model.StaticResources{
+			Clusters: []*model.ClusterConfig{staticCluster},
+		},
+	})
+
+	// Step 3: Verify the initial snapshot publish was recorded. NewCluster calls
+	// RefreshEndpointsFrom, which publishes once. That single emission must land
+	// on the real provider for steady-state clusters (those with no health flips
+	// or registry churn) to have any recorded metrics at all.
+	metrics := collectClusterSnapshotMetrics(t, reader)
+
+	publishTotal, ok := metrics["pixiu_cluster_snapshot_publish_total"]
+	assert.True(t, ok, "publish total metric missing")
+	assert.Equal(t, int64(1), sumForClusterMetric(t, publishTotal, "static-metrics-test"),
+		"static cluster initial publish must increment the counter")
+
+	endpointCount, ok := metrics["pixiu_cluster_snapshot_endpoint_count"]
+	assert.True(t, ok, "endpoint count gauge missing")
+	assert.Equal(t, int64(2), gaugeForClusterMetric(t, endpointCount, "static-metrics-test"),
+		"endpoint count gauge must reflect the initial snapshot size")
+
+	healthyCount, ok := metrics["pixiu_cluster_snapshot_healthy_endpoint_count"]
+	assert.True(t, ok, "healthy endpoint count gauge missing")
+	assert.Equal(t, int64(2), gaugeForClusterMetric(t, healthyCount, "static-metrics-test"),
+		"healthy endpoint count gauge must reflect the initial snapshot size")
+}
+
+// installClusterSnapshotMetricsReader installs a ManualReader meter provider
+// for snapshot metrics testing and restores the previous provider on cleanup.
+// This helper mutates the process-global MeterProvider, so tests using it must
+// not call t.Parallel().
+func installClusterSnapshotMetricsReader(t *testing.T) *sdkmetric.ManualReader {
+	t.Helper()
+
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	prevProvider := otel.GetMeterProvider()
+
+	otel.SetMeterProvider(provider)
+
+	t.Cleanup(func() {
+		otel.SetMeterProvider(prevProvider)
+	})
+
+	return reader
+}
+
+// collectClusterSnapshotMetrics collects metrics from the reader and returns
+// them as a map keyed by metric name.
+func collectClusterSnapshotMetrics(t *testing.T, reader *sdkmetric.ManualReader) map[string]metricdata.Metrics {
+	t.Helper()
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+
+	out := make(map[string]metricdata.Metrics)
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			out[m.Name] = m
+		}
+	}
+	return out
+}
+
+// sumForClusterMetric extracts the counter value for the given cluster label.
+func sumForClusterMetric(t *testing.T, m metricdata.Metrics, clusterName string) int64 {
+	t.Helper()
+	data, ok := m.Data.(metricdata.Sum[int64])
+	require.True(t, ok, "metric %s is not an int64 Sum", m.Name)
+	for _, dp := range data.DataPoints {
+		if v, ok := dp.Attributes.Value(attribute.Key("cluster")); ok && v.AsString() == clusterName {
+			return dp.Value
+		}
+	}
+	t.Fatalf("no data point for cluster %q in metric %s", clusterName, m.Name)
+	return 0
+}
+
+// gaugeForClusterMetric extracts the gauge value for the given cluster label.
+func gaugeForClusterMetric(t *testing.T, m metricdata.Metrics, clusterName string) int64 {
+	t.Helper()
+	data, ok := m.Data.(metricdata.Gauge[int64])
+	require.True(t, ok, "metric %s is not an int64 Gauge", m.Name)
+	for _, dp := range data.DataPoints {
+		if v, ok := dp.Attributes.Value(attribute.Key("cluster")); ok && v.AsString() == clusterName {
+			return dp.Value
+		}
+	}
+	t.Fatalf("no data point for cluster %q in metric %s", clusterName, m.Name)
+	return 0
 }

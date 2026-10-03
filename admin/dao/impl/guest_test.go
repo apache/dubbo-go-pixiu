@@ -27,9 +27,10 @@ import (
 func TestGuestDao_CheckLogin(t *testing.T) {
 	// Capture log output
 	var buf bytes.Buffer
+	originalOutput := log.Writer()
 	log.SetOutput(&buf)
 	defer func() {
-		log.SetOutput(nil)
+		log.SetOutput(originalOutput)
 	}()
 
 	d := &GuestDao{}

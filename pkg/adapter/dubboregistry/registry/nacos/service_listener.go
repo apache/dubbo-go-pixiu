@@ -49,6 +49,7 @@ type serviceListener struct {
 	cacheLock   sync.Mutex
 
 	exit            chan struct{}
+	closeOnce       sync.Once
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
 	watchOnce       sync.Once
@@ -177,8 +178,10 @@ func (z *serviceListener) NotifyAll(e []*dubboRegistry.ServiceEvent, f func()) {
 
 // Close closes this listener
 func (zkl *serviceListener) Close() {
-	close(zkl.exit)
-	zkl.wg.Wait()
+	zkl.closeOnce.Do(func() {
+		close(zkl.exit)
+		zkl.wg.Wait()
+	})
 }
 
 func generateURL(instance nacosModel.Instance) *dubboCommon.URL {

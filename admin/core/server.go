@@ -20,12 +20,11 @@ package core
 import (
 	"fmt"
 	"net/http"
+	"sync"
 )
 
 import (
 	"go.uber.org/zap"
-
-	"v.marlon.life/toolkit/util"
 )
 
 import (
@@ -64,23 +63,28 @@ func RunServer() {
 
 	s := initServer(address, router)
 
-	var wg util.WaitGroupWrapper
+	var wg sync.WaitGroup
 
-	wg.AddAndRun(func() {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		global.LOG.Info("server run success on ", zap.String("address", address))
 		fmt.Printf(helperInfo, address)
 
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			global.LOG.Error(err.Error())
 		}
-	})
+	}()
 
-	wg.AddAndRun(func() {
-		global.LOG.Info("xDS server run success on :18000")
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		xdsConfig := config.Bootstrap.GetXDSConfig()
+		global.LOG.Info("xDS server starting", zap.Uint("port", xdsConfig.ListenPort), zap.String("node_id", xdsConfig.NodeID))
 		if err := StartxDsServer(); err != nil {
 			global.LOG.Error(err.Error())
 		}
-	})
+	}()
 
 	wg.Wait()
 }
