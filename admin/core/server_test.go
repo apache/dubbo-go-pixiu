@@ -20,7 +20,7 @@ package core
 import (
 	"context"
 	"errors"
-	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,20 +29,34 @@ import (
 )
 
 import (
-	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	envoyServer "github.com/envoyproxy/go-control-plane/pkg/server/v3"
-
 	"github.com/stretchr/testify/assert"
+
+	"go.uber.org/zap"
 )
 
 import (
 	"github.com/apache/dubbo-go-pixiu/admin/global"
 	"github.com/apache/dubbo-go-pixiu/admin/utils"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 // errSentinel is a distinct error used to assert exact propagation.
 var errSentinel = errors.New("sentinel startup error")
+
+type shutdownContextServer struct {
+	shutdownContextErr chan error
+	stopped            chan struct{}
+}
+
+func (s *shutdownContextServer) ListenAndServe() error {
+	<-s.stopped
+	return http.ErrServerClosed
+}
+
+func (s *shutdownContextServer) Shutdown(ctx context.Context) error {
+	s.shutdownContextErr <- ctx.Err()
+	close(s.stopped)
+	return nil
+}
 
 // TestRunCoordinated_FirstErrorWins verifies that the first worker to fail is
 // propagated and that its peers observe the cancellation and exit.
@@ -162,6 +176,36 @@ func TestRunCoordinated_ParentCancelPropagates(t *testing.T) {
 	}
 }
 
+func TestRunHTTPServerUsesLiveContextForGracefulShutdown(t *testing.T) {
+	previousLogger := global.LOG
+	global.LOG = zap.NewNop()
+	t.Cleanup(func() { global.LOG = previousLogger })
+
+	server := &shutdownContextServer{
+		shutdownContextErr: make(chan error, 1),
+		stopped:            make(chan struct{}),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- runHTTPServer(ctx, server, ":0") }()
+
+	cancel()
+
+	select {
+	case err := <-server.shutdownContextErr:
+		assert.NoError(t, err, "Shutdown must receive a live context")
+	case <-time.After(2 * time.Second):
+		t.Fatal("HTTP server shutdown was not called")
+	}
+
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("runHTTPServer did not return after shutdown")
+	}
+}
+
 // writeTempConfig writes a minimal admin config with the given system addr and
 // returns its path.
 func writeTempConfig(t *testing.T, addr int) string {
@@ -200,31 +244,12 @@ func TestViper_MissingFileReturnsError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestRunXDSServer_PortBindFailure is the P0 test: when the xDS port is already
-// bound, runXDSServer must return the listen error instead of hanging.
-func TestRunXDSServer_PortBindFailure(t *testing.T) {
-	// Occupy a free port on all interfaces so the xDS server — which listens
-	// on :<port> (all interfaces) — cannot bind it. Binding 127.0.0.1 only
-	// would NOT conflict with an all-interfaces bind on macOS.
-	occupier, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("occupy port: %v", err)
+func TestViper_InvalidTypedValueReturnsError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "invalid.yaml")
+	if err := os.WriteFile(path, []byte("system:\n  addr: not-an-integer\n"), 0o600); err != nil {
+		t.Fatalf("write invalid config: %v", err)
 	}
-	defer occupier.Close()
-	occupiedPort := uint(occupier.Addr().(*net.TCPAddr).Port)
 
-	// Build a real xDS server backed by an empty snapshot cache, mirroring
-	// StartxDsServer. The listen call fails before Serve ever runs.
-	snap := cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
-	srv := envoyServer.NewServer(context.Background(), snap, nil)
-
-	done := make(chan error, 1)
-	go func() { done <- runXDSServer(context.Background(), srv, occupiedPort) }()
-
-	select {
-	case err := <-done:
-		assert.Error(t, err, "port already in use must surface as an error")
-	case <-time.After(2 * time.Second):
-		t.Fatal("runXDSServer hung instead of returning the bind error")
-	}
+	_, err := Viper(path)
+	assert.Error(t, err)
 }

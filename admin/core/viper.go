@@ -54,6 +54,9 @@ func Viper(configPath string) (*viper.Viper, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fatal error config file: %w", err)
 	}
+	if err := v.Unmarshal(&global.CONFIG); err != nil {
+		return nil, fmt.Errorf("unmarshal config file: %w", err)
+	}
 	v.WatchConfig()
 
 	v.OnConfigChange(func(e fsnotify.Event) {
@@ -62,9 +65,6 @@ func Viper(configPath string) (*viper.Viper, error) {
 			fmt.Println(err)
 		}
 	})
-	if err := v.Unmarshal(&global.CONFIG); err != nil {
-		fmt.Println(err)
-	}
 	global.CONFIG.AutoCode.Root, _ = filepath.Abs("..")
 	return v, nil
 }

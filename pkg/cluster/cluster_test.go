@@ -52,6 +52,31 @@ func TestClusterEndpointSnapshotSeedsFromEndpointHealth(t *testing.T) {
 	assert.Nil(t, snapshot.HealthyEndpointByID(unhealthy.ID))
 }
 
+// TestClusterEndpointSnapshotHealthyEndpointByIDForPick locks the zero-copy
+// O(1) recheck accessor: it returns the snapshot-owned healthy endpoint pointer
+// (the same one HealthyEndpointsForPick exposes, not a clone) and nil for
+// unhealthy or unknown IDs. The request-path recheck (issue #955) relies on
+// this being allocation-free and identity-stable.
+func TestClusterEndpointSnapshotHealthyEndpointByIDForPick(t *testing.T) {
+	healthy := testEndpoint("ep-1", "127.0.0.1", 18080)
+	unhealthy := testEndpoint("ep-2", "127.0.0.1", 18081)
+	unhealthy.UnHealthy = true
+
+	runtimeCluster := NewCluster(testCluster("snapshot-healthy-by-id-for-pick", healthy, unhealthy))
+	snapshot := runtimeCluster.EndpointSnapshot()
+
+	forPick := snapshot.HealthyEndpointByIDForPick(healthy.ID)
+	if assert.NotNil(t, forPick) {
+		// Same pointer the no-clone pick slice exposes.
+		assert.Same(t, snapshot.HealthyEndpointsForPick()[0], forPick)
+	}
+	assert.Nil(t, snapshot.HealthyEndpointByIDForPick(unhealthy.ID), "unhealthy ID must not resolve")
+	assert.Nil(t, snapshot.HealthyEndpointByIDForPick("missing"), "unknown ID must not resolve")
+
+	var nilSnapshot *EndpointSnapshot
+	assert.Nil(t, nilSnapshot.HealthyEndpointByIDForPick(healthy.ID), "nil snapshot must be safe")
+}
+
 func TestClusterEndpointSnapshotReturnsDefensiveEndpointSlices(t *testing.T) {
 	first := testEndpoint("ep-1", "127.0.0.1", 18080)
 	second := testEndpoint("ep-2", "127.0.0.1", 18081)

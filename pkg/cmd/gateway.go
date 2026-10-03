@@ -25,6 +25,8 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/spf13/cobra"
 )
 
@@ -48,6 +50,9 @@ var (
 	logFormat string
 
 	limitCpus string
+	// port for the reload HTTP server, configurable so multiple
+	// gateway instances can run side by side without port conflicts
+	reloadPort int
 )
 
 var (
@@ -56,27 +61,28 @@ var (
 		Short: "Run dubbo go pixiu in gateway mode",
 	}
 
-	deploy = &DefaultDeployer{
+	deploy Deployer = &DefaultDeployer{
 		configManger: config.NewConfigManger(),
 	}
 
 	startGatewayCmd = &cobra.Command{
 		Use:   "start",
 		Short: "Start gateway",
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			initDefaultValue()
 
 			err := deploy.initialize()
 			if err != nil {
-				panic(err)
+				return errors.Wrap(err, "failed to initialize gateway")
 			}
+			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
-
+		RunE: func(cmd *cobra.Command, args []string) error {
 			err := deploy.start()
 			if err != nil {
-				panic(err)
+				return errors.Wrap(err, "failed to start gateway")
 			}
+			return nil
 		},
 	}
 )
@@ -89,6 +95,7 @@ func init() {
 	startGatewayCmd.PersistentFlags().StringVarP(&logLevel, constant.LogLevelKey, "l", os.Getenv(constant.EnvDubbogoPixiuLogLevel), "dubbogo pixiu log level, trace|debug|info|warning|error|critical")
 	startGatewayCmd.PersistentFlags().StringVarP(&limitCpus, constant.LimitCpusKey, "m", os.Getenv(constant.EnvDubbogoPixiuLimitCpus), "dubbogo pixiu schedule threads count")
 	startGatewayCmd.PersistentFlags().StringVarP(&logFormat, constant.LogFormatKey, "f", os.Getenv(constant.EnvDubbogoPixiuLogFormat), "dubbogo pixiu log format, currently useless")
+	startGatewayCmd.PersistentFlags().IntVarP(&reloadPort, constant.ReloadPortKey, "r", constant.DefaultReloadPort, "dubbogo pixiu reload HTTP server port")
 
 	GatewayCmd.AddCommand(startGatewayCmd)
 }
@@ -119,8 +126,8 @@ func (d *DefaultDeployer) initialize() error {
 	// Set config path for hot reload
 	hotreload.SetConfigPath(configPath)
 
-	// Start HTTP reload endpoint on port 18380
-	if err := hotreload.StartReloadServer(18380, ""); err != nil {
+	// Start HTTP reload endpoint, port configurable via --reload-port
+	if err := hotreload.StartReloadServer(reloadPort, ""); err != nil {
 		logger.Warnf("[startGatewayCmd] failed to start reload server: %s", err.Error())
 	}
 
@@ -134,7 +141,7 @@ func (d *DefaultDeployer) start() error {
 
 func (d *DefaultDeployer) stop() error {
 	// TODO implement me
-	panic("implement me")
+	return errors.New("stop not implemented")
 }
 
 // initDefaultValue If not set both in args and env, set default values
@@ -166,17 +173,16 @@ func initDefaultValue() {
 
 // initLog initializes logger according to log config file and log level
 func initLog() error {
-	err := logger.InitLog(logConfigPath)
-	if err != nil {
-		// cause `logger.InitLog` already handle init failed, so just use logger to log
-		return err
-	}
-
+	initErr := logger.InitLog(logConfigPath)
 	lvl := logger.ParseLogLevel(logLevel)
-	if ok := logger.SetLoggerLevel(lvl); !ok {
-		err = fmt.Errorf("set logLevel failed")
+	if ok := logger.SetLoggerLevel(lvl); !ok && initErr == nil {
+		return fmt.Errorf("set logLevel failed")
 	}
-	return err
+	// Apply the requested level even when the optional log config file is
+	// missing or invalid. InitLog already installs the default logger in that
+	// case, and leaving it at development/debug level adds avoidable hot-path
+	// logging during gateway startup and request handling.
+	return initErr
 }
 
 func initLogWithConfig(boot *model.Bootstrap) {

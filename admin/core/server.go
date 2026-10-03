@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 )
 
 import (
@@ -43,6 +44,8 @@ var (
 	Default running address: http://127.0.0.1:8080
 `
 )
+
+const httpShutdownTimeout = 5 * time.Second
 
 type server interface {
 	ListenAndServe() error
@@ -137,10 +140,13 @@ func runHTTPServer(ctx context.Context, s server, address string) error {
 		}
 		return nil
 	case <-ctx.Done():
-		// A peer failed; shut the HTTP server down gracefully. Shutdown
-		// unblocks ListenAndServe, which then reports ErrServerClosed.
-		_ = s.Shutdown(ctx)
-		<-serveErr
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
+		defer cancel()
+		_ = s.Shutdown(shutdownCtx)
+		select {
+		case <-serveErr:
+		case <-shutdownCtx.Done():
+		}
 		return nil
 	}
 }

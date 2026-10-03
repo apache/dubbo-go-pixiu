@@ -134,9 +134,6 @@ docker-compose up -d
 我们欢迎任何形式的贡献！
 无论是提交 Issue、提议新特性，还是贡献代码，你的参与对项目至关重要。
 
-* **代码贡献流程：**
-  如果您希望提交 Pull Request，请将 Pull Request 提交至 [dubbo-go-pixiu/dubbo-go-pixiu](https://github.com/dubbo-go-pixiu/dubbo-go-pixiu/) 仓库。代码将经过自动化审查和项目维护者的人工复核，审核通过后自动同步至 Apache 官方仓库。
-
 * **加入社区：**
   可通过钉钉、微信或 Discord 加入我们的讨论群组。
 

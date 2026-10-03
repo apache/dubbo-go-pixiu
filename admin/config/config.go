@@ -52,9 +52,46 @@ var (
 // AdminBootstrap admin bootstrap config
 type AdminBootstrap struct {
 	Server      ServerConfig `yaml:"server" json:"server" mapstructure:"server"`
+	XDS         XDSConfig    `yaml:"xds" json:"xds" mapstructure:"xds"`
 	EtcdConfig  EtcdConfig   `yaml:"etcd" json:"etcd" mapstructure:"etcd"`
 	MysqlConfig MysqlConfig  `yaml:"mysql" json:"mysql" mapstructure:"mysql"`
 	OPA         OPAConfig    `yaml:"opa" json:"opa" mapstructure:"opa"`
+}
+
+const (
+	DefaultXDSListenPort = uint(18000)
+	DefaultXDSNodeID     = "test-id"
+)
+
+// XDSConfig configures the Admin xDS management server.
+type XDSConfig struct {
+	ListenPort uint   `yaml:"listen_port" json:"listen_port" mapstructure:"listen_port"`
+	NodeID     string `yaml:"node_id" json:"node_id" mapstructure:"node_id"`
+}
+
+// WithDefaults preserves the xDS server settings used before they became
+// configurable. Returning a copy prevents callers from mutating Bootstrap
+// while applying defaults.
+func (c XDSConfig) WithDefaults() XDSConfig {
+	if c.ListenPort == 0 {
+		c.ListenPort = DefaultXDSListenPort
+	}
+	if strings.TrimSpace(c.NodeID) == "" {
+		c.NodeID = DefaultXDSNodeID
+	} else {
+		c.NodeID = strings.TrimSpace(c.NodeID)
+	}
+	return c
+}
+
+// GetXDSConfig returns the effective xDS configuration. A nil bootstrap uses
+// backward-compatible defaults so diagnostics and tests can inspect the xDS
+// settings before Admin startup has loaded its configuration file.
+func (a *AdminBootstrap) GetXDSConfig() XDSConfig {
+	if a == nil {
+		return (XDSConfig{}).WithDefaults()
+	}
+	return a.XDS.WithDefaults()
 }
 
 // GetAddress get etcd server address
