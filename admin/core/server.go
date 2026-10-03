@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/admin/config"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	"github.com/apache/dubbo-go-pixiu/admin/global"
 	"github.com/apache/dubbo-go-pixiu/admin/initialize"
 	"github.com/apache/dubbo-go-pixiu/admin/logic/account"
@@ -47,7 +48,10 @@ type server interface {
 }
 
 // RunServer start server
-func RunServer() {
+func RunServer() error {
+	if _, err := auth.GetSignKey(); err != nil {
+		return err
+	}
 	// load config
 	global.VP = Viper()
 	global.LOG = Zap()
@@ -87,4 +91,5 @@ func RunServer() {
 	}()
 
 	wg.Wait()
+	return nil
 }
