@@ -67,33 +67,19 @@ go run ./cmd/pixiu/pixiu.go gateway start -c ./configs/pixiu_with_admin_config.y
 
 ```bash
 cd ./admin/web/
-yarn install  # 安装依赖
-yarn run serve  # 测试运行
+npm ci  # 安装锁定的依赖
+npm run dev -- --host 0.0.0.0  # 启动 Vite 开发服务器
 ```
 
 #### admin-web 配置
 
-编辑 `web` 目录下的 `vue.config.js`，配置后端服务地址：
+Vite 开发服务器监听 `8088` 端口，默认将 Admin API 请求代理到 `http://127.0.0.1:8081`。可以通过 `VITE_BACKEND_URL` 覆盖后端地址，例如在 Docker Compose 中使用：
 
-```
-devServer: {
-    host: '0.0.0.0',
-        port: 8080,  // Web app address
-        hot: true,
-        https: false,
-        open: false,
-        disableHostCheck: true,
-        proxy: {
-        "/config": {
-            target: "http://127.0.0.1:8081",  // Backend service address
-                ws: true,  // Enable websockets
-                changeOrigin: true,  // Enable proxy
-        }
-    }
-}
+```bash
+VITE_BACKEND_URL=http://127.0.0.1:8081 npm run dev -- --host 0.0.0.0
 ```
 
-运行成功后，可以在浏览器访问 [http://127.0.0.1:8081/login.html#/Overview](http://127.0.0.1:8081/login.html#/Overview)。
+运行成功后，可以在浏览器访问 [http://127.0.0.1:8088/login](http://127.0.0.1:8088/login)。
 
 ## 二、相关操作
 

@@ -98,23 +98,33 @@ func CoerceDirectInvokeValue(parameterType string, value any) (any, error) {
 		if !ok {
 			return value, nil
 		}
-
-		result := make([]any, len(items))
-		for i, item := range items {
-			mapped, err := MapTypes(elementType, item)
-			if err != nil {
-				return nil, err
-			}
-			result[i] = mapped
-		}
-		return result, nil
+		return coerceScalarSlice(elementType, items)
 	}
 
 	if _, ok := cst.JTypeMapper[normalizeJavaTypeName(trimmed)]; ok {
+		// The legacy generic HTTP contract uses the element type for a
+		// collection argument, for example types="string" with
+		// values=[["003", "002"]]. Preserve that contract while still
+		// coercing each scalar element to the declared type.
+		if items, ok := value.([]any); ok {
+			return coerceScalarSlice(trimmed, items)
+		}
 		return MapTypes(trimmed, value)
 	}
 
 	return value, nil
+}
+
+func coerceScalarSlice(parameterType string, items []any) ([]any, error) {
+	result := make([]any, len(items))
+	for i, item := range items {
+		mapped, err := MapTypes(parameterType, item)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = mapped
+	}
+	return result, nil
 }
 
 // NormalizeReferenceProtocol canonicalizes dubbo reference protocols.
