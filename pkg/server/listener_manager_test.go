@@ -20,7 +20,9 @@ package server
 import (
 	"errors"
 	"net"
+	"os"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -510,4 +512,137 @@ func TestListenerManager_ReplaceXDSListenersClosesStagedOnValidationFailure(t *t
 			require.False(t, manager.HasListener(resolveListenerName(staged)))
 		})
 	}
+}
+
+type shutdownListenerService struct {
+	err     error
+	release <-chan struct{}
+}
+
+func (s *shutdownListenerService) Start() error { return nil }
+func (s *shutdownListenerService) Close() error { return nil }
+func (s *shutdownListenerService) ShutDown(wg any) error {
+	waitGroup := wg.(*sync.WaitGroup)
+	defer waitGroup.Done()
+	if s.release != nil {
+		<-s.release
+	}
+	return s.err
+}
+func (s *shutdownListenerService) Refresh(model.Listener) error { return nil }
+
+func TestShutdownListeners(t *testing.T) {
+	testErr := errors.New("shutdown failed")
+
+	t.Run("all listeners complete", func(t *testing.T) {
+		errs, timedOut := shutdownListeners([]shutdownFunc{
+			func() error { return nil },
+			func() error { return nil },
+		}, time.Second)
+
+		require.Empty(t, errs)
+		require.False(t, timedOut)
+	})
+
+	t.Run("errors are collected", func(t *testing.T) {
+		errs, timedOut := shutdownListeners([]shutdownFunc{
+			func() error { return testErr },
+			func() error { return nil },
+		}, time.Second)
+
+		require.Equal(t, []error{testErr}, errs)
+		require.False(t, timedOut)
+	})
+
+	t.Run("overall timeout bounds the wait", func(t *testing.T) {
+		release := make(chan struct{})
+		t.Cleanup(func() { close(release) })
+
+		errs, timedOut := shutdownListeners([]shutdownFunc{
+			func() error {
+				<-release
+				return nil
+			},
+		}, 20*time.Millisecond)
+
+		require.Empty(t, errs)
+		require.True(t, timedOut)
+	})
+
+	t.Run("slow listener within overall budget completes", func(t *testing.T) {
+		errs, timedOut := shutdownListeners([]shutdownFunc{
+			func() error {
+				time.Sleep(20 * time.Millisecond)
+				return nil
+			},
+		}, time.Second)
+
+		require.Empty(t, errs)
+		require.False(t, timedOut)
+	})
+
+	t.Run("empty listener set completes", func(t *testing.T) {
+		errs, timedOut := shutdownListeners(nil, time.Second)
+
+		require.Empty(t, errs)
+		require.False(t, timedOut)
+	})
+}
+
+func TestListenerManagerHandleShutdownSignal(t *testing.T) {
+	testErr := errors.New("shutdown failed")
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"success": {ListenerService: &shutdownListenerService{}},
+			"failure": {ListenerService: &shutdownListenerService{err: testErr}},
+		},
+		rwLock: &sync.RWMutex{},
+	}
+
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, time.Second)
+
+	require.Equal(t, []error{testErr}, errs)
+	require.False(t, timedOut)
+}
+
+func TestListenerManagerHandleShutdownSignalTimeout(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"blocked": {ListenerService: &shutdownListenerService{release: release}},
+		},
+		rwLock: &sync.RWMutex{},
+	}
+
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, 20*time.Millisecond)
+
+	require.Empty(t, errs)
+	require.True(t, timedOut)
+}
+
+func TestShutdownExitCode(t *testing.T) {
+	testErr := errors.New("shutdown failed")
+	tests := []struct {
+		name     string
+		errs     []error
+		timedOut bool
+		want     int
+	}{
+		{name: "success", want: 0},
+		{name: "listener error", errs: []error{testErr}, want: 1},
+		{name: "timeout", timedOut: true, want: 1},
+		{name: "error and timeout", errs: []error{testErr}, timedOut: true, want: 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, shutdownExitCode(tt.errs, tt.timedOut))
+		})
+	}
+}
+
+func TestShouldDumpHeap(t *testing.T) {
+	require.True(t, shouldDumpHeap(syscall.SIGQUIT))
+	require.False(t, shouldDumpHeap(os.Interrupt))
 }
