@@ -20,7 +20,9 @@ package maglev
 import (
 	"crypto/sha3"
 	"encoding/binary"
+	"fmt"
 	"hash/maphash"
+	"os"
 	"testing"
 )
 
@@ -81,4 +83,53 @@ func benchmarkMapHash(key string) uint32 {
 func benchmarkSHA3Hash(key string) uint32 {
 	out := sha3.Sum512([]byte(key))
 	return binary.LittleEndian.Uint32(out[:])
+}
+
+var benchmarkTableSink *LookUpTable
+
+// BenchmarkLookUpTableFullBuild includes allocation, permutation generation,
+// and slot population. Large cases are opt-in to keep routine benchmark runs short.
+func BenchmarkLookUpTableFullBuild(b *testing.B) {
+	for _, hostCount := range []int{1, 32, 256, 1024} {
+		for _, tableSize := range []int{1009, 10007, 131071} {
+			b.Run(fmt.Sprintf("hosts=%d/table=%d", hostCount, tableSize), func(b *testing.B) {
+				if tableSize == 131071 && os.Getenv("PIXIU_MAGLEV_LARGE_BENCH") != "1" {
+					b.Skip("set PIXIU_MAGLEV_LARGE_BENCH=1 to run large-memory cases")
+				}
+				hosts := make([]string, hostCount)
+				for i := range hosts {
+					hosts[i] = fmt.Sprintf("127.0.0.1:%d", 8000+i)
+				}
+				for _, ordered := range []bool{false, true} {
+					name := "Populate"
+					if ordered {
+						name = "FixedOrder"
+					}
+					b.Run(name, func(b *testing.B) {
+						b.ReportAllocs()
+						for b.Loop() {
+							table, err := NewLookUpTable(tableSize, hosts)
+							if err != nil {
+								b.Fatal(err)
+							}
+							if ordered {
+								// Match Populate's work and locking, but use input order
+								// instead of map iteration for reproducible comparisons.
+								table.Lock()
+								table.permutations = make([]*permutation, 0, len(hosts))
+								for i, host := range hosts {
+									table.generatePerm(host, i)
+								}
+								table.populate()
+								table.Unlock()
+							} else {
+								table.Populate()
+							}
+							benchmarkTableSink = table
+						}
+					})
+				}
+			})
+		}
+	}
 }
