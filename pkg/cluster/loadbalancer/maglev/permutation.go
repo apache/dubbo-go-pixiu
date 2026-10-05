@@ -23,13 +23,9 @@ import (
 	"math"
 	"math/big"
 	"sync"
-)
 
-import (
 	"github.com/cespare/xxhash/v2"
-
 	"github.com/pkg/errors"
-
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -43,10 +39,16 @@ var defaultTableSize = []int{
 }
 
 type permutation struct {
-	pos   []uint32
-	next  int
-	index int
-	hit   int
+	offset uint32
+	skip   uint32
+	next   int
+	index  int
+	hit    int
+}
+
+// position preserves the original uint32 multiply/add wraparound before modulo.
+func (p *permutation) position(j int, size uint32) uint32 {
+	return (p.offset + uint32(j)*p.skip) % size
 }
 
 type LookUpTable struct {
@@ -107,11 +109,11 @@ func (t *LookUpTable) populate() {
 				continue
 			}
 			start := p.next
-			for start < t.size && len(t.slots[p.pos[start]]) > 0 {
+			for start < t.size && len(t.slots[p.position(start, uint32(t.size))]) > 0 {
 				start++
 			}
 			if start < t.size {
-				t.slots[p.pos[start]] = t.buckets[p.index]
+				t.slots[p.position(start, uint32(t.size))] = t.buckets[p.index]
 				p.hit++
 				full++
 			} else {
@@ -153,16 +155,12 @@ func (t *LookUpTable) generatePerms() {
 }
 
 func (t *LookUpTable) generatePerm(bucket string, i int) {
-	var offs, skip, j uint32
+	var offs, skip uint32
 
 	m := uint32(t.size)
-	pos := make([]uint32, m)
 	offs = _hash1(bucket) % m
 	skip = _hash2(bucket)%(m-1) + 1
-	for j = 0; j < m; j++ {
-		pos[j] = (offs + j*skip) % m
-	}
-	t.permutations = append(t.permutations, &permutation{pos, 0, i, 0})
+	t.permutations = append(t.permutations, &permutation{offs, skip, 0, i, 0})
 }
 
 func (t *LookUpTable) resetPerms() {
