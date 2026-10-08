@@ -19,7 +19,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { pixiuAdminApi } from '../src/api'
-import { resourceApi } from '../src/services/resource-api'
+import { routeBindingApi } from '../src/services/route-binding-api'
 
 beforeEach(() => {
   const storage = new Map<string, string>()
@@ -33,38 +33,49 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('Pixiu Admin API contract', () => {
-  it('keeps resource and method routes aligned with the backend', () => {
-    expect(pixiuAdminApi.resources).toEqual({
-      list: '/config/api/resource/list',
-      detail: '/config/api/resource/detail',
-      create: '/config/api/resource',
-      update: '/config/api/resource',
-      remove: '/config/api/resource',
+  it('uses the independent API route lifecycle endpoints', () => {
+    expect(pixiuAdminApi.routeBindings).toEqual({
+      schema: '/config/api/route/schema',
+      list: '/config/api/route/list',
+      detail: '/config/api/route/detail',
+      create: '/config/api/route',
+      update: '/config/api/route',
+      remove: '/config/api/route',
+      validate: '/config/api/route/validate',
+      preview: '/config/api/route/preview',
+      publish: '/config/api/route/publish',
+      status: '/config/api/route/status',
+      diff: '/config/api/route/diff',
     })
-    expect(pixiuAdminApi.methods).toEqual({
-      list: '/config/api/resource/method/list',
-      detail: '/config/api/resource/method/detail',
-      create: '/config/api/resource/method',
-      update: '/config/api/resource/method',
-      remove: '/config/api/resource/method',
-    })
+    expect(JSON.stringify(pixiuAdminApi)).not.toContain('/config/api/resource')
+    expect(JSON.stringify(pixiuAdminApi)).not.toContain('/config/api/resource/method')
   })
 
-  it('does not reintroduce the deprecated api-admin proxy prefix', () => {
-    expect(JSON.stringify(pixiuAdminApi)).not.toContain('/api-admin')
-  })
-
-  it('uses the shared contract for runtime resource requests', async () => {
+  it('uses the shared contract for API route list requests', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify({ code: '10001', data: [] }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await resourceApi.list()
+    await routeBindingApi.list('draft')
 
     expect(fetchMock).toHaveBeenCalledWith(
-      pixiuAdminApi.resources.list,
+      `${pixiuAdminApi.routeBindings.list}?scope=draft`,
       expect.objectContaining({ headers: expect.any(Headers) }),
+    )
+  })
+
+  it('includes the original route name when updating an API route', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ code: '10001', data: {} }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await routeBindingApi.update('user-get', {} as Parameters<typeof routeBindingApi.update>[1])
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${pixiuAdminApi.routeBindings.update}?name=user-get`,
+      expect.objectContaining({ method: 'PUT', headers: expect.any(Headers) }),
     )
   })
 
@@ -78,7 +89,7 @@ describe('Pixiu Admin API contract', () => {
         ),
     )
 
-    await expect(resourceApi.list()).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
+    await expect(routeBindingApi.list()).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
 
   it('does not accept an error HTTP status as a successful API response', async () => {
@@ -91,6 +102,6 @@ describe('Pixiu Admin API contract', () => {
         ),
     )
 
-    await expect(resourceApi.list()).rejects.toMatchObject({ code: 'HTTP_503' })
+    await expect(routeBindingApi.list()).rejects.toMatchObject({ code: 'HTTP_503' })
   })
 })

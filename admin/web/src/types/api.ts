@@ -21,23 +21,116 @@ export type JsonObject = Record<string, unknown>
 export function asJsonObject(value: unknown): JsonObject {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonObject) : {}
 }
-export type Resource = JsonObject & {
-  id?: string
-  name?: string
-  path?: string
+
+export type RouteBindingParam = {
+  from: string
+  to: number
+  type: string
+}
+
+export type AdminRouteBindingObject = {
+  kind: string
+  metadata: {
+    name: string
+  }
+  spec: {
+    entry: {
+      protocol: string
+      path: string
+      method: string
+    }
+    target: {
+      protocol: string
+      application: string
+      interface: string
+      method: string
+      version: string
+      group: string
+      cluster: string
+    }
+    params: RouteBindingParam[]
+    enabled: boolean
+    extensions: JsonObject
+    [field: string]: unknown
+  }
+}
+
+export type RouteBindingFieldSchema = {
+  type: 'string' | 'integer' | 'boolean' | 'object' | 'array' | 'map'
   description?: string
-  type?: string
-  timeout?: string
-  methods?: Method[]
+  required?: boolean
+  default?: unknown
+  enum?: unknown[]
+  pattern?: string
+  minimum?: number
+  properties?: Record<string, RouteBindingFieldSchema>
+  items?: RouteBindingFieldSchema
+  additionalProperties?: RouteBindingFieldSchema
+  allowUnknown?: boolean
+  ui?: {
+    component?: string
+    group?: string
+    order?: number
+    placeholder?: string
+    advanced?: boolean
+    options?: Record<string, unknown>
+  }
 }
-export type Method = JsonObject & {
-  id?: string
-  httpVerb?: string
-  resourcePath?: string
-  onAir?: boolean
-  timeout?: string
-  inboundRequest?: unknown
-  integrationRequest?: unknown
-  plugins?: unknown
+
+export type RouteBindingObjectSchema = {
+  kind: string
+  description?: string
+  fields: Record<string, RouteBindingFieldSchema>
 }
+
+export type RouteBinding = {
+  object: AdminRouteBindingObject
+  resourceId: number
+  methodId: number
+  revision: number
+  publishStatus?: RouteBindingPublishStatus
+}
+
+export type RouteBindingValidationIssue = {
+  path: string
+  code: string
+  message: string
+}
+
+export type RouteBindingPreview = {
+  object: AdminRouteBindingObject
+  yaml: string
+}
+
+export type RouteBindingPublishStatus = {
+  name?: string
+  draftRevision: number
+  publishedRevision: number
+  draftExists?: boolean
+  publishedExists?: boolean
+  dirty?: boolean
+}
+
+export type RouteBindingDiffChange = {
+  path: string
+  before: unknown
+  after: unknown
+}
+
+export type RouteBindingDiff = {
+  name: string
+  draft?: RouteBinding
+  published?: RouteBinding
+  changes: RouteBindingDiffChange[]
+}
+
+export type RouteBindingPublishResult = {
+  name: string
+  revision: number
+  draftRevision: number
+  publishedRevision: number
+  publishedCount: number
+  deletedCount: number
+}
+
 export type ApiEnvelope<T> = { code: string; data: T }

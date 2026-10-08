@@ -2,9 +2,9 @@
 
 **English** | [中文](API_CN.md)
 
-This API documentation describes the backend operations of the Pixiu management platform, including the APIs for retrieving, creating, modifying, and deleting resources (Resource), methods (Method), and plugin groups (PluginGroup). Pixiu provides a complete set of APIs to help users manage API gateway resource mappings, plugin configurations, and request handling. The examples in this document cover common request and response formats and show how to test the APIs using Postman.
+This API documentation describes the backend operations of the Pixiu management platform, including APIs for managing API route bindings (AdminRouteBinding), plugin groups (PluginGroup), and OPA policies. Pixiu provides APIs to help users manage API gateway route mappings, plugin configurations, and request handling. The examples in this document cover common request and response formats and show how to test the APIs using Postman.
 
-Whether you are creating new resources, modifying existing configurations, or managing plugin groups, this document provides clear steps and necessary API details, making it easier for developers to get started and integrate quickly.
+Whether you are creating new API routes, modifying existing configurations, or managing plugin groups, this document provides clear steps and necessary API details, making it easier for developers to get started and integrate quickly.
 
 More detailed API descriptions can be found in the [Swagger documentation](./doc/swagger.json).
 
@@ -58,240 +58,129 @@ name: pixiu
 description: pixiu111 sample
 ```
 
-## II. Resource
+## II. API Routes
 
-### 2.1 Get Resource List
+API Router configuration is managed through AdminRouteBinding objects. The legacy Resource/Method Admin CRUD API is replaced. Existing runtime Resource/Method records are not imported into the new draft model; recreate routes that need to be managed through this API. Publishing a new route continues to generate the legacy runtime configuration used by Pixiu.
 
-**Request**:
-
-```http
-GET /config/api/resource/list HTTP/1.1
-Host: 127.0.0.1:8080
-cache-control: no-cache
-```
-
-### 2.2 Get Resource Details
+### 2.1 Get API Route Schema
 
 **Request**:
 
 ```http
-GET /config/api/resource/detail?resourceId=1 HTTP/1.1
+GET /config/api/route/schema HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 2.3 Create Resource
+The response data contains the registered Admin object schemas, including the AdminRouteBinding schema used by the editor.
+
+### 2.2 Get API Route List
 
 **Request**:
 
 ```http
-POST /config/api/resource/ HTTP/1.1
+GET /config/api/route/list?scope=draft HTTP/1.1
 Host: 127.0.0.1:8080
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 cache-control: no-cache
 ```
 
-**Form Data**:
+Use scope=draft (the default) to list drafts or scope=published to list published routes. The legacy unpublished query parameter is also accepted: 1 selects drafts and 0 selects published routes. The draft list includes backend-calculated publication status.
 
-```text
-Content-Disposition: form-data; name="content"
-path: '/api/v1/test-dubbo/friend2'
-type: restful
-description: user
-timeout: 100ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    resourcePath: '/api/v1/test-dubbo/friend2'
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
-```
-
-### 2.4 Modify Resource
+### 2.3 Get API Route Details
 
 **Request**:
 
 ```http
-PUT /config/api/resource? HTTP/1.1
+GET /config/api/route/detail?name=<route-name>&scope=draft HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
-**Form Data**:
+The name parameter is the immutable route identity. Set scope=published to read the published version.
 
-```text
-Content-Disposition: form-data; name="content"
-id: 1
-path: '/api/v1/test-dubbo/friend'
-type: restful
-description: update
-timeout: 1000ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
-```
-
-### 2.5 Delete Resource
+### 2.4 Create API Route Draft
 
 **Request**:
 
 ```http
-DELETE /config/api/resource/?resourceId=2 HTTP/1.1
+POST /config/api/route HTTP/1.1
 Host: 127.0.0.1:8080
+Content-Type: application/json
 cache-control: no-cache
 ```
 
-## III. Method Related
+Send an AdminRouteBinding object as JSON. The endpoint also accepts the object wrapped as {"object": <AdminRouteBinding>, "expectedRevision": <revision>}, or YAML in the content form field.
 
-### 3.1 Get Method List for a Resource
+### 2.5 Modify API Route Draft
 
 **Request**:
 
 ```http
-GET /config/api/resource/method/list?resourceId=1 HTTP/1.1
+PUT /config/api/route?name=<route-name> HTTP/1.1
 Host: 127.0.0.1:8080
+Content-Type: application/json
 cache-control: no-cache
 ```
 
-### 3.2 Get Method Details
+Send the updated AdminRouteBinding object. The name query parameter must match metadata.name and cannot be changed. expectedRevision may be supplied in the wrapped JSON body, as a query parameter, or through the If-Match header to reject stale updates.
+
+### 2.6 Validate or Preview an API Route
 
 **Request**:
 
 ```http
-GET /config/api/resource/method/detail?resourceId=1&methodId=2 HTTP/1.1
+POST /config/api/route/validate HTTP/1.1
+POST /config/api/route/preview HTTP/1.1
 Host: 127.0.0.1:8080
+Content-Type: application/json
 cache-control: no-cache
 ```
 
-### 3.3 Create Method
+Both endpoints accept an AdminRouteBinding object and do not write to etcd. Validation returns the normalized object with schema defaults. Preview returns the normalized object and the generated legacy Pixiu YAML.
+
+### 2.7 Get API Route Status or Diff
 
 **Request**:
 
 ```http
-POST /config/api/resource/method/?resourceId=1 HTTP/1.1
+GET /config/api/route/status?name=<route-name> HTTP/1.1
+GET /config/api/route/diff?name=<route-name> HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
-**Form Data**:
+Status reports the draft and published state for one route. Diff returns the field-level differences between its draft and published objects.
 
-```text
-Content-Disposition: form-data; name="content"
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 1000ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
-
-### 3.4 Modify Method
+### 2.8 Publish One API Route
 
 **Request**:
 
 ```http
-PUT /config/api/resource/method/?resourceId=1 HTTP/1.1
+PUT /config/api/route/publish?name=<route-name>&expectedRevision=<revision> HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
-**Form Data**:
+Publishing validates the route and atomically updates its published AdminRouteBinding and generated runtime configuration in one etcd transaction. expectedRevision is optional and can be used to reject a stale draft. There is no full API-route publish endpoint.
 
-```text
-Content-Disposition: form-data; name="content"
-id: 2
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 300ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
+Before publishing, Admin checks for conflicts with legacy runtime Resource/Method records. A conflicting HTTP method and path must be removed from the old runtime configuration before the new route can be published.
 
-### 3.5 Delete Method
+### 2.9 Delete One API Route
 
 **Request**:
 
 ```http
-DELETE /config/api/resource/method/?resourceId=1&methodId=2 HTTP/1.1
+DELETE /config/api/route?name=<route-name>&expectedRevision=<revision> HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-## IV. PluginGroup and Plugin Related
+Deletion immediately removes the route draft and its published runtime configuration in one etcd transaction. The client should ask for confirmation before sending this request.
+expectedRevision is optional; when supplied, it prevents deleting a draft that changed after it was read.
 
-### 4.1 Get PluginGroup List
+## III. PluginGroup and Plugin Related
+
+### 3.1 Get PluginGroup List
 
 **Request**:
 
@@ -301,7 +190,7 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 4.2 Get PluginGroup Details
+### 3.2 Get PluginGroup Details
 
 **Request**:
 
@@ -311,7 +200,7 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 4.3 Create PluginGroup
+### 3.3 Create PluginGroup
 
 **Request**:
 
@@ -338,7 +227,7 @@ plugins:
     externalLookupName: "ExternalPluginAccess"
 ```
 
-### 4.4 Modify PluginGroup
+### 3.4 Modify PluginGroup
 
 **Request**:
 
@@ -365,7 +254,7 @@ plugins:
     externalLookupName: "ExternalPluginAccess"
 ```
 
-### 4.5 Delete PluginGroup
+### 3.5 Delete PluginGroup
 
 **Request**:
 
@@ -375,11 +264,23 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-## V. OPA Policy
+### 3.6 Publish PluginGroup
+
+**Request**:
+
+```http
+PUT /config/api/plugin_group/publish HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+This legacy endpoint publishes the staged PluginGroup configuration to the published namespace. It is independent of API route publication.
+
+## IV. OPA Policy
 
 OPA policy APIs proxy requests to the OPA server. If `server_url` or `policy_id` is not provided, defaults are used (`http://opa:8181` and `pixiu-authz`).
 
-### 5.1 Get OPA Policy
+### 4.1 Get OPA Policy
 
 **Request**:
 
@@ -406,7 +307,7 @@ cache-control: no-cache
 
 If the policy does not exist, `data` will be an empty string.
 
-### 5.2 Create or Update OPA Policy
+### 4.2 Create or Update OPA Policy
 
 **Request**:
 
@@ -434,7 +335,7 @@ Optional form fields:
 * `server_url`
 * `bearer_token`
 
-### 5.3 Delete OPA Policy
+### 4.3 Delete OPA Policy
 
 **Request**:
 
@@ -450,9 +351,9 @@ cache-control: no-cache
 * `server_url`: OPA server URL (optional)
 * `bearer_token`: OPA bearer token (optional)
 
-## VI. xDS Diagnostics
+## V. xDS Diagnostics
 
-### 6.1 Get xDS Publication Status
+### 5.1 Get xDS Publication Status
 
 This authenticated endpoint returns xDS listener availability, the last-good
 snapshot version, resource counts, publication timestamps, the latest listener

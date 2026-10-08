@@ -20,19 +20,18 @@
 /** Pixiu Admin API contract, aligned with admin/web controllers and API.md. */
 export const pixiuAdminApi = {
   base: '/config/api/base',
-  resources: {
-    list: '/config/api/resource/list',
-    detail: '/config/api/resource/detail',
-    create: '/config/api/resource',
-    update: '/config/api/resource',
-    remove: '/config/api/resource',
-  },
-  methods: {
-    list: '/config/api/resource/method/list',
-    detail: '/config/api/resource/method/detail',
-    create: '/config/api/resource/method',
-    update: '/config/api/resource/method',
-    remove: '/config/api/resource/method',
+  routeBindings: {
+    schema: '/config/api/route/schema',
+    list: '/config/api/route/list',
+    detail: '/config/api/route/detail',
+    create: '/config/api/route',
+    update: '/config/api/route',
+    remove: '/config/api/route',
+    validate: '/config/api/route/validate',
+    preview: '/config/api/route/preview',
+    publish: '/config/api/route/publish',
+    status: '/config/api/route/status',
+    diff: '/config/api/route/diff',
   },
   clusters: {
     list: '/config/api/cluster/list',

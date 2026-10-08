@@ -48,19 +48,17 @@ import (
 
 const (
 	Base        = "base"
-	Resources   = "resources"
 	Method      = "method"
 	ResourceID  = "resourceId"
 	ClusterID   = "clusterId"
 	Listener    = "listener"
-	MethodID    = "methodId"
-	PluginGroup = "pluginGroup"
 	Plugin      = "plugin"
 	Filter      = "filter"
 	Ratelimit   = "ratelimit"
 	OPA         = "opa"
 	Clusters    = "clusters"
 	Listeners   = "listeners"
+	PluginGroup = "pluginGroup"
 	Unpublished = "unpublished"
 
 	ErrID = -1
@@ -116,229 +114,6 @@ func BizSetBaseInfo(info *adminconfig.BaseInfo, created bool) error {
 	}
 
 	return nil
-}
-
-// BizGetResourceList get resource list
-func BizGetResourceList(unpublished bool) ([]config.Resource, error) {
-	var kList, vList []string
-	var err error
-	if unpublished {
-		kList, vList, err = adminconfig.Client.GetChildrenKVList(getUnpublishedRootPath(Resources))
-	} else {
-		kList, vList, err = adminconfig.Client.GetChildrenKVList(getRootPath(Resources))
-	}
-
-	if err != nil {
-		logger.Errorf("BizGetResourceList err, %v\n", err)
-		return nil, perrors.WithMessage(err, "BizGetResourceList error")
-	}
-	var ret []config.Resource
-
-	for i, k := range kList {
-		// only handle resource, filter method
-		re := getCheckResourceRegexp()
-		if m := re.Match([]byte(k)); !m {
-			continue
-		}
-		v := vList[i]
-		res := &config.Resource{}
-		err := yaml.UnmarshalYML([]byte(v), res)
-		if err != nil {
-			logger.Errorf("UnmarshalYML err, %v\n", err)
-		}
-		ret = append(ret, *res)
-	}
-
-	return ret, nil
-}
-
-// BizGetResourceDetail get resource detail
-func BizGetResourceDetail(id string, unpublished bool) (string, error) {
-	key := getResourceKey(id, unpublished)
-	detail, err := adminconfig.Client.Get(key)
-	if err != nil {
-		logger.Errorf("BizGetResourceDetail err, %v\n", err)
-		return "", perrors.WithMessage(err, "BizGetResourceDetail error")
-	}
-	return detail, nil
-}
-
-// BizSetResourceInfo create resource
-func BizSetResourceInfo(res *config.Resource, created, unpublished bool) error {
-
-	if created {
-		// backups method
-		methods := res.Methods
-		res.Methods = nil
-
-		res.ID = getResourceId()
-		if res.ID == ErrID {
-			logger.Warnf("can't get id from etcd")
-			return perrors.New("BizSetResourceInfo error can't get id from etcd")
-		}
-		data, _ := yaml.MarshalYML(res)
-
-		setErr := adminconfig.Client.Create(getResourceKey(strconv.Itoa(res.ID), unpublished), string(data))
-		if setErr != nil {
-			logger.Warnf("Create etcd error, %v\n", setErr)
-			return perrors.WithMessage(setErr, "BizSetResourceInfo error")
-		}
-
-		for i := range methods {
-			methods[i].ResourcePath = res.Path
-		}
-		// create methods
-		_ = BizBatchCreateResourceMethod(strconv.Itoa(res.ID), methods, unpublished)
-	} else {
-		key := getResourceKey(strconv.Itoa(res.ID), unpublished)
-		data, _ := yaml.MarshalYML(res)
-
-		// should set method in this situation
-		res.Methods = nil
-		setErr := adminconfig.Client.Update(key, string(data))
-		if setErr != nil {
-			logger.Warnf("update etcd error, %v\n", setErr)
-			return perrors.WithMessage(setErr, "BizSetResourceInfo error")
-		}
-	}
-	return nil
-}
-
-// BizDeleteResourceInfo delete resource
-func BizDeleteResourceInfo(id string, unpublished bool) error {
-	key := getResourceKey(id, unpublished)
-	// delete all key with prefix to delete method key
-	_, err := adminconfig.Client.GetRawClient().Delete(adminconfig.Client.GetCtx(), key, clientv3.WithPrefix())
-	if err != nil {
-		logger.Warnf("BizDeleteResourceInfo, %v\n", err)
-		return perrors.WithMessage(err, "BizDeleteResourceInfo error")
-	}
-	return nil
-}
-
-// BizGetMethodList get method list
-func BizGetMethodList(resourceId string, unpublished bool) ([]config.Method, error) {
-	key := getResourceMethodPrefixKey(resourceId, unpublished)
-
-	_, vList, err := adminconfig.Client.GetChildrenKVList(key)
-	if err != nil {
-		logger.Errorf("BizGetMethodList err, %v\n", err)
-		return nil, perrors.WithMessage(err, "BizGetMethodList error")
-	}
-
-	var ret []config.Method
-	for _, v := range vList {
-		res := &config.Method{}
-		err := yaml.UnmarshalYML([]byte(v), res)
-		if err != nil {
-			logger.Errorf("UnmarshalYML err, %v\n", err)
-		}
-		ret = append(ret, *res)
-	}
-
-	return ret, nil
-}
-
-// BizGetMethodDetail get method detail
-func BizGetMethodDetail(resourceId string, methodId string, unpublished bool) (string, error) {
-	key := getMethodKey(resourceId, methodId, unpublished)
-	detail, err := adminconfig.Client.Get(key)
-	if err != nil {
-		logger.Errorf("BizGetMethodDetail err, %v\n", err)
-		return "", perrors.WithMessage(err, "BizGetMethodDetail error")
-	}
-	return detail, nil
-}
-
-// BizBatchCreateResourceMethod batch create method below one resource
-func BizBatchCreateResourceMethod(resourceId string, methods []config.Method, unpublished bool) error {
-
-	if len(methods) == 0 {
-		return nil
-	}
-
-	var kList, vList []string
-
-	for _, method := range methods {
-		method.ID = getMethodId()
-		if method.ID == ErrID {
-			logger.Warnf("can't get id from etcd")
-			continue
-		}
-		kList = append(kList, getMethodKey(resourceId, strconv.Itoa(method.ID), unpublished))
-		data, _ := yaml.MarshalYML(method)
-		vList = append(vList, string(data))
-	}
-
-	err := adminconfig.Client.BatchCreate(kList, vList)
-	if err != nil {
-		logger.Warnf("update etcd error, %v\n", err)
-		return perrors.WithMessage(err, "BizBatchCreateResourceMethod error")
-	}
-	return nil
-}
-
-// BizSetResourceMethod create or update method below specific path
-func BizSetResourceMethod(resourceId string, method *config.Method, created, unpublished bool) error {
-
-	if created {
-		method.ID = getMethodId()
-		key := getMethodKey(resourceId, strconv.Itoa(method.ID), unpublished)
-
-		if method.ID == ErrID {
-			logger.Warnf("can't get id from etcd")
-			return perrors.New("BizSetResourceMethod error can't get id from etcd")
-		}
-		data, _ := yaml.MarshalYML(method)
-
-		err := adminconfig.Client.Create(key, string(data))
-		if err != nil {
-			logger.Warnf("BizSetResourceMethod etcd error, %v\n", err)
-			return perrors.WithMessage(err, "BizSetResourceMethod error")
-		}
-	} else {
-		data, _ := yaml.MarshalYML(method)
-		key := getMethodKey(resourceId, strconv.Itoa(method.ID), unpublished)
-		err := adminconfig.Client.Update(key, string(data))
-		if err != nil {
-			logger.Warnf("BizSetResourceMethod etcd error, %v\n", err)
-			return perrors.WithMessage(err, "BizSetResourceMethod error")
-		}
-	}
-
-	return nil
-}
-
-// BizDeleteMethodInfo delete method
-func BizDeleteMethodInfo(resourceId string, methodId string, unpublished bool) error {
-	key := getMethodKey(resourceId, methodId, unpublished)
-	err := adminconfig.Client.Delete(key)
-	if err != nil {
-		logger.Warnf("BizDeleteMethodInfo, %v\n", err)
-		return perrors.WithMessage(err, "BizDeleteMethodInfo error")
-	}
-	return nil
-}
-
-// BRGetResourceList GetResourceList
-func BRGetResourceList(unpublished bool) ([]string, []string, error) {
-	if unpublished {
-		return adminconfig.Client.GetChildrenKVList(getUnpublishedRootPath(Resources))
-	} else {
-		return adminconfig.Client.GetChildrenKVList(getRootPath(Resources))
-	}
-}
-
-// BRGetMethodList GetMethodList
-func BRGetMethodList(resourceId string, unpublished bool) ([]string, []string, error) {
-	key := getResourceMethodPrefixKey(resourceId, unpublished)
-	return adminconfig.Client.GetChildrenKVList(key)
-}
-
-// BRGetPluginGroupList GetPluginGroupList
-func BRGetPluginGroupList(unpublished bool) ([]string, []string, error) {
-	key := getPluginGroupPrefixKey(unpublished)
-	return adminconfig.Client.GetChildrenKVList(key)
 }
 
 // BizGetClusters get clusters
@@ -532,22 +307,43 @@ func BizGetListener(name string) (string, error) {
 	return detail, nil
 }
 
-// BRUpdate
-func BRUpdate(key, value string) error {
-	return adminconfig.Client.Update(key, value)
-}
-
-func BRCreate(key, value, configType string) error {
-	if strings.EqualFold(configType, Resources) {
-		return adminconfig.Client.Create(getResourceKey(key, false), value)
-	} else if strings.EqualFold(configType, Method) {
-
-	} else if strings.EqualFold(configType, PluginGroup) {
-		return adminconfig.Client.Create(getPluginGroupKey(key, false), value)
-	} else {
-		return adminconfig.Client.Create(getPluginRatelimitKey(false), value)
+// BizPublishPluginGroupConfig copies the first staged PluginGroup config into
+// the published namespace, creating it if it does not already exist.
+func BizPublishPluginGroupConfig() error {
+	if adminconfig.Client == nil {
+		return perrors.New("admin etcd client is not initialized")
 	}
-	return errors.New("")
+	if adminconfig.Bootstrap == nil {
+		return perrors.New("admin bootstrap is not initialized")
+	}
+
+	draftKeys, draftValues, err := adminconfig.Client.GetChildrenKVList(getPluginGroupPrefixKey(true))
+	if err != nil {
+		return perrors.WithMessage(err, "get unpublished PluginGroup config")
+	}
+	if len(draftKeys) == 0 || len(draftKeys) != len(draftValues) {
+		return perrors.New("unpublished PluginGroup config is empty or invalid")
+	}
+
+	publishedKeys, publishedValues, err := adminconfig.Client.GetChildrenKVList(getPluginGroupPrefixKey(false))
+	if err != nil && !errors.Is(err, gxetcd.ErrKVPairNotFound) {
+		return perrors.WithMessage(err, "get published PluginGroup config")
+	}
+	if len(publishedKeys) == 0 {
+		name := strings.TrimPrefix(draftKeys[0], getPluginGroupPrefixKey(true)+"/")
+		if name == draftKeys[0] || name == "" || strings.Contains(name, "/") {
+			return perrors.Errorf("invalid unpublished PluginGroup key %q", draftKeys[0])
+		}
+		key := getPluginGroupPrefixKey(false) + "/" + name
+		return adminconfig.Client.Create(key, draftValues[0])
+	}
+	if len(publishedKeys) != len(publishedValues) {
+		return perrors.New("published PluginGroup config is invalid")
+	}
+	if strings.EqualFold(draftValues[0], publishedValues[0]) {
+		return nil
+	}
+	return adminconfig.Client.Update(publishedKeys[0], draftValues[0])
 }
 
 // BizGetOPAPolicy fetches the policy raw text. Returns empty string if not found.
@@ -671,27 +467,12 @@ func doOPARequestWithStatus(method, url, bearerToken, contentType string, body [
 	}
 }
 
-func getResourceKey(path string, unpublished bool) string {
-	if unpublished {
-		return getUnpublishedRootPath(Resources) + "/" + path
-	}
-	return getRootPath(Resources) + "/" + path
-}
-
 func getClusterKey(path string) string {
 	return getRootPath(Clusters) + "/" + path
 }
 
 func getListenerKey(path string) string {
 	return getRootPath(Listeners) + "/" + path
-}
-
-func getPluginRatelimitKey(unpublished bool) string {
-	return getFilterPrefixKey(unpublished) + "/" + Ratelimit
-}
-
-func getPluginGroupKey(name string, unpublished bool) string {
-	return getPluginGroupPrefixKey(unpublished) + "/" + name
 }
 
 func getPluginGroupPrefixKey(unpublished bool) string {
@@ -701,6 +482,10 @@ func getPluginGroupPrefixKey(unpublished bool) string {
 	return getRootPath(PluginGroup)
 }
 
+func getPluginRatelimitKey(unpublished bool) string {
+	return getFilterPrefixKey(unpublished) + "/" + Ratelimit
+}
+
 func getFilterPrefixKey(unpublished bool) string {
 	if unpublished {
 		return getUnpublishedRootPath(Filter)
@@ -708,25 +493,8 @@ func getFilterPrefixKey(unpublished bool) string {
 	return getRootPath(Filter)
 }
 
-func getResourceMethodPrefixKey(path string, unpublished bool) string {
-	return getResourceKey(path, unpublished) + "/" + Method
-}
-
-func getMethodKey(path string, method string, unpublished bool) string {
-	return getResourceMethodPrefixKey(path, unpublished) + "/" + method
-}
-
-// create method, No need to judge whether to publish or not
-func getResourceId() int {
-	return loopGetId(getRootPath(ResourceID))
-}
-
 func getClusterId() int {
 	return loopGetId(getRootPath(ClusterID))
-}
-
-func getMethodId() int {
-	return loopGetId(getRootPath(MethodID))
 }
 
 func loopGetId(k string) int {
@@ -784,10 +552,6 @@ func getRootPath(key string) string {
 
 func getUnpublishedRootPath(key string) string {
 	return adminconfig.Bootstrap.GetPath() + "/" + Unpublished + "/" + key
-}
-
-func getCheckResourceRegexp() *regexp.Regexp {
-	return regexp.MustCompile(".+/resources/[^/]+/?$")
 }
 
 func getCheckClusterRegexp() *regexp.Regexp {
