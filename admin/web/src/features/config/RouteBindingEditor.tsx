@@ -84,6 +84,15 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
 }
 
+function routeBindingHydrationKey(
+  binding: RouteBinding | null | undefined,
+  mode: RouteBindingEditorProps['mode'],
+) {
+  if (binding) return `${binding.object.metadata.name}:${binding.revision}`
+  if (mode === 'create') return 'new-route'
+  return ''
+}
+
 function errorIssues(error: unknown) {
   return error instanceof ApiError ? error.issues : []
 }
@@ -177,11 +186,7 @@ export function RouteBindingEditor({
 
   useEffect(() => {
     if (loading || schemaLoading || !schema) return
-    const bindingKey = binding
-      ? `${binding.object.metadata.name}:${binding.revision}`
-      : initialMode === 'create'
-        ? 'new-route'
-        : ''
+    const bindingKey = routeBindingHydrationKey(binding, initialMode)
     if (!bindingKey) return
     if (hydratedBindingKey.current === bindingKey) return
     let normalized: AdminRouteBindingObject

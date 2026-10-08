@@ -122,6 +122,27 @@ describe('route binding editor model', () => {
     ).toThrow('spec.params[0].to: must be an integer')
   })
 
+  it('keeps scalar pattern, range, and enum validation', () => {
+    expect(() =>
+      normaliseRouteBindingObject(
+        routeObject({ entry: { protocol: 'http', path: 'smoke', method: 'GET' } }),
+        schema,
+      ),
+    ).toThrow('spec.entry.path: must match ^/')
+    expect(() =>
+      normaliseRouteBindingObject(
+        routeObject({ params: [{ from: 'uri.id', to: -1, type: 'int' }] }),
+        schema,
+      ),
+    ).toThrow('spec.params[0].to: must be at least 0')
+    expect(() =>
+      normaliseRouteBindingObject(
+        routeObject({ params: [{ from: 'uri.id', to: 0, type: 'bool' }] }),
+        schema,
+      ),
+    ).toThrow('spec.params[0].type: must be one of: string, int')
+  })
+
   it('rejects unknown and deprecated fields that would be dropped on save', () => {
     expect(() =>
       normaliseRouteBindingObject(routeObject({ publish: { mode: 'draft' } }), schema),

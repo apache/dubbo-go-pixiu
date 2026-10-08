@@ -94,49 +94,71 @@ export function createDefaultRouteBinding(
   }
 }
 
-function validateField(value: unknown, field: RouteBindingFieldSchema, path: string): unknown {
-  switch (field.type) {
-    case 'string':
-      if (typeof value !== 'string') fail(path, 'must be a string')
-      if (field.pattern && !new RegExp(field.pattern).test(value)) {
-        fail(path, `must match ${field.pattern}`)
-      }
-      break
-    case 'integer':
-      if (typeof value !== 'number' || !Number.isInteger(value)) fail(path, 'must be an integer')
-      if (field.minimum !== undefined && value < field.minimum) {
-        fail(path, `must be at least ${field.minimum}`)
-      }
-      break
-    case 'boolean':
-      if (typeof value !== 'boolean') fail(path, 'must be a boolean')
-      break
-    case 'object': {
-      if (!isRecord(value)) fail(path, 'must be an object')
-      return validateFields(value, field.properties || {}, path, Boolean(field.allowUnknown))
-    }
-    case 'array':
-      if (!Array.isArray(value)) fail(path, 'must be an array')
-      if (!field.items) return value.map(cloneValue)
-      return value.map((item, index) => validateField(item, field.items!, `${path}[${index}]`))
-    case 'map': {
-      if (!isRecord(value)) fail(path, 'must be an object')
-      if (!field.additionalProperties) return { ...value }
-      return Object.fromEntries(
-        Object.entries(value).map(([key, child]) => [
-          key,
-          validateField(child, field.additionalProperties!, `${path}.${key}`),
-        ]),
-      )
-    }
-    default:
-      fail(path, `uses unsupported schema type ${String(field.type)}`)
-  }
-
+function validateEnum(value: unknown, field: RouteBindingFieldSchema, path: string) {
   if (field.enum && !field.enum.some((item) => Object.is(item, value))) {
     fail(path, `must be one of: ${field.enum.map(String).join(', ')}`)
   }
   return value
+}
+
+function validateString(value: unknown, field: RouteBindingFieldSchema, path: string) {
+  if (typeof value !== 'string') fail(path, 'must be a string')
+  if (field.pattern && !new RegExp(field.pattern).test(value)) {
+    fail(path, `must match ${field.pattern}`)
+  }
+  return validateEnum(value, field, path)
+}
+
+function validateInteger(value: unknown, field: RouteBindingFieldSchema, path: string) {
+  if (typeof value !== 'number' || !Number.isInteger(value)) fail(path, 'must be an integer')
+  if (field.minimum !== undefined && value < field.minimum) {
+    fail(path, `must be at least ${field.minimum}`)
+  }
+  return validateEnum(value, field, path)
+}
+
+function validateBoolean(value: unknown, field: RouteBindingFieldSchema, path: string) {
+  if (typeof value !== 'boolean') fail(path, 'must be a boolean')
+  return validateEnum(value, field, path)
+}
+
+function validateObject(value: unknown, field: RouteBindingFieldSchema, path: string) {
+  if (!isRecord(value)) fail(path, 'must be an object')
+  return validateFields(value, field.properties || {}, path, Boolean(field.allowUnknown))
+}
+
+function validateArray(value: unknown, field: RouteBindingFieldSchema, path: string) {
+  if (!Array.isArray(value)) fail(path, 'must be an array')
+  const itemSchema = field.items
+  if (!itemSchema) return value.map(cloneValue)
+  return value.map((item, index) => validateField(item, itemSchema, `${path}[${index}]`))
+}
+
+function validateMap(value: unknown, field: RouteBindingFieldSchema, path: string) {
+  if (!isRecord(value)) fail(path, 'must be an object')
+  const valueSchema = field.additionalProperties
+  if (!valueSchema) return { ...value }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [
+      key,
+      validateField(child, valueSchema, `${path}.${key}`),
+    ]),
+  )
+}
+
+type FieldValueValidator = (value: unknown, field: RouteBindingFieldSchema, path: string) => unknown
+
+const fieldValueValidators: Record<RouteBindingFieldSchema['type'], FieldValueValidator> = {
+  string: validateString,
+  integer: validateInteger,
+  boolean: validateBoolean,
+  object: validateObject,
+  array: validateArray,
+  map: validateMap,
+}
+
+function validateField(value: unknown, field: RouteBindingFieldSchema, path: string): unknown {
+  return fieldValueValidators[field.type](value, field, path)
 }
 
 function validateFields(

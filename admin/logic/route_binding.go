@@ -699,6 +699,20 @@ func (s *RouteBindingStore) checkRuntimeRouteConflict(ctx context.Context, candi
 	if err != nil {
 		return fmt.Errorf("list existing runtime resources and methods: %w", err)
 	}
+	resources, err := runtimeResourcesFromResponse(prefix, response)
+	if err != nil {
+		return err
+	}
+	resourcePaths, runtimeRoutes := indexRuntimeResourceRoutes(resources, len(response.Kvs))
+	methodRoutes, err := runtimeMethodRoutesFromResponse(prefix, response, resourcePaths, state)
+	if err != nil {
+		return err
+	}
+	runtimeRoutes = append(runtimeRoutes, methodRoutes...)
+	return findRuntimeRouteConflict(candidate, runtimeRoutes)
+}
+
+func runtimeResourcesFromResponse(prefix string, response *clientv3.GetResponse) (map[int]legacyconfig.Resource, error) {
 	resources := make(map[int]legacyconfig.Resource)
 	for _, kv := range response.Kvs {
 		resourceID, ok := runtimeResourceID(prefix, string(kv.Key))
@@ -707,43 +721,72 @@ func (s *RouteBindingStore) checkRuntimeRouteConflict(ctx context.Context, candi
 		}
 		var resource legacyconfig.Resource
 		if err := commonyaml.UnmarshalYML(kv.Value, &resource); err != nil {
-			return fmt.Errorf("decode existing runtime resource %q: %w", string(kv.Key), err)
+			return nil, fmt.Errorf("decode existing runtime resource %q: %w", string(kv.Key), err)
 		}
 		resources[resourceID] = resource
 	}
+	return resources, nil
+}
 
+func indexRuntimeResourceRoutes(resources map[int]legacyconfig.Resource, capacity int) (map[int]string, []runtimeRouteBinding) {
 	resourcePaths := make(map[int]string)
-	runtimeRoutes := make([]runtimeRouteBinding, 0, len(response.Kvs))
+	runtimeRoutes := make([]runtimeRouteBinding, 0, capacity)
 	for resourceID, resource := range resources {
 		collectRuntimeResourceRoutes(resource, "", resourceID, resourcePaths, &runtimeRoutes)
 	}
+	return resourcePaths, runtimeRoutes
+}
+
+func runtimeMethodRoutesFromResponse(
+	prefix string,
+	response *clientv3.GetResponse,
+	resourcePaths map[int]string,
+	state routeBindingPublishState,
+) ([]runtimeRouteBinding, error) {
+	routes := make([]runtimeRouteBinding, 0, len(response.Kvs))
 	for _, kv := range response.Kvs {
-		resourceID, methodID, ok, err := runtimeMethodIDs(prefix, string(kv.Key))
+		route, ok, err := runtimeMethodRouteFromKV(prefix, string(kv.Key), kv.Value, resourcePaths, state)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if !ok {
-			continue
-		}
-		// A republish of the same published AdminRouteBinding owns this runtime
-		// identity; a new route must not bypass the check by reusing an orphaned
-		// legacy method key with the same numeric IDs.
-		if state.publishedExists && resourceID == state.published.record.ResourceID && methodID == state.published.record.MethodID {
-			continue
-		}
-		var method legacyconfig.Method
-		if err := commonyaml.UnmarshalYML(kv.Value, &method); err != nil {
-			return fmt.Errorf("decode existing runtime method %q: %w", string(kv.Key), err)
-		}
-		path := strings.TrimSpace(method.ResourcePath)
-		if path == "" {
-			path = resourcePaths[resourceID]
-		}
-		if path != "" {
-			runtimeRoutes = append(runtimeRoutes, runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb, key: string(kv.Key)})
+		if ok {
+			routes = append(routes, route)
 		}
 	}
+	return routes, nil
+}
 
+func runtimeMethodRouteFromKV(
+	prefix string,
+	key string,
+	value []byte,
+	resourcePaths map[int]string,
+	state routeBindingPublishState,
+) (runtimeRouteBinding, bool, error) {
+	resourceID, methodID, ok, err := runtimeMethodIDs(prefix, key)
+	if err != nil || !ok {
+		return runtimeRouteBinding{}, false, err
+	}
+	// A republish of the same published AdminRouteBinding owns this runtime
+	// identity; a new route must not bypass the check by reusing orphaned IDs.
+	if state.publishedExists && resourceID == state.published.record.ResourceID && methodID == state.published.record.MethodID {
+		return runtimeRouteBinding{}, false, nil
+	}
+	var method legacyconfig.Method
+	if err := commonyaml.UnmarshalYML(value, &method); err != nil {
+		return runtimeRouteBinding{}, false, fmt.Errorf("decode existing runtime method %q: %w", key, err)
+	}
+	path := strings.TrimSpace(method.ResourcePath)
+	if path == "" {
+		path = resourcePaths[resourceID]
+	}
+	if path == "" {
+		return runtimeRouteBinding{}, false, nil
+	}
+	return runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb, key: key}, true, nil
+}
+
+func findRuntimeRouteConflict(candidate *compiledRouteEntry, runtimeRoutes []runtimeRouteBinding) error {
 	candidatePath := strings.ToLower(candidate.legacy.Resource.Path)
 	candidateVerb := strings.TrimSpace(candidate.legacy.Method.HTTPVerb)
 	for _, route := range runtimeRoutes {
