@@ -23,6 +23,7 @@ import type {
   AdminRouteBindingObject,
   RouteBinding,
   RouteBindingDiff,
+  RouteBindingObjectSchema,
   RouteBindingPreview,
   RouteBindingPublishResult,
   RouteBindingPublishStatus,
@@ -46,8 +47,14 @@ function query(values: Record<string, string | number | undefined>) {
 }
 
 export const routeBindingApi = {
-  schema: async () =>
-    parseArrayResponse(await request<unknown>(pixiuAdminApi.routeBindings.schema)),
+  schema: async () => {
+    const schemas = parseArrayResponse<RouteBindingObjectSchema>(
+      await request<unknown>(pixiuAdminApi.routeBindings.schema),
+    )
+    const routeSchema = schemas.find((item) => item.kind === 'AdminRouteBinding')
+    if (!routeSchema) throw new Error('AdminRouteBinding schema is not available')
+    return routeSchema
+  },
   list: async (scope: RouteBindingScope = 'draft') => {
     try {
       return parseArrayResponse<RouteBinding>(

@@ -386,6 +386,61 @@ func TestRouteBindingStoreRejectsExistingRuntimeRoute(t *testing.T) {
 	}
 }
 
+func TestRouteBindingStoreRejectsNestedRuntimeRouteWithoutMethodPath(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	fake := fakeRouteBindingStoreKV(t, store)
+	legacyResource, err := commonyaml.MarshalYML(legacyconfig.Resource{
+		ID:   99,
+		Path: "/api",
+		Resources: []legacyconfig.Resource{{
+			ID:   100,
+			Path: "/users",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal legacy Resource: %v", err)
+	}
+	legacyMethod, err := commonyaml.MarshalYML(legacyconfig.Method{
+		ID:       7,
+		HTTPVerb: "GET",
+	})
+	if err != nil {
+		t.Fatalf("marshal legacy Method: %v", err)
+	}
+	fake.fakePut(store.runtimeResourceKey(99), legacyResource)
+	fake.fakePut(store.runtimeMethodKey(100, 7), legacyMethod)
+
+	saved, err := store.SaveDraft(context.Background(), testRouteBinding("nested-user-get", "/api/users", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	if _, err := store.Publish(context.Background(), saved.Object.Metadata.Name, saved.Revision); !errors.Is(err, ErrRouteBindingRuntimeConflict) {
+		t.Fatalf("nested runtime conflict: want %v, got %v", ErrRouteBindingRuntimeConflict, err)
+	}
+}
+
+func TestRouteBindingStoreRejectsCaseInsensitiveRuntimeRoute(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	fake := fakeRouteBindingStoreKV(t, store)
+	legacyMethod, err := commonyaml.MarshalYML(legacyconfig.Method{
+		ID:           7,
+		ResourcePath: "/API/USERS",
+		HTTPVerb:     "get",
+	})
+	if err != nil {
+		t.Fatalf("marshal legacy Method: %v", err)
+	}
+	fake.fakePut(store.runtimeMethodKey(99, 7), legacyMethod)
+
+	saved, err := store.SaveDraft(context.Background(), testRouteBinding("case-insensitive-user-get", "/api/users", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	if _, err := store.Publish(context.Background(), saved.Object.Metadata.Name, saved.Revision); !errors.Is(err, ErrRouteBindingRuntimeConflict) {
+		t.Fatalf("case-insensitive runtime conflict: want %v, got %v", ErrRouteBindingRuntimeConflict, err)
+	}
+}
+
 func TestRouteBindingStoreRepublishAllowsOwnRuntimeRoute(t *testing.T) {
 	store := newTestRouteBindingStore(t)
 	saved := saveAndPublishTestRoute(t, store)

@@ -19,8 +19,13 @@ package schema
 
 import (
 	"fmt"
-	"strings"
 )
+
+var supportedDubboParamTypes = []string{
+	"string", "char", "short", "int", "long", "float", "double", "boolean", "byte", "date", "object",
+	"java.lang.String", "java.lang.Character", "java.lang.Short", "java.lang.Integer", "java.lang.Long",
+	"java.lang.Float", "java.lang.Double", "java.lang.Boolean", "java.lang.Byte", "java.lang.Object", "java.util.Date",
+}
 
 // RegisterBuiltinSchemas installs only the Admin-facing route binding. Legacy
 // Resource and Method are compiler outputs rather than form objects.
@@ -52,6 +57,7 @@ func adminRouteBindingSchema() ObjectSchema {
 					"path": {
 						Type:        FieldTypeString,
 						Required:    true,
+						Default:     "/api/v1/example",
 						Pattern:     `^/`,
 						Description: "HTTP path pattern exposed by Pixiu",
 						UI:          UIHints{Component: "text", Order: 20, Placeholder: "/api/v1/users/:id"},
@@ -59,6 +65,7 @@ func adminRouteBindingSchema() ObjectSchema {
 					"method": {
 						Type:     FieldTypeString,
 						Required: true,
+						Default:  "GET",
 						Enum:     []any{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
 						UI:       UIHints{Component: "select", Order: 30},
 					},
@@ -91,8 +98,8 @@ func adminRouteBindingSchema() ObjectSchema {
 						Required: true,
 						UI:       UIHints{Component: "text", Order: 40},
 					},
-					"version": {Type: FieldTypeString, UI: UIHints{Component: "text", Order: 50}},
-					"group":   {Type: FieldTypeString, UI: UIHints{Component: "text", Order: 60}},
+					"version": {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 50}},
+					"group":   {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 60}},
 					"cluster": {
 						Type:        FieldTypeString,
 						Required:    true,
@@ -124,6 +131,7 @@ func adminRouteBindingSchema() ObjectSchema {
 						"type": {
 							Type:        FieldTypeString,
 							Required:    true,
+							Enum:        supportedDubboParamTypeEnum(),
 							Description: "legacy mapType and parameterTypes entry",
 						},
 					},
@@ -195,14 +203,20 @@ func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
 }
 
 func isSupportedParamType(value string) bool {
-	switch strings.TrimSpace(value) {
-	case "string", "char", "short", "int", "long", "float", "double", "boolean", "byte", "date", "object",
-		"java.lang.String", "java.lang.Character", "java.lang.Short", "java.lang.Integer", "java.lang.Long",
-		"java.lang.Float", "java.lang.Double", "java.lang.Boolean", "java.lang.Byte", "java.lang.Object", "java.util.Date":
-		return true
-	default:
-		return false
+	for _, supportedType := range supportedDubboParamTypes {
+		if value == supportedType {
+			return true
+		}
 	}
+	return false
+}
+
+func supportedDubboParamTypeEnum() []any {
+	values := make([]any, len(supportedDubboParamTypes))
+	for index, value := range supportedDubboParamTypes {
+		values[index] = value
+	}
+	return values
 }
 
 func floatPointer(value float64) *float64 {

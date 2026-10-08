@@ -51,7 +51,36 @@ export type AdminRouteBindingObject = {
     params: RouteBindingParam[]
     enabled: boolean
     extensions: JsonObject
+    [field: string]: unknown
   }
+}
+
+export type RouteBindingFieldSchema = {
+  type: 'string' | 'integer' | 'boolean' | 'object' | 'array' | 'map'
+  description?: string
+  required?: boolean
+  default?: unknown
+  enum?: unknown[]
+  pattern?: string
+  minimum?: number
+  properties?: Record<string, RouteBindingFieldSchema>
+  items?: RouteBindingFieldSchema
+  additionalProperties?: RouteBindingFieldSchema
+  allowUnknown?: boolean
+  ui?: {
+    component?: string
+    group?: string
+    order?: number
+    placeholder?: string
+    advanced?: boolean
+    options?: Record<string, unknown>
+  }
+}
+
+export type RouteBindingObjectSchema = {
+  kind: string
+  description?: string
+  fields: Record<string, RouteBindingFieldSchema>
 }
 
 export type RouteBinding = {

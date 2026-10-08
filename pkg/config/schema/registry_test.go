@@ -41,6 +41,26 @@ func TestBuiltinRegistryContainsOnlyAdminRouteBinding(t *testing.T) {
 	assert.NotContains(t, objectSchema.Fields, "publish")
 }
 
+func TestDefaultRegistryIsSharedByProcess(t *testing.T) {
+	first, err := DefaultRegistry()
+	require.NoError(t, err)
+	second, err := DefaultRegistry()
+	require.NoError(t, err)
+	assert.Same(t, first, second)
+}
+
+func TestBuiltinRouteSchemaPublishesSupportedParameterTypes(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	objectSchema, ok := registry.Lookup(KindAdminRouteBinding)
+	require.True(t, ok)
+	paramType := objectSchema.Fields["params"].Items.Properties["type"]
+	require.NotNil(t, paramType)
+	assert.Contains(t, paramType.Enum, "int")
+	assert.Contains(t, paramType.Enum, "java.lang.Integer")
+	assert.Len(t, paramType.Enum, len(supportedDubboParamTypes))
+}
+
 func TestRegistryAddsTypedExtensionWithoutExposingMutableSchema(t *testing.T) {
 	registry, err := NewBuiltinRegistry()
 	require.NoError(t, err)

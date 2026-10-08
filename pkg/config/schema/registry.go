@@ -41,6 +41,12 @@ type Registry struct {
 	validators map[string][]ObjectValidator
 }
 
+var defaultRegistryState struct {
+	sync.Once
+	registry *Registry
+	err      error
+}
+
 func NewRegistry() *Registry {
 	return &Registry{
 		schemas:    make(map[string]*ObjectSchema),
@@ -54,6 +60,16 @@ func NewBuiltinRegistry() (*Registry, error) {
 		return nil, err
 	}
 	return registry, nil
+}
+
+// DefaultRegistry returns the process-wide registry used by Admin route
+// handlers. Extensions registered during process startup are therefore
+// visible to both schema discovery and route validation.
+func DefaultRegistry() (*Registry, error) {
+	defaultRegistryState.Do(func() {
+		defaultRegistryState.registry, defaultRegistryState.err = NewBuiltinRegistry()
+	})
+	return defaultRegistryState.registry, defaultRegistryState.err
 }
 
 func (r *Registry) Register(objectSchema ObjectSchema) error {

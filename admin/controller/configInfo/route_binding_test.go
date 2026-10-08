@@ -49,6 +49,10 @@ func TestGetRouteBindingSchema(t *testing.T) {
 	if len(result.Data) != 1 || result.Data[0].Kind != schema.KindAdminRouteBinding {
 		t.Fatalf("schema response: %+v", result.Data)
 	}
+	paramType := result.Data[0].Fields["params"].Items.Properties["type"]
+	if paramType == nil || len(paramType.Enum) == 0 {
+		t.Fatalf("parameter type enum missing from schema response: %+v", result.Data[0].Fields["params"])
+	}
 }
 
 func TestValidateRouteBindingReturnsDefaults(t *testing.T) {
@@ -56,7 +60,7 @@ func TestValidateRouteBindingReturnsDefaults(t *testing.T) {
   "kind": "AdminRouteBinding",
   "metadata": {"name": "user-get"},
   "spec": {
-    "entry": {"path": "/api/users", "method": "GET"},
+    "entry": {},
     "target": {
       "application": "UserProvider",
       "interface": "com.example.UserService",
@@ -76,6 +80,10 @@ func TestValidateRouteBindingReturnsDefaults(t *testing.T) {
 	}
 	if result.Data.Object.Spec["entry"].(map[string]any)["protocol"] != "http" {
 		t.Fatalf("entry defaults: %+v", result.Data.Object.Spec["entry"])
+	}
+	entry := result.Data.Object.Spec["entry"].(map[string]any)
+	if entry["path"] != "/api/v1/example" || entry["method"] != "GET" {
+		t.Fatalf("entry defaults: %+v", entry)
 	}
 	if result.Data.Object.Spec["target"].(map[string]any)["protocol"] != "dubbo" {
 		t.Fatalf("target defaults: %+v", result.Data.Object.Spec["target"])

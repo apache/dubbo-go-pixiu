@@ -37,35 +37,15 @@ import type {
   RouteBindingPublishStatus,
 } from '../../types/api'
 
-export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']
-export const PARAM_TYPES = [
-  'string',
-  'char',
-  'short',
-  'int',
-  'long',
-  'float',
-  'double',
-  'boolean',
-  'byte',
-  'date',
-  'object',
-  'java.lang.String',
-  'java.lang.Character',
-  'java.lang.Short',
-  'java.lang.Integer',
-  'java.lang.Long',
-  'java.lang.Float',
-  'java.lang.Double',
-  'java.lang.Boolean',
-  'java.lang.Byte',
-  'java.lang.Object',
-  'java.util.Date',
-]
-
 export type EditorTab = 'form' | 'preview' | 'diff' | 'yaml'
 export type BusyAction = '' | 'save' | 'publish' | 'validate' | 'preview' | 'diff'
 export type Notice = { tone: 'success' | 'error'; text: string }
+export type RouteEditorOptions = {
+  readonly entryProtocols: string[]
+  readonly targetProtocols: string[]
+  readonly httpMethods: string[]
+  readonly paramTypes: string[]
+}
 export type IssueMessage = (path: string) => string
 export type RouteEntry = AdminRouteBindingObject['spec']['entry']
 export type RouteTarget = AdminRouteBindingObject['spec']['target']
@@ -83,6 +63,7 @@ type HeaderProps = {
   readonly lifecycleStatus: string
   readonly busy: BusyAction
   readonly yamlError: string
+  readonly actionsDisabled: boolean
   readonly onBack: () => void
   readonly onValidate: () => void
   readonly onSave: () => void
@@ -104,6 +85,8 @@ type IdentityCardProps = {
   readonly onNameChange: (value: string) => void
   readonly onPathChange: (value: string) => void
   readonly onMethodChange: (value: string) => void
+  readonly entryProtocols: string[]
+  readonly httpMethods: string[]
 }
 
 type TargetCardProps = {
@@ -111,12 +94,14 @@ type TargetCardProps = {
   readonly target: RouteTarget
   readonly issueMessage: IssueMessage
   readonly onChange: (key: EditableTargetKey, value: string) => void
+  readonly targetProtocols: string[]
 }
 
 type ParamCardProps = {
   readonly isEnglish: boolean
   readonly params: RouteBindingParam[]
   readonly issueMessage: IssueMessage
+  readonly paramTypes: string[]
   readonly onAdd: () => void
   readonly onUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
   readonly onRemove: (index: number) => void
@@ -144,6 +129,7 @@ type PreviewViewProps = {
   readonly previewYaml: string
   readonly routeYaml: string
   readonly yamlError: string
+  readonly yamlDefaultsApplied: boolean
   readonly onApplyYaml: () => void
   readonly onChangeYaml: (value: string) => void
   readonly onPreview: () => void
@@ -160,6 +146,8 @@ type ContentProps = {
   readonly previewYaml: string
   readonly routeYaml: string
   readonly yamlError: string
+  readonly yamlDefaultsApplied: boolean
+  readonly options?: RouteEditorOptions
   readonly issueMessage: IssueMessage
   readonly onNameChange: (value: string) => void
   readonly onEntryChange: (key: 'path' | 'method', value: string) => void
@@ -220,8 +208,11 @@ function routeStateClass(dirty: boolean, published: boolean) {
   return 'published'
 }
 
-function yamlSyncLabel(isEnglish: boolean, yamlError: string) {
-  if (yamlError) return isEnglish ? 'Syntax error' : '语法错误'
+function yamlSyncLabel(isEnglish: boolean, yamlError: string, defaultsApplied: boolean) {
+  if (yamlError) return isEnglish ? 'Invalid YAML / schema' : 'YAML / Schema 错误'
+  if (defaultsApplied) {
+    return isEnglish ? 'Form synced · schema defaults applied' : '表单已同步 · 已应用 Schema 默认值'
+  }
   return isEnglish ? 'Synced with form' : '已与表单同步'
 }
 
@@ -241,6 +232,7 @@ export function RouteEditorHeader({
   lifecycleStatus,
   busy,
   yamlError,
+  actionsDisabled,
   onBack,
   onValidate,
   onSave,
@@ -287,7 +279,7 @@ export function RouteEditorHeader({
           <button
             className="secondary"
             type="button"
-            disabled={busy !== '' || Boolean(yamlError)}
+            disabled={busy !== '' || Boolean(yamlError) || actionsDisabled}
             onClick={onValidate}
           >
             <CheckCircle2 size={14} />
@@ -301,7 +293,7 @@ export function RouteEditorHeader({
           <button
             className="secondary"
             type="button"
-            disabled={busy !== '' || Boolean(yamlError)}
+            disabled={busy !== '' || Boolean(yamlError) || actionsDisabled}
             onClick={onSave}
           >
             <Save size={14} />
@@ -310,7 +302,7 @@ export function RouteEditorHeader({
           <button
             className="primary"
             type="button"
-            disabled={busy !== '' || Boolean(yamlError)}
+            disabled={busy !== '' || Boolean(yamlError) || actionsDisabled}
             onClick={onPublish}
           >
             <Send size={14} />
@@ -332,8 +324,8 @@ export function RouteEditorContract({ isEnglish }: ContractProps) {
       <span className="route-contract-mark">{isEnglish ? 'ATOMIC PUBLISH' : '原子发布'}</span>
       <span>
         {isEnglish
-          ? 'Saving updates this route draft. Publishing replaces only this route in one etcd transaction.'
-          : '保存只更新当前路由草稿。发布会通过一次 etcd 事务只替换当前路由。'}
+          ? 'Saving updates this route draft. Publishing replaces only this route in one etcd transaction; runtime loading is not acknowledged.'
+          : '保存只更新当前路由草稿。发布会通过一次 etcd 事务只替换当前路由；此处不代表 Pixiu 运行时已确认加载。'}
       </span>
     </div>
   )
@@ -428,6 +420,8 @@ function RouteIdentityCard({
   onNameChange,
   onPathChange,
   onMethodChange,
+  entryProtocols,
+  httpMethods,
 }: IdentityCardProps) {
   const nameIssue = issueMessage('metadata.name')
   const pathIssue = issueMessage('spec.entry.path')
@@ -465,7 +459,11 @@ function RouteIdentityCard({
         <label className="route-field">
           <span>{isEnglish ? 'Entry protocol' : '入口协议'}</span>
           <select value={entry.protocol} disabled>
-            <option value="http">HTTP</option>
+            {entryProtocols.map((protocol) => (
+              <option key={protocol} value={protocol}>
+                {protocol.toUpperCase()}
+              </option>
+            ))}
           </select>
           <small>
             {isEnglish ? 'The current schema accepts HTTP only.' : '当前 schema 仅支持 HTTP。'}
@@ -484,7 +482,7 @@ function RouteIdentityCard({
         <fieldset className="route-field route-field-wide route-method-fieldset">
           <legend>{isEnglish ? 'HTTP method' : '请求方法'}</legend>
           <div className="route-method-options">
-            {HTTP_METHODS.map((method) => (
+            {httpMethods.map((method) => (
               <button
                 className={entry.method === method ? 'active' : ''}
                 key={method}
@@ -525,7 +523,13 @@ function TargetField({ label, value, placeholder, issue, onChange }: TargetField
   )
 }
 
-function RouteTargetCard({ isEnglish, target, issueMessage, onChange }: TargetCardProps) {
+function RouteTargetCard({
+  isEnglish,
+  target,
+  issueMessage,
+  onChange,
+  targetProtocols,
+}: TargetCardProps) {
   const fields: Array<{
     key: EditableTargetKey
     label: string
@@ -570,7 +574,11 @@ function RouteTargetCard({ isEnglish, target, issueMessage, onChange }: TargetCa
         <label className="route-field">
           <span>{isEnglish ? 'Target protocol' : '目标协议'}</span>
           <select value={target.protocol} disabled>
-            <option value="dubbo">Dubbo</option>
+            {targetProtocols.map((protocol) => (
+              <option key={protocol} value={protocol}>
+                {protocol.toUpperCase()}
+              </option>
+            ))}
           </select>
           <small>
             {isEnglish ? 'The current compiler targets Dubbo.' : '当前编译器目标为 Dubbo。'}
@@ -596,6 +604,7 @@ type ParamRowProps = {
   readonly param: RouteBindingParam
   readonly index: number
   readonly issueMessage: IssueMessage
+  readonly types: string[]
   readonly onUpdate: (index: number, patch: Partial<RouteBindingParam>) => void
   readonly onRemove: (index: number) => void
 }
@@ -605,6 +614,7 @@ function RouteParamRow({
   param,
   index,
   issueMessage,
+  types,
   onUpdate,
   onRemove,
 }: ParamRowProps) {
@@ -640,7 +650,7 @@ function RouteParamRow({
           value={param.type}
           onChange={(event) => onUpdate(index, { type: event.target.value })}
         >
-          {PARAM_TYPES.map((type) => (
+          {types.map((type) => (
             <option key={type} value={type}>
               {type}
             </option>
@@ -664,6 +674,7 @@ function RouteParamsCard({
   isEnglish,
   params,
   issueMessage,
+  paramTypes,
   onAdd,
   onUpdate,
   onRemove,
@@ -708,6 +719,7 @@ function RouteParamsCard({
                 param={param}
                 index={index}
                 issueMessage={issueMessage}
+                types={paramTypes}
                 onUpdate={onUpdate}
                 onRemove={onRemove}
               />
@@ -726,8 +738,8 @@ function RoutePublishCard({ isEnglish, enabled, onEnabledChange }: PublishCardPr
         <h2>{isEnglish ? 'Release and lifecycle' : '发布与生命周期'}</h2>
         <span>
           {isEnglish
-            ? 'The route enabled state is published atomically with this route.'
-            : '路由启停状态会随当前路由一起原子发布。'}
+            ? 'This is the draft setting. It enters the published configuration only after this route is published.'
+            : '这里配置的是草稿启停状态，只有发布后才会进入已发布配置。'}
         </span>
       </div>
       <div className="route-switches">
@@ -756,6 +768,10 @@ function RouteFormView(props: FormViewProps) {
     params,
     enabled,
     issueMessage,
+    entryProtocols,
+    targetProtocols,
+    httpMethods,
+    paramTypes,
     onNameChange,
     onPathChange,
     onMethodChange,
@@ -777,18 +793,22 @@ function RouteFormView(props: FormViewProps) {
           onNameChange={onNameChange}
           onPathChange={onPathChange}
           onMethodChange={onMethodChange}
+          entryProtocols={entryProtocols}
+          httpMethods={httpMethods}
         />
         <RouteTargetCard
           isEnglish={isEnglish}
           target={target}
           issueMessage={issueMessage}
           onChange={onChange}
+          targetProtocols={targetProtocols}
         />
       </div>
       <RouteParamsCard
         isEnglish={isEnglish}
         params={params}
         issueMessage={issueMessage}
+        paramTypes={paramTypes}
         onAdd={onAdd}
         onUpdate={onUpdate}
         onRemove={onRemove}
@@ -966,9 +986,17 @@ function RoutePreviewAction({
   )
 }
 
-type PreviewMetaProps = Pick<PreviewViewProps, 'isEnglish' | 'activeTab' | 'yamlError'>
+type PreviewMetaProps = Pick<
+  PreviewViewProps,
+  'isEnglish' | 'activeTab' | 'yamlError' | 'yamlDefaultsApplied'
+>
 
-function RoutePreviewMeta({ isEnglish, activeTab, yamlError }: PreviewMetaProps) {
+function RoutePreviewMeta({
+  isEnglish,
+  activeTab,
+  yamlError,
+  yamlDefaultsApplied,
+}: PreviewMetaProps) {
   const isYaml = activeTab === 'yaml'
   return (
     <div className="route-preview-meta">
@@ -976,7 +1004,7 @@ function RoutePreviewMeta({ isEnglish, activeTab, yamlError }: PreviewMetaProps)
       <span>{isYaml ? 'route-binding.yaml' : 'api_config.yaml'}</span>
       {isYaml ? (
         <span className={`route-yaml-sync ${yamlSyncClass(yamlError)}`}>
-          {yamlSyncLabel(isEnglish, yamlError)}
+          {yamlSyncLabel(isEnglish, yamlError, yamlDefaultsApplied)}
         </span>
       ) : (
         <span className="muted">{isEnglish ? 'Read only' : '只读'}</span>
@@ -992,6 +1020,7 @@ function RoutePreviewView({
   previewYaml,
   routeYaml,
   yamlError,
+  yamlDefaultsApplied,
   onApplyYaml,
   onChangeYaml,
   onPreview,
@@ -1012,7 +1041,12 @@ function RoutePreviewView({
           onPreview={onPreview}
         />
       </div>
-      <RoutePreviewMeta isEnglish={isEnglish} activeTab={activeTab} yamlError={yamlError} />
+      <RoutePreviewMeta
+        isEnglish={isEnglish}
+        activeTab={activeTab}
+        yamlError={yamlError}
+        yamlDefaultsApplied={yamlDefaultsApplied}
+      />
       <RoutePreviewBody
         isEnglish={isEnglish}
         activeTab={activeTab}
@@ -1036,6 +1070,8 @@ export function RouteEditorContent({
   previewYaml,
   routeYaml,
   yamlError,
+  yamlDefaultsApplied,
+  options,
   issueMessage,
   onNameChange,
   onEntryChange,
@@ -1071,6 +1107,10 @@ export function RouteEditorContent({
         params={object.spec.params}
         enabled={object.spec.enabled}
         issueMessage={issueMessage}
+        entryProtocols={options?.entryProtocols || []}
+        targetProtocols={options?.targetProtocols || []}
+        httpMethods={options?.httpMethods || []}
+        paramTypes={options?.paramTypes || []}
         onNameChange={onNameChange}
         onPathChange={(value) => onEntryChange('path', value)}
         onMethodChange={(value) => onEntryChange('method', value)}
@@ -1100,6 +1140,7 @@ export function RouteEditorContent({
       previewYaml={previewYaml}
       routeYaml={routeYaml}
       yamlError={yamlError}
+      yamlDefaultsApplied={yamlDefaultsApplied}
       onApplyYaml={onApplyYaml}
       onChangeYaml={onChangeYaml}
       onPreview={() => onPreview()}

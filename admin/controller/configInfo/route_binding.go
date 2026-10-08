@@ -69,7 +69,7 @@ type routeBindingErrorResponse struct {
 // @Success 200 {object} string
 // @Router /config/api/route/schema [get]
 func GetRouteBindingSchema(c *gin.Context) {
-	registry, err := schema.NewBuiltinRegistry()
+	registry, err := schema.DefaultRegistry()
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return

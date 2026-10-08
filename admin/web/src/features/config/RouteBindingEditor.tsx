@@ -17,16 +17,15 @@
  * under the License.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Locale, translateText } from '../../i18n'
 import { routeBindingApi } from '../../services/route-binding-api'
 import { ApiError } from '../../services/http'
-import { asJsonObject } from '../../types/api'
 import type {
   AdminRouteBindingObject,
   RouteBinding,
   RouteBindingDiff,
+  RouteBindingObjectSchema,
   RouteBindingParam,
   RouteBindingPublishStatus,
   RouteBindingValidationIssue,
@@ -39,6 +38,14 @@ import {
   RouteEditorTabs,
 } from './RouteBindingEditorSections'
 import type { BusyAction, EditorTab, Notice } from './RouteBindingEditorSections'
+import {
+  createDefaultRouteBinding,
+  hasLegacyPublishPreference,
+  normaliseRouteBindingObject,
+  parseRouteBindingYaml,
+  routeEditorOptions,
+  stringifyRouteBindingYaml,
+} from './RouteBindingEditorModel'
 
 type RouteBindingEditorProps = {
   readonly locale: Locale
@@ -51,14 +58,14 @@ type RouteBindingEditorProps = {
   readonly onSaved: () => void | Promise<void>
 }
 
-function createDefaultObject(): AdminRouteBindingObject {
+function createEmptyObject(): AdminRouteBindingObject {
   return {
     kind: 'AdminRouteBinding',
     metadata: { name: '' },
     spec: {
-      entry: { protocol: 'http', path: '/api/v1/example', method: 'GET' },
+      entry: { protocol: '', path: '', method: '' },
       target: {
-        protocol: 'dubbo',
+        protocol: '',
         application: '',
         interface: '',
         method: '',
@@ -67,86 +74,9 @@ function createDefaultObject(): AdminRouteBindingObject {
         cluster: '',
       },
       params: [],
-      enabled: true,
+      enabled: false,
       extensions: {},
     },
-  }
-}
-
-function stringValue(value: unknown, fallback = '') {
-  return typeof value === 'string' ? value : fallback
-}
-
-function numberValue(value: unknown, fallback: number) {
-  const number = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(number) ? number : fallback
-}
-
-function normaliseObject(value: unknown): AdminRouteBindingObject {
-  const root = asJsonObject(value)
-  const metadata = asJsonObject(root.metadata)
-  const spec = asJsonObject(root.spec)
-  const rawEntry = asJsonObject(spec.entry)
-  const rawTarget = asJsonObject(spec.target)
-  const rawParams = Array.isArray(spec.params) ? spec.params : []
-
-  const params = rawParams.map((rawParam, index): RouteBindingParam => {
-    const param = asJsonObject(rawParam)
-    return {
-      from: stringValue(param.from),
-      to: numberValue(param.to, index),
-      type: stringValue(param.type, 'string'),
-    }
-  })
-
-  return {
-    kind: stringValue(root.kind, 'AdminRouteBinding'),
-    metadata: { name: stringValue(metadata.name) },
-    spec: {
-      entry: {
-        protocol: stringValue(rawEntry.protocol, 'http'),
-        path: stringValue(rawEntry.path, '/api/v1/example'),
-        method: stringValue(rawEntry.method, 'GET'),
-      },
-      target: {
-        protocol: stringValue(rawTarget.protocol, 'dubbo'),
-        application: stringValue(rawTarget.application),
-        interface: stringValue(rawTarget.interface),
-        method: stringValue(rawTarget.method),
-        version: stringValue(rawTarget.version),
-        group: stringValue(rawTarget.group),
-        cluster: stringValue(rawTarget.cluster),
-      },
-      params,
-      enabled: typeof spec.enabled === 'boolean' ? spec.enabled : true,
-      extensions: asJsonObject(spec.extensions),
-    },
-  }
-}
-
-function objectSignature(value: AdminRouteBindingObject) {
-  return JSON.stringify(value)
-}
-
-function stringifyRouteBindingYaml(value: AdminRouteBindingObject) {
-  return stringifyYaml(value, { indent: 2, lineWidth: 0 })
-}
-
-function formatYamlError(error: unknown) {
-  if (!(error instanceof Error)) return String(error)
-  const linePos = (error as Error & { linePos?: Array<{ line: number; col: number }> }).linePos?.[0]
-  return linePos ? `${error.message} (${linePos.line}:${linePos.col})` : error.message
-}
-
-function parseRouteBindingYaml(value: string) {
-  try {
-    const parsed = parseYaml(value) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('YAML 顶层必须是对象')
-    }
-    return { object: normaliseObject(parsed), error: '' }
-  } catch (error: unknown) {
-    return { object: null, error: formatYamlError(error) }
   }
 }
 
@@ -174,17 +104,19 @@ function currentStatusLabel(
 }
 
 function lifecycleStatusLabel(isEnglish: boolean, enabled: boolean) {
-  if (enabled) return isEnglish ? 'Enabled' : '已启用'
-  return isEnglish ? 'Disabled' : '已停用'
+  if (enabled) return isEnglish ? 'Draft enabled' : '草稿启用'
+  return isEnglish ? 'Draft disabled' : '草稿停用'
 }
 
 function publishSuccessMessage(isEnglish: boolean, deleted: boolean) {
   if (isEnglish) {
     return deleted
-      ? 'The current route was removed atomically.'
-      : 'The current route was published atomically.'
+      ? 'The route was removed atomically from etcd. Pixiu runtime loading is not acknowledged here.'
+      : 'The route was committed atomically to etcd. Pixiu runtime loading is not acknowledged here.'
   }
-  return deleted ? '当前路由已通过 etcd 事务原子删除。' : '当前路由已通过 etcd 事务原子发布。'
+  return deleted
+    ? '当前路由已通过 etcd 事务原子删除；此处不会确认 Pixiu 运行时是否已完成加载。'
+    : '当前路由已通过 etcd 事务原子写入；此处不会确认 Pixiu 运行时是否已完成加载。'
 }
 
 export function RouteBindingEditor({
@@ -200,9 +132,7 @@ export function RouteBindingEditor({
   const isEnglish = locale === 'en-US'
   const tx = (value: string) => translateText(locale, value)
   const [mode, setMode] = useState(initialMode)
-  const [object, setObject] = useState<AdminRouteBindingObject>(() =>
-    binding ? normaliseObject(binding.object) : createDefaultObject(),
-  )
+  const [object, setObject] = useState<AdminRouteBindingObject>(createEmptyObject)
   const [revision, setRevision] = useState(binding?.revision || 0)
   const [published, setPublished] = useState(initialPublished)
   const [publishStatus, setPublishStatus] = useState<RouteBindingPublishStatus | null>(
@@ -214,44 +144,119 @@ export function RouteBindingEditor({
   const [issues, setIssues] = useState<RouteBindingValidationIssue[]>([])
   const [notice, setNotice] = useState<Notice | null>(null)
   const [previewYaml, setPreviewYaml] = useState('')
-  const [routeYaml, setRouteYaml] = useState(() =>
-    stringifyRouteBindingYaml(binding ? normaliseObject(binding.object) : createDefaultObject()),
-  )
+  const [routeYaml, setRouteYaml] = useState('')
   const [yamlError, setYamlError] = useState('')
+  const [yamlDefaultsApplied, setYamlDefaultsApplied] = useState(false)
+  const [schema, setSchema] = useState<RouteBindingObjectSchema | null>(null)
+  const [schemaLoading, setSchemaLoading] = useState(true)
+  const [schemaError, setSchemaError] = useState('')
   const [diffData, setDiffData] = useState<RouteBindingDiff | null>(null)
   const hydratedBindingKey = useRef('')
 
+  const loadSchema = useCallback(async () => {
+    setSchemaLoading(true)
+    setSchemaError('')
+    try {
+      setSchema(await routeBindingApi.schema())
+    } catch (error: unknown) {
+      setSchema(null)
+      setSchemaError(
+        errorMessage(
+          error,
+          isEnglish ? 'Could not load the route schema.' : '无法加载路由 Schema。',
+        ),
+      )
+    } finally {
+      setSchemaLoading(false)
+    }
+  }, [isEnglish])
+
   useEffect(() => {
-    if (loading || !binding) return
-    const bindingKey = `${binding.object.metadata.name}:${binding.revision}`
+    void loadSchema()
+  }, [loadSchema])
+
+  useEffect(() => {
+    if (loading || schemaLoading || !schema) return
+    const bindingKey = binding
+      ? `${binding.object.metadata.name}:${binding.revision}`
+      : initialMode === 'create'
+        ? 'new-route'
+        : ''
+    if (!bindingKey) return
     if (hydratedBindingKey.current === bindingKey) return
+    let normalized: AdminRouteBindingObject
+    const removedLegacyPublish = binding ? hasLegacyPublishPreference(binding.object) : false
+    try {
+      normalized = binding
+        ? normaliseRouteBindingObject(binding.object, schema, true)
+        : createDefaultRouteBinding(schema)
+    } catch (error: unknown) {
+      const message = errorMessage(
+        error,
+        isEnglish ? 'Route data does not match the schema.' : '路由数据不符合 Schema。',
+      )
+      if (binding) {
+        hydratedBindingKey.current = bindingKey
+        setObject(createDefaultRouteBinding(schema))
+        setRouteYaml(stringifyRouteBindingYaml(binding.object))
+        setYamlError(message)
+        setDirty(true)
+        setActiveTab('yaml')
+        setNotice({ tone: 'error', text: message })
+      } else {
+        setSchemaError(message)
+      }
+      return
+    }
     hydratedBindingKey.current = bindingKey
-    const normalized = normaliseObject(binding.object)
     setMode(initialMode)
     setObject(normalized)
-    setRevision(binding.revision || 0)
+    setRevision(binding?.revision || 0)
     setPublished(initialPublished)
     setPublishStatus(initialPublishStatus || null)
-    setDirty(false)
+    setDirty(initialMode === 'create' || removedLegacyPublish)
     setIssues([])
-    setNotice(null)
+    setNotice(
+      removedLegacyPublish
+        ? {
+            tone: 'success',
+            text: isEnglish
+              ? 'An obsolete no-op spec.publish field was removed. Save this draft to persist the cleanup.'
+              : '已移除旧的无效 spec.publish 字段；保存草稿后才会持久化这次清理。',
+          }
+        : null,
+    )
     setPreviewYaml('')
     setRouteYaml(stringifyRouteBindingYaml(normalized))
     setYamlError('')
+    setYamlDefaultsApplied(false)
     setDiffData(null)
     setActiveTab('form')
-  }, [binding, initialMode, initialPublishStatus, initialPublished, loading])
+  }, [
+    binding,
+    initialMode,
+    initialPublishStatus,
+    initialPublished,
+    isEnglish,
+    loading,
+    schema,
+    schemaLoading,
+  ])
 
   const entry = object.spec.entry
-  const signature = useMemo(() => objectSignature(object), [object])
+  const signature = useMemo(() => JSON.stringify(object), [object])
   const routeLabel = object.metadata.name || (isEnglish ? 'New API route' : '新建 API 路由')
   const currentStatus = currentStatusLabel(isEnglish, dirty, published, tx)
   const lifecycleStatus = lifecycleStatusLabel(isEnglish, object.spec.enabled)
+  const options = useMemo(() => (schema ? routeEditorOptions(schema) : undefined), [schema])
+
+  const editorBlocked = schemaLoading || !schema || Boolean(schemaError)
 
   const updateObject = (next: AdminRouteBindingObject) => {
     setObject(next)
     setRouteYaml(stringifyRouteBindingYaml(next))
     setYamlError('')
+    setYamlDefaultsApplied(false)
     setDirty(true)
     setIssues([])
     setNotice(null)
@@ -267,9 +272,14 @@ export function RouteBindingEditor({
     setPreviewYaml('')
     setDiffData(null)
 
-    const parsed = parseRouteBindingYaml(value)
+    if (!schema) {
+      setYamlError(isEnglish ? 'Route schema is not loaded.' : '路由 Schema 尚未加载。')
+      return
+    }
+    const parsed = parseRouteBindingYaml(value, schema)
     if (!parsed.object) {
       setYamlError(parsed.error)
+      setYamlDefaultsApplied(false)
       return
     }
     if (mode === 'edit' && parsed.object.metadata.name !== object.metadata.name) {
@@ -279,11 +289,16 @@ export function RouteBindingEditor({
       return
     }
     setYamlError('')
+    setYamlDefaultsApplied(parsed.defaultsApplied)
     setObject(parsed.object)
   }
 
   const applyYamlToForm = () => {
-    const parsed = parseRouteBindingYaml(routeYaml)
+    if (!schema) {
+      setYamlError(isEnglish ? 'Route schema is not loaded.' : '路由 Schema 尚未加载。')
+      return
+    }
+    const parsed = parseRouteBindingYaml(routeYaml, schema)
     if (!parsed.object) {
       setYamlError(parsed.error)
       return
@@ -295,7 +310,9 @@ export function RouteBindingEditor({
       return
     }
     setObject(parsed.object)
+    setRouteYaml(stringifyRouteBindingYaml(parsed.object))
     setYamlError('')
+    setYamlDefaultsApplied(false)
     setIssues([])
     setNotice({
       tone: 'success',
@@ -329,7 +346,7 @@ export function RouteBindingEditor({
     const nextParam: RouteBindingParam = {
       from: '',
       to: object.spec.params.length,
-      type: 'string',
+      type: options?.paramTypes[0] || '',
     }
     updateObject({
       ...object,
@@ -350,15 +367,17 @@ export function RouteBindingEditor({
     updateObject({ ...object, spec: { ...object.spec, enabled } })
 
   const validate = async () => {
+    if (yamlError || editorBlocked || !schema) return
     setBusy('validate')
     setNotice(null)
     try {
       const result = await routeBindingApi.validate(object)
-      const normalized = normaliseObject(result.object)
-      const changed = objectSignature(normalized) !== signature
+      const normalized = normaliseRouteBindingObject(result.object, schema)
+      const changed = JSON.stringify(normalized) !== signature
       setObject(normalized)
       setRouteYaml(stringifyRouteBindingYaml(normalized))
       setYamlError('')
+      setYamlDefaultsApplied(false)
       setDirty((current) => current || changed)
       setIssues([])
       setNotice({
@@ -376,6 +395,7 @@ export function RouteBindingEditor({
   }
 
   const saveDraft = async (): Promise<RouteBinding | null> => {
+    if (yamlError || editorBlocked || !schema) return null
     if (!object.metadata.name.trim()) {
       const missingName = [
         { path: 'metadata.name', code: 'required', message: tx('请输入路由名称') },
@@ -396,10 +416,11 @@ export function RouteBindingEditor({
               object,
               revision,
             )
-      const normalized = normaliseObject(saved.object)
+      const normalized = normaliseRouteBindingObject(saved.object, schema)
       setObject(normalized)
       setRouteYaml(stringifyRouteBindingYaml(normalized))
       setYamlError('')
+      setYamlDefaultsApplied(false)
       setMode('edit')
       setRevision(saved.revision || 0)
       setDirty(false)
@@ -428,6 +449,7 @@ export function RouteBindingEditor({
   }
 
   const publish = async () => {
+    if (yamlError || editorBlocked || !schema) return
     if (dirty || mode === 'create' || revision === 0) {
       const saved = await saveDraft()
       if (!saved) return
@@ -480,16 +502,18 @@ export function RouteBindingEditor({
   }
 
   const preview = async (tab: 'preview' | 'yaml' = 'preview') => {
+    if (yamlError || editorBlocked || !schema) return
     setActiveTab(tab)
     setBusy('preview')
     setNotice(null)
     try {
       const result = await routeBindingApi.preview(object)
-      const normalized = normaliseObject(result.object)
+      const normalized = normaliseRouteBindingObject(result.object, schema)
       setObject(normalized)
       setRouteYaml(stringifyRouteBindingYaml(normalized))
       setYamlError('')
-      setDirty((current) => current || objectSignature(normalized) !== signature)
+      setYamlDefaultsApplied(false)
+      setDirty((current) => current || JSON.stringify(normalized) !== signature)
       setPreviewYaml(result.yaml)
       setIssues([])
     } catch (error: unknown) {
@@ -525,6 +549,7 @@ export function RouteBindingEditor({
         lifecycleStatus={lifecycleStatus}
         busy={busy}
         yamlError={yamlError}
+        actionsDisabled={editorBlocked}
         onBack={onBack}
         onValidate={() => void validate()}
         onSave={() => void saveDraft()}
@@ -532,10 +557,18 @@ export function RouteBindingEditor({
       />
       <RouteEditorContract isEnglish={isEnglish} />
       {notice && <RouteEditorNotice notice={notice} />}
+      {schemaError && (
+        <div className="route-editor-notice error" role="alert">
+          <span>{schemaError}</span>
+          <button className="secondary" type="button" onClick={() => void loadSchema()}>
+            {isEnglish ? 'Retry schema' : '重试加载 Schema'}
+          </button>
+        </div>
+      )}
       <RouteEditorTabs isEnglish={isEnglish} activeTab={activeTab} onChange={changeTab} />
       <RouteEditorContent
         isEnglish={isEnglish}
-        loading={loading}
+        loading={loading || schemaLoading || Boolean(schemaError) || !schema}
         activeTab={activeTab}
         mode={mode}
         object={object}
@@ -544,6 +577,8 @@ export function RouteBindingEditor({
         previewYaml={previewYaml}
         routeYaml={routeYaml}
         yamlError={yamlError}
+        yamlDefaultsApplied={yamlDefaultsApplied}
+        options={options}
         issueMessage={issueMessage}
         onNameChange={(name) =>
           updateObject({

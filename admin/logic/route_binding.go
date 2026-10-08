@@ -166,7 +166,11 @@ func NewAdminRouteBindingStore() (*RouteBindingStore, error) {
 	if rawClient == nil {
 		return nil, errors.New("admin raw etcd client is nil")
 	}
-	return NewRouteBindingStore(rawClient, adminconfig.Bootstrap.GetPath(), nil)
+	registry, err := schema.DefaultRegistry()
+	if err != nil {
+		return nil, fmt.Errorf("get Admin route binding schema registry: %w", err)
+	}
+	return NewRouteBindingStore(rawClient, adminconfig.Bootstrap.GetPath(), registry)
 }
 
 func routeBindingContext(ctx context.Context) context.Context {

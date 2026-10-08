@@ -514,7 +514,7 @@ type RouteRow = {
   verb: string
   target: string
   status: RouteStatus
-  enabled: boolean
+  publishedEnabled: boolean | null
   publishedRevision: number
   publishStatus: RouteBindingPublishStatus
 }
@@ -535,8 +535,7 @@ function routeRow(
   const target = asJsonObject(spec.target)
   const name = String(object.metadata?.name || `route.${binding.resourceId}`)
   const publishedBinding = published.get(name)
-  const runtimeBinding = publishedBinding || binding
-  const runtimeSpec = asJsonObject(runtimeBinding.object.spec)
+  const publishedSpec = publishedBinding ? asJsonObject(publishedBinding.object.spec) : null
   const targetLabel = [target.application, target.interface]
     .filter((value) => typeof value === 'string' && value.trim())
     .join(' / ')
@@ -553,7 +552,7 @@ function routeRow(
         ? target.cluster
         : translateText(locale, '未配置后端目标')),
     status: publishStatus.publishedExists && !publishStatus.dirty ? 'Published' : 'Draft',
-    enabled: runtimeSpec.enabled !== false,
+    publishedEnabled: publishedBinding ? publishedSpec?.enabled !== false : null,
     publishedRevision: publishStatus.publishedRevision,
     publishStatus,
   }
@@ -788,7 +787,7 @@ export function ResourcePage({
                   <th>{tx('请求方法')}</th>
                   <th>{tx('后端目标')}</th>
                   <th>{tx('发布状态')}</th>
-                  <th>{tx('运行状态')}</th>
+                  <th>{tx('已发布配置')}</th>
                   <th>Requests</th>
                   <th>Updated</th>
                   <th aria-label={tx('操作')} />
@@ -817,10 +816,17 @@ export function ResourcePage({
                       </span>
                     </td>
                     <td>
-                      <span className={`badge ${row.enabled ? 'enabled' : 'disabled'}`}>
-                        <i />
-                        {row.enabled ? tx('已启用') : tx('已停用')}
-                      </span>
+                      {row.publishedEnabled === null ? (
+                        <span className="badge draft">
+                          <i />
+                          {tx('未发布')}
+                        </span>
+                      ) : (
+                        <span className={`badge ${row.publishedEnabled ? 'enabled' : 'disabled'}`}>
+                          <i />
+                          {row.publishedEnabled ? tx('已启用') : tx('已停用')}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <span className="mono unavailable-value">-</span>
