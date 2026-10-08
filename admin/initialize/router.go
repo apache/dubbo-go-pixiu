@@ -34,8 +34,6 @@ import (
 	_ "github.com/apache/dubbo-go-pixiu/admin/doc"
 )
 
-const routeBindingAPIPath = "/config/api/route"
-
 // Routers init router
 func Routers() *gin.Engine {
 	var router = gin.Default()
@@ -78,17 +76,20 @@ func Routers() *gin.Engine {
 		// AdminRouteBinding API. Each route has
 		// an independent draft/publish boundary; publishing one route still
 		// updates its generated legacy keys in one etcd transaction.
-		taR.GET(routeBindingAPIPath+"/schema", configInfo.GetRouteBindingSchema)
-		taR.GET(routeBindingAPIPath+"/list", configInfo.GetRouteBindingList)
-		taR.GET(routeBindingAPIPath+"/detail", configInfo.GetRouteBindingDetail)
-		taR.POST(routeBindingAPIPath, configInfo.CreateRouteBinding)
-		taR.PUT(routeBindingAPIPath, configInfo.ModifyRouteBinding)
-		taR.DELETE(routeBindingAPIPath, configInfo.DeleteRouteBinding)
-		taR.POST(routeBindingAPIPath+"/validate", configInfo.ValidateRouteBinding)
-		taR.POST(routeBindingAPIPath+"/preview", configInfo.PreviewRouteBinding)
-		taR.PUT(routeBindingAPIPath+"/publish", configInfo.PublishRouteBinding)
-		taR.GET(routeBindingAPIPath+"/status", configInfo.GetRouteBindingStatus)
-		taR.GET(routeBindingAPIPath+"/diff", configInfo.GetRouteBindingDiff)
+		taR.GET("/config/api/route/schema", configInfo.GetRouteBindingSchema)
+		taR.GET("/config/api/route/list", configInfo.GetRouteBindingList)
+		taR.GET("/config/api/route/detail", configInfo.GetRouteBindingDetail)
+		taR.POST("/config/api/route", configInfo.CreateRouteBinding)
+		taR.PUT("/config/api/route", configInfo.ModifyRouteBinding)
+		taR.DELETE("/config/api/route", configInfo.DeleteRouteBinding)
+		taR.POST("/config/api/route/validate", configInfo.ValidateRouteBinding)
+		taR.POST("/config/api/route/preview", configInfo.PreviewRouteBinding)
+		taR.PUT("/config/api/route/publish", configInfo.PublishRouteBinding)
+		taR.GET("/config/api/route/status", configInfo.GetRouteBindingStatus)
+		taR.GET("/config/api/route/diff", configInfo.GetRouteBindingDiff)
+
+		// PluginGroup publication is independent of API route publication.
+		taR.PUT("/config/api/plugin_group/publish", configInfo.BatchReleasePluginGroup)
 
 		taR.GET("/config/api/opa/policy", opa.GetOPAPolicy)
 		taR.PUT("/config/api/opa/policy", opa.PutOPAPolicy)

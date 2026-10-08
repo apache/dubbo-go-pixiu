@@ -114,26 +114,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/config/api/xds/status": {
-            "get": {
-                "description": "Returns xDS listener availability, last-good snapshot metadata, latest errors, readiness, and resource support matrix.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "XDS"
-                ],
-                "summary": "get Admin xDS publication status",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                }
-            }
-        },
         "/config/api/cluster": {
             "put": {
                 "description": "Create a cluster by passing the YAML/JSON configuration for the cluster through the form's content field.",
@@ -533,6 +513,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/config/api/plugin_group/publish": {
+            "put": {
+                "description": "publish the PluginGroup from the unpublished space to the published space.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "batch Release PluginGroup Config",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/config/api/route": {
             "put": {
                 "consumes": [
@@ -842,6 +842,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/config/api/xds/status": {
+            "get": {
+                "description": "Returns xDS listener availability, last-good snapshot metadata, latest errors, readiness, and resource support matrix.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "XDS"
+                ],
+                "summary": "get Admin xDS publication status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_apache_dubbo-go-pixiu_admin_config.RetData"
+                        }
+                    }
+                }
+            }
+        },
         "/register": {
             "post": {
                 "produces": [
@@ -994,6 +1014,17 @@ const docTemplate = `{
                         }
                     }
                 }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_apache_dubbo-go-pixiu_admin_config.RetData": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "data": {}
             }
         }
     }

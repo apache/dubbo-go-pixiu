@@ -58,6 +58,7 @@ const (
 	OPA         = "opa"
 	Clusters    = "clusters"
 	Listeners   = "listeners"
+	PluginGroup = "pluginGroup"
 	Unpublished = "unpublished"
 
 	ErrID = -1
@@ -306,6 +307,45 @@ func BizGetListener(name string) (string, error) {
 	return detail, nil
 }
 
+// BizPublishPluginGroupConfig copies the first staged PluginGroup config into
+// the published namespace, creating it if it does not already exist.
+func BizPublishPluginGroupConfig() error {
+	if adminconfig.Client == nil {
+		return perrors.New("admin etcd client is not initialized")
+	}
+	if adminconfig.Bootstrap == nil {
+		return perrors.New("admin bootstrap is not initialized")
+	}
+
+	draftKeys, draftValues, err := adminconfig.Client.GetChildrenKVList(getPluginGroupPrefixKey(true))
+	if err != nil {
+		return perrors.WithMessage(err, "get unpublished PluginGroup config")
+	}
+	if len(draftKeys) == 0 || len(draftKeys) != len(draftValues) {
+		return perrors.New("unpublished PluginGroup config is empty or invalid")
+	}
+
+	publishedKeys, publishedValues, err := adminconfig.Client.GetChildrenKVList(getPluginGroupPrefixKey(false))
+	if err != nil && !errors.Is(err, gxetcd.ErrKVPairNotFound) {
+		return perrors.WithMessage(err, "get published PluginGroup config")
+	}
+	if len(publishedKeys) == 0 {
+		name := strings.TrimPrefix(draftKeys[0], getPluginGroupPrefixKey(true)+"/")
+		if name == draftKeys[0] || name == "" || strings.Contains(name, "/") {
+			return perrors.Errorf("invalid unpublished PluginGroup key %q", draftKeys[0])
+		}
+		key := getPluginGroupPrefixKey(false) + "/" + name
+		return adminconfig.Client.Create(key, draftValues[0])
+	}
+	if len(publishedKeys) != len(publishedValues) {
+		return perrors.New("published PluginGroup config is invalid")
+	}
+	if strings.EqualFold(draftValues[0], publishedValues[0]) {
+		return nil
+	}
+	return adminconfig.Client.Update(publishedKeys[0], draftValues[0])
+}
+
 // BizGetOPAPolicy fetches the policy raw text. Returns empty string if not found.
 func BizGetOPAPolicy(serverURL, policyID, bearerToken string) (string, error) {
 	url, err := buildOPAPolicyURL(serverURL, policyID)
@@ -433,6 +473,13 @@ func getClusterKey(path string) string {
 
 func getListenerKey(path string) string {
 	return getRootPath(Listeners) + "/" + path
+}
+
+func getPluginGroupPrefixKey(unpublished bool) string {
+	if unpublished {
+		return getUnpublishedRootPath(PluginGroup)
+	}
+	return getRootPath(PluginGroup)
 }
 
 func getPluginRatelimitKey(unpublished bool) string {

@@ -1,3 +1,10 @@
+definitions:
+  github_com_apache_dubbo-go-pixiu_admin_config.RetData:
+    properties:
+      code:
+        type: string
+      data: {}
+    type: object
 info:
   contact: {}
 paths:
@@ -57,20 +64,6 @@ paths:
       summary: modify pixiu base info such as name,desc
       tags:
       - Config
-  /config/api/xds/status:
-    get:
-      description: Returns xDS listener availability, last-good snapshot metadata,
-        latest errors, readiness, and resource support matrix.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: object
-      summary: get Admin xDS publication status
-      tags:
-      - XDS
   /config/api/cluster:
     delete:
       description: delete cluster according to cluster ID
@@ -337,6 +330,20 @@ paths:
       summary: upload OPA policy (server mode)
       tags:
       - Config
+  /config/api/plugin_group/publish:
+    put:
+      description: publish the PluginGroup from the unpublished space to the published
+        space.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: batch Release PluginGroup Config
+      tags:
+      - Config
   /config/api/route:
     delete:
       parameters:
@@ -536,6 +543,20 @@ paths:
       summary: validate API route binding
       tags:
       - Config
+  /config/api/xds/status:
+    get:
+      description: Returns xDS listener availability, last-good snapshot metadata,
+        latest errors, readiness, and resource support matrix.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_apache_dubbo-go-pixiu_admin_config.RetData'
+      summary: get Admin xDS publication status
+      tags:
+      - XDS
   /register:
     post:
       parameters:

@@ -1,92 +1,288 @@
-# 后端 API 接口文档
+# 后端API接口文档
 
 [English](API.md) | **中文**
 
-API Router 配置统一使用 `AdminRouteBinding` 生命周期管理：先保存为草稿，再独立校验、查看 Diff 和发布。发布或删除一条路由不会影响其他路由。
+本接口文档详细描述 Pixiu 管理平台的后端 API 操作，包括 API 路由绑定（AdminRouteBinding）、插件组（PluginGroup）和 OPA 策略等接口。Pixiu 平台提供相关 API 来管理 API 网关路由映射、插件配置和请求处理。文档中的示例涵盖常见的请求与响应格式，并介绍如何使用 Postman 测试接口。
 
-更多接口说明请参考 [Swagger 文档](./doc/swagger.json)。
+无论是创建新的 API 路由、修改现有配置，还是管理插件组，本文档都提供清晰的步骤和必要的 API 细节，方便开发者快速上手并进行集成。
 
-## 升级兼容性
-
-Admin API Router 现在统一使用 `AdminRouteBinding` 模型。这对旧的 Resource/Method 管理模型属于 breaking change：新接口不会自动导入或转换已有的旧配置，旧配置也不会出现在新的路由接口列表中。升级后如果需要通过新的 Admin API 管理这些路由，需要重新创建为 `AdminRouteBinding`。
+更多的 API 具体介绍请参考 [Swagger 文档](./doc/swagger.json)
 
 ## 返回值说明
 
-* `10001`：成功
-* `10002`：未找到对应数据
-* `10003`：并发操作，请刷新页面重试
+* **code**：
 
-## 基础信息
+    * `10001`: 成功
+    * `10002`: 未找到对应数据
+    * `10003`: 并发操作，请刷新页面重试
 
-```http
-GET /config/api/base
-POST /config/api/base/
-PUT /config/api/base/
-```
+* **data**：一般为 YAML 格式的数据
 
-写入接口通过表单字段 `content` 接收 YAML。
+## 一、基础信息
 
-## API 路由
+### 1.1 获取基础信息
 
-### 列表和状态
+**请求**：
 
 ```http
-GET /config/api/route/list?scope=draft
-GET /config/api/route/list?scope=published
-GET /config/api/route/detail?name=<路由名>&scope=draft
-GET /config/api/route/status?name=<路由名>
-GET /config/api/route/diff?name=<路由名>
+GET /config/api/base HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
 ```
 
-草稿列表会同时返回后端计算的每条路由发布状态，前端无需逐条请求状态。
-
-### 保存草稿
-
-```http
-POST /config/api/route
-PUT /config/api/route?name=<原始路由名>
-```
-
-请求体为 `AdminRouteBinding` JSON 对象。更新时 `name` 查询参数是不可变的路由身份，必须与 `metadata.name` 一致；同时可以携带 `expectedRevision` 做乐观并发控制：
+**返回值**：
 
 ```json
 {
-  "object": {
-    "kind": "AdminRouteBinding",
-    "metadata": {"name": "user-get"},
-    "spec": {}
-  },
-  "expectedRevision": 12
+  "code": "10001",
+  "data": "name: pixiu\ndescription: pixiu111 sample\npluginFilePath: \"\"\n"
 }
 ```
 
-### 校验和预览
+### 1.2 创建或修改基础信息
+
+**请求**：
 
 ```http
-POST /config/api/route/validate
-POST /config/api/route/preview
+POST /config/api/base HTTP/1.1
+Host: 127.0.0.1:8080
+Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+cache-control: no-cache
 ```
 
-这两个接口不会写入配置。校验接口会补齐 schema 默认值，预览接口返回 Pixiu 当前 watcher 使用的 legacy YAML。
+**表单数据**：
 
-发布始终会校验路由，不再保存或提供单路由校验开关。
+```text
+Content-Disposition: form-data; name="content"
+name: pixiu
+description: pixiu111 sample
+```
 
-### 单路由发布和删除
+## 二、API 路由
+
+API Router 配置使用 AdminRouteBinding 对象管理。旧 Resource/Method Admin CRUD 接口已由新模型替代；已有运行时 Resource/Method 配置不会自动导入新草稿模型，需要通过新接口管理的路由应重新创建为 AdminRouteBinding。新路由发布后仍会生成 Pixiu 使用的旧格式运行时配置。
+
+### 2.1 获取 API 路由 Schema
+
+**请求**：
 
 ```http
-PUT    /config/api/route/publish?name=<路由名>&expectedRevision=<revision>
-DELETE /config/api/route?name=<路由名>&expectedRevision=<revision>
+GET /config/api/route/schema HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
 ```
 
-两个操作都按单路由执行，并通过一个 etcd 事务同步 Admin binding 和生成的运行时配置。系统不再提供全量配置发布接口。
+返回数据包含已注册的 Admin 对象 Schema，其中包括编辑器使用的 AdminRouteBinding Schema。
 
-发布前会检查旧运行时 Resource/Method 配置，包括 Resource 内联方法和独立的 Method 键。如果存在 HTTP 方法和路径（忽略大小写）相同的路由，发布会被拒绝，需要先清理旧路由。
+### 2.2 获取 API 路由列表
 
-## OPA 策略
+**请求**：
+
+```http
+GET /config/api/route/list?scope=draft HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+scope=draft（默认值）查询草稿，scope=published 查询已发布路由。接口同时兼容旧的 unpublished 参数：1 表示草稿，0 表示已发布路由。草稿列表包含由后端计算的发布状态。
+
+### 2.3 获取 API 路由详情
+
+**请求**：
+
+```http
+GET /config/api/route/detail?name=<路由名>&scope=draft HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+name 是不可变的路由标识。查询已发布版本时将 scope 设为 published。
+
+### 2.4 创建 API 路由草稿
+
+**请求**：
+
+```http
+POST /config/api/route HTTP/1.1
+Host: 127.0.0.1:8080
+Content-Type: application/json
+cache-control: no-cache
+```
+
+请求体为 AdminRouteBinding JSON 对象。也可使用 {"object": <AdminRouteBinding>, "expectedRevision": <revision>} 包装对象，或通过表单字段 content 提交 YAML。
+
+### 2.5 修改 API 路由草稿
+
+**请求**：
+
+```http
+PUT /config/api/route?name=<路由名> HTTP/1.1
+Host: 127.0.0.1:8080
+Content-Type: application/json
+cache-control: no-cache
+```
+
+请求体为更新后的 AdminRouteBinding 对象。name 查询参数必须与 metadata.name 一致且不可修改。expectedRevision 可放在包装后的 JSON 请求体、查询参数或 If-Match 请求头中，用于拒绝过期更新。
+
+### 2.6 校验或预览 API 路由
+
+**请求**：
+
+```http
+POST /config/api/route/validate HTTP/1.1
+POST /config/api/route/preview HTTP/1.1
+Host: 127.0.0.1:8080
+Content-Type: application/json
+cache-control: no-cache
+```
+
+两个接口都接收 AdminRouteBinding 对象，不会写入 etcd。校验接口返回包含 Schema 默认值的规范化对象；预览接口返回规范化对象以及生成的 Pixiu 旧格式 YAML。
+
+### 2.7 获取 API 路由状态或 Diff
+
+**请求**：
+
+```http
+GET /config/api/route/status?name=<路由名> HTTP/1.1
+GET /config/api/route/diff?name=<路由名> HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+状态接口返回单条路由的草稿和已发布状态；Diff 接口返回草稿与已发布对象之间的字段差异。
+
+### 2.8 发布单条 API 路由
+
+**请求**：
+
+```http
+PUT /config/api/route/publish?name=<路由名>&expectedRevision=<revision> HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+发布前会校验路由，并通过一个 etcd 事务原子更新该路由的已发布 AdminRouteBinding 和生成的运行时配置。expectedRevision 为可选项，可用于拒绝过期草稿。系统不提供 API 路由全量发布接口。
+
+发布前还会检查旧运行时 Resource/Method 配置冲突。若 HTTP 方法和路径冲突，应先从旧运行时配置中移除对应路由。
+
+### 2.9 删除单条 API 路由
+
+**请求**：
+
+```http
+DELETE /config/api/route?name=<路由名>&expectedRevision=<revision> HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+删除会通过一个 etcd 事务立即移除路由草稿和对应的已发布运行时配置。客户端发送请求前应先向用户确认删除。
+expectedRevision 为可选项；如果提供，可避免删除读取后已被其他请求修改的草稿。
+
+## 三、PluginGroup 和 Plugin 相关
+
+### 3.1 查看 PluginGroup 列表
+
+**请求**：
+
+```http
+GET /config/api/plugin_group/list HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+### 3.2 查看 PluginGroup 详情
+
+**请求**：
+
+```http
+GET /config/api/plugin_group/list HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+### 3.3 创建 PluginGroup
+
+**请求**：
+
+```http
+POST /config/api/plugin_group/ HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+```
+
+**表单数据**：
+
+```text
+Content-Disposition: form-data; name="content"
+groupName: "group1"
+plugins:
+  - name: "rate limit"
+    version: "0.0.1"
+    priority: 1000
+    externalLookupName: "ExternalPluginRateLimit"
+  - name: "access"
+    version: "0.0.1"
+    priority: 1000
+    externalLookupName: "ExternalPluginAccess"
+```
+
+### 3.4 修改 PluginGroup
+
+**请求**：
+
+```http
+PUT /config/api/plugin_group/ HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+```
+
+**表单数据**：
+
+```text
+Content-Disposition: form-data; name="content"
+groupName: "group1"
+plugins:
+  - name: "rate limit"
+    version: "0.0.2"
+    priority: 1000
+    externalLookupName: "ExternalPluginRateLimit"
+  - name: "access"
+    version: "0.0.1"
+    priority: 1000
+    externalLookupName: "ExternalPluginAccess"
+```
+
+### 3.5 删除 PluginGroup
+
+**请求**：
+
+```http
+DELETE /config/api/plugin_group/?name=group1 HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+### 3.6 发布 PluginGroup
+
+**请求**：
+
+```http
+PUT /config/api/plugin_group/publish HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+该旧接口将暂存空间中的 PluginGroup 配置发布到已发布空间，与 API 路由发布相互独立。
+
+## 四、OPA 策略
 
 OPA 策略接口会代理请求到 OPA 服务端。未提供 `server_url` 或 `policy_id` 时，会使用默认值（`http://opa:8181` 和 `pixiu-authz`）。
 
-### 获取 OPA 策略
+### 4.1 获取 OPA 策略
+
+**请求**：
 
 ```http
 GET /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
@@ -94,30 +290,54 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-可选查询参数：
+**Query 参数**：
 
-* `policy_id`
-* `server_url`
-* `bearer_token`
+* `policy_id`: OPA policy id（可选）
+* `server_url`: OPA 服务地址（可选）
+* `bearer_token`: OPA Bearer Token（可选）
 
-返回的 `data` 包含策略文本。策略不存在时，`data` 为空字符串。
+**返回**：
 
-### 新增或更新 OPA 策略
+```json
+{
+  "code": "10001",
+  "data": "package pixiu.authz\n\ndefault allow := false\n"
+}
+```
+
+若策略不存在，`data` 返回空字符串。
+
+### 4.2 新增或更新 OPA 策略
+
+**请求**：
 
 ```http
 PUT /config/api/opa/policy HTTP/1.1
 Host: 127.0.0.1:8080
-Content-Type: multipart/form-data
+Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
+cache-control: no-cache
 ```
 
-表单字段：
+**表单数据**：
 
-* `policy_id`
-* `content`
-* `server_url`（可选）
-* `bearer_token`（可选）
+```text
+Content-Disposition: form-data; name="policy_id"
+pixiu-authz
 
-### 删除 OPA 策略
+Content-Disposition: form-data; name="content"
+package pixiu.authz
+
+default allow := false
+```
+
+可选表单字段：
+
+* `server_url`
+* `bearer_token`
+
+### 4.3 删除 OPA 策略
+
+**请求**：
 
 ```http
 DELETE /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
@@ -125,13 +345,17 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-可选查询参数：`policy_id`、`server_url` 和 `bearer_token`。
+**Query 参数**：
 
-## xDS 诊断
+* `policy_id`: OPA policy id（可选）
+* `server_url`: OPA 服务地址（可选）
+* `bearer_token`: OPA Bearer Token（可选）
 
-### 获取 xDS 发布状态
+## 五、xDS 诊断
 
-该认证接口返回 xDS 监听状态、最近一次成功发布的快照版本、资源数量、发布时间、最近一次监听或候选配置错误，以及各条 xDS 资源链路的支持状态。
+### 5.1 获取 xDS 发布状态
+
+**请求**：
 
 ```http
 GET /config/api/xds/status HTTP/1.1
@@ -139,7 +363,9 @@ Host: 127.0.0.1:8080
 token: <admin-jwt>
 ```
 
-`ready` 只有在 xDS 端口已监听且至少一个快照成功发布时为 true；`degraded` 表示监听启动或新候选配置失败。
+该认证接口返回 xDS 监听状态、最近一次成功发布的快照版本、资源数量、发布时间、最近一次监听或候选配置错误，以及各条 xDS 资源链路的支持状态。
+
+ready 只有在 xDS 端口已监听且至少一个快照成功发布时为 true；degraded 表示监听启动或新候选配置失败。
 
 **返回**：
 
