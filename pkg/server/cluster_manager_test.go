@@ -66,6 +66,112 @@ func TestClusterManager(t *testing.T) {
 	cm.DeleteEndpoint("test2", "1")
 }
 
+func TestClusterManager_XDSOwnershipPreservesStaticCluster(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	cm := testClusterManager(staticCluster)
+
+	require.Error(t, cm.UpsertXDSCluster(testCluster("static", model.LoadBalancerRoundRobin, nil)))
+	require.NoError(t, cm.UpsertXDSCluster(testCluster("dynamic", model.LoadBalancerRoundRobin, nil)))
+	assert.Equal(t, []string{"dynamic"}, cm.XDSClusterNames())
+
+	cm.RemoveXDSClusters([]string{"static", "dynamic"})
+
+	assert.True(t, cm.HasCluster("static"))
+	assert.False(t, cm.HasCluster("dynamic"))
+	assert.Empty(t, cm.XDSClusterNames())
+}
+
+func TestClusterManager_ReplaceXDSClustersIsAtomicOnConflict(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	oldDynamic := testCluster("old-dynamic", model.LoadBalancerRoundRobin, []*model.Endpoint{
+		testEndpoint("old", "127.0.0.1", 18080),
+	})
+	cm := testClusterManager(staticCluster)
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{oldDynamic}))
+
+	err := cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		testCluster("new-dynamic", model.LoadBalancerRoundRobin, nil),
+		testCluster("static", model.LoadBalancerRoundRobin, nil),
+	})
+
+	require.ErrorContains(t, err, "conflicts with a non-xDS cluster")
+	assert.True(t, cm.HasCluster("static"))
+	assert.True(t, cm.HasCluster("old-dynamic"))
+	assert.False(t, cm.HasCluster("new-dynamic"))
+	assert.Equal(t, []string{"old-dynamic"}, cm.XDSClusterNames())
+}
+
+func TestClusterManager_ReplaceXDSClustersNotifiesEndpointLifecycle(t *testing.T) {
+	staticCluster := testCluster("static", model.LoadBalancerRoundRobin, nil)
+	oldEndpoint := testEndpoint("old", "127.0.0.1", 18080)
+	newEndpoint := testEndpoint("new", "127.0.0.1", 18081)
+	oldDynamic := testCluster("dynamic", model.LoadBalancerRoundRobin, []*model.Endpoint{oldEndpoint})
+	newDynamic := testCluster("dynamic", model.LoadBalancerRoundRobin, []*model.Endpoint{newEndpoint})
+	cm := testClusterManager(staticCluster)
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{oldDynamic}))
+
+	var changes []endpointStateChange
+	removeStateHandler := cm.AddEndpointStateHandler(func(clusterName, address string, present bool, version uint64) {
+		changes = append(changes, endpointStateChange{
+			clusterName: clusterName,
+			address:     address,
+			present:     present,
+			version:     version,
+		})
+		assert.Equal(t, present, cm.HasEndpointAddress(clusterName, address), "callbacks must observe the published store")
+	})
+	t.Cleanup(removeStateHandler)
+	var removals []endpointRemoval
+	removeRemovalHandler := cm.AddEndpointRemovalHandler(func(clusterName, address string) {
+		removals = append(removals, endpointRemoval{clusterName: clusterName, address: address})
+	})
+	t.Cleanup(removeRemovalHandler)
+
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{newDynamic}))
+	require.Len(t, changes, 2)
+	changesByAddress := make(map[string]endpointStateChange, len(changes))
+	for _, change := range changes {
+		changesByAddress[change.address] = change
+	}
+	oldAddress := oldEndpoint.Address.GetAddress()
+	newAddress := newEndpoint.Address.GetAddress()
+	require.False(t, changesByAddress[oldAddress].present)
+	require.True(t, changesByAddress[newAddress].present)
+	require.NotZero(t, changesByAddress[oldAddress].version)
+	require.Equal(t, changesByAddress[oldAddress].version, changesByAddress[newAddress].version)
+	require.Equal(t, []endpointRemoval{{clusterName: "dynamic", address: oldAddress}}, removals)
+
+	beforeRejectedUpdate := len(changes)
+	err := cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		newDynamic,
+		testCluster("static", model.LoadBalancerRoundRobin, []*model.Endpoint{newEndpoint}),
+	})
+	require.ErrorContains(t, err, "conflicts with a non-xDS cluster")
+	require.Len(t, changes, beforeRejectedUpdate, "a rejected replacement must not publish endpoint events")
+}
+
+func TestClusterManager_RegistryStoreDoesNotInheritXDSOwnership(t *testing.T) {
+	cm := CreateDefaultClusterManager(&model.Bootstrap{})
+	require.NoError(t, cm.ReplaceXDSClusters([]*model.ClusterConfig{
+		testCluster("shared", model.LoadBalancerRoundRobin, nil),
+	}))
+	require.Equal(t, []string{"shared"}, cm.XDSClusterNames())
+
+	oldStore, err := cm.CloneStore()
+	require.NoError(t, err)
+	registryStore := cm.NewStore(oldStore.Version)
+	registryStore.AddCluster(testCluster("shared", model.LoadBalancerRoundRobin, []*model.Endpoint{{
+		ID:      "spring-instance",
+		Address: model.SocketAddress{Address: "127.0.0.2", Port: 20880},
+	}}))
+	require.True(t, cm.CompareAndSetStore(registryStore))
+	require.Empty(t, cm.XDSClusterNames())
+
+	err = cm.ReplaceXDSClusters(nil)
+	require.NoError(t, err)
+	require.True(t, cm.HasCluster("shared"), "xDS deletion must not remove a registry-owned cluster")
+}
+
 func TestClusterManager_PickEndpointReturnsNilForMissingCluster(t *testing.T) {
 	cm := testClusterManager()
 	assert.Nil(t, cm.PickEndpoint("missing-cluster", nil))

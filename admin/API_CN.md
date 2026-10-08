@@ -80,4 +80,88 @@ DELETE /config/api/route?name=<路由名>&expectedRevision=<revision>
 
 两个操作都按单路由执行，并通过一个 etcd 事务同步 Admin binding 和生成的运行时配置。系统不再提供全量配置发布接口。
 
-发布前会检查运行时 `resources/*/method/*` 中已有的旧 Resource/Method 路由；如果相同 HTTP 方法和路径已经存在，发布会被拒绝，需要先清理旧路由。
+发布前会检查旧运行时 Resource/Method 配置，包括 Resource 内联方法和独立的 Method 键。如果存在 HTTP 方法和路径（忽略大小写）相同的路由，发布会被拒绝，需要先清理旧路由。
+
+## OPA 策略
+
+OPA 策略接口会代理请求到 OPA 服务端。未提供 `server_url` 或 `policy_id` 时，会使用默认值（`http://opa:8181` 和 `pixiu-authz`）。
+
+### 获取 OPA 策略
+
+```http
+GET /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+可选查询参数：
+
+* `policy_id`
+* `server_url`
+* `bearer_token`
+
+返回的 `data` 包含策略文本。策略不存在时，`data` 为空字符串。
+
+### 新增或更新 OPA 策略
+
+```http
+PUT /config/api/opa/policy HTTP/1.1
+Host: 127.0.0.1:8080
+Content-Type: multipart/form-data
+```
+
+表单字段：
+
+* `policy_id`
+* `content`
+* `server_url`（可选）
+* `bearer_token`（可选）
+
+### 删除 OPA 策略
+
+```http
+DELETE /config/api/opa/policy?policy_id=pixiu-authz HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+可选查询参数：`policy_id`、`server_url` 和 `bearer_token`。
+
+## xDS 诊断
+
+### 获取 xDS 发布状态
+
+该认证接口返回 xDS 监听状态、最近一次成功发布的快照版本、资源数量、发布时间、最近一次监听或候选配置错误，以及各条 xDS 资源链路的支持状态。
+
+```http
+GET /config/api/xds/status HTTP/1.1
+Host: 127.0.0.1:8080
+token: <admin-jwt>
+```
+
+`ready` 只有在 xDS 端口已监听且至少一个快照成功发布时为 true；`degraded` 表示监听启动或新候选配置失败。
+
+**返回**：
+
+```json
+{
+  "code": "10001",
+  "data": {
+    "node_id": "test-id",
+    "snapshot_version": "42",
+    "listener_count": 1,
+    "cluster_count": 2,
+    "listen_port": 18000,
+    "listening": true,
+    "ready": true,
+    "degraded": false,
+    "resource_support": {
+      "extension_config_listener": "supported",
+      "extension_config_cluster": "supported",
+      "standard_cds": "experimental",
+      "standard_eds": "experimental",
+      "standard_lds": "unsupported"
+    }
+  }
+}
+```

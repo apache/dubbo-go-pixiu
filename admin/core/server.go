@@ -79,7 +79,8 @@ func RunServer() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		global.LOG.Info("xDS server run success on :18000")
+		xdsConfig := config.Bootstrap.GetXDSConfig()
+		global.LOG.Info("xDS server starting", zap.Uint("port", xdsConfig.ListenPort), zap.String("node_id", xdsConfig.NodeID))
 		if err := StartxDsServer(); err != nil {
 			global.LOG.Error(err.Error())
 		}

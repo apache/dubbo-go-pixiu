@@ -60,6 +60,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-riscv64-go-
 
+      - name: Download Go modules
+        run: sh .github/scripts/download-go-modules.sh
+
       - name: Build for linux/riscv64
         run: |
           GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go build ./...

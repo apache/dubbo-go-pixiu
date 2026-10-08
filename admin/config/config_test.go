@@ -145,3 +145,41 @@ func TestLoadAPIConfigFromFile_MissingPath(t *testing.T) {
 		t.Fatal("expected error for empty path, got nil")
 	}
 }
+
+func TestLoadAPIConfigFromFile_XDS(t *testing.T) {
+	restoreBootstrap(t)
+	path := writeYAML(t, `
+xds:
+  listen_port: 19000
+  node_id: "  gateway-a  "
+`)
+	b, err := LoadAPIConfigFromFile(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	got := b.GetXDSConfig()
+	if got.ListenPort != 19000 || got.NodeID != "gateway-a" {
+		t.Fatalf("unexpected xDS config: %+v", got)
+	}
+}
+
+func TestXDSConfigDefaults(t *testing.T) {
+	cases := []struct {
+		name string
+		in   *AdminBootstrap
+	}{
+		{name: "nil bootstrap"},
+		{name: "section omitted", in: &AdminBootstrap{}},
+		{name: "empty values", in: &AdminBootstrap{XDS: XDSConfig{NodeID: "  "}}},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.in.GetXDSConfig()
+			if got.ListenPort != DefaultXDSListenPort || got.NodeID != DefaultXDSNodeID {
+				t.Fatalf("defaults not applied: %+v", got)
+			}
+		})
+	}
+}

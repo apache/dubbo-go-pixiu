@@ -23,10 +23,13 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"gopkg.in/yaml.v3"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/xds/apiclient"
 	xdsmodel "github.com/apache/dubbo-go-pixiu/pkg/config/xds/model"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -37,6 +40,10 @@ import (
 type LdsManager struct {
 	DiscoverApi
 	listenerMg controls.ListenerManager
+}
+
+type xdsListenerReplacer interface {
+	ReplaceXDSListeners(listeners []*model.Listener) error
 }
 
 // Fetch overwrite DiscoverApi.Fetch.
@@ -55,8 +62,7 @@ func (l *LdsManager) Fetch() error {
 		logger.Infof("listener xds server %v", listener)
 		listeners = append(listeners, listener.Listeners...)
 	}
-	l.setupListeners(listeners)
-	return nil
+	return l.setupListeners(listeners)
 }
 
 func (l *LdsManager) Delta() error {
@@ -70,19 +76,34 @@ func (l *LdsManager) Delta() error {
 
 func (l *LdsManager) asyncHandler(read chan *apiclient.DeltaResources) {
 	for delta := range read {
-		listeners := make([]*xdsmodel.Listener, 0, len(delta.NewResources))
-		for _, one := range delta.NewResources {
-			listener := &xdsmodel.PixiuExtensionListeners{}
-			if err := one.To(listener); err != nil {
-				logger.Errorf("unknown resource of %s, expect Listener", one.GetName())
-				continue
-			}
-			logger.Infof("listener xds server %v", listener)
-			listeners = append(listeners, listener.Listeners...)
+		err := l.applyDelta(delta)
+		delta.Complete(err)
+		if err != nil {
+			logger.Errorf("can not setup listener: %v", err)
 		}
-
-		l.setupListeners(listeners)
 	}
+}
+
+func (l *LdsManager) applyDelta(delta *apiclient.DeltaResources) error {
+	if delta == nil {
+		return nil
+	}
+
+	listeners := make([]*xdsmodel.Listener, 0, len(delta.NewResources))
+	for _, resource := range delta.NewResources {
+		listener := &xdsmodel.PixiuExtensionListeners{}
+		if err := resource.To(listener); err != nil {
+			return errors.Wrapf(err, "unknown resource %q, expect Listener", resource.GetName())
+		}
+		logger.Infof("listener xds server %v", listener)
+		listeners = append(listeners, listener.Listeners...)
+	}
+
+	if len(delta.NewResources) == 0 && !containsResource(delta.RemovedResources, constant.ListenerType) {
+		return nil
+	}
+
+	return l.setupListeners(listeners)
 }
 
 func (l *LdsManager) makeSocketAddress(address *xdsmodel.SocketAddress) model.SocketAddress {
@@ -98,112 +119,130 @@ func (l *LdsManager) makeSocketAddress(address *xdsmodel.SocketAddress) model.So
 	}
 }
 
-func (l *LdsManager) removeListeners(toRemoveHash map[string]struct{}) {
-	names := make([]string, 0, len(toRemoveHash))
-	for name := range toRemoveHash {
-		names = append(names, name)
-	}
-	l.listenerMg.RemoveListener(names)
-}
-
 // setupListeners setup listeners accord to dynamic resource
-func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) {
+func (l *LdsManager) setupListeners(listeners []*xdsmodel.Listener) error {
 	//Make sure each one has a unique name like "host-port-protocol"
 	for _, v := range listeners {
-		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), v.Protocol.String())
+		if v == nil || v.Address == nil || v.Address.SocketAddress == nil {
+			return errors.New("xDS listener must have a socket address")
+		}
+		if v.Address.SocketAddress.Address == "" || v.Address.SocketAddress.Port <= 0 || v.Address.SocketAddress.Port > 65535 {
+			return errors.Errorf("xDS listener has invalid socket address %q:%d", v.Address.SocketAddress.Address, v.Address.SocketAddress.Port)
+		}
+		if v.FilterChain == nil {
+			return errors.Errorf("xDS listener %q has no filter chain", v.Name)
+		}
+		protocol, err := validateListenerProtocol(v.Protocol)
+		if err != nil {
+			return err
+		}
+		v.Name = resolveListenerName(v.Address.SocketAddress.Address, int(v.Address.SocketAddress.Port), protocol)
 	}
 
-	laterApplies := make([]func() error, 0, len(listeners))
-	toRemoveHash := make(map[string]struct{}, len(listeners))
-
-	lm := l.listenerMg
-	activeListeners, err := lm.CloneXdsControlListener()
-	if err != nil {
-		logger.Errorf("Clone Xds Control Listener fail: %s", err)
-		return
-	}
-	//put all current listeners to $toRemoveHash
-	for _, v := range activeListeners {
-		//Make sure each one has a unique name like "host-port-protocol"
-		v.Name = resolveListenerName(v.Address.SocketAddress.Address, v.Address.SocketAddress.Port, v.ProtocolStr)
-		toRemoveHash[v.Name] = struct{}{}
-	}
-
+	converted := make([]*model.Listener, 0, len(listeners))
 	for _, listener := range listeners {
-		delete(toRemoveHash, listener.Name)
-
-		modelListener := l.makeListener(listener)
-		// add or update later after removes
-		switch {
-		case lm.HasListener(modelListener.Name):
-			laterApplies = append(laterApplies, func() error {
-				return lm.UpdateListener(&modelListener)
-			})
-		default:
-			laterApplies = append(laterApplies, func() error {
-				return lm.AddListener(&modelListener)
-			})
+		modelListener, err := l.makeListener(listener)
+		if err != nil {
+			return err
 		}
+		converted = append(converted, &modelListener)
 	}
-	// remove the listeners first to prevent tcp port conflict
-	l.removeListeners(toRemoveHash)
-	//do update and add new cluster.
-	for _, fn := range laterApplies {
-		if err := fn(); err != nil {
-			logger.Errorf("can not modify listener", err)
-		}
+	replacer, ok := l.listenerMg.(xdsListenerReplacer)
+	if !ok {
+		return errors.New("listener manager does not support transactional xDS replacement")
 	}
+	return errors.Wrap(replacer.ReplaceXDSListeners(converted), "can not replace xDS listeners")
 }
 
 func resolveListenerName(host string, port int, protocol string) string {
 	return host + "-" + strconv.Itoa(port) + "-" + protocol
 }
 
-func (l *LdsManager) makeListener(listener *xdsmodel.Listener) model.Listener {
+func (l *LdsManager) makeListener(listener *xdsmodel.Listener) (model.Listener, error) {
+	protocol, err := validateListenerProtocol(listener.Protocol)
+	if err != nil {
+		return model.Listener{}, err
+	}
+	filterChain, err := l.makeFilterChain(listener.FilterChain)
+	if err != nil {
+		return model.Listener{}, errors.Wrapf(err, "listener %q", listener.Name)
+	}
 	return model.Listener{
 		Name:        listener.Name,
-		ProtocolStr: listener.Protocol.String(),
-		Protocol:    model.ProtocolType(model.ProtocolTypeValue[listener.Protocol.String()]),
+		ProtocolStr: protocol,
+		Protocol:    model.ProtocolType(model.ProtocolTypeValue[protocol]),
 		Address:     l.makeAddress(listener.Address),
-		FilterChain: l.makeFilterChain(listener.FilterChain),
+		FilterChain: filterChain,
 		Config:      nil, // todo set the additional config
-	}
+	}, nil
 }
 
-func (l *LdsManager) makeFilterChain(fChain *xdsmodel.FilterChain) model.FilterChain {
-	return model.FilterChain{
-		Filters: l.makeFilters(fChain.Filters),
+func validateListenerProtocol(protocol xdsmodel.Listener_Protocols) (string, error) {
+	name, declared := xdsmodel.Listener_Protocols_name[int32(protocol)]
+	if !declared {
+		return "", errors.Errorf("unsupported xDS listener protocol value %d", protocol)
 	}
+	if _, supported := model.ProtocolTypeValue[name]; !supported {
+		return "", errors.Errorf("unsupported xDS listener protocol %q", name)
+	}
+	return name, nil
 }
 
-func (l *LdsManager) makeFilters(filters []*xdsmodel.NetworkFilter) []model.NetworkFilter {
+func (l *LdsManager) makeFilterChain(fChain *xdsmodel.FilterChain) (model.FilterChain, error) {
+	if fChain == nil || len(fChain.Filters) == 0 {
+		return model.FilterChain{}, errors.New("filter chain must contain at least one network filter")
+	}
+	filters, err := l.makeFilters(fChain.Filters)
+	if err != nil {
+		return model.FilterChain{}, err
+	}
+	return model.FilterChain{Filters: filters}, nil
+}
+
+func (l *LdsManager) makeFilters(filters []*xdsmodel.NetworkFilter) ([]model.NetworkFilter, error) {
 	result := make([]model.NetworkFilter, 0, len(filters))
-	for _, filter := range filters {
+	for index, filter := range filters {
+		if filter == nil || filter.Name == "" {
+			return nil, errors.Errorf("network filter %d has an empty name", index)
+		}
+		config, err := l.makeConfig(filter)
+		if err != nil {
+			return nil, errors.Wrapf(err, "network filter %q", filter.Name)
+		}
 		result = append(result, model.NetworkFilter{
-			Name: filter.Name,
-			//Config: filter., todo define the config of filter
-			Config: l.makeConfig(filter),
+			Name:   filter.Name,
+			Config: config,
 		})
 	}
-	return result
+	return result, nil
 }
 
-func (l *LdsManager) makeConfig(filter *xdsmodel.NetworkFilter) (m map[string]any) {
+func (l *LdsManager) makeConfig(filter *xdsmodel.NetworkFilter) (map[string]any, error) {
+	var m map[string]any
 	switch cfg := filter.Config.(type) {
 	case *xdsmodel.NetworkFilter_Yaml:
+		if cfg.Yaml == nil {
+			return nil, errors.New("YAML config is nil")
+		}
 		if err := yaml.Unmarshal([]byte(cfg.Yaml.Content), &m); err != nil {
-			logger.Errorf("can not make yaml from filter.Config: %s", cfg.Yaml.Content, err)
+			return nil, errors.Wrap(err, "decode YAML config")
 		}
 	case *xdsmodel.NetworkFilter_Json:
+		if cfg.Json == nil {
+			return nil, errors.New("JSON config is nil")
+		}
 		if err := json.Unmarshal([]byte(cfg.Json.Content), &m); err != nil {
-			logger.Errorf("can not make json from filter.Config: %s", cfg.Json.Content, err)
+			return nil, errors.Wrap(err, "decode JSON config")
 		}
 	case *xdsmodel.NetworkFilter_Struct:
+		if cfg.Struct == nil {
+			return nil, errors.New("Struct config is nil")
+		}
 		m = cfg.Struct.AsMap()
 	default:
-		logger.Errorf("can not get filter config of %s", filter.Name)
+		return nil, errors.New("config is missing")
 	}
-	return
+	return m, nil
 }
 
 func (l *LdsManager) makeAddress(addr *xdsmodel.Address) model.Address {

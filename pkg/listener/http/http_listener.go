@@ -19,7 +19,9 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -48,10 +50,9 @@ func init() {
 type (
 	// ListenerService the facade of a listener
 	HttpListenerService struct {
-		listener.BaseListenerService
-		srv         *http.Server
-		filterMu    sync.Mutex
-		filterState *httpFilterChainState
+		*listener.BaseListenerService
+		srv      *http.Server
+		listener net.Listener
 	}
 
 	// DefaultHttpListener
@@ -60,82 +61,14 @@ type (
 	}
 )
 
-type httpFilterChainState struct {
-	chain     *filterchain.NetworkFilterChain
-	mu        sync.Mutex
-	refs      int
-	retired   bool
-	done      chan struct{}
-	closeErr  error
-	closeOnce sync.Once
-}
-
-func newHTTPFilterChainState(chain *filterchain.NetworkFilterChain) *httpFilterChainState {
-	return &httpFilterChainState{chain: chain, done: make(chan struct{})}
-}
-
-func (state *httpFilterChainState) acquire() bool {
-	if state == nil {
-		return false
-	}
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	if state.retired || state.chain == nil {
-		return false
-	}
-	state.refs++
-	return true
-}
-
-func (state *httpFilterChainState) release() {
-	if state == nil {
-		return
-	}
-	state.mu.Lock()
-	state.refs--
-	closeNow := state.retired && state.refs == 0
-	state.mu.Unlock()
-	if closeNow {
-		state.close()
-	}
-}
-
-func (state *httpFilterChainState) retire(wait bool) error {
-	if state == nil {
-		return nil
-	}
-	state.mu.Lock()
-	state.retired = true
-	closeNow := state.refs == 0
-	state.mu.Unlock()
-	if closeNow {
-		state.close()
-	}
-	if wait {
-		<-state.done
-		return state.closeErr
-	}
-	return nil
-}
-
-func (state *httpFilterChainState) close() {
-	state.closeOnce.Do(func() {
-		if state.chain != nil {
-			state.closeErr = state.chain.Close()
-		}
-		close(state.done)
-	})
-}
-
 func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
+	fc, err := filterchain.BuildNetworkFilterChain(lc.FilterChain)
+	if err != nil {
+		return nil, errors.Wrap(err, "create HTTP listener filter chain")
+	}
 	return &HttpListenerService{
-		BaseListenerService: listener.BaseListenerService{
-			Config:      lc,
-			FilterChain: fc,
-		},
-		srv:         nil,
-		filterState: newHTTPFilterChainState(fc),
+		BaseListenerService: listener.NewBaseListenerService(lc, fc),
+		srv:                 nil,
 	}, nil
 }
 
@@ -143,25 +76,35 @@ func newHttpListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.L
 func (ls *HttpListenerService) Start() error {
 	switch ls.Config.Protocol {
 	case model.ProtocolTypeHTTP:
-		ls.httpListener()
+		return ls.httpListener()
 	case model.ProtocolTypeHTTPS:
-		ls.httpsListener()
+		return ls.httpsListener()
 	default:
-		return errors.New(fmt.Sprintf("unsupported protocol start: %d", ls.Config.Protocol))
+		return fmt.Errorf("unsupported protocol start: %d", ls.Config.Protocol)
 	}
-	return nil
 }
 
 func (ls *HttpListenerService) Close() error {
-	serverErr := error(nil)
-	if ls.srv != nil {
-		serverErr = ls.srv.Close()
+	closeErr := ls.StopAccepting()
+	if filterErr := ls.CloseFilterChain(); closeErr == nil {
+		closeErr = filterErr
 	}
-	filterErr := ls.closeFilterChain()
-	if serverErr != nil {
-		return serverErr
+	return closeErr
+}
+
+// StopAccepting closes the socket while retaining the filter chain for a
+// same-port xDS protocol handoff or rollback.
+func (ls *HttpListenerService) StopAccepting() error {
+	if ls.listener != nil {
+		_ = ls.listener.Close()
 	}
-	return filterErr
+	if ls.srv == nil {
+		return nil
+	}
+	if err := ls.srv.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		return err
+	}
+	return nil
 }
 
 func (ls *HttpListenerService) ShutDown(wg any) error {
@@ -174,60 +117,18 @@ func (ls *HttpListenerService) ShutDown(wg any) error {
 		cancel()
 		wg.(*sync.WaitGroup).Done()
 	}()
+	if ls.srv == nil {
+		return ls.CloseFilterChain()
+	}
 	serverErr := ls.srv.Shutdown(ctx)
-	filterErr := ls.closeFilterChainAfterShutdown()
+	filterErr := ls.CloseFilterChain()
 	if serverErr != nil {
 		return serverErr
 	}
 	return filterErr
 }
 
-func (ls *HttpListenerService) closeFilterChain() error {
-	ls.filterMu.Lock()
-	state := ls.filterState
-	if state == nil && ls.FilterChain != nil {
-		state = newHTTPFilterChainState(ls.FilterChain)
-	}
-	ls.FilterChain = nil
-	ls.filterState = nil
-	ls.filterMu.Unlock()
-	return state.retire(true)
-}
-
-// closeFilterChainAfterShutdown must not wait for a request that outlives the
-// HTTP server shutdown deadline while holding filterMu. If an active request
-// still owns a chain lease, defer the close until that request has released
-// it. The shutdown caller can then return the server timeout instead of
-// extending the timeout by the lifetime of the request.
-func (ls *HttpListenerService) closeFilterChainAfterShutdown() error {
-	ls.filterMu.Lock()
-	state := ls.filterState
-	if state == nil && ls.FilterChain != nil {
-		state = newHTTPFilterChainState(ls.FilterChain)
-	}
-	ls.FilterChain = nil
-	ls.filterState = nil
-	ls.filterMu.Unlock()
-	return state.retire(false)
-}
-
-func (ls *HttpListenerService) Refresh(c model.Listener) error {
-	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
-	ls.filterMu.Lock()
-	old := ls.filterState
-	if old == nil && ls.FilterChain != nil {
-		old = newHTTPFilterChainState(ls.FilterChain)
-	}
-	ls.FilterChain = fc
-	ls.filterState = newHTTPFilterChainState(fc)
-	ls.filterMu.Unlock()
-	if old != nil {
-		return old.retire(false)
-	}
-	return nil
-}
-
-func (ls *HttpListenerService) httpsListener() {
+func (ls *HttpListenerService) httpsListener() error {
 	hl := createDefaultHttpWorker(ls)
 
 	// user customize http config
@@ -250,13 +151,24 @@ func (ls *HttpListenerService) httpsListener() {
 		MaxHeaderBytes: resolveInt2IntProp(hc.MaxHeaderBytes, 1<<20),
 		TLSConfig:      m.TLSConfig(),
 	}
-	autoLs := autocert.NewListener(ls.Config.Address.SocketAddress.Domains...)
+	tcpListener, err := net.Listen("tcp", ls.srv.Addr)
+	if err != nil {
+		return errors.Wrapf(err, "bind HTTPS listener %s", ls.srv.Addr)
+	}
+	ls.listener = tcpListener
+	autoLs := tls.NewListener(tcpListener, m.TLSConfig())
 	logger.Infof("[dubbo-go-server] httpsListener start at : %s", ls.srv.Addr)
-	err := ls.srv.Serve(autoLs)
-	logger.Info("[dubbo-go-server] httpsListener result:", err)
+	server := ls.srv
+	go func() {
+		serveErr := server.Serve(autoLs)
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, net.ErrClosed) {
+			logger.Errorf("[dubbo-go-server] httpsListener Serve error: %v", serveErr)
+		}
+	}()
+	return nil
 }
 
-func (ls *HttpListenerService) httpListener() {
+func (ls *HttpListenerService) httpListener() error {
 	hl := createDefaultHttpWorker(ls)
 
 	// user customize http config
@@ -278,13 +190,21 @@ func (ls *HttpListenerService) httpListener() {
 	logger.Infof("[dubbo-go-server] httpListener starting at %s with WriteTimeout: %v, IdleTimeout: %v, ReadTimeout: %v",
 		ls.srv.Addr, ls.srv.WriteTimeout, ls.srv.IdleTimeout, ls.srv.ReadTimeout)
 
-	err := ls.srv.ListenAndServe()
-	// Improved error logging and replace log.Println
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Errorf("[dubbo-go-server] httpListener ListenAndServe error: %v", err)
-	} else {
-		logger.Info("[dubbo-go-server] httpListener stopped gracefully.")
+	netListener, err := net.Listen("tcp", ls.srv.Addr)
+	if err != nil {
+		return errors.Wrapf(err, "bind HTTP listener %s", ls.srv.Addr)
 	}
+	ls.listener = netListener
+	server := ls.srv
+	go func() {
+		serveErr := server.Serve(netListener)
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, net.ErrClosed) {
+			logger.Errorf("[dubbo-go-server] httpListener Serve error: %v", serveErr)
+		} else {
+			logger.Info("[dubbo-go-server] httpListener stopped gracefully.")
+		}
+	}()
+	return nil
 }
 
 // createDefaultHttpWorker create http listener
@@ -296,19 +216,12 @@ func createDefaultHttpWorker(ls *HttpListenerService) *DefaultHttpWorker {
 
 // ServeHTTP http request entrance.
 func (s *DefaultHttpWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.ls.filterMu.Lock()
-	state := s.ls.filterState
-	if state == nil && s.ls.FilterChain != nil {
-		state = newHTTPFilterChainState(s.ls.FilterChain)
-		s.ls.filterState = state
+	if err := s.ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		fc.ServeHTTP(w, r)
+		return nil
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	}
-	acquired := state.acquire()
-	s.ls.filterMu.Unlock()
-	if !acquired {
-		return
-	}
-	defer state.release()
-	state.chain.ServeHTTP(w, r)
 }
 
 func resolveInt2IntProp(currentV, defaultV int) int {
