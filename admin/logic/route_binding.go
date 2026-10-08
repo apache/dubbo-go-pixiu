@@ -693,10 +693,26 @@ func (s *RouteBindingStore) checkRuntimeRouteConflict(ctx context.Context, candi
 	prefix := s.runtimeResourcePrefix()
 	response, err := s.kv.Get(ctx, prefix, clientv3.WithPrefix())
 	if err != nil {
-		return fmt.Errorf("list existing runtime methods: %w", err)
+		return fmt.Errorf("list existing runtime resources and methods: %w", err)
 	}
-	candidatePath := candidate.legacy.Resource.Path
-	candidateVerb := strings.TrimSpace(candidate.legacy.Method.HTTPVerb)
+	resources := make(map[int]legacyconfig.Resource)
+	for _, kv := range response.Kvs {
+		resourceID, ok := runtimeResourceID(prefix, string(kv.Key))
+		if !ok {
+			continue
+		}
+		var resource legacyconfig.Resource
+		if err := commonyaml.UnmarshalYML(kv.Value, &resource); err != nil {
+			return fmt.Errorf("decode existing runtime resource %q: %w", string(kv.Key), err)
+		}
+		resources[resourceID] = resource
+	}
+
+	resourcePaths := make(map[int]string)
+	runtimeRoutes := make([]runtimeRouteBinding, 0, len(response.Kvs))
+	for resourceID, resource := range resources {
+		collectRuntimeResourceRoutes(resource, "", resourceID, resourcePaths, &runtimeRoutes)
+	}
 	for _, kv := range response.Kvs {
 		resourceID, methodID, ok, err := runtimeMethodIDs(prefix, string(kv.Key))
 		if err != nil {
@@ -715,11 +731,55 @@ func (s *RouteBindingStore) checkRuntimeRouteConflict(ctx context.Context, candi
 		if err := commonyaml.UnmarshalYML(kv.Value, &method); err != nil {
 			return fmt.Errorf("decode existing runtime method %q: %w", string(kv.Key), err)
 		}
-		if method.ResourcePath == candidatePath && strings.EqualFold(method.HTTPVerb, candidateVerb) {
-			return fmt.Errorf("%w: %s %s already exists at %q", ErrRouteBindingRuntimeConflict, candidateVerb, candidatePath, string(kv.Key))
+		path := strings.TrimSpace(method.ResourcePath)
+		if path == "" {
+			path = resourcePaths[resourceID]
+		}
+		if path != "" {
+			runtimeRoutes = append(runtimeRoutes, runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb, key: string(kv.Key)})
+		}
+	}
+
+	candidatePath := strings.ToLower(candidate.legacy.Resource.Path)
+	candidateVerb := strings.TrimSpace(candidate.legacy.Method.HTTPVerb)
+	for _, route := range runtimeRoutes {
+		if strings.ToLower(route.path) == candidatePath && strings.EqualFold(route.httpVerb, candidateVerb) {
+			return fmt.Errorf("%w: %s %s already exists at %q", ErrRouteBindingRuntimeConflict, candidateVerb, candidate.legacy.Resource.Path, route.key)
 		}
 	}
 	return nil
+}
+
+type runtimeRouteBinding struct {
+	path     string
+	httpVerb string
+	key      string
+}
+
+func collectRuntimeResourceRoutes(resource legacyconfig.Resource, parentPath string, keyResourceID int, resourcePaths map[int]string, routes *[]runtimeRouteBinding) {
+	groupPath := parentPath
+	if groupPath == "/" {
+		groupPath = ""
+	}
+	if !strings.HasPrefix(resource.Path, "/") {
+		return
+	}
+	fullPath := groupPath + resource.Path
+	if keyResourceID > 0 {
+		resourcePaths[keyResourceID] = fullPath
+	}
+	if resource.ID > 0 {
+		resourcePaths[resource.ID] = fullPath
+	}
+	resourceKey := fmt.Sprintf("resource %d", keyResourceID)
+	for _, method := range resource.Methods {
+		*routes = append(*routes, runtimeRouteBinding{path: fullPath, httpVerb: method.HTTPVerb, key: resourceKey})
+	}
+	for _, nested := range resource.Resources {
+		// Match addAPIFromResource: nested resources are visited with their
+		// parent's declared path, and the router lowercases paths at insertion.
+		collectRuntimeResourceRoutes(nested, resource.Path, nested.ID, resourcePaths, routes)
+	}
 }
 
 // Status returns draft and published revisions for one route. The revisions
@@ -1223,6 +1283,21 @@ func (s *RouteBindingStore) runtimeResourcePrefix() string {
 
 func (s *RouteBindingStore) runtimeMethodKey(resourceID, methodID int) string {
 	return s.runtimeResourceKey(resourceID) + "/" + Method + "/" + strconv.Itoa(methodID)
+}
+
+func runtimeResourceID(prefix, key string) (int, bool) {
+	if !strings.HasPrefix(key, prefix) {
+		return 0, false
+	}
+	relative := strings.Trim(strings.TrimPrefix(key, prefix), "/")
+	if relative == "" || strings.Contains(relative, "/") {
+		return 0, false
+	}
+	resourceID, err := strconv.Atoi(relative)
+	if err != nil {
+		return 0, false
+	}
+	return resourceID, true
 }
 
 func runtimeMethodIDs(prefix, key string) (int, int, bool, error) {

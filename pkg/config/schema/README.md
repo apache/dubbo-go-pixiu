@@ -10,7 +10,7 @@ AdminRouteBinding
     -> schema defaults and validation
     -> legacy Resource + Method compilation
     -> api_config.yaml preview
-    -> future draft and publish storage
+    -> Admin draft and publish storage
 ```
 
 ## Scope
@@ -34,7 +34,9 @@ The built-in `AdminRouteBinding` schema has five user-facing sections:
 - `target`: Dubbo application, interface, method, version, group, and cluster.
 - `params`: ordered HTTP-source to Dubbo-argument mappings.
 - `enabled`: whether the published route accepts requests; it defaults to `true`.
-- `publish`: Admin control-plane intent; it is never emitted into Pixiu YAML.
+
+Draft and published lifecycle state is tracked by Admin separately; it is not a
+user-facing `spec.publish` field.
 
 Typed plugin fields can be inserted below `spec.extensions` through the same
 registry without changing the stored Go object.
