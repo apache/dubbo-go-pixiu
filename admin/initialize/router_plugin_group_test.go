@@ -17,7 +17,9 @@
 
 package initialize
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestPluginGroupPublishRouteRegistered(t *testing.T) {
 	for _, route := range Routers().Routes() {
