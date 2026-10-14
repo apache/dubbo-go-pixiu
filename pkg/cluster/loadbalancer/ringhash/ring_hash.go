@@ -19,17 +19,12 @@ package ringhash
 
 import (
 	"math"
-)
 
-import (
-	"github.com/dubbogo/gost/hash/consistent"
-)
-
-import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/dubbogo/gost/hash/consistent"
 )
 
 func init() {
@@ -50,10 +45,13 @@ func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model
 		config.MaxVnodeNum = math.MinInt32
 	}
 
-	h := consistent.NewConsistentHash(ops...)
-	for _, endpoint := range endpoints {
-		h.Add(endpoint.GetHost())
+	// h := consistent.NewConsistentHash(ops...)
+	hosts := make([]string, len(endpoints))
+	for i, endpoint := range endpoints {
+		hosts[i] = endpoint.GetHost()
 	}
+	h := consistent.NewConsistentHash(ops...)
+	h.AddBatch(hosts)
 	return h
 }
 
