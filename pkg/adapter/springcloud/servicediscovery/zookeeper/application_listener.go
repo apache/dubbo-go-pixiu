@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/go-zookeeper/zk"
+	"github.com/go-zookeeper/zk"
 
 	gzk "github.com/dubbogo/gost/database/kv/zk"
 )
