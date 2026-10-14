@@ -23,9 +23,12 @@ import (
 	"math"
 	"math/big"
 	"sync"
-
+)
+import (
 	"github.com/cespare/xxhash/v2"
+
 	"github.com/pkg/errors"
+
 	"golang.org/x/crypto/blake2b"
 )
 
