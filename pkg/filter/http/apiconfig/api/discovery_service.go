@@ -224,7 +224,14 @@ func modifyAPIFromResource(new config.Resource, old config.Resource, localSrv AP
 }
 
 func deleteAPIFromResource(old config.Resource, localSrv APIDiscoveryService) error {
-	return localSrv.RemoveAPIByPath(old)
+	_, groupPath := getDefaultPath()
+	fullPath := getFullPath(groupPath, old.Path)
+	for _, method := range old.Methods {
+		if err := localSrv.RemoveAPI(fullPath, method); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func addAPIFromResource(resource config.Resource, localSrv APIDiscoveryService, groupPath string, parentPath string, fullHeaders map[string]string) error {

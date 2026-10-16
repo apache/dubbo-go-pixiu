@@ -61,12 +61,6 @@ func Routers() *gin.Engine {
 		taR.POST("/config/api/base/", configInfo.SetBaseInfo)
 		taR.PUT("/config/api/base/", configInfo.SetBaseInfo)
 
-		taR.GET("/config/api/resource/list", configInfo.GetResourceList)
-		taR.GET("/config/api/resource/detail", configInfo.GetResourceDetail)
-		taR.POST("/config/api/resource", configInfo.CreateResourceInfo)
-		taR.PUT("/config/api/resource", configInfo.ModifyResourceInfo)
-		taR.DELETE("/config/api/resource", configInfo.DeleteResourceInfo)
-
 		taR.GET("/config/api/cluster/list", configInfo.GetClusterList)
 		taR.GET("/config/api/cluster/detail", configInfo.DetailCluster)
 		taR.POST("/config/api/cluster", configInfo.UpdateCluster)
@@ -79,20 +73,28 @@ func Routers() *gin.Engine {
 		taR.PUT("/config/api/listener", configInfo.CreateListener)
 		taR.DELETE("/config/api/listener", configInfo.DeleteListener)
 
-		taR.GET("/config/api/resource/method/list", configInfo.GetMethodList)
-		taR.GET("/config/api/resource/method/detail", configInfo.GetMethodDetail)
-		taR.POST("/config/api/resource/method", configInfo.CreateMethodInfo)
-		taR.PUT("/config/api/resource/method", configInfo.ModifyMethodInfo)
-		taR.DELETE("/config/api/resource/method", configInfo.DeleteMethodInfo)
+		// AdminRouteBinding API. Each route has
+		// an independent draft/publish boundary; publishing one route still
+		// updates its generated legacy keys in one etcd transaction.
+		taR.GET("/config/api/route/schema", configInfo.GetRouteBindingSchema)
+		taR.GET("/config/api/route/list", configInfo.GetRouteBindingList)
+		taR.GET("/config/api/route/detail", configInfo.GetRouteBindingDetail)
+		taR.POST("/config/api/route", configInfo.CreateRouteBinding)
+		taR.PUT("/config/api/route", configInfo.ModifyRouteBinding)
+		taR.DELETE("/config/api/route", configInfo.DeleteRouteBinding)
+		taR.POST("/config/api/route/validate", configInfo.ValidateRouteBinding)
+		taR.POST("/config/api/route/preview", configInfo.PreviewRouteBinding)
+		taR.PUT("/config/api/route/publish", configInfo.PublishRouteBinding)
+		taR.GET("/config/api/route/status", configInfo.GetRouteBindingStatus)
+		taR.GET("/config/api/route/diff", configInfo.GetRouteBindingDiff)
+
+		// PluginGroup publication is independent of API route publication.
+		taR.PUT("/config/api/plugin_group/publish", configInfo.BatchReleasePluginGroup)
 
 		taR.GET("/config/api/opa/policy", opa.GetOPAPolicy)
 		taR.PUT("/config/api/opa/policy", opa.PutOPAPolicy)
 		taR.DELETE("/config/api/opa/policy", opa.DeleteOPAPolicy)
 
-		// Which request method to choose, Temporarily choose put method
-		taR.PUT("/config/api/resource/publish", configInfo.BatchReleaseResource)
-		taR.PUT("/config/api/resource/method/publish", configInfo.BatchReleaseMethod)
-		taR.PUT("/config/api/plugin_group/publish", configInfo.BatchReleasePluginGroup)
 	}
 
 	return router
