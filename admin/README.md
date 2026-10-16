@@ -13,8 +13,14 @@ For backend API documentation, please refer to [API.md](../admin/API.md).
 First, ensure you are in the root directory of the project (the directory containing the Dockerfile). Then, start instantly with Docker Compose:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
+
+### Admin JWT Signing Key
+
+If `DUBBOGO_PIXIU_JWT_SIGN_KEY` is unset or empty, Pixiu-Admin generates a random signing key in memory. This lets a single instance start without configuration, but restarting it invalidates existing admin JWTs. For persistent sessions or multiple replicas, supply the same unique random key of at least 32 bytes to every instance, preferably through a secret manager. For Docker Compose, keep it in a private `.env` file; `openssl rand -hex 32` can generate a suitable value. Do not commit that file.
+
+An explicitly configured short key or the former shared default causes admin startup to fail. Tokens signed with the former default are not accepted after upgrading.
 
 ### Deploy from Source Code
 
