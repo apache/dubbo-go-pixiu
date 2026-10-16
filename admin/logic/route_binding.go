@@ -443,6 +443,10 @@ func (s *RouteBindingStore) DeleteAndPublish(ctx context.Context, name string, e
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
+	markerRevision, markerExists, err := s.markerRevision(ctx, s.publishedRevisionKey())
+	if err != nil {
+		return RouteBindingPublishResult{}, err
+	}
 	state, err := s.readPublishState(ctx, name)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
@@ -450,10 +454,7 @@ func (s *RouteBindingStore) DeleteAndPublish(ctx context.Context, name string, e
 	if expectedRevision > 0 && (!state.draftExists || state.draftRevision != expectedRevision) {
 		return RouteBindingPublishResult{}, fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
 	}
-	comparisons, err := s.buildPublishComparisons(ctx, state)
-	if err != nil {
-		return RouteBindingPublishResult{}, err
-	}
+	comparisons := s.buildPublishComparisons(state, markerRevision, markerExists)
 	operations := make([]clientv3.Op, 0, 4)
 	if state.draftExists {
 		operations = append(operations, clientv3.OpDelete(s.bindingKey(state.draftPrefix, name)))
@@ -463,10 +464,8 @@ func (s *RouteBindingStore) DeleteAndPublish(ctx context.Context, name string, e
 		if state.published.record.ResourceID <= 0 || state.published.record.MethodID <= 0 {
 			return RouteBindingPublishResult{}, fmt.Errorf("published route binding %q has invalid runtime identity", name)
 		}
-		operations = append(operations,
-			clientv3.OpDelete(s.runtimeResourceKey(state.published.record.ResourceID), clientv3.WithPrefix()),
-			clientv3.OpDelete(s.bindingKey(state.publishedPrefix, name)),
-		)
+		operations = append(operations, s.runtimeResourceDeleteOperations(state.published.record.ResourceID)...)
+		operations = append(operations, clientv3.OpDelete(s.bindingKey(state.publishedPrefix, name)))
 		deletedCount = 1
 	}
 	operations = append(operations,
@@ -500,6 +499,12 @@ func (s *RouteBindingStore) Publish(ctx context.Context, name string, expectedDr
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
+	// Observe the generation before reading any route snapshot. A concurrent
+	// publish after this point must invalidate the transaction comparison.
+	markerRevision, markerExists, err := s.markerRevision(ctx, s.publishedRevisionKey())
+	if err != nil {
+		return RouteBindingPublishResult{}, err
+	}
 	state, err := s.readPublishState(ctx, name)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
@@ -518,10 +523,7 @@ func (s *RouteBindingStore) Publish(ctx context.Context, name string, expectedDr
 	if err := s.checkRuntimeRouteConflict(ctx, candidate, state); err != nil {
 		return RouteBindingPublishResult{}, err
 	}
-	comparisons, err := s.buildPublishComparisons(ctx, state)
-	if err != nil {
-		return RouteBindingPublishResult{}, err
-	}
+	comparisons := s.buildPublishComparisons(state, markerRevision, markerExists)
 	operations, publishedCount, deletedCount, err := s.buildSinglePublishOperations(state, candidate)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
@@ -603,7 +605,7 @@ func (s *RouteBindingStore) compilePublishCandidate(name string, draft routeBind
 	return nil, fmt.Errorf("route binding %q was not compiled", name)
 }
 
-func (s *RouteBindingStore) buildPublishComparisons(ctx context.Context, state routeBindingPublishState) ([]clientv3.Cmp, error) {
+func (s *RouteBindingStore) buildPublishComparisons(state routeBindingPublishState, markerRevision int64, markerExists bool) []clientv3.Cmp {
 	comparisons := make([]clientv3.Cmp, 0, 2)
 	if state.draftExists {
 		// Always compare the value observed above, even when the caller omitted
@@ -621,32 +623,26 @@ func (s *RouteBindingStore) buildPublishComparisons(ctx context.Context, state r
 		comparisons = append(comparisons,
 			clientv3.Compare(clientv3.ModRevision(s.bindingKey(state.publishedPrefix, state.published.record.Object.Metadata.Name)), "=", state.publishedRevision))
 	}
-	publishedMarkerRevision, publishedMarkerExists, err := s.markerRevision(ctx, s.publishedRevisionKey())
-	if err != nil {
-		return nil, err
-	}
-	if publishedMarkerExists {
+	if markerExists {
 		comparisons = append(comparisons,
-			clientv3.Compare(clientv3.ModRevision(s.publishedRevisionKey()), "=", publishedMarkerRevision))
+			clientv3.Compare(clientv3.ModRevision(s.publishedRevisionKey()), "=", markerRevision))
 	} else {
 		comparisons = append(comparisons,
 			clientv3.Compare(clientv3.CreateRevision(s.publishedRevisionKey()), "=", 0))
 	}
-	return comparisons, nil
+	return comparisons
 }
 
 func (s *RouteBindingStore) buildSinglePublishOperations(state routeBindingPublishState, candidate *compiledRouteEntry) ([]clientv3.Op, int, int, error) {
 	if candidate == nil {
-		return []clientv3.Op{
-			clientv3.OpDelete(s.runtimeResourceKey(state.published.record.ResourceID), clientv3.WithPrefix()),
-			clientv3.OpDelete(s.bindingKey(state.publishedPrefix, state.published.record.Object.Metadata.Name)),
-		}, 0, 1, nil
+		operations := s.runtimeResourceDeleteOperations(state.published.record.ResourceID)
+		operations = append(operations, clientv3.OpDelete(s.bindingKey(state.publishedPrefix, state.published.record.Object.Metadata.Name)))
+		return operations, 0, 1, nil
 	}
 	compiled := candidate.legacy
 	operations := make([]clientv3.Op, 0, 4)
 	if state.publishedExists && state.published.record.ResourceID != compiled.Resource.ID {
-		operations = append(operations,
-			clientv3.OpDelete(s.runtimeResourceKey(state.published.record.ResourceID), clientv3.WithPrefix()))
+		operations = append(operations, s.runtimeResourceDeleteOperations(state.published.record.ResourceID)...)
 	} else if state.publishedExists && state.published.record.MethodID != compiled.Method.ID {
 		operations = append(operations,
 			clientv3.OpDelete(s.runtimeMethodKey(state.published.record.ResourceID, state.published.record.MethodID)))
@@ -668,6 +664,14 @@ func (s *RouteBindingStore) buildSinglePublishOperations(state routeBindingPubli
 		clientv3.OpPut(s.runtimeMethodKey(compiled.Resource.ID, compiled.Method.ID), string(methodValue)),
 		clientv3.OpPut(s.bindingKey(state.publishedPrefix, candidate.object.Metadata.Name), string(recordValue)))
 	return operations, 1, 0, nil
+}
+
+func (s *RouteBindingStore) runtimeResourceDeleteOperations(resourceID int) []clientv3.Op {
+	key := s.runtimeResourceKey(resourceID)
+	return []clientv3.Op{
+		clientv3.OpDelete(key),
+		clientv3.OpDelete(key+"/", clientv3.WithPrefix()),
+	}
 }
 
 func (s *RouteBindingStore) publishedRouteRevision(ctx context.Context, prefix, name string, candidate *compiledRouteEntry) (int64, error) {

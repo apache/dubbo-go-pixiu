@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { API_STATUS } from '../../app/constants'
 import { Locale, translateText } from '../../i18n'
 import { routeBindingApi } from '../../services/route-binding-api'
 import { ApiError } from '../../services/http'
@@ -455,16 +456,26 @@ export function RouteBindingEditor({
 
   const publish = async () => {
     if (yamlError || editorBlocked || !schema) return
+    let publishRevision = revision
     if (dirty || mode === 'create' || revision === 0) {
       const saved = await saveDraft()
       if (!saved) return
+      publishRevision = saved.revision
+    }
+    if (!publishRevision) {
+      setNotice({
+        tone: 'error',
+        text: isEnglish
+          ? 'Draft revision is missing. Refresh and try again.'
+          : '草稿版本缺失，请刷新后重试。',
+      })
+      return
     }
     setBusy('publish')
     setNotice(null)
     try {
       const routeName = object.metadata.name
-      const status = await routeBindingApi.status(routeName)
-      const result = await routeBindingApi.publish(routeName, status.draftRevision)
+      const result = await routeBindingApi.publish(routeName, publishRevision)
       const nextStatus = await routeBindingApi.status(routeName)
       setPublishStatus(nextStatus)
       setPublished(Boolean(nextStatus.publishedExists && !nextStatus.dirty))
@@ -477,7 +488,17 @@ export function RouteBindingEditor({
       await onSaved()
     } catch (error: unknown) {
       setIssues(errorIssues(error))
-      setNotice({ tone: 'error', text: errorMessage(error, tx('发布失败，请刷新后重试')) })
+      const conflict = error instanceof ApiError && error.code === API_STATUS.CONCURRENT
+      let message = errorMessage(error, tx('发布失败，请刷新后重试'))
+      if (conflict) {
+        message = isEnglish
+          ? 'The draft changed. Refresh and review it before publishing.'
+          : '草稿已更新，请刷新并确认内容后再发布。'
+      }
+      setNotice({
+        tone: 'error',
+        text: message,
+      })
     } finally {
       setBusy('')
     }

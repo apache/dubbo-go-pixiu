@@ -72,6 +72,23 @@ func TestRouteBindingStoreDeleteDraftAndPublishRemovesDraftOnly(t *testing.T) {
 	}
 }
 
+func TestRouteBindingStoreDeleteKeepsNeighboringResourceIDs(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	fake := fakeRouteBindingStoreKV(t, store)
+	neighborResource := store.runtimeResourceKey(10)
+	neighborMethod := store.runtimeMethodKey(10, 10)
+	fake.fakePut(neighborResource, []byte("neighbor resource"))
+	fake.fakePut(neighborMethod, []byte("neighbor method"))
+
+	if _, err := store.DeleteAndPublish(context.Background(), saved.Object.Metadata.Name, saved.Revision); err != nil {
+		t.Fatalf("DeleteAndPublish: %v", err)
+	}
+	if !fake.fakeHasKey(neighborResource) || !fake.fakeHasKey(neighborMethod) {
+		t.Fatal("deleting resource 1 also removed resource 10")
+	}
+}
+
 func TestRouteBindingStoreListIncludesPublishStatus(t *testing.T) {
 	store := newTestRouteBindingStore(t)
 	saved, err := store.SaveDraft(context.Background(), testRouteBinding("status-route", "/api/status", "GET"), true, 0)
@@ -297,6 +314,46 @@ func TestRouteBindingStorePublishRejectsConcurrentDraftChange(t *testing.T) {
 	}
 	if _, err := store.Get(context.Background(), "user-get", false); err == nil {
 		t.Fatal("stale publish wrote a published binding")
+	}
+}
+
+func TestRouteBindingStorePublishRejectsConcurrentRouteConflict(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	first, err := store.SaveDraft(context.Background(), testRouteBinding("user-get-a", "/api/users", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("first SaveDraft: %v", err)
+	}
+	second, err := store.SaveDraft(context.Background(), testRouteBinding("user-get-b", "/api/users", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("second SaveDraft: %v", err)
+	}
+
+	var concurrentErr error
+	fired := false
+	firstStore := *store
+	firstStore.kv = &hookedRouteBindingKV{
+		routeBindingKV: store.kv,
+		afterGet: func(key string) {
+			if fired || key != store.runtimeResourcePrefix() {
+				return
+			}
+			fired = true
+			_, concurrentErr = store.Publish(context.Background(), second.Object.Metadata.Name, second.Revision)
+		},
+	}
+
+	_, err = firstStore.Publish(context.Background(), first.Object.Metadata.Name, first.Revision)
+	if concurrentErr != nil {
+		t.Fatalf("concurrent Publish: %v", concurrentErr)
+	}
+	if !fired {
+		t.Fatal("concurrent publish hook was not reached")
+	}
+	if !errors.Is(err, ErrRouteBindingPublishConflict) {
+		t.Fatalf("stale publish: want %v, got %v", ErrRouteBindingPublishConflict, err)
+	}
+	if _, err := store.Get(context.Background(), first.Object.Metadata.Name, false); !errors.Is(err, ErrRouteBindingNotFound) {
+		t.Fatalf("first route was published after conflict: %v", err)
 	}
 }
 
@@ -532,6 +589,19 @@ type fakeRouteBindingKV struct {
 	mu       sync.Mutex
 	revision int64
 	values   map[string]fakeRouteBindingValue
+}
+
+type hookedRouteBindingKV struct {
+	routeBindingKV
+	afterGet func(string)
+}
+
+func (h *hookedRouteBindingKV) Get(ctx context.Context, key string, options ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+	response, err := h.routeBindingKV.Get(ctx, key, options...)
+	if err == nil {
+		h.afterGet(key)
+	}
+	return response, err
 }
 
 func newFakeRouteBindingKV() *fakeRouteBindingKV {
