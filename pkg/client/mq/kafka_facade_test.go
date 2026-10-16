@@ -35,12 +35,16 @@ type fakeConsumerGroup struct {
 	mu       sync.Mutex
 	consumes int
 	closes   int
+	started  chan context.Context
 }
 
 func (f *fakeConsumerGroup) Consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
 	f.mu.Lock()
 	f.consumes++
 	f.mu.Unlock()
+	if f.started != nil {
+		f.started <- ctx
+	}
 	<-ctx.Done()
 	return ctx.Err()
 }
@@ -163,6 +167,61 @@ func TestKafkaConsumerFacadeStopCancelsConsumeLoop(t *testing.T) {
 	fake.mu.Unlock()
 	if consumes == 0 {
 		t.Fatal("expected Consume to have been invoked at least once")
+	}
+}
+
+func TestKafkaConsumerFacadeCancellationStopsWorkers(t *testing.T) {
+	for _, cancelParent := range []bool{false, true} {
+		name := "registered subscription cancellation"
+		if cancelParent {
+			name = "parent context cancellation"
+		}
+		t.Run(name, func(t *testing.T) {
+			facade, fake := newTestFacade(t)
+			fake.started = make(chan context.Context, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			topics := []string{"topic"}
+			const group = "group"
+			if err := facade.Subscribe(ctx, WithTopics(topics), WithConsumerGroup(group)); err != nil {
+				t.Fatalf("Subscribe failed: %v", err)
+			}
+			var consumeCtx context.Context
+			select {
+			case consumeCtx = <-fake.started:
+			case <-time.After(3 * time.Second):
+				t.Fatal("Consume did not start")
+			}
+			key := GetConsumerManagerKey(topics, group)
+			if cancelParent {
+				cancel()
+			} else {
+				// This is the same cancellation path used by a failed health check.
+				facade.removeConsumer(key)
+			}
+			select {
+			case <-consumeCtx.Done():
+			case <-time.After(3 * time.Second):
+				t.Fatal("subscription cancellation did not reach Consume")
+			}
+			done := make(chan struct{})
+			go func() {
+				facade.wg.Wait()
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-time.After(3 * time.Second):
+				t.Fatal("subscription workers did not exit after cancellation")
+			}
+			facade.mu.RLock()
+			remaining := len(facade.consumerManager)
+			facade.mu.RUnlock()
+			if remaining != 0 {
+				t.Fatalf("cancellation left %d stale consumers", remaining)
+			}
+			facade.Stop()
+		})
 	}
 }
 
