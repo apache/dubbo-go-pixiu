@@ -18,10 +18,10 @@
 package nacos
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosConstant "github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	"github.com/pkg/errors"
 )
@@ -49,24 +49,34 @@ func (n *NacosRegistry) DoSubscribe() error {
 	if n.BaseRegistry == nil {
 		return errors.New("NacosRegistry: base registry is not initialized")
 	}
-	listener, ok := n.nacosListeners[n.RegisteredType]
+	Listener, ok := n.nacosListeners[n.RegisteredType]
 	if !ok {
 		return errors.New("Listener for interface level registration does not initialized")
 	}
-	listener.WatchAndHandle()
+	Listener.WatchAndHandle()
 	return nil
 }
 
 func (n *NacosRegistry) DoUnsubscribe() error {
+	// Release the v2 client's gRPC connection even on partial initialization.
+	if n.client != nil {
+		defer n.client.CloseClient()
+	}
 	if n.BaseRegistry == nil {
 		return errors.New("NacosRegistry: base registry is not initialized")
 	}
-	listener, ok := n.nacosListeners[n.RegisteredType]
+	var err error
+	Listener, ok := n.nacosListeners[n.RegisteredType]
 	if !ok {
-		return errors.New("Listener for interface level registration does not initialized")
+		err = errors.New("Listener for interface level registration does not initialized")
+	} else {
+		Listener.Close()
 	}
-	listener.Close()
-	return nil
+	for k, l := range n.GetAllSvcListener() {
+		l.Close()
+		n.RemoveSvcListener(k)
+	}
+	return err
 }
 
 var _ registry.Registry = new(NacosRegistry)

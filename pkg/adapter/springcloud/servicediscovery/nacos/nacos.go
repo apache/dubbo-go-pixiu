@@ -25,10 +25,10 @@ import (
 )
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients/cache"
-	xdsmodel "github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/util"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/cache"
+	xdsmodel "github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/util"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 
 	perrors "github.com/pkg/errors"
 )
@@ -43,7 +43,7 @@ import (
 type nacosServiceDiscovery struct {
 	targetService []string
 	//descriptor    string
-	client      *nacos.NacosClient
+	client      nacosNamingClient
 	config      *model.RemoteConfig
 	listener    servicediscovery.ServiceEventListener
 	instanceMap map[string]servicediscovery.ServiceInstance
@@ -51,6 +51,18 @@ type nacosServiceDiscovery struct {
 	cacheLock       sync.Mutex
 	callbackFlagMap cache.ConcurrentMap
 	//done      chan struct{}
+}
+
+// nacosNamingClient is the subset of the Nacos naming client API used by
+// nacosServiceDiscovery. *nacos.NacosClient satisfies it in production; tests
+// inject a mock so they can assert on lifecycle (e.g. that Close is invoked
+// on unsubscribe). Mirrors the v2 INamingClient surface this adapter calls.
+type nacosNamingClient interface {
+	GetAllServicesInfo(param vo.GetAllServiceInfoParam) (xdsmodel.ServiceList, error)
+	SelectInstances(param vo.SelectInstancesParam) ([]xdsmodel.Instance, error)
+	Subscribe(param *vo.SubscribeParam) error
+	Unsubscribe(param *vo.SubscribeParam) error
+	Close()
 }
 
 func (n *nacosServiceDiscovery) Subscribe() error {
@@ -99,10 +111,14 @@ func (n *nacosServiceDiscovery) Unsubscribe() error {
 		}
 		_ = n.client.Unsubscribe(subscribeParam)
 	}
+	// v2 clients hold a gRPC connection and internal retry goroutines that
+	// survive Unsubscribe; close the naming client to release them on stop.
+	// CloseClient is idempotent, so a repeated Stop is safe.
+	n.client.Close()
 	return nil
 }
 
-func (n *nacosServiceDiscovery) Callback(services []xdsmodel.SubscribeService, err error) {
+func (n *nacosServiceDiscovery) Callback(services []xdsmodel.Instance, err error) {
 
 	addInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
 	delInstances := make([]servicediscovery.ServiceInstance, 0, len(services))
@@ -118,9 +134,16 @@ func (n *nacosServiceDiscovery) Callback(services []xdsmodel.SubscribeService, e
 			continue
 		}
 
-		instance := fromSubscribeServiceToServiceInstance(service)
+		// v2 subscribe callback receives Instance directly (was SubscribeService in v1)
+		// ServiceName may contain group prefix like "DEFAULT_GROUP@@service-name", strip it
+		serviceName := service.ServiceName
+		if _, after, ok := strings.Cut(serviceName, "@@"); ok {
+			serviceName = after
+		}
+
+		instance := fromInstanceToServiceInstance(serviceName, service)
 		key := instance.GetUniqKey()
-		newInstanceMap[instance.GetUniqKey()] = instance
+		newInstanceMap[key] = instance
 		if old, ok := n.instanceMap[key]; !ok {
 			// instance does not exist in cache, add it to cache
 			addInstances = append(addInstances, instance)
@@ -244,30 +267,6 @@ func fromInstanceToServiceInstance(serviceName string, instance xdsmodel.Instanc
 		Port:        int(instance.Port),
 		// SelectInstances default return all health instance, not unhealthy
 		Healthy:     instance.Healthy,
-		Enable:      instance.Enable,
-		CLusterName: instance.ClusterName,
-		Metadata:    instance.Metadata,
-	}
-}
-
-func fromSubscribeServiceToServiceInstance(instance xdsmodel.SubscribeService) servicediscovery.ServiceInstance {
-	addr := instance.Ip + ":" + fmt.Sprint(instance.Port)
-	// because it value is DEFAULT_GROUP@@user-service, so split it with @@, and get service name
-	serviceName := instance.ServiceName
-	tmp := strings.Split(serviceName, "@@")
-	if len(tmp) == 2 {
-		serviceName = tmp[1]
-	}
-
-	return servicediscovery.ServiceInstance{
-		// nacos sdk return empty instanceId, so use addr
-		//ID: instance.InstanceId,
-		ID:          addr,
-		ServiceName: serviceName,
-		Host:        instance.Ip,
-		Port:        int(instance.Port),
-		// subscribe callback service should be healthy
-		Healthy:     true,
 		Enable:      instance.Enable,
 		CLusterName: instance.ClusterName,
 		Metadata:    instance.Metadata,
