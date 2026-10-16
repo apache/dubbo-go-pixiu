@@ -19,6 +19,14 @@
 >
 > 如果只开放 `8848`，即使地址看起来正确，网关在运行期也会连接失败。详见官方[2.0 兼容性说明](https://nacos.io/en-us/docs/v2/upgrading/2.0.0-compatibility.html)。
 
+`Nacos v2 Integration` CI 工作流会启动 Nacos 2.3.2，开放两个端口，并通过 gRPC 验证临时实例的注册、发现和清理。在关闭认证的本地测试服务端上可运行同一测试：
+
+```sh
+NACOS_TEST_ADDRESS=127.0.0.1:8848 go test ./pkg/remote/nacos -run '^TestNacosV2Integration$' -count=1 -timeout=90s
+```
+
+未设置 `NACOS_TEST_ADDRESS` 时测试会跳过。如需映射主端口，对外开放的 gRPC 端口也必须保持 +1000 的偏移量。
+
 
 一个基本的 Nacos 注册请求包含以下关键信息：
 

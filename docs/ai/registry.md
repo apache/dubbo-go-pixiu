@@ -19,6 +19,14 @@ The core mechanism of service discovery is that your LLM service registers as a 
 >
 > If only `8848` is exposed, the gateway will fail to connect at runtime even though the address looks correct. See the official [2.0 compatibility guide](https://nacos.io/en-us/docs/v2/upgrading/2.0.0-compatibility.html) for details.
 
+The `Nacos v2 Integration` CI workflow starts Nacos 2.3.2 with both ports and verifies ephemeral instance registration, discovery, and cleanup over gRPC. To run the same smoke test against a local test server with authentication disabled:
+
+```sh
+NACOS_TEST_ADDRESS=127.0.0.1:8848 go test ./pkg/remote/nacos -run '^TestNacosV2Integration$' -count=1 -timeout=90s
+```
+
+The test skips when `NACOS_TEST_ADDRESS` is unset. If you remap the main port, preserve the +1000 offset for the exposed gRPC port.
+
 
 A basic Nacos registration request includes the following key information:
 

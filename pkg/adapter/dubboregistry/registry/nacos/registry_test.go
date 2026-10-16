@@ -131,10 +131,22 @@ func TestDoUnsubscribe_NoListener(t *testing.T) {
 	reg := newTestNacosRegistry(client, registry.RegisteredTypeInterface, nil)
 	// Overwrite the listener map so the configured type has no listener.
 	reg.nacosListeners = map[registry.RegisteredType]registry.Listener{}
+	svcListener := &closeTrackingListener{}
+	reg.SetSvcListener("svc-1", svcListener)
 
 	err := reg.DoUnsubscribe()
 	assert.Error(t, err)
-	assert.Equal(t, 0, client.closeCalls(), "client must not be closed when there is no listener")
+	assert.True(t, svcListener.closed, "missing primary listener must not skip service listener cleanup")
+	assert.Nil(t, reg.GetSvcListener("svc-1"))
+	assert.Equal(t, 1, client.closeCalls(), "missing listener must not leak the naming client")
+}
+
+func TestNacosRegistryRequiresInitialization(t *testing.T) {
+	client := &mockNamingClient{}
+	reg := &NacosRegistry{client: client}
+	assert.ErrorContains(t, reg.DoSubscribe(), "base registry is not initialized")
+	assert.ErrorContains(t, reg.DoUnsubscribe(), "base registry is not initialized")
+	assert.Equal(t, 1, client.closeCalls(), "an initialized client must close even if the base registry is missing")
 }
 
 func TestDoUnsubscribeStopsActiveListeners(t *testing.T) {

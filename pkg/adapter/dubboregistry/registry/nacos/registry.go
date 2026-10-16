@@ -46,31 +46,37 @@ type NacosRegistry struct {
 }
 
 func (n *NacosRegistry) DoSubscribe() error {
+	if n.BaseRegistry == nil {
+		return errors.New("NacosRegistry: base registry is not initialized")
+	}
 	Listener, ok := n.nacosListeners[n.RegisteredType]
 	if !ok {
 		return errors.New("Listener for interface level registration does not initialized")
 	}
-	go Listener.WatchAndHandle()
+	Listener.WatchAndHandle()
 	return nil
 }
 
 func (n *NacosRegistry) DoUnsubscribe() error {
-	// Stop the background listener first (it drains its watch goroutine), then
-	// close the v2 naming client. The v2 client holds a gRPC connection and
-	// internal retry goroutines that survive listener shutdown; CloseClient
-	// releases them (idempotent via an internal isClosed guard). Previously
-	// this method panicked, so any graceful Stop leaked the connection.
+	// Release the v2 client's gRPC connection even on partial initialization.
+	if n.client != nil {
+		defer n.client.CloseClient()
+	}
+	if n.BaseRegistry == nil {
+		return errors.New("NacosRegistry: base registry is not initialized")
+	}
+	var err error
 	Listener, ok := n.nacosListeners[n.RegisteredType]
 	if !ok {
-		return errors.New("Listener for interface level registration does not initialized")
+		err = errors.New("Listener for interface level registration does not initialized")
+	} else {
+		Listener.Close()
 	}
-	Listener.Close()
 	for k, l := range n.GetAllSvcListener() {
 		l.Close()
 		n.RemoveSvcListener(k)
 	}
-	n.client.CloseClient()
-	return nil
+	return err
 }
 
 var _ registry.Registry = new(NacosRegistry)
