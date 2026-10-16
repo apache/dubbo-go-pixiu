@@ -22,18 +22,90 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 import (
+	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	envoyServer "github.com/envoyproxy/go-control-plane/pkg/server/v3"
+
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
 	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
+	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
+
+type acceptingListener struct {
+	net.Listener
+	ready chan struct{}
+	once  sync.Once
+}
+
+func (l *acceptingListener) Accept() (net.Conn, error) {
+	l.once.Do(func() { close(l.ready) })
+	return l.Listener.Accept()
+}
+
+func TestRunXDSServerShutdown(t *testing.T) {
+	for _, cancelBeforeServe := range []bool{true, false} {
+		name := "while serving"
+		if cancelBeforeServe {
+			name = "before serving"
+		}
+		t.Run(name, func(t *testing.T) {
+			lis, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer lis.Close()
+			listener := &acceptingListener{Listener: lis, ready: make(chan struct{})}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			srv := envoyServer.NewServer(ctx, cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger()), nil)
+			if cancelBeforeServe {
+				cancel()
+			}
+			done := make(chan error, 1)
+			go func() { done <- runXDSServer(ctx, srv, listener) }()
+			if !cancelBeforeServe {
+				select {
+				case <-listener.ready:
+					cancel()
+				case <-time.After(2 * time.Second):
+					t.Fatal("xDS server did not start accepting")
+				}
+			}
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatalf("expected clean shutdown, got %v", err)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("xDS server did not stop after cancellation")
+			}
+		})
+	}
+}
+
+func TestRunXDSServerReturnsListenerError(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lis.Close(); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	srv := envoyServer.NewServer(ctx, cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger()), nil)
+	if err := runXDSServer(ctx, srv, lis); !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("expected closed listener error, got %v", err)
+	}
+}
 
 type fakeSnapshotPublisher struct {
 	calls    int

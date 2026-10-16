@@ -19,6 +19,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -139,13 +140,18 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, lis net.Listener)
 		serveErr <- grpcServer.Serve(lis)
 	}()
 
+	var err error
 	select {
-	case err := <-serveErr:
-		return err
+	case err = <-serveErr:
 	case <-ctx.Done():
 		grpcServer.GracefulStop()
-		return <-serveErr
+		err = <-serveErr
 	}
+	// Cancellation can stop the server before the Serve goroutine starts.
+	if errors.Is(err, grpc.ErrServerStopped) {
+		return nil
+	}
+	return err
 }
 
 type snapshotPublisher interface {
