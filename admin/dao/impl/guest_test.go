@@ -18,26 +18,14 @@
 package impl
 
 import (
-	"bytes"
-	"log"
 	"strings"
 	"testing"
 )
 
 func TestGuestDao_CheckLogin(t *testing.T) {
-	// Capture log output
-	var buf bytes.Buffer
-	originalOutput := log.Writer()
-	log.SetOutput(&buf)
-	defer func() {
-		log.SetOutput(originalOutput)
-	}()
-
 	d := &GuestDao{}
-	d.CheckLogin()
-
-	output := buf.String()
-	if !strings.Contains(output, "CheckLogin is not implemented") {
-		t.Errorf("CheckLogin should log 'CheckLogin is not implemented', got %s", output)
+	err := d.CheckLogin()
+	if err == nil || !strings.Contains(err.Error(), "session validation is not implemented") {
+		t.Fatalf("unimplemented session validation must return an error, got %v", err)
 	}
 }

@@ -19,7 +19,6 @@ package impl
 
 import (
 	SQL "database/sql"
-	"log"
 )
 
 import (
@@ -87,7 +86,6 @@ func (d *GuestDao) Register(username, password string) error {
 	return err
 }
 
-func (d *GuestDao) CheckLogin() {
-	// TODO: implement login session validation — currently fails open; callers must not rely on this for auth enforcement.
-	log.Println("[WARN] GuestDao.CheckLogin is not implemented")
+func (d *GuestDao) CheckLogin() error {
+	return errors.New("GuestDao.CheckLogin: session validation is not implemented")
 }
