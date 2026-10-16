@@ -517,6 +517,7 @@ func TestListenerManager_ReplaceXDSListenersClosesStagedOnValidationFailure(t *t
 type shutdownListenerService struct {
 	err     error
 	release <-chan struct{}
+	groups  chan *sync.WaitGroup
 }
 
 func (s *shutdownListenerService) Start() error { return nil }
@@ -524,6 +525,9 @@ func (s *shutdownListenerService) Close() error { return nil }
 func (s *shutdownListenerService) ShutDown(wg any) error {
 	waitGroup := wg.(*sync.WaitGroup)
 	defer waitGroup.Done()
+	if s.groups != nil {
+		s.groups <- waitGroup
+	}
 	if s.release != nil {
 		<-s.release
 	}
@@ -603,6 +607,24 @@ func TestListenerManagerHandleShutdownSignal(t *testing.T) {
 
 	require.Equal(t, []error{testErr}, errs)
 	require.False(t, timedOut)
+}
+
+func TestListenerManagerShutdownUsesPerListenerWaitGroups(t *testing.T) {
+	groups := make(chan *sync.WaitGroup, 2)
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"first":  {ListenerService: &shutdownListenerService{groups: groups}},
+			"second": {ListenerService: &shutdownListenerService{groups: groups}},
+			"legacy": {ListenerService: &legacyListenerService{}},
+		},
+		rwLock: &sync.RWMutex{},
+	}
+
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, time.Second)
+	require.Empty(t, errs)
+	require.False(t, timedOut, "coordination must use ShutDown return, including legacy plugins without Done")
+	require.Len(t, groups, 2)
+	require.NotSame(t, <-groups, <-groups, "each listener must receive its own compatibility WaitGroup")
 }
 
 func TestListenerManagerHandleShutdownSignalTimeout(t *testing.T) {

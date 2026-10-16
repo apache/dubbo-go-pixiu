@@ -147,12 +147,14 @@ func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Dura
 	}
 	lm.rwLock.RUnlock()
 
-	shutdownWG := &sync.WaitGroup{}
-	shutdownWG.Add(len(listeners))
 	shutdownFuncs := make([]shutdownFunc, 0, len(listeners))
 	for _, listener := range listeners {
 		shutdownFuncs = append(shutdownFuncs, func() error {
-			return listener.ShutDown(shutdownWG)
+			// Preserve the legacy plugin argument without sharing completion counts.
+			// shutdownListeners coordinates by return, not by this WaitGroup.
+			var shutdownWG sync.WaitGroup
+			shutdownWG.Add(1)
+			return listener.ShutDown(&shutdownWG)
 		})
 	}
 
