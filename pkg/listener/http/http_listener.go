@@ -108,15 +108,13 @@ func (ls *HttpListenerService) StopAccepting() error {
 }
 
 func (ls *HttpListenerService) ShutDown(wg any) error {
+	defer wg.(*sync.WaitGroup).Done()
 	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
 	if timeout <= 0 {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer func() {
-		cancel()
-		wg.(*sync.WaitGroup).Done()
-	}()
+	defer cancel()
 	if ls.srv == nil {
 		return ls.CloseFilterChain()
 	}
