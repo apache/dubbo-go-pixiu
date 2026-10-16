@@ -29,5 +29,10 @@ type (
 
 		// ViewConfig returns the current remote configuration.
 		ViewConfig() *model.Bootstrap
+
+		// Close releases the underlying client (e.g. the Nacos v2 gRPC
+		// connection). It must be idempotent and safe to call from a shutdown
+		// path. Implementations that hold no resource should no-op.
+		Close()
 	}
 )
