@@ -44,6 +44,7 @@ type DubboOutboundRequest struct {
 
 	Protocol      string
 	Serialization string
+	Generic       string
 
 	Arguments   []any
 	ParamTypes  []string
