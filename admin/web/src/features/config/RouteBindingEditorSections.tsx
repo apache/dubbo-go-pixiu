@@ -33,11 +33,12 @@ import { translateText } from '../../i18n'
 import type {
   AdminRouteBindingObject,
   RouteBindingDiff,
+  RouteBindingHistoryEntry,
   RouteBindingParam,
   RouteBindingPublishStatus,
 } from '../../types/api'
 
-export type EditorTab = 'form' | 'preview' | 'diff' | 'yaml'
+export type EditorTab = 'form' | 'preview' | 'diff' | 'history' | 'yaml'
 export type BusyAction = '' | 'save' | 'publish' | 'validate' | 'preview' | 'diff'
 export type Notice = { tone: 'success' | 'error'; text: string }
 export type RouteEditorOptions = {
@@ -48,8 +49,19 @@ export type RouteEditorOptions = {
 }
 export type IssueMessage = (path: string) => string
 export type RouteEntry = AdminRouteBindingObject['spec']['entry']
-export type RouteTarget = AdminRouteBindingObject['spec']['target']
-type EditableTargetKey = Exclude<keyof RouteTarget, 'protocol'>
+export type RouteTarget = {
+  protocol: string
+  cluster: string
+  url: string
+  application: string
+  interface: string
+  method: string
+  version: string
+  group: string
+  timeout: string
+  serialization: string
+}
+type EditableTargetKey = keyof RouteTarget
 
 type HeaderProps = {
   readonly isEnglish: boolean
@@ -122,6 +134,14 @@ type DiffViewProps = {
   readonly onRefresh: () => void
 }
 
+type HistoryViewProps = {
+  readonly isEnglish: boolean
+  readonly entries: RouteBindingHistoryEntry[]
+  readonly loading: boolean
+  readonly canRollback: boolean
+  readonly onRollback: (revision: number) => void
+}
+
 type PreviewViewProps = {
   readonly isEnglish: boolean
   readonly activeTab: 'preview' | 'yaml'
@@ -160,6 +180,10 @@ type ContentProps = {
   readonly onApplyYaml: () => void
   readonly onChangeYaml: (value: string) => void
   readonly onPreview: () => void
+  readonly historyEntries: RouteBindingHistoryEntry[]
+  readonly historyLoading: boolean
+  readonly canRollback: boolean
+  readonly onRollback: (revision: number) => void
 }
 
 function actionLabel(
@@ -387,14 +411,11 @@ export function RouteEditorTabs({ isEnglish, activeTab, onChange }: TabsProps) {
         <GitCompareArrows size={14} /> Diff
       </button>
       <button
-        className="unavailable-tab"
+        className={activeTab === 'history' ? 'active' : ''}
         type="button"
-        disabled
-        title={
-          isEnglish
-            ? 'History is not exposed by the current Admin API.'
-            : '当前 Admin API 尚未提供历史接口。'
-        }
+        role="tab"
+        aria-selected={activeTab === 'history'}
+        onClick={() => onChange('history')}
       >
         {isEnglish ? 'History' : '历史'}
       </button>
@@ -540,23 +561,26 @@ function RouteTargetCard({
       key: 'cluster',
       label: 'Cluster',
       placeholder: 'user-service',
-      issuePath: 'spec.target.cluster',
+      issuePath: 'spec.backendRef.cluster',
     },
     {
       key: 'application',
       label: 'Application',
       placeholder: 'UserProvider',
-      issuePath: 'spec.target.application',
+      issuePath: 'spec.serviceSelection.application',
     },
     {
       key: 'interface',
       label: 'Interface',
       placeholder: 'com.example.user.UserService',
-      issuePath: 'spec.target.interface',
+      issuePath: 'spec.serviceSelection.interface',
     },
-    { key: 'method', label: 'Method', placeholder: 'GetUser', issuePath: 'spec.target.method' },
+    { key: 'method', label: 'Method', placeholder: 'GetUser', issuePath: 'spec.invocation.method' },
     { key: 'group', label: 'Group', placeholder: 'stable', issuePath: '' },
     { key: 'version', label: 'Version', placeholder: '1.0.0', issuePath: '' },
+    { key: 'url', label: 'Direct Dubbo URL', placeholder: 'dubbo://127.0.0.1:20880', issuePath: 'spec.backendRef.url' },
+    { key: 'timeout', label: 'Timeout', placeholder: '1s', issuePath: 'spec.invocation.timeout' },
+    { key: 'serialization', label: 'Serialization', placeholder: 'hessian2', issuePath: 'spec.invocation.serialization' },
   ]
   return (
     <section className="panel route-editor-card">
@@ -573,7 +597,7 @@ function RouteTargetCard({
       <div className="route-target-fields">
         <label className="route-field">
           <span>{isEnglish ? 'Target protocol' : '目标协议'}</span>
-          <select value={target.protocol} disabled>
+          <select value={target.protocol} onChange={(event) => onChange('protocol', event.target.value)}>
             {targetProtocols.map((protocol) => (
               <option key={protocol} value={protocol}>
                 {protocol.toUpperCase()}
@@ -581,7 +605,7 @@ function RouteTargetCard({
             ))}
           </select>
           <small>
-            {isEnglish ? 'The current compiler targets Dubbo.' : '当前编译器目标为 Dubbo。'}
+            {isEnglish ? 'Choose service discovery or a direct Dubbo URL.' : '选择注册中心发现或直连 Dubbo URL。'}
           </small>
         </label>
         {fields.map((field) => (
@@ -618,9 +642,9 @@ function RouteParamRow({
   onUpdate,
   onRemove,
 }: ParamRowProps) {
-  const fromIssue = issueMessage(`spec.params[${index}].from`)
-  const toIssue = issueMessage(`spec.params[${index}].to`)
-  const typeIssue = issueMessage(`spec.params[${index}].type`)
+  const fromIssue = issueMessage(`spec.invocation.parameters[${index}].from`)
+  const toIssue = issueMessage(`spec.invocation.parameters[${index}].to`)
+  const typeIssue = issueMessage(`spec.invocation.parameters[${index}].type`)
   return (
     <div className="route-param-row" key={`${index}-${param.from}`}>
       <label className="route-param-field">
@@ -906,6 +930,64 @@ function RouteDiffView({ isEnglish, diffData, busy, onRefresh }: DiffViewProps) 
   )
 }
 
+function RouteHistoryView({
+  isEnglish,
+  entries,
+  loading,
+  canRollback,
+  onRollback,
+}: HistoryViewProps) {
+  return (
+    <section className="panel route-diff-panel">
+      <div className="panel-head">
+        <div>
+          <h2>{isEnglish ? 'Published history' : '发布历史'}</h2>
+          <span>
+            {isEnglish
+              ? 'Immutable snapshots are recorded after each successful publish or delete.'
+              : '每次成功发布或删除后都会记录不可变快照。'}
+          </span>
+        </div>
+      </div>
+      {loading ? (
+        <div className="route-diff-empty"><div className="loading-skeleton" /></div>
+      ) : entries.length === 0 ? (
+        <div className="route-diff-empty">
+          <b>{isEnglish ? 'No published revisions yet' : '暂无已发布版本'}</b>
+        </div>
+      ) : (
+        <div className="route-diff-list">
+          {[...entries].reverse().map((entry) => {
+            const method = entry.object?.spec.invocation?.method
+            return (
+              <div className="route-diff-row" key={entry.revision}>
+                <code>rev {entry.revision}</code>
+                <div className="route-diff-value before">
+                  <small>{new Date(entry.publishedAt).toLocaleString()}</small>
+                  <pre>{entry.object ? String(method || '—') : isEnglish ? 'Deleted' : '已删除'}</pre>
+                </div>
+                <div className="route-diff-value after">
+                  <button
+                    className="secondary"
+                    type="button"
+                    disabled={!canRollback}
+                    onClick={() => onRollback(entry.revision)}
+                  >
+                    {isEnglish ? 'Roll back to this revision' : '回滚到此版本'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {!canRollback && (
+        <small>{isEnglish ? 'Save or discard current edits before rollback.' : '请先保存或放弃当前编辑，再执行回滚。'}</small>
+      )}
+    </section>
+  )
+}
+
 function RoutePreviewBody({
   isEnglish,
   activeTab,
@@ -1084,6 +1166,10 @@ export function RouteEditorContent({
   onApplyYaml,
   onChangeYaml,
   onPreview,
+  historyEntries,
+  historyLoading,
+  canRollback,
+  onRollback,
 }: ContentProps) {
   if (loading) {
     return (
@@ -1103,8 +1189,19 @@ export function RouteEditorContent({
         mode={mode}
         entry={object.spec.entry}
         name={object.metadata.name}
-        target={object.spec.target}
-        params={object.spec.params}
+        target={{
+          protocol: object.spec.backendRef.type,
+          cluster: object.spec.backendRef.cluster,
+          url: object.spec.backendRef.url,
+          application: object.spec.serviceSelection.application,
+          interface: object.spec.serviceSelection.interface,
+          method: object.spec.invocation.method,
+          version: object.spec.serviceSelection.version,
+          group: object.spec.serviceSelection.group,
+          timeout: object.spec.invocation.timeout,
+          serialization: object.spec.invocation.serialization,
+        }}
+        params={object.spec.invocation.parameters}
         enabled={object.spec.enabled}
         issueMessage={issueMessage}
         entryProtocols={options?.entryProtocols || []}
@@ -1129,6 +1226,17 @@ export function RouteEditorContent({
         diffData={diffData}
         busy={busy}
         onRefresh={onRefreshDiff}
+      />
+    )
+  }
+  if (activeTab === 'history') {
+    return (
+      <RouteHistoryView
+        isEnglish={isEnglish}
+        entries={historyEntries}
+        loading={historyLoading}
+        canRollback={canRollback}
+        onRollback={onRollback}
       />
     )
   }

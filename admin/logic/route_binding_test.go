@@ -529,6 +529,63 @@ func TestRouteBindingStoreSaveUsesPublishedRuntimeIdentity(t *testing.T) {
 	}
 }
 
+func TestRouteBindingStoreHistoryAndRollback(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	firstHistory, err := store.History(context.Background(), saved.Object.Metadata.Name)
+	if err != nil || len(firstHistory) != 1 {
+		t.Fatalf("first history: entries=%+v err=%v", firstHistory, err)
+	}
+
+	updated := testRouteBinding("user-get", "/api/users/:id", "GET")
+	updated.Spec["target"].(map[string]any)["method"] = "GetUserV2"
+	updatedBinding, err := store.UpdateDraft(context.Background(), "user-get", updated, saved.Revision)
+	if err != nil {
+		t.Fatalf("UpdateDraft: %v", err)
+	}
+	if _, err := store.Publish(context.Background(), "user-get", updatedBinding.Revision); err != nil {
+		t.Fatalf("publish updated route: %v", err)
+	}
+	status, err := store.Status(context.Background(), "user-get")
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	rolledBack, err := store.Rollback(context.Background(), "user-get", firstHistory[0].Revision, status.DraftRevision)
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if rolledBack.PublishedCount != 1 {
+		t.Fatalf("rollback publish result: %+v", rolledBack)
+	}
+	published, err := store.Get(context.Background(), "user-get", false)
+	if err != nil {
+		t.Fatalf("Get published route after rollback: %v", err)
+	}
+	invocation := published.Object.Spec["invocation"].(map[string]any)
+	if invocation["method"] != "GetUser" {
+		t.Fatalf("rollback restored method %v, want GetUser", invocation["method"])
+	}
+	history, err := store.History(context.Background(), "user-get")
+	if err != nil || len(history) != 3 {
+		t.Fatalf("history after rollback: entries=%+v err=%v", history, err)
+	}
+}
+
+func TestRouteBindingHistoryIncludesDeletionSnapshot(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	if _, err := store.DeleteAndPublish(context.Background(), "user-get", saved.Revision); err != nil {
+		t.Fatalf("DeleteAndPublish: %v", err)
+	}
+	history, err := store.History(context.Background(), "user-get")
+	if err != nil || len(history) != 2 {
+		t.Fatalf("history after delete: entries=%+v err=%v", history, err)
+	}
+	if history[1].Object != nil {
+		t.Fatalf("delete history unexpectedly contains an object: %+v", history[1])
+	}
+}
+
 func newTestRouteBindingStore(t *testing.T) *RouteBindingStore {
 	t.Helper()
 	registry, err := schema.NewBuiltinRegistry()
@@ -552,6 +609,10 @@ func fakeRouteBindingStoreKV(t *testing.T, store *RouteBindingStore) *fakeRouteB
 }
 
 func testRouteBinding(name, path, method string) schema.AdminObject {
+	parameterSource := "queryStrings.id"
+	if strings.Contains(path, ":id") {
+		parameterSource = "uri.id"
+	}
 	return schema.AdminObject{
 		Kind: schema.KindAdminRouteBinding,
 		Metadata: schema.ObjectMetadata{
@@ -570,7 +631,7 @@ func testRouteBinding(name, path, method string) schema.AdminObject {
 			},
 			"params": []any{
 				map[string]any{
-					"from": "uri.id",
+					"from": parameterSource,
 					"to":   0,
 					"type": "java.lang.String",
 				},

@@ -32,6 +32,8 @@ export const pixiuAdminApi = {
     publish: '/config/api/route/publish',
     status: '/config/api/route/status',
     diff: '/config/api/route/diff',
+    history: '/config/api/route/history',
+    rollback: '/config/api/route/rollback',
   },
   clusters: {
     list: '/config/api/cluster/list',

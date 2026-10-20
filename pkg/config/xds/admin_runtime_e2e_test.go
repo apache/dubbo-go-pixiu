@@ -19,6 +19,7 @@ package xds_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -404,6 +405,63 @@ func TestAdminHTTPToRunningPixiuEndToEnd(t *testing.T) {
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/listener?listener=gateway")
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/cluster?clusterId=2")
 	requireRuntimeE2EPortClosed(t, rpcListenerPort)
+
+	// Close the complete AdminRouteBinding loop: create/validate/publish through
+	// the Admin API, load the generated legacy Resource/Method keys from etcd,
+	// then invoke the running Dubbo provider through Pixiu's HTTP listener.
+	adminBinding := map[string]any{
+		"kind":     "AdminRouteBinding",
+		"metadata": map[string]any{"name": "admin-route-e2e"},
+		"spec": map[string]any{
+			"entry":            map[string]any{"protocol": "http", "path": "/admin-rpc", "method": "POST"},
+			"backendRef":       map[string]any{"type": "direct", "cluster": "", "url": fmt.Sprintf("dubbo://127.0.0.1:%d", providerOnePort)},
+			"serviceSelection": map[string]any{"application": "runtime-e2e", "interface": "pixiu.e2e.Greeter", "group": "", "version": ""},
+			"invocation": map[string]any{
+				"method": "SayHello", "timeout": "5s", "serialization": "hessian2",
+				"parameters": []any{map[string]any{"from": "requestBody.name", "to": 0, "type": "java.lang.String"}},
+			},
+			"enabled":    true,
+			"extensions": map[string]any{},
+		},
+	}
+	adminBindingBody, err := json.Marshal(adminBinding)
+	require.NoError(t, err)
+	runtimeE2EAdminJSON(t, router, token, http.MethodPost, "/config/api/route", adminBindingBody)
+	runtimeE2EAdminRequest(t, router, token, http.MethodPut, "/config/api/route/publish?name=admin-route-e2e")
+
+	adminRpcListenerPort := reserveRuntimeE2EPort(t)
+	runtimeE2EAdminForm(t, router, token, http.MethodPut, "/config/api/listener",
+		runtimeE2ERemoteDubboListenerYAML(adminRpcListenerPort, etcdEndpoint, etcdPath))
+	adminRpcURL := fmt.Sprintf("http://127.0.0.1:%d/admin-rpc", adminRpcListenerPort)
+	requireRuntimeE2EPostContains(t, adminRpcURL, `{"name":"admin"}`, `rpc-one:admin`, 15*time.Second)
+	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/listener?listener=gateway")
+	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/route?name=admin-route-e2e")
+	requireRuntimeE2EPortClosed(t, adminRpcListenerPort)
+
+	// The legacy create endpoint still mirrors published Resource/Method
+	// records into draft storage. Both namespaces must use the same IDs so a
+	// later legacy edit or publish addresses the record that was created.
+	runtimeE2EAdminForm(t, router, token, http.MethodPost, "/config/api/resource", `type: restful
+path: /legacy-compat
+methods:
+  - httpVerb: POST
+    enable: true
+`)
+	legacyClient := adminconfig.Client.GetRawClient()
+	publishedLegacy, err := legacyClient.Get(ctx, etcdPath+"/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	draftLegacy, err := legacyClient.Get(ctx, etcdPath+"/unpublished/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	publishedKeys := make([]string, 0, len(publishedLegacy.Kvs))
+	for _, kv := range publishedLegacy.Kvs {
+		publishedKeys = append(publishedKeys, strings.TrimPrefix(string(kv.Key), etcdPath+"/resources/"))
+	}
+	draftKeys := make([]string, 0, len(draftLegacy.Kvs))
+	for _, kv := range draftLegacy.Kvs {
+		draftKeys = append(draftKeys, strings.TrimPrefix(string(kv.Key), etcdPath+"/unpublished/resources/"))
+	}
+	require.Len(t, publishedKeys, 2, "one Resource and its Method should be created")
+	require.ElementsMatch(t, publishedKeys, draftKeys, "legacy published and draft keys should share Resource/Method IDs")
 }
 
 func runtimeE2EEtcdEndpoint(t *testing.T) string {
@@ -664,6 +722,13 @@ func runtimeE2EAdminRequest(t *testing.T, router http.Handler, token, method, pa
 	runtimeE2EServeAdmin(t, router, token, httptest.NewRequest(method, path, nil))
 }
 
+func runtimeE2EAdminJSON(t *testing.T, router http.Handler, token, method, path string, body []byte) {
+	t.Helper()
+	request := httptest.NewRequest(method, path, strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", "application/json")
+	runtimeE2EServeAdmin(t, router, token, request)
+}
+
 func runtimeE2EServeAdmin(t *testing.T, router http.Handler, token string, request *http.Request) {
 	t.Helper()
 	request.Header.Set("token", token)
@@ -719,6 +784,32 @@ http_filters:
       dubboProxyConfig:
         registries: {}
 `, port, apiPath)
+}
+
+func runtimeE2ERemoteDubboListenerYAML(port int, etcdEndpoint, apiConfigPath string) string {
+	return fmt.Sprintf(`name: gateway
+address:
+  socket-address:
+    address: 127.0.0.1
+    port: %d
+route_config:
+  routes:
+    - match:
+        prefix: /
+      route:
+        cluster: backend
+        cluster_not_found_response_code: 503
+http_filters:
+  - name: dgp.filter.http.apiconfig
+    config:
+      api_meta_config:
+        address: %q
+        api_config_path: %q
+  - name: dgp.filter.http.dubboproxy
+    config:
+      dubboProxyConfig:
+        registries: {}
+`, port, etcdEndpoint, apiConfigPath)
 }
 
 func runtimeE2EGet(target string) string {

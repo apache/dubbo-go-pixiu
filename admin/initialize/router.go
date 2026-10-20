@@ -73,6 +73,20 @@ func Routers() *gin.Engine {
 		taR.PUT("/config/api/listener", configInfo.CreateListener)
 		taR.DELETE("/config/api/listener", configInfo.DeleteListener)
 
+		// Legacy Resource/Method routes stay available for older Admin clients.
+		taR.GET("/config/api/resource/list", configInfo.GetResourceList)
+		taR.GET("/config/api/resource/detail", configInfo.GetResourceDetail)
+		taR.POST("/config/api/resource", configInfo.CreateResourceInfo)
+		taR.PUT("/config/api/resource", configInfo.ModifyResourceInfo)
+		taR.DELETE("/config/api/resource", configInfo.DeleteResourceInfo)
+		taR.GET("/config/api/resource/method/list", configInfo.GetMethodList)
+		taR.GET("/config/api/resource/method/detail", configInfo.GetMethodDetail)
+		taR.POST("/config/api/resource/method", configInfo.CreateMethodInfo)
+		taR.PUT("/config/api/resource/method", configInfo.ModifyMethodInfo)
+		taR.DELETE("/config/api/resource/method", configInfo.DeleteMethodInfo)
+		taR.PUT("/config/api/resource/publish", configInfo.BatchReleaseResource)
+		taR.PUT("/config/api/resource/method/publish", configInfo.BatchReleaseMethod)
+
 		// AdminRouteBinding API. Each route has
 		// an independent draft/publish boundary; publishing one route still
 		// updates its generated legacy keys in one etcd transaction.
@@ -87,6 +101,8 @@ func Routers() *gin.Engine {
 		taR.PUT("/config/api/route/publish", configInfo.PublishRouteBinding)
 		taR.GET("/config/api/route/status", configInfo.GetRouteBindingStatus)
 		taR.GET("/config/api/route/diff", configInfo.GetRouteBindingDiff)
+		taR.GET("/config/api/route/history", configInfo.GetRouteBindingHistory)
+		taR.PUT("/config/api/route/rollback", configInfo.RollbackRouteBinding)
 
 		// PluginGroup publication is independent of API route publication.
 		taR.PUT("/config/api/plugin_group/publish", configInfo.BatchReleasePluginGroup)

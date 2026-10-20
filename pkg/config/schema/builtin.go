@@ -19,6 +19,10 @@ package schema
 
 import (
 	"fmt"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
 )
 
 var supportedDubboParamTypes = []string{
@@ -72,71 +76,75 @@ func adminRouteBindingSchema() ObjectSchema {
 				},
 				UI: UIHints{Group: "entry", Order: 10},
 			},
-			"target": {
+			"backendRef": {
 				Type:     FieldTypeObject,
 				Required: true,
 				Properties: map[string]*FieldSchema{
-					"protocol": {
+					"type": {
 						Type:    FieldTypeString,
-						Default: "dubbo",
-						Enum:    []any{"dubbo"},
+						Default: "registry",
+						Enum:    []any{"registry", "direct"},
 						UI:      UIHints{Component: "select", Order: 10},
 					},
-					"application": {
+					"cluster": {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 20}},
+					"url": {
 						Type:        FieldTypeString,
-						Required:    true,
-						Description: "Dubbo applicationName",
-						UI:          UIHints{Component: "text", Order: 20},
-					},
-					"interface": {
-						Type:     FieldTypeString,
-						Required: true,
-						UI:       UIHints{Component: "text", Order: 30},
-					},
-					"method": {
-						Type:     FieldTypeString,
-						Required: true,
-						UI:       UIHints{Component: "text", Order: 40},
-					},
-					"version": {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 50}},
-					"group":   {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 60}},
-					"cluster": {
-						Type:        FieldTypeString,
-						Required:    true,
-						Description: "legacy integrationRequest.clusterName",
-						UI:          UIHints{Component: "text", Order: 70},
+						Default:     "",
+						Description: "Direct Dubbo URL when type is direct; otherwise use the configured cluster.",
+						UI:          UIHints{Component: "text", Order: 30},
 					},
 				},
-				UI: UIHints{Group: "target", Order: 20},
+				UI: UIHints{Group: "backend", Order: 20},
 			},
-			"params": {
-				Type:        FieldTypeArray,
-				Default:     []any{},
-				Description: "Ordered HTTP source to Dubbo argument mappings",
-				Items: &FieldSchema{
-					Type: FieldTypeObject,
-					Properties: map[string]*FieldSchema{
-						"from": {
-							Type:        FieldTypeString,
-							Required:    true,
-							Pattern:     `^(uri|queryStrings|headers|requestBody)\..+`,
-							Description: "legacy mappingParams.name",
+			"serviceSelection": {
+				Type:     FieldTypeObject,
+				Required: true,
+				Properties: map[string]*FieldSchema{
+					"application": {Type: FieldTypeString, Required: true, UI: UIHints{Component: "text", Order: 10}},
+					"interface":   {Type: FieldTypeString, Required: true, UI: UIHints{Component: "text", Order: 20}},
+					"group":       {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 30}},
+					"version":     {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 40}},
+				},
+				UI: UIHints{Group: "service", Order: 30},
+			},
+			"invocation": {
+				Type:     FieldTypeObject,
+				Required: true,
+				Properties: map[string]*FieldSchema{
+					"method":        {Type: FieldTypeString, Required: true, UI: UIHints{Component: "text", Order: 10}},
+					"timeout":       {Type: FieldTypeString, Default: "1s", Description: "Positive Go duration string", UI: UIHints{Component: "text", Order: 20}},
+					"serialization": {Type: FieldTypeString, Default: "", Description: "Dubbo serialization; required for a direct provider URL", UI: UIHints{Component: "text", Order: 25}},
+					"parameters": {
+						Type:        FieldTypeArray,
+						Default:     []any{},
+						Description: "Ordered HTTP source to Dubbo argument mappings",
+						Items: &FieldSchema{
+							Type: FieldTypeObject,
+							Properties: map[string]*FieldSchema{
+								"from": {
+									Type:        FieldTypeString,
+									Required:    true,
+									Pattern:     `^(uri|queryStrings|headers|requestBody)\..+`,
+									Description: "legacy mappingParams.name",
+								},
+								"to": {
+									Type:        FieldTypeInteger,
+									Required:    true,
+									Minimum:     floatPointer(0),
+									Description: "zero-based Dubbo argument index",
+								},
+								"type": {
+									Type:        FieldTypeString,
+									Required:    true,
+									Enum:        supportedDubboParamTypeEnum(),
+									Description: "legacy mapType and parameterTypes entry",
+								},
+							},
 						},
-						"to": {
-							Type:        FieldTypeInteger,
-							Required:    true,
-							Minimum:     floatPointer(0),
-							Description: "zero-based Dubbo argument index",
-						},
-						"type": {
-							Type:        FieldTypeString,
-							Required:    true,
-							Enum:        supportedDubboParamTypeEnum(),
-							Description: "legacy mapType and parameterTypes entry",
-						},
+						UI: UIHints{Component: "parameter-binding-table", Group: "invocation", Order: 30},
 					},
 				},
-				UI: UIHints{Component: "parameter-binding-table", Group: "params", Order: 30},
+				UI: UIHints{Group: "invocation", Order: 40},
 			},
 			"enabled": {
 				Type:        FieldTypeBoolean,
@@ -153,14 +161,111 @@ func adminRouteBindingSchema() ObjectSchema {
 	}
 }
 
-func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
-	params, ok := object.Spec["params"].([]any)
-	if !ok {
+// migrateLegacyRouteBindingSpec converts the target/params shape emitted by
+// PR #1046 to the separated backend/service/invocation contract. It only
+// migrates the known legacy fields and rejects mixed or unknown input rather
+// than silently discarding configuration.
+func migrateLegacyRouteBindingSpec(object *AdminObject) []ValidationIssue {
+	_, hasTarget := object.Spec["target"]
+	_, hasParams := object.Spec["params"]
+	if !hasTarget && !hasParams {
 		return nil
 	}
-
+	for _, field := range []string{"backendRef", "serviceSelection", "invocation"} {
+		if _, exists := object.Spec[field]; exists {
+			return []ValidationIssue{issue("spec."+field, "mixed_model", "cannot combine the legacy target/params fields with the separated route model")}
+		}
+	}
 	issues := make([]ValidationIssue, 0)
+	target, ok := object.Spec["target"].(map[string]any)
+	if !hasTarget || !ok {
+		return []ValidationIssue{issue("spec.target", "migration", "legacy target must be an object")}
+	}
+	allowedTargetFields := map[string]bool{"protocol": true, "application": true, "interface": true, "method": true, "version": true, "group": true, "cluster": true}
+	for key := range target {
+		if !allowedTargetFields[key] {
+			issues = append(issues, issue("spec.target."+key, "migration", "legacy field has no AdminRouteBinding migration"))
+		}
+	}
+	if protocol, _ := target["protocol"].(string); protocol != "" && protocol != "dubbo" {
+		issues = append(issues, issue("spec.target.protocol", "migration", "only the legacy dubbo protocol can be migrated"))
+	}
+	if len(issues) != 0 {
+		return issues
+	}
+	object.Spec["backendRef"] = map[string]any{
+		"type":    "registry",
+		"cluster": target["cluster"],
+		"url":     "",
+	}
+	object.Spec["serviceSelection"] = map[string]any{
+		"application": target["application"],
+		"interface":   target["interface"],
+		"group":       target["group"],
+		"version":     target["version"],
+	}
+	parameters, exists := object.Spec["params"]
+	if !exists {
+		parameters = []any{}
+	}
+	object.Spec["invocation"] = map[string]any{
+		"method":     target["method"],
+		"timeout":    "1s",
+		"parameters": parameters,
+	}
+	delete(object.Spec, "target")
+	delete(object.Spec, "params")
+	return nil
+}
+
+func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
+	entry, _ := object.Spec["entry"].(map[string]any)
+	path, _ := entry["path"].(string)
+	pathParams := routePathParameters(path)
+	service, _ := object.Spec["serviceSelection"].(map[string]any)
+	for _, field := range []string{"application", "interface"} {
+		value, _ := service[field].(string)
+		if strings.TrimSpace(value) == "" {
+			issues = append(issues, issue("spec.serviceSelection."+field, "required", "must not be empty"))
+		}
+	}
+	invocation, _ := object.Spec["invocation"].(map[string]any)
+	method, _ := invocation["method"].(string)
+	if strings.TrimSpace(method) == "" {
+		issues = append(issues, issue("spec.invocation.method", "required", "must not be empty"))
+	}
+	timeout, _ := invocation["timeout"].(string)
+	duration, err := time.ParseDuration(timeout)
+	if err != nil || duration <= 0 {
+		issues = append(issues, issue("spec.invocation.timeout", "duration", "must be a positive duration such as 500ms or 2s"))
+	}
+
+	backend, _ := object.Spec["backendRef"].(map[string]any)
+	backendType, _ := backend["type"].(string)
+	cluster, _ := backend["cluster"].(string)
+	directURL, _ := backend["url"].(string)
+	if backendType == "registry" && strings.TrimSpace(cluster) == "" {
+		issues = append(issues, issue("spec.backendRef.cluster", "required", "cluster is required for registry-backed Dubbo services"))
+	}
+	if backendType == "direct" {
+		parsed, parseErr := url.ParseRequestURI(strings.TrimSpace(directURL))
+		if parseErr != nil || parsed.Scheme != "dubbo" || parsed.Host == "" {
+			issues = append(issues, issue("spec.backendRef.url", "url", "must be an absolute dubbo:// URL when backendRef.type is direct"))
+		}
+		serialization, _ := invocation["serialization"].(string)
+		if strings.TrimSpace(serialization) == "" {
+			issues = append(issues, issue("spec.invocation.serialization", "required", "serialization is required for direct generic invocation"))
+		}
+	}
+
+	params, ok := invocation["parameters"].([]any)
+	if !ok {
+		return issues
+	}
+
 	seenIndexes := make(map[int]int, len(params))
+	usedPathParams := make(map[string]int)
 	for index, rawParam := range params {
 		param, ok := rawParam.(map[string]any)
 		if !ok {
@@ -173,7 +278,7 @@ func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
 		to := int(toNumber)
 		if previous, exists := seenIndexes[to]; exists {
 			issues = append(issues, issue(
-				fmt.Sprintf("spec.params[%d].to", index),
+				fmt.Sprintf("spec.invocation.parameters[%d].to", index),
 				"duplicate",
 				fmt.Sprintf("duplicates params[%d] argument index %d", previous, to),
 			))
@@ -183,23 +288,48 @@ func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
 
 		if paramType, ok := param["type"].(string); ok && !isSupportedParamType(paramType) {
 			issues = append(issues, issue(
-				fmt.Sprintf("spec.params[%d].type", index),
+				fmt.Sprintf("spec.invocation.parameters[%d].type", index),
 				"unsupported",
 				fmt.Sprintf("unsupported scalar Dubbo map type %q", paramType),
 			))
+		}
+		if source, ok := param["from"].(string); ok && strings.HasPrefix(source, "uri.") {
+			name := strings.TrimPrefix(source, "uri.")
+			if _, exists := pathParams[name]; !exists {
+				issues = append(issues, issue(fmt.Sprintf("spec.invocation.parameters[%d].from", index), "path_mismatch", fmt.Sprintf("URI parameter %q does not appear in spec.entry.path", name)))
+			} else if previous, exists := usedPathParams[name]; exists {
+				issues = append(issues, issue(fmt.Sprintf("spec.invocation.parameters[%d].from", index), "duplicate_uri", fmt.Sprintf("URI parameter %q is already mapped by parameters[%d]", name, previous)))
+			} else {
+				usedPathParams[name] = index
+			}
+		}
+	}
+	for name := range pathParams {
+		if _, exists := usedPathParams[name]; !exists {
+			issues = append(issues, issue("spec.invocation.parameters", "unmapped_uri", fmt.Sprintf("path parameter %q must have a uri.%s mapping", name, name)))
 		}
 	}
 
 	for expected := 0; expected < len(params); expected++ {
 		if _, exists := seenIndexes[expected]; !exists {
 			issues = append(issues, issue(
-				"spec.params",
+				"spec.invocation.parameters",
 				"non_contiguous",
 				fmt.Sprintf("argument indexes must be contiguous from 0; index %d is missing", expected),
 			))
 		}
 	}
 	return issues
+}
+
+var routePathParameterPattern = regexp.MustCompile(`:([A-Za-z_][A-Za-z0-9_]*)`)
+
+func routePathParameters(path string) map[string]struct{} {
+	parameters := make(map[string]struct{})
+	for _, match := range routePathParameterPattern.FindAllStringSubmatch(path, -1) {
+		parameters[match[1]] = struct{}{}
+	}
+	return parameters
 }
 
 func isSupportedParamType(value string) bool {

@@ -6,15 +6,19 @@ spec:
     protocol: http
     path: /api/v1/users/:id
     method: GET
-  target:
-    protocol: dubbo
+  backendRef:
+    type: registry
+    cluster: user-dubbo
+    url: ""
+  serviceSelection:
     application: UserProvider
     interface: com.example.UserService
-    method: GetUser
     version: 1.0.0
     group: stable
-    cluster: user-dubbo
-  params:
-    - from: uri.id
-      to: 0
-      type: java.lang.String
+  invocation:
+    method: GetUser
+    timeout: 750ms
+    parameters:
+      - from: uri.id
+        to: 0
+        type: java.lang.String

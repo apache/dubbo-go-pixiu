@@ -35,8 +35,9 @@ func TestBuiltinRegistryContainsOnlyAdminRouteBinding(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, KindAdminRouteBinding, objectSchema.Kind)
 	assert.Contains(t, objectSchema.Fields, "entry")
-	assert.Contains(t, objectSchema.Fields, "target")
-	assert.Contains(t, objectSchema.Fields, "params")
+	assert.Contains(t, objectSchema.Fields, "backendRef")
+	assert.Contains(t, objectSchema.Fields, "serviceSelection")
+	assert.Contains(t, objectSchema.Fields, "invocation")
 	assert.Contains(t, objectSchema.Fields, "enabled")
 	assert.NotContains(t, objectSchema.Fields, "publish")
 }
@@ -54,7 +55,7 @@ func TestBuiltinRouteSchemaPublishesSupportedParameterTypes(t *testing.T) {
 	require.NoError(t, err)
 	objectSchema, ok := registry.Lookup(KindAdminRouteBinding)
 	require.True(t, ok)
-	paramType := objectSchema.Fields["params"].Items.Properties["type"]
+	paramType := objectSchema.Fields["invocation"].Properties["parameters"].Items.Properties["type"]
 	require.NotNil(t, paramType)
 	assert.Contains(t, paramType.Enum, "int")
 	assert.Contains(t, paramType.Enum, "java.lang.Integer")

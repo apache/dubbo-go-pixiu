@@ -60,6 +60,9 @@ func (r *Registry) Normalize(object AdminObject) (AdminObject, error) {
 	// block an existing route from publishing.
 	if normalized.Kind == KindAdminRouteBinding {
 		delete(normalized.Spec, "publish")
+		if issues := migrateLegacyRouteBindingSpec(&normalized); len(issues) != 0 {
+			return normalized, ValidationErrors(issues)
+		}
 	}
 
 	issues := validateEnvelope(normalized)
