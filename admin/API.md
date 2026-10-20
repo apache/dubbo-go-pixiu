@@ -88,7 +88,7 @@ spec:
     method: GET
   backendRef:
     type: registry
-    cluster: user-service
+    cluster: zookeeper
   serviceSelection:
     application: UserProvider
     interface: com.example.user.UserService
@@ -107,8 +107,13 @@ spec:
 `timeout` is a positive Go duration. URI mappings must correspond one-to-one
 with `:name` path segments. `backendRef.type: direct` uses `backendRef.url` and
 requires `invocation.serialization` and explicit parameter types. For registry
-discovery, configure Dubbo registry endpoints on the `dgp.filter.http.dubboproxy`
-filter; `serviceSelection.application` and `interface` identify the service.
+discovery, `backendRef.cluster` is the registry ID (the key under
+`dgp.filter.http.dubboproxy.dubboProxyConfig.registries`) to use for this route;
+the generated runtime config carries it as `integrationRequest.registryId`.
+Configure registry endpoints on the `dgp.filter.http.dubboproxy` filter, while
+`serviceSelection.application` and `interface` identify the service. An unknown
+registry ID is reported by the runtime rather than falling back to every
+configured registry.
 See the [Dubbo registry configuration example](../docs/sample/dubbo/dubbo-registry.md)
 for the runtime registry setup. Objects written by PR #1046 using `target` and
 `params` are normalized on read/validation and migrate when saved.
@@ -203,6 +208,10 @@ Each successful publish and delete stores an immutable snapshot in the same
 etcd transaction as the runtime update. History entries expose a monotonically
 increasing revision, publish time, and the binding object; a deletion entry has
 no object.
+
+`GET /config/api/route/history/list` returns the latest revision summary for
+every route, including tombstones. The Admin UI uses this endpoint to expose
+history-only routes and restore a previously published object after deletion.
 
 ### 2.9 Publish One API Route
 

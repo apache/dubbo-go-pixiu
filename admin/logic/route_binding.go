@@ -124,6 +124,15 @@ type RouteBindingHistoryEntry struct {
 	MethodID    int                 `json:"methodId,omitempty"`
 }
 
+// RouteBindingHistorySummary identifies the latest published snapshot for a
+// route without requiring the caller to know its name in advance.
+type RouteBindingHistorySummary struct {
+	Name           string    `json:"name"`
+	LatestRevision int64     `json:"latestRevision"`
+	PublishedAt    time.Time `json:"publishedAt"`
+	Deleted        bool      `json:"deleted"`
+}
+
 type routeBindingHistoryRecord struct {
 	Revision    int64               `json:"revision"`
 	PublishedAt time.Time           `json:"publishedAt"`
@@ -1024,6 +1033,59 @@ func (s *RouteBindingStore) History(ctx context.Context, name string) ([]RouteBi
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Revision < entries[j].Revision })
 	return entries, nil
+}
+
+// HistorySummaries returns the latest published snapshot for every route.
+// This keeps deletion tombstones discoverable from the Admin UI after the
+// route has disappeared from both draft and published lists.
+func (s *RouteBindingStore) HistorySummaries(ctx context.Context) ([]RouteBindingHistorySummary, error) {
+	ctx = routeBindingContext(ctx)
+	prefix := s.root + "/" + routeBindingHistorySegment + "/"
+	response, err := s.kv.Get(ctx, prefix, clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("list route binding history summaries: %w", err)
+	}
+	latest := make(map[string]RouteBindingHistorySummary)
+	for _, kv := range response.Kvs {
+		relative := strings.TrimPrefix(string(kv.Key), prefix)
+		parts := strings.Split(relative, "/")
+		if len(parts) != 2 || parts[0] == "" {
+			return nil, fmt.Errorf("invalid route binding history key %q", string(kv.Key))
+		}
+		name, err := url.PathUnescape(parts[0])
+		if err != nil {
+			return nil, fmt.Errorf("decode route binding history key %q: %w", string(kv.Key), err)
+		}
+		name, err = normalizeRouteBindingName(name)
+		if err != nil {
+			return nil, fmt.Errorf("invalid route binding history key %q: %w", string(kv.Key), err)
+		}
+		keyRevision, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil || keyRevision <= 0 {
+			return nil, fmt.Errorf("invalid route binding history revision in key %q", string(kv.Key))
+		}
+		var record routeBindingHistoryRecord
+		if err := json.Unmarshal(kv.Value, &record); err != nil {
+			return nil, fmt.Errorf("decode route binding history %q: %w", string(kv.Key), err)
+		}
+		if record.Revision != keyRevision {
+			return nil, fmt.Errorf("route binding history key %q contains revision %d", string(kv.Key), record.Revision)
+		}
+		if current, exists := latest[name]; !exists || record.Revision > current.LatestRevision {
+			latest[name] = RouteBindingHistorySummary{
+				Name:           name,
+				LatestRevision: record.Revision,
+				PublishedAt:    record.PublishedAt,
+				Deleted:        record.Binding == nil,
+			}
+		}
+	}
+	summaries := make([]RouteBindingHistorySummary, 0, len(latest))
+	for _, summary := range latest {
+		summaries = append(summaries, summary)
+	}
+	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
+	return summaries, nil
 }
 
 // Rollback stages the selected published snapshot as the current draft and

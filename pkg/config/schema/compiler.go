@@ -91,7 +91,7 @@ func CompileAdminRouteBinding(registry *Registry, object AdminObject) (CompiledR
 		IntegrationRequest: legacyconfig.IntegrationRequest{
 			RequestType: "dubbo",
 			DubboBackendConfig: legacyconfig.DubboBackendConfig{
-				ClusterName:     stringField(backend, "cluster"),
+				RegistryID:      stringField(backend, "cluster"),
 				ApplicationName: stringField(service, "application"),
 				Protocol:        "dubbo",
 				Group:           stringField(service, "group"),
@@ -162,6 +162,7 @@ func (r CompiledRoute) PreviewYAML() ([]byte, error) {
 				IntegrationRequest: legacyIntegrationRequestPreview{
 					RequestType:     r.Method.IntegrationRequest.RequestType,
 					URL:             r.Method.URL,
+					RegistryID:      r.Method.RegistryID,
 					ApplicationName: r.Method.ApplicationName,
 					Protocol:        r.Method.Protocol,
 					Group:           r.Method.Group,
@@ -210,6 +211,7 @@ type legacyInboundRequestPreview struct {
 type legacyIntegrationRequestPreview struct {
 	RequestType     string                      `yaml:"requestType"`
 	URL             string                      `yaml:"url,omitempty"`
+	RegistryID      string                      `yaml:"registryId,omitempty"`
 	ApplicationName string                      `yaml:"applicationName"`
 	Protocol        string                      `yaml:"protocol"`
 	Group           string                      `yaml:"group,omitempty"`

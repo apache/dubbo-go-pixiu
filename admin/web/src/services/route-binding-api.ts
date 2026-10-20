@@ -24,6 +24,7 @@ import type {
   RouteBinding,
   RouteBindingDiff,
   RouteBindingHistoryEntry,
+  RouteBindingHistorySummary,
   RouteBindingObjectSchema,
   RouteBindingPreview,
   RouteBindingPublishResult,
@@ -108,6 +109,10 @@ export const routeBindingApi = {
   history: async (name: string) =>
     parseArrayResponse<RouteBindingHistoryEntry>(
       await request<unknown>(`${pixiuAdminApi.routeBindings.history}${query({ name })}`),
+    ),
+  historyList: async () =>
+    parseArrayResponse<RouteBindingHistorySummary>(
+      await request<unknown>(pixiuAdminApi.routeBindings.historyList),
     ),
   rollback: (name: string, revision: number, expectedRevision = 0) =>
     request<RouteBindingPublishResult>(

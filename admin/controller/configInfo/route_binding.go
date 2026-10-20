@@ -411,6 +411,22 @@ func GetRouteBindingHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, adminconfig.WithRet(history))
 }
 
+// GetRouteBindingHistoryList exposes routes present only in the immutable
+// history store, including deleted routes that no longer appear in list APIs.
+func GetRouteBindingHistoryList(c *gin.Context) {
+	store, err := logic.NewAdminRouteBindingStore()
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	summaries, err := store.HistorySummaries(c.Request.Context())
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, adminconfig.WithRet(summaries))
+}
+
 // RollbackRouteBinding republishes a previously recorded route snapshot.
 func RollbackRouteBinding(c *gin.Context) {
 	name := strings.TrimSpace(c.Query("name"))

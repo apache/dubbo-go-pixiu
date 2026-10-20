@@ -139,6 +139,13 @@ export type RouteBindingHistoryEntry = {
   methodId?: number
 }
 
+export type RouteBindingHistorySummary = {
+  name: string
+  latestRevision: number
+  publishedAt: string
+  deleted: boolean
+}
+
 export type RouteBindingPublishResult = {
   name: string
   revision: number

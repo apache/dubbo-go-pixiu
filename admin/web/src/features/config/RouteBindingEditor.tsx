@@ -334,9 +334,18 @@ export function RouteBindingEditor({
   ) => {
     if (key === 'protocol' || key === 'cluster' || key === 'url') {
       const backendKey = key === 'protocol' ? 'type' : key
+      const backendRef =
+        key === 'protocol'
+          ? {
+              ...object.spec.backendRef,
+              type: value,
+              cluster: value === 'direct' ? '' : object.spec.backendRef.cluster,
+              url: value === 'registry' ? '' : object.spec.backendRef.url,
+            }
+          : { ...object.spec.backendRef, [backendKey]: value }
       updateObject({
         ...object,
-        spec: { ...object.spec, backendRef: { ...object.spec.backendRef, [backendKey]: value } },
+        spec: { ...object.spec, backendRef },
       })
       return
     }
@@ -585,13 +594,16 @@ export function RouteBindingEditor({
     if (mode !== 'edit' || dirty || yamlError || !schema) return
     const selected = historyEntries.find((entry) => entry.revision === historyRevision)
     if (!selected) return
-    const prompt = selected.object
-      ? isEnglish
+    let prompt: string
+    if (selected.object) {
+      prompt = isEnglish
         ? `Publish revision ${historyRevision} again?`
         : `确认重新发布历史版本 ${historyRevision}？`
-      : isEnglish
+    } else {
+      prompt = isEnglish
         ? 'This snapshot deletes the route. Continue?'
         : '该历史快照会删除此路由，确认继续？'
+    }
     if (!window.confirm(prompt)) return
     setBusy('publish')
     setNotice(null)

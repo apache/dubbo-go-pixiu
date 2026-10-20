@@ -40,7 +40,8 @@ type DubboOutboundRequest struct {
 	Group   string
 	Version string
 
-	Address string
+	Address    string
+	RegistryID string
 
 	Protocol      string
 	Serialization string

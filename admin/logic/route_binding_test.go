@@ -584,6 +584,33 @@ func TestRouteBindingHistoryIncludesDeletionSnapshot(t *testing.T) {
 	if history[1].Object != nil {
 		t.Fatalf("delete history unexpectedly contains an object: %+v", history[1])
 	}
+
+	summaries, err := store.HistorySummaries(context.Background())
+	if err != nil || len(summaries) != 1 {
+		t.Fatalf("history summaries: entries=%+v err=%v", summaries, err)
+	}
+	if summaries[0].Name != "user-get" || summaries[0].LatestRevision != history[1].Revision || !summaries[0].Deleted {
+		t.Fatalf("latest history summary does not identify the deleted route: %+v", summaries[0])
+	}
+}
+
+func TestRouteBindingRollbackRestoresDeletedRoute(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	if _, err := store.DeleteAndPublish(context.Background(), "user-get", saved.Revision); err != nil {
+		t.Fatalf("DeleteAndPublish: %v", err)
+	}
+
+	result, err := store.Rollback(context.Background(), "user-get", 1, 0)
+	if err != nil {
+		t.Fatalf("Rollback deleted route to revision 1: %v", err)
+	}
+	if result.PublishedCount != 1 || result.DeletedCount != 0 {
+		t.Fatalf("restore result: %+v", result)
+	}
+	if _, err := store.Get(context.Background(), "user-get", false); err != nil {
+		t.Fatalf("restored route is missing from published scope: %v", err)
+	}
 }
 
 func newTestRouteBindingStore(t *testing.T) *RouteBindingStore {

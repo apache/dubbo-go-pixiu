@@ -56,10 +56,11 @@ func TestBuildOutboundMapsQueryHeaderBodyAndURI(t *testing.T) {
 	api := newTestAPI(config.IntegrationRequest{
 		RequestType: cst.DubboRequest,
 		DubboBackendConfig: config.DubboBackendConfig{
-			Interface: "com.demo.UserService",
-			Method:    "SayHello",
-			Group:     "demo-group",
-			Version:   "1.0.0",
+			Interface:  "com.demo.UserService",
+			Method:     "SayHello",
+			Group:      "demo-group",
+			Version:    "1.0.0",
+			RegistryID: "registry-main",
 		},
 	}, "/users/:id")
 	api.MappingParams = []config.MappingParam{
@@ -84,6 +85,7 @@ func TestBuildOutboundMapsQueryHeaderBodyAndURI(t *testing.T) {
 	assert.Equal(t, "SayHello", outbound.Method)
 	assert.Equal(t, "demo-group", outbound.Group)
 	assert.Equal(t, "1.0.0", outbound.Version)
+	assert.Equal(t, "registry-main", outbound.RegistryID)
 	assert.Equal(t, "dubbo", outbound.Protocol)
 	assert.Empty(t, outbound.Serialization)
 	assert.Equal(t, []any{7, "alice", 18, "42"}, outbound.Arguments)

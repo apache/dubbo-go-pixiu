@@ -436,6 +436,13 @@ func TestAdminHTTPToRunningPixiuEndToEnd(t *testing.T) {
 	requireRuntimeE2EPostContains(t, adminRpcURL, `{"name":"admin"}`, `rpc-one:admin`, 15*time.Second)
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/listener?listener=gateway")
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/route?name=admin-route-e2e")
+	historyRequest := httptest.NewRequest(http.MethodGet, "/config/api/route/history/list", nil)
+	historyRequest.Header.Set("token", token)
+	historyResponse := httptest.NewRecorder()
+	router.ServeHTTP(historyResponse, historyRequest)
+	require.Equal(t, http.StatusOK, historyResponse.Code)
+	require.Contains(t, historyResponse.Body.String(), `"name":"admin-route-e2e"`)
+	require.Contains(t, historyResponse.Body.String(), `"deleted":true`)
 	requireRuntimeE2EPortClosed(t, adminRpcListenerPort)
 
 	// The legacy create endpoint still mirrors published Resource/Method
@@ -462,6 +469,45 @@ methods:
 	}
 	require.Len(t, publishedKeys, 2, "one Resource and its Method should be created")
 	require.ElementsMatch(t, publishedKeys, draftKeys, "legacy published and draft keys should share Resource/Method IDs")
+
+	runtimeE2EAdminRequest(t, router, token, http.MethodPut, "/config/api/resource/method/publish")
+	publishedLegacy, err = legacyClient.Get(ctx, etcdPath+"/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	var resourceRevision, methodRevision int64
+	var resourceKey string
+	for _, kv := range publishedLegacy.Kvs {
+		relative := strings.TrimPrefix(string(kv.Key), etcdPath+"/resources/")
+		if strings.Contains(relative, "/method/") {
+			methodRevision = kv.ModRevision
+		} else {
+			resourceRevision = kv.ModRevision
+			resourceKey = string(kv.Key)
+		}
+	}
+	require.NotZero(t, resourceRevision, "published Resource key was not written")
+	require.NotZero(t, methodRevision, "published Method key was not written")
+	require.Equal(t, resourceRevision, methodRevision, "Resource and Method must share one atomic etcd revision")
+
+	// A legacy client can also stage and publish a Method without a staged
+	// Resource record. That path must remain compatible and only update the
+	// Method key in the published tree.
+	draftResourceKey := etcdPath + "/unpublished/resources/" + strings.TrimPrefix(resourceKey, etcdPath+"/resources/")
+	_, err = legacyClient.Delete(ctx, draftResourceKey)
+	require.NoError(t, err)
+	runtimeE2EAdminRequest(t, router, token, http.MethodPut, "/config/api/resource/method/publish")
+	publishedLegacy, err = legacyClient.Get(ctx, etcdPath+"/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	var methodOnlyResourceRevision, methodOnlyMethodRevision int64
+	for _, kv := range publishedLegacy.Kvs {
+		relative := strings.TrimPrefix(string(kv.Key), etcdPath+"/resources/")
+		if strings.Contains(relative, "/method/") {
+			methodOnlyMethodRevision = kv.ModRevision
+		} else {
+			methodOnlyResourceRevision = kv.ModRevision
+		}
+	}
+	require.Equal(t, resourceRevision, methodOnlyResourceRevision, "Method-only publish should not rewrite the Resource key")
+	require.Greater(t, methodOnlyMethodRevision, methodRevision, "Method-only publish should update the Method key")
 }
 
 func runtimeE2EEtcdEndpoint(t *testing.T) string {

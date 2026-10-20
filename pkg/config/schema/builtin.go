@@ -86,7 +86,12 @@ func adminRouteBindingSchema() ObjectSchema {
 						Enum:    []any{"registry", "direct"},
 						UI:      UIHints{Component: "select", Order: 10},
 					},
-					"cluster": {Type: FieldTypeString, Default: "", UI: UIHints{Component: "text", Order: 20}},
+					"cluster": {
+						Type:        FieldTypeString,
+						Default:     "",
+						Description: "Registry ID from dgp.filter.http.dubboproxy.dubboProxyConfig.registries when type is registry.",
+						UI:          UIHints{Component: "text", Order: 20},
+					},
 					"url": {
 						Type:        FieldTypeString,
 						Default:     "",
@@ -222,15 +227,26 @@ func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
 	issues := make([]ValidationIssue, 0)
 	entry, _ := object.Spec["entry"].(map[string]any)
 	path, _ := entry["path"].(string)
-	pathParams := routePathParameters(path)
 	service, _ := object.Spec["serviceSelection"].(map[string]any)
+	invocation, _ := object.Spec["invocation"].(map[string]any)
+	backend, _ := object.Spec["backendRef"].(map[string]any)
+
+	issues = append(issues, validateRouteBindingService(service, invocation)...)
+	issues = append(issues, validateRouteBindingBackend(backend, invocation)...)
+	if params, ok := invocation["parameters"].([]any); ok {
+		issues = append(issues, validateRouteBindingParameters(params, routePathParameters(path))...)
+	}
+	return issues
+}
+
+func validateRouteBindingService(service, invocation map[string]any) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
 	for _, field := range []string{"application", "interface"} {
 		value, _ := service[field].(string)
 		if strings.TrimSpace(value) == "" {
 			issues = append(issues, issue("spec.serviceSelection."+field, "required", "must not be empty"))
 		}
 	}
-	invocation, _ := object.Spec["invocation"].(map[string]any)
 	method, _ := invocation["method"].(string)
 	if strings.TrimSpace(method) == "" {
 		issues = append(issues, issue("spec.invocation.method", "required", "must not be empty"))
@@ -240,30 +256,52 @@ func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
 	if err != nil || duration <= 0 {
 		issues = append(issues, issue("spec.invocation.timeout", "duration", "must be a positive duration such as 500ms or 2s"))
 	}
+	return issues
+}
 
-	backend, _ := object.Spec["backendRef"].(map[string]any)
+func validateRouteBindingBackend(backend, invocation map[string]any) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
 	backendType, _ := backend["type"].(string)
 	cluster, _ := backend["cluster"].(string)
 	directURL, _ := backend["url"].(string)
-	if backendType == "registry" && strings.TrimSpace(cluster) == "" {
-		issues = append(issues, issue("spec.backendRef.cluster", "required", "cluster is required for registry-backed Dubbo services"))
+	if backendType == "registry" {
+		issues = append(issues, validateRegistryBackend(cluster, directURL)...)
 	}
 	if backendType == "direct" {
-		parsed, parseErr := url.ParseRequestURI(strings.TrimSpace(directURL))
-		if parseErr != nil || parsed.Scheme != "dubbo" || parsed.Host == "" {
-			issues = append(issues, issue("spec.backendRef.url", "url", "must be an absolute dubbo:// URL when backendRef.type is direct"))
-		}
-		serialization, _ := invocation["serialization"].(string)
-		if strings.TrimSpace(serialization) == "" {
-			issues = append(issues, issue("spec.invocation.serialization", "required", "serialization is required for direct generic invocation"))
-		}
+		issues = append(issues, validateDirectBackend(cluster, directURL, invocation)...)
 	}
+	return issues
+}
 
-	params, ok := invocation["parameters"].([]any)
-	if !ok {
-		return issues
+func validateRegistryBackend(cluster, directURL string) []ValidationIssue {
+	issues := make([]ValidationIssue, 0, 2)
+	if strings.TrimSpace(cluster) == "" {
+		issues = append(issues, issue("spec.backendRef.cluster", "required", "registry ID is required for registry-backed Dubbo services"))
 	}
+	if strings.TrimSpace(directURL) != "" {
+		issues = append(issues, issue("spec.backendRef.url", "unsupported", "direct URL is only valid when backendRef.type is direct"))
+	}
+	return issues
+}
 
+func validateDirectBackend(cluster, directURL string, invocation map[string]any) []ValidationIssue {
+	issues := make([]ValidationIssue, 0, 3)
+	if strings.TrimSpace(cluster) != "" {
+		issues = append(issues, issue("spec.backendRef.cluster", "unsupported", "registry ID is only valid when backendRef.type is registry"))
+	}
+	parsed, parseErr := url.ParseRequestURI(strings.TrimSpace(directURL))
+	if parseErr != nil || parsed.Scheme != "dubbo" || parsed.Host == "" {
+		issues = append(issues, issue("spec.backendRef.url", "url", "must be an absolute dubbo:// URL when backendRef.type is direct"))
+	}
+	serialization, _ := invocation["serialization"].(string)
+	if strings.TrimSpace(serialization) == "" {
+		issues = append(issues, issue("spec.invocation.serialization", "required", "serialization is required for direct generic invocation"))
+	}
+	return issues
+}
+
+func validateRouteBindingParameters(params []any, pathParams map[string]struct{}) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
 	seenIndexes := make(map[int]int, len(params))
 	usedPathParams := make(map[string]int)
 	for index, rawParam := range params {
@@ -271,45 +309,67 @@ func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
 		if !ok {
 			continue
 		}
-		toNumber, ok := numericValue(param["to"])
-		if !ok {
-			continue
-		}
-		to := int(toNumber)
-		if previous, exists := seenIndexes[to]; exists {
-			issues = append(issues, issue(
-				fmt.Sprintf("spec.invocation.parameters[%d].to", index),
-				"duplicate",
-				fmt.Sprintf("duplicates params[%d] argument index %d", previous, to),
-			))
-		} else {
-			seenIndexes[to] = index
-		}
-
-		if paramType, ok := param["type"].(string); ok && !isSupportedParamType(paramType) {
-			issues = append(issues, issue(
-				fmt.Sprintf("spec.invocation.parameters[%d].type", index),
-				"unsupported",
-				fmt.Sprintf("unsupported scalar Dubbo map type %q", paramType),
-			))
-		}
-		if source, ok := param["from"].(string); ok && strings.HasPrefix(source, "uri.") {
-			name := strings.TrimPrefix(source, "uri.")
-			if _, exists := pathParams[name]; !exists {
-				issues = append(issues, issue(fmt.Sprintf("spec.invocation.parameters[%d].from", index), "path_mismatch", fmt.Sprintf("URI parameter %q does not appear in spec.entry.path", name)))
-			} else if previous, exists := usedPathParams[name]; exists {
-				issues = append(issues, issue(fmt.Sprintf("spec.invocation.parameters[%d].from", index), "duplicate_uri", fmt.Sprintf("URI parameter %q is already mapped by parameters[%d]", name, previous)))
-			} else {
-				usedPathParams[name] = index
-			}
-		}
+		issues = append(issues, validateRouteBindingParameter(index, param, pathParams, seenIndexes, usedPathParams)...)
 	}
+	issues = append(issues, validatePathParameterMappings(pathParams, usedPathParams)...)
+	issues = append(issues, validateContiguousParameterIndexes(params, seenIndexes)...)
+	return issues
+}
+
+func validateRouteBindingParameter(index int, param map[string]any, pathParams map[string]struct{}, seenIndexes map[int]int, usedPathParams map[string]int) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
+	toNumber, ok := numericValue(param["to"])
+	if !ok {
+		return issues
+	}
+	to := int(toNumber)
+	if previous, exists := seenIndexes[to]; exists {
+		issues = append(issues, issue(
+			fmt.Sprintf("spec.invocation.parameters[%d].to", index),
+			"duplicate",
+			fmt.Sprintf("duplicates params[%d] argument index %d", previous, to),
+		))
+	} else {
+		seenIndexes[to] = index
+	}
+
+	if paramType, ok := param["type"].(string); ok && !isSupportedParamType(paramType) {
+		issues = append(issues, issue(
+			fmt.Sprintf("spec.invocation.parameters[%d].type", index),
+			"unsupported",
+			fmt.Sprintf("unsupported scalar Dubbo map type %q", paramType),
+		))
+	}
+	if source, ok := param["from"].(string); ok && strings.HasPrefix(source, "uri.") {
+		issues = append(issues, validatePathParameterSource(index, source, pathParams, usedPathParams)...)
+	}
+	return issues
+}
+
+func validatePathParameterSource(index int, source string, pathParams map[string]struct{}, usedPathParams map[string]int) []ValidationIssue {
+	name := strings.TrimPrefix(source, "uri.")
+	if _, exists := pathParams[name]; !exists {
+		return []ValidationIssue{issue(fmt.Sprintf("spec.invocation.parameters[%d].from", index), "path_mismatch", fmt.Sprintf("URI parameter %q does not appear in spec.entry.path", name))}
+	}
+	if previous, exists := usedPathParams[name]; exists {
+		return []ValidationIssue{issue(fmt.Sprintf("spec.invocation.parameters[%d].from", index), "duplicate_uri", fmt.Sprintf("URI parameter %q is already mapped by parameters[%d]", name, previous))}
+	}
+	usedPathParams[name] = index
+	return nil
+}
+
+func validatePathParameterMappings(pathParams map[string]struct{}, usedPathParams map[string]int) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
 	for name := range pathParams {
 		if _, exists := usedPathParams[name]; !exists {
 			issues = append(issues, issue("spec.invocation.parameters", "unmapped_uri", fmt.Sprintf("path parameter %q must have a uri.%s mapping", name, name)))
 		}
 	}
+	return issues
+}
 
+func validateContiguousParameterIndexes(params []any, seenIndexes map[int]int) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
 	for expected := 0; expected < len(params); expected++ {
 		if _, exists := seenIndexes[expected]; !exists {
 			issues = append(issues, issue(

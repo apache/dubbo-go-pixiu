@@ -134,7 +134,7 @@ method
 
 clusterName
 :
-> The clusterName defines which dubbo cluster to call(Will release later)
+> Legacy field retained for compatibility; it does not select the HTTP-to-Dubbo client's registry. AdminRouteBinding selects one configured registry with `backendRef.cluster`, compiled as `integrationRequest.registryId`.
 
 ### Migration from `dubboProxyConfig.auto_resolve`
 

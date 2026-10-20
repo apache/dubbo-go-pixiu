@@ -559,8 +559,8 @@ function RouteTargetCard({
   }> = [
     {
       key: 'cluster',
-      label: 'Cluster',
-      placeholder: 'user-service',
+      label: isEnglish ? 'Registry ID' : '注册中心 ID',
+      placeholder: 'zookeeper',
       issuePath: 'spec.backendRef.cluster',
     },
     {
@@ -608,7 +608,10 @@ function RouteTargetCard({
             {isEnglish ? 'Choose service discovery or a direct Dubbo URL.' : '选择注册中心发现或直连 Dubbo URL。'}
           </small>
         </label>
-        {fields.map((field) => (
+        {fields
+          .filter((field) => field.key !== 'cluster' || target.protocol === 'registry')
+          .filter((field) => field.key !== 'url' || target.protocol === 'direct')
+          .map((field) => (
           <TargetField
             key={field.key}
             label={field.label}
@@ -617,7 +620,7 @@ function RouteTargetCard({
             issue={field.issuePath ? issueMessage(field.issuePath) : ''}
             onChange={(value) => onChange(field.key, value)}
           />
-        ))}
+          ))}
       </div>
     </section>
   )
@@ -937,6 +940,47 @@ function RouteHistoryView({
   canRollback,
   onRollback,
 }: HistoryViewProps) {
+  const deletedLabel = isEnglish ? 'Deleted' : '已删除'
+  const historyContent = (() => {
+    if (loading) {
+      return <div className="route-diff-empty"><div className="loading-skeleton" /></div>
+    }
+    if (entries.length === 0) {
+      return (
+      <div className="route-diff-empty">
+        <b>{isEnglish ? 'No published revisions yet' : '暂无已发布版本'}</b>
+      </div>
+      )
+    }
+    return (
+      <div className="route-diff-list">
+        {[...entries].reverse().map((entry) => {
+          const method = entry.object?.spec.invocation?.method
+          const revisionLabel = entry.object ? String(method || '—') : deletedLabel
+          return (
+            <div className="route-diff-row" key={entry.revision}>
+              <code>rev {entry.revision}</code>
+              <div className="route-diff-value before">
+                <small>{new Date(entry.publishedAt).toLocaleString()}</small>
+                <pre>{revisionLabel}</pre>
+              </div>
+              <div className="route-diff-value after">
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={!canRollback}
+                  onClick={() => onRollback(entry.revision)}
+                >
+                  {isEnglish ? 'Roll back to this revision' : '回滚到此版本'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  })()
+
   return (
     <section className="panel route-diff-panel">
       <div className="panel-head">
@@ -949,38 +993,7 @@ function RouteHistoryView({
           </span>
         </div>
       </div>
-      {loading ? (
-        <div className="route-diff-empty"><div className="loading-skeleton" /></div>
-      ) : entries.length === 0 ? (
-        <div className="route-diff-empty">
-          <b>{isEnglish ? 'No published revisions yet' : '暂无已发布版本'}</b>
-        </div>
-      ) : (
-        <div className="route-diff-list">
-          {[...entries].reverse().map((entry) => {
-            const method = entry.object?.spec.invocation?.method
-            return (
-              <div className="route-diff-row" key={entry.revision}>
-                <code>rev {entry.revision}</code>
-                <div className="route-diff-value before">
-                  <small>{new Date(entry.publishedAt).toLocaleString()}</small>
-                  <pre>{entry.object ? String(method || '—') : isEnglish ? 'Deleted' : '已删除'}</pre>
-                </div>
-                <div className="route-diff-value after">
-                  <button
-                    className="secondary"
-                    type="button"
-                    disabled={!canRollback}
-                    onClick={() => onRollback(entry.revision)}
-                  >
-                    {isEnglish ? 'Roll back to this revision' : '回滚到此版本'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {historyContent}
       {!canRollback && (
         <small>{isEnglish ? 'Save or discard current edits before rollback.' : '请先保存或放弃当前编辑，再执行回滚。'}</small>
       )}

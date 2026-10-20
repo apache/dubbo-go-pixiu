@@ -102,6 +102,7 @@ func Routers() *gin.Engine {
 		taR.GET("/config/api/route/status", configInfo.GetRouteBindingStatus)
 		taR.GET("/config/api/route/diff", configInfo.GetRouteBindingDiff)
 		taR.GET("/config/api/route/history", configInfo.GetRouteBindingHistory)
+		taR.GET("/config/api/route/history/list", configInfo.GetRouteBindingHistoryList)
 		taR.PUT("/config/api/route/rollback", configInfo.RollbackRouteBinding)
 
 		// PluginGroup publication is independent of API route publication.

@@ -137,9 +137,20 @@ func ModifyResourceInfo(c *gin.Context) {
 
 func DeleteResourceInfo(c *gin.Context) {
 	id := c.Query(logic.ResourceID)
+	resourceID, err := strconv.Atoi(strings.TrimSpace(id))
+	if err != nil || resourceID <= 0 {
+		legacyError(c, errors.New("resourceId must be a positive integer"))
+		return
+	}
+	id = strconv.Itoa(resourceID)
 	unpublished := legacyUnpublished(c)
 	if unpublished {
-		if _, err := logic.BizGetResourceDetail(id, false); err == nil {
+		published, err := logic.BizResourceExists(id, false)
+		if err != nil {
+			legacyError(c, err)
+			return
+		}
+		if published {
 			legacyError(c, errors.New("The configuration has been published and cannot be deleted"))
 			return
 		}
@@ -211,9 +222,21 @@ func saveLegacyMethod(c *gin.Context, create bool) {
 
 func DeleteMethodInfo(c *gin.Context) {
 	resourceID, methodID := c.Query(logic.ResourceID), c.Query(logic.MethodID)
+	resourceNumber, resourceErr := strconv.Atoi(strings.TrimSpace(resourceID))
+	methodNumber, methodErr := strconv.Atoi(strings.TrimSpace(methodID))
+	if resourceErr != nil || resourceNumber <= 0 || methodErr != nil || methodNumber <= 0 {
+		legacyError(c, errors.New("resourceId and methodId must be positive integers"))
+		return
+	}
+	resourceID, methodID = strconv.Itoa(resourceNumber), strconv.Itoa(methodNumber)
 	unpublished := legacyUnpublished(c)
 	if unpublished {
-		if _, err := logic.BizGetMethodDetail(resourceID, methodID, false); err == nil {
+		published, err := logic.BizMethodExists(resourceID, methodID, false)
+		if err != nil {
+			legacyError(c, err)
+			return
+		}
+		if published {
 			legacyError(c, errors.New("The configuration has been published and cannot be deleted"))
 			return
 		}

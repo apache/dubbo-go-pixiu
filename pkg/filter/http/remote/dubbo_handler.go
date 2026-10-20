@@ -85,6 +85,7 @@ func (h *DubboHandler) BuildOutbound(req *http.Request, api router.API) (*client
 		Group:         state.group,
 		Version:       state.version,
 		Address:       state.address,
+		RegistryID:    strings.TrimSpace(api.IntegrationRequest.RegistryID),
 		Protocol:      state.protocol,
 		Serialization: state.serialization,
 		Arguments:     append([]any(nil), state.arguments...),

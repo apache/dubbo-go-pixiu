@@ -41,7 +41,12 @@ import { Locale, translateText } from '../../i18n'
 import { RouteBindingEditor } from './RouteBindingEditor'
 import { routeBindingApi } from '../../services/route-binding-api'
 import { asJsonObject, JsonObject } from '../../types/api'
-import type { RouteBinding, RouteBindingPublishStatus } from '../../types/api'
+import type {
+  RouteBinding,
+  RouteBindingHistoryEntry,
+  RouteBindingHistorySummary,
+  RouteBindingPublishStatus,
+} from '../../types/api'
 
 type Kind = 'cluster' | 'listener' | 'plugin'
 const templates = {
@@ -532,11 +537,12 @@ function routeRow(
   const object = binding.object
   const spec = asJsonObject(object.spec)
   const entry = asJsonObject(spec.entry)
-  const target = asJsonObject(spec.target)
+  const backend = asJsonObject(spec.backendRef)
+  const service = asJsonObject(spec.serviceSelection)
   const name = String(object.metadata?.name || `route.${binding.resourceId}`)
   const publishedBinding = published.get(name)
   const publishedSpec = publishedBinding ? asJsonObject(publishedBinding.object.spec) : null
-  const targetLabel = [target.application, target.interface]
+  const targetLabel = [service.application, service.interface]
     .filter((value) => typeof value === 'string' && value.trim())
     .join(' / ')
 
@@ -548,9 +554,10 @@ function routeRow(
     verb: routeDisplayString(entry.method, 'GET').toUpperCase(),
     target:
       targetLabel ||
-      (typeof target.cluster === 'string' && target.cluster.trim()
-        ? target.cluster
-        : translateText(locale, '未配置后端目标')),
+      routeDisplayString(
+        backend.type === 'direct' ? backend.url : backend.cluster,
+        translateText(locale, '未配置后端目标'),
+      ),
     status: publishStatus.publishedExists && !publishStatus.dirty ? 'Published' : 'Draft',
     publishedEnabled: publishedBinding ? publishedSpec?.enabled !== false : null,
     publishedRevision: publishStatus.publishedRevision,
@@ -573,6 +580,13 @@ export function ResourcePage({
   const [loading, setLoading] = useState(true)
   const [deletingRoute, setDeletingRoute] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [historyOnly, setHistoryOnly] = useState<RouteBindingHistorySummary[]>([])
+  const [historyDialog, setHistoryDialog] = useState<{
+    name: string
+    entries: RouteBindingHistoryEntry[]
+    loading: boolean
+    rollingBack: number | null
+  } | null>(null)
   const [editor, setEditor] = useState<{
     mode: 'create' | 'edit'
     name: string
@@ -585,9 +599,10 @@ export function ResourcePage({
     setLoading(true)
     setError('')
     try {
-      const [draftBindings, publishedBindings] = await Promise.all([
+      const [draftBindings, publishedBindings, historySummaries] = await Promise.all([
         routeBindingApi.list('draft'),
         routeBindingApi.list('published'),
+        routeBindingApi.historyList(),
       ])
       const published = new Map(
         publishedBindings.map((binding) => [binding.object.metadata.name, binding]),
@@ -606,6 +621,11 @@ export function ResourcePage({
           routeRow(binding, published, statuses.get(binding.object.metadata.name)!, locale),
         ),
       )
+      const activeNames = new Set([
+        ...draftBindings.map((binding) => binding.object.metadata.name),
+        ...publishedBindings.map((binding) => binding.object.metadata.name),
+      ])
+      setHistoryOnly(historySummaries.filter((summary) => !activeNames.has(summary.name)))
       onCountChange?.(draftBindings.length)
     } catch (e) {
       setError(e instanceof Error ? e.message : tx('加载路由失败'))
@@ -690,6 +710,32 @@ export function ResourcePage({
       setError(e instanceof Error ? e.message : tx('删除路由失败'))
     } finally {
       setDeletingRoute(null)
+    }
+  }
+  const openHistory = async (summary: RouteBindingHistorySummary) => {
+    setHistoryDialog({ name: summary.name, entries: [], loading: true, rollingBack: null })
+    try {
+      const entries = await routeBindingApi.history(summary.name)
+      setHistoryDialog({ name: summary.name, entries, loading: false, rollingBack: null })
+    } catch (e) {
+      setHistoryDialog(null)
+      setError(e instanceof Error ? e.message : tx('加载路由历史失败'))
+    }
+  }
+  const rollbackHistory = async (name: string, revision: number) => {
+    if (historyDialog?.rollingBack != null) return
+    setHistoryDialog((current) =>
+      current ? { ...current, rollingBack: revision } : current,
+    )
+    try {
+      await routeBindingApi.rollback(name, revision)
+      setHistoryDialog(null)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tx('回滚路由失败'))
+      setHistoryDialog((current) =>
+        current ? { ...current, rollingBack: null } : current,
+      )
     }
   }
   const statusLabel = (value: RouteStatus) => (value === 'Published' ? tx('已发布') : tx('草稿'))
@@ -861,6 +907,108 @@ export function ResourcePage({
           </div>
         )}
       </div>
+      {!loading && historyOnly.length > 0 && (
+        <section className="panel route-diff-panel route-history-recovery-panel">
+          <div className="panel-head">
+            <div>
+              <h2>{locale === 'en-US' ? 'Deleted route history' : '已删除路由历史'}</h2>
+              <span>
+                {locale === 'en-US'
+                  ? 'Open a route history to restore one of its published revisions.'
+                  : '打开路由历史，可恢复此前发布过的版本。'}
+              </span>
+            </div>
+          </div>
+          <div className="route-diff-list">
+            {historyOnly.map((summary) => (
+              <div className="route-diff-row route-history-recovery-row" key={summary.name}>
+                <code>{summary.name}</code>
+                <div className="route-diff-value before">
+                  <small>
+                    {locale === 'en-US' ? 'Latest revision' : '最近版本'} {summary.latestRevision}
+                  </small>
+                  <pre>
+                    {summary.deleted
+                      ? locale === 'en-US'
+                        ? 'Deleted'
+                        : '已删除'
+                      : locale === 'en-US'
+                        ? 'Not active'
+                        : '未启用'}
+                  </pre>
+                </div>
+                <div className="route-diff-value after">
+                  <button className="secondary" type="button" onClick={() => void openHistory(summary)}>
+                    {locale === 'en-US' ? 'View history' : '查看历史'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      {historyDialog && (
+        <div className="drawer-backdrop" onClick={() => setHistoryDialog(null)}>
+          <aside className="drawer" onClick={(event) => event.stopPropagation()}>
+            <div className="drawer-head">
+              <div>
+                <span className="eyebrow">{locale === 'en-US' ? 'ROUTE HISTORY' : '路由历史'}</span>
+                <h2>{historyDialog.name}</h2>
+              </div>
+              <button className="icon-btn" onClick={() => setHistoryDialog(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            {historyDialog.loading ? (
+              <div className="route-editor-loading"><div className="loading-skeleton" /></div>
+            ) : historyDialog.entries.length === 0 ? (
+              <div className="route-diff-empty">
+                <b>{locale === 'en-US' ? 'No history entries' : '没有历史版本'}</b>
+              </div>
+            ) : (
+              <div className="route-diff-list route-history-recovery-list">
+                {[...historyDialog.entries].reverse().map((entry) => {
+                  const invocation = asJsonObject(entry.object?.spec.invocation)
+                  const canRestore = Boolean(entry.object)
+                  return (
+                    <div className="route-diff-row route-history-revision-row" key={entry.revision}>
+                      <code>rev {entry.revision}</code>
+                      <div className="route-diff-value before">
+                        <small>{new Date(entry.publishedAt).toLocaleString()}</small>
+                        <pre>
+                          {canRestore
+                            ? String(invocation.method || '—')
+                            : locale === 'en-US'
+                              ? 'Deleted'
+                              : '已删除'}
+                        </pre>
+                      </div>
+                      <div className="route-diff-value after">
+                        {canRestore && (
+                          <button
+                            className="secondary"
+                            type="button"
+                            disabled={historyDialog.rollingBack !== null}
+                            onClick={() => void rollbackHistory(historyDialog.name, entry.revision)}
+                          >
+                            {historyDialog.rollingBack === entry.revision
+                              ? locale === 'en-US'
+                                ? 'Restoring…'
+                                : '恢复中…'
+                              : locale === 'en-US'
+                                ? 'Restore this revision'
+                                : '恢复此版本'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
   )
 }

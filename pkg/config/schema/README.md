@@ -32,7 +32,9 @@ defaults, and validation rules for the dynamic values.
 The built-in `AdminRouteBinding` schema has these separate concerns:
 
 - `entry`: HTTP protocol, path, and method.
-- `backendRef`: registry-backed cluster reference or direct URL.
+- `backendRef`: one configured Dubbo registry ID or a direct provider URL. In
+  registry mode the `cluster` value selects the key under
+  `dubboProxyConfig.registries` and compiles to `integrationRequest.registryId`.
 - `serviceSelection`: Dubbo application, interface, group, and version.
 - `invocation`: Dubbo method, positive timeout, serialization, and ordered
   HTTP-source to Dubbo-argument mappings.

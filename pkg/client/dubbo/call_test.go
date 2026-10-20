@@ -143,6 +143,28 @@ func TestResolveFromOutboundRegistryMode(t *testing.T) {
 	assert.Equal(t, cst.DefaultReqTimeout, spec.ConsumerDefaults.RequestTimeout)
 }
 
+func TestResolveFromOutboundRegistryModeSelectsConfiguredRegistry(t *testing.T) {
+	dc := NewDubboClient()
+	dc.SetConfig(&DubboProxyConfig{
+		Registries: map[string]model.Registry{
+			"zk":         {Protocol: "zookeeper", Address: "127.0.0.1:2181"},
+			"nacos-main": {Protocol: "nacos", Address: "127.0.0.1:8848"},
+		},
+	})
+	require.NoError(t, dc.Apply())
+
+	spec := dc.resolveFromOutbound(&DubboOutboundRequest{
+		Service:    "com.example.UserService",
+		RegistryID: "nacos-main",
+	})
+	assert.Equal(t, "registry", spec.Mode)
+	assert.Equal(t, []string{"nacos-main"}, spec.RegistryIDs)
+	assert.True(t, spec.UseNacosWarmup)
+
+	_, err := dc.Call(context.Background(), &DubboOutboundRequest{RegistryID: "missing"})
+	require.ErrorContains(t, err, `dubbo registry id "missing" is not configured`)
+}
+
 func TestPreparePayloadRejectsLengthMismatch(t *testing.T) {
 	dc := NewDubboClient()
 

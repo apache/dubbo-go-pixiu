@@ -33,6 +33,7 @@ export const pixiuAdminApi = {
     status: '/config/api/route/status',
     diff: '/config/api/route/diff',
     history: '/config/api/route/history',
+    historyList: '/config/api/route/history/list',
     rollback: '/config/api/route/rollback',
   },
   clusters: {

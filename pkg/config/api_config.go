@@ -147,6 +147,7 @@ type MappingParam struct {
 // DubboBackendConfig defines the basic dubbo backend config
 type DubboBackendConfig struct {
 	ClusterName     string   `yaml:"clusterName" json:"clusterName"`
+	RegistryID      string   `yaml:"registryId,omitempty" json:"registryId,omitempty"`
 	ApplicationName string   `yaml:"applicationName" json:"applicationName"`
 	Protocol        string   `yaml:"protocol" json:"protocol,omitempty" default:"dubbo"`
 	Group           string   `yaml:"group" json:"group"`

@@ -229,6 +229,11 @@ func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, err
 	if req == nil {
 		return nil, errors.New("dubbo outbound request is nil")
 	}
+	if registryID := strings.TrimSpace(req.RegistryID); registryID != "" {
+		if _, exists := dc.registries[registryID]; !exists {
+			return nil, errors.Errorf("dubbo registry id %q is not configured", registryID)
+		}
+	}
 
 	spec := dc.resolveFromOutbound(req)
 	types, vals, err := dc.preparePayload(req)
@@ -305,6 +310,12 @@ func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest) resolvedReferSp
 	}
 
 	spec.Mode = "registry"
+	if registryID := strings.TrimSpace(req.RegistryID); registryID != "" {
+		registry := dc.registries[registryID]
+		spec.RegistryIDs = []string{registryID}
+		spec.UseNacosWarmup = registry != nil && registry.Protocol == "nacos"
+		return spec
+	}
 	if dc.registryIDs == nil && len(dc.registries) > 0 {
 		// fallback for clients used before Apply()
 		registryIDs := make([]string, 0, len(dc.registries))

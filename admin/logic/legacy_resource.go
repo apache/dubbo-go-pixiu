@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -95,6 +96,27 @@ func BizGetResourceDetail(id string, unpublished bool) (string, error) {
 	return adminconfig.Client.Get(legacyResourceKey(id, unpublished))
 }
 
+// BizResourceExists checks an exact legacy Resource key without conflating a
+// missing record with an etcd read failure.
+func BizResourceExists(id string, unpublished bool) (bool, error) {
+	id, err := normalizePositiveLegacyID(id, ResourceID)
+	if err != nil {
+		return false, err
+	}
+	if adminconfig.Client == nil {
+		return false, errors.New("admin etcd client is unavailable")
+	}
+	client := adminconfig.Client.GetRawClient()
+	if client == nil {
+		return false, errors.New("admin etcd client is unavailable")
+	}
+	response, err := client.Get(adminconfig.Client.GetCtx(), legacyResourceKey(id, unpublished))
+	if err != nil {
+		return false, fmt.Errorf("read legacy resource %q: %w", id, err)
+	}
+	return len(response.Kvs) > 0, nil
+}
+
 func BizSetResourceInfo(resource *config.Resource, created, unpublished bool) error {
 	if resource == nil {
 		return errors.New("legacy resource is nil")
@@ -137,7 +159,18 @@ func BizSetResourceInfo(resource *config.Resource, created, unpublished bool) er
 }
 
 func BizDeleteResourceInfo(id string, unpublished bool) error {
-	_, err := adminconfig.Client.GetRawClient().Delete(adminconfig.Client.GetCtx(), legacyResourceKey(id, unpublished), clientv3.WithPrefix())
+	id, err := normalizePositiveLegacyID(id, ResourceID)
+	if err != nil {
+		return err
+	}
+	if adminconfig.Client == nil {
+		return errors.New("admin etcd client is unavailable")
+	}
+	client := adminconfig.Client.GetRawClient()
+	if client == nil {
+		return errors.New("admin etcd client is unavailable")
+	}
+	_, err = client.Delete(adminconfig.Client.GetCtx(), legacyResourceKey(id, unpublished), clientv3.WithPrefix())
 	return err
 }
 
@@ -190,33 +223,112 @@ func BizSetResourceMethod(resourceID string, method *config.Method, created, unp
 }
 
 func BizDeleteMethodInfo(resourceID, methodID string, unpublished bool) error {
+	var err error
+	resourceID, err = normalizePositiveLegacyID(resourceID, ResourceID)
+	if err != nil {
+		return err
+	}
+	methodID, err = normalizePositiveLegacyID(methodID, MethodID)
+	if err != nil {
+		return err
+	}
+	if adminconfig.Client == nil {
+		return errors.New("admin etcd client is unavailable")
+	}
 	return adminconfig.Client.Delete(legacyMethodKey(resourceID, methodID, unpublished))
 }
 
-// BizBatchReleaseResources copies the legacy staged runtime tree to the
-// published tree. The old endpoints historically used a snapshot copy rather
-// than route bindings; keep this compatibility path isolated from the new
-// per-route atomic publisher.
+// BizMethodExists checks an exact legacy Method key without conflating a
+// missing record with an etcd read failure.
+func BizMethodExists(resourceID, methodID string, unpublished bool) (bool, error) {
+	var err error
+	resourceID, err = normalizePositiveLegacyID(resourceID, ResourceID)
+	if err != nil {
+		return false, err
+	}
+	methodID, err = normalizePositiveLegacyID(methodID, MethodID)
+	if err != nil {
+		return false, err
+	}
+	if adminconfig.Client == nil {
+		return false, errors.New("admin etcd client is unavailable")
+	}
+	client := adminconfig.Client.GetRawClient()
+	if client == nil {
+		return false, errors.New("admin raw etcd client is unavailable")
+	}
+	response, err := client.Get(adminconfig.Client.GetCtx(), legacyMethodKey(resourceID, methodID, unpublished))
+	if err != nil {
+		return false, fmt.Errorf("read legacy method %q/%q: %w", resourceID, methodID, err)
+	}
+	return len(response.Kvs) > 0, nil
+}
+
+// BizBatchReleaseResources publishes each staged legacy Resource and its
+// Method records in one etcd transaction. The legacy API can address either
+// Resource or Method publication, so both endpoints share this transaction
+// boundary while remaining independent of AdminRouteBinding publishing.
 func BizBatchReleaseResources() error {
+	if adminconfig.Client == nil {
+		return errors.New("admin etcd client is unavailable")
+	}
 	client := adminconfig.Client.GetRawClient()
 	if client == nil {
 		return errors.New("admin etcd client is unavailable")
 	}
-	fromPrefix := getUnpublishedRootPath(legacyResources)
+	fromPrefix := getUnpublishedRootPath(legacyResources) + "/"
 	response, err := client.Get(adminconfig.Client.GetCtx(), fromPrefix, clientv3.WithPrefix())
 	if err != nil {
 		return fmt.Errorf("read staged legacy resources: %w", err)
 	}
+	grouped := make(map[string][]clientv3.Op)
 	for _, item := range response.Kvs {
 		relative := strings.TrimPrefix(string(item.Key), fromPrefix)
+		parts := strings.SplitN(relative, "/", 2)
 		if relative == "" || strings.HasPrefix(relative, "/") {
-			continue
+			return fmt.Errorf("invalid staged legacy resource key %q", string(item.Key))
 		}
-		if err := adminconfig.Client.Put(getRootPath(legacyResources)+"/"+relative, string(item.Value)); err != nil {
-			return fmt.Errorf("publish legacy resource %q: %w", relative, err)
+		resourceID, err := normalizePositiveLegacyID(parts[0], ResourceID)
+		if err != nil {
+			return fmt.Errorf("invalid staged legacy resource key %q: %w", string(item.Key), err)
+		}
+		if len(parts) == 2 {
+			methodParts := strings.Split(parts[1], "/")
+			if len(methodParts) != 2 || methodParts[0] != Method {
+				return fmt.Errorf("invalid staged legacy resource key %q", string(item.Key))
+			}
+			if _, err := normalizePositiveLegacyID(methodParts[1], MethodID); err != nil {
+				return fmt.Errorf("invalid staged legacy resource key %q: %w", string(item.Key), err)
+			}
+		}
+		grouped[resourceID] = append(grouped[resourceID], clientv3.OpPut(
+			getRootPath(legacyResources)+"/"+relative,
+			string(item.Value),
+		))
+	}
+
+	resourceIDs := make([]string, 0, len(grouped))
+	for resourceID := range grouped {
+		resourceIDs = append(resourceIDs, resourceID)
+	}
+	sort.Strings(resourceIDs)
+	for _, resourceID := range resourceIDs {
+		ops := grouped[resourceID]
+		sort.Slice(ops, func(i, j int) bool { return string(ops[i].KeyBytes()) < string(ops[j].KeyBytes()) })
+		_, err := client.Txn(adminconfig.Client.GetCtx()).Then(ops...).Commit()
+		if err != nil {
+			return fmt.Errorf("publish legacy resource %q atomically: %w", resourceID, err)
 		}
 	}
 	return nil
+}
+
+func normalizePositiveLegacyID(value, field string) (string, error) {
+	id, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || id <= 0 {
+		return "", fmt.Errorf("%s must be a positive integer", field)
+	}
+	return strconv.Itoa(id), nil
 }
 
 func nextLegacyResourceID() int {
