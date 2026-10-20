@@ -36,10 +36,10 @@ import {
 } from 'lucide-react'
 import '../styles.css'
 import { Providers } from './providers'
-import { resourceApi } from '../services/resource-api'
 import { clusterApi } from '../services/cluster-api'
 import { listenerApi } from '../services/listener-api'
 import { profileApi } from '../services/profile-api'
+import { routeBindingApi } from '../services/route-binding-api'
 import {
   BaseInfoPage,
   ClusterConfigPage,
@@ -99,7 +99,7 @@ function AppContent() {
   const locale = language === 'zh' ? 'zh-CN' : 'en-US'
   const tx = (value: string) => (language === 'zh' ? zhMap[value] || value : value)
   useEffect(() => {
-    Promise.allSettled([resourceApi.list(), clusterApi.list(), listenerApi.list()]).then(
+    Promise.allSettled([routeBindingApi.list('draft'), clusterApi.list(), listenerApi.list()]).then(
       ([resources, clusters, listeners]) =>
         setCounts({
           resources:

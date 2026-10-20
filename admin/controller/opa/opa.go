@@ -35,6 +35,13 @@ import (
 
 // @Tags Config
 // @Summary upload OPA policy (server mode)
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param server_url formData string false "OPA server url"
+// @Param policy_id formData string false "Policy ID"
+// @Param bearer_token formData string false "Bearer token"
+// @Param content formData string true "Rego content"
+// @Success 200 {object} string
 // @Router /config/api/opa/policy [put]
 func PutOPAPolicy(c *gin.Context) {
 	// For PUT, we typically expect Form Data
@@ -57,6 +64,11 @@ func PutOPAPolicy(c *gin.Context) {
 
 // @Tags Config
 // @Summary get OPA policy (server mode)
+// @Produce application/json
+// @Param server_url query string false "OPA server url"
+// @Param policy_id query string false "Policy ID"
+// @Param bearer_token query string false "Bearer token"
+// @Success 200 {object} string
 // @Router /config/api/opa/policy [get]
 func GetOPAPolicy(c *gin.Context) {
 	var query adminconfig.OPAQuery
@@ -78,6 +90,11 @@ func GetOPAPolicy(c *gin.Context) {
 
 // @Tags Config
 // @Summary delete OPA policy (server mode)
+// @Produce application/json
+// @Param server_url query string false "OPA server url"
+// @Param policy_id query string false "Policy ID"
+// @Param bearer_token query string false "Bearer token"
+// @Success 200 {object} string
 // @Router /config/api/opa/policy [delete]
 func DeleteOPAPolicy(c *gin.Context) {
 	var query adminconfig.OPAQuery

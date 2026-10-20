@@ -86,26 +86,6 @@
                 }
             }
         },
-        "/config/api/xds/status": {
-            "get": {
-                "description": "Returns xDS listener availability, last-good snapshot metadata, latest errors, readiness, and resource support matrix.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "XDS"
-                ],
-                "summary": "get Admin xDS publication status",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                }
-            }
-        },
         "/config/api/cluster": {
             "put": {
                 "description": "Create a cluster by passing the YAML/JSON configuration for the cluster through the form's content field.",
@@ -382,433 +362,6 @@
                 }
             }
         },
-        "/config/api/plugin_group/publish": {
-            "put": {
-                "description": "publish the PluginGroup from the unpublished space to the published space.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "batch Release PluginGroup Config",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource": {
-            "put": {
-                "description": "modify resource content, where content is the YAML of the Resource. Use resourceId to specify the resource to be modified.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "modify resource",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Resource YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "create a resource by passing the Resource's YAML via the form's content field (simultaneously writing to the staging area and production area).",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "create resource",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Resource YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "delete resources by ID. When unpublished is 1, this indicates deleting configurations for unpublished spaces (requires checking published spaces).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "delete resource",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/detail": {
-            "get": {
-                "description": "get resource details according to resource ID and return the YAML",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get resource detail with yml",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "YAML content",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/list": {
-            "get": {
-                "description": "Retrieve the list of resources. Use the unpublished parameter to control whether to include unpublished or published resources.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get all resource list",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "JSON array",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method": {
-            "put": {
-                "description": "Modify the specified method, where content is the YAML for Method.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "modify method",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "MethodID",
-                        "name": "methodId",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Method YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "create a method under the specified resource, where content is the YAML for Method.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "create method",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Method YAML",
-                        "name": "content",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deleting a method under a resource, where `unpublished` equals 1 indicates removing the configuration for unpublished spaces (requires checking published spaces).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "delete method",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ResourceID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "MethodID",
-                        "name": "methodId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method/detail": {
-            "get": {
-                "description": "get method details based on resourceId and methodId, returning YAML.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get method detail with yml",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "method ID",
-                        "name": "methodId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "YAML content",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method/list": {
-            "get": {
-                "description": "get the list of methods under the specified resource",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "get all method list below one resource",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "resource ID",
-                        "name": "resourceId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "1: unpublished; 0 or empty: published",
-                        "name": "unpublished",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "JSON array",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/config/api/resource/method/publish": {
-            "put": {
-                "description": "TODO: unimplemented",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Config"
-                ],
-                "summary": "batch Release Method Config",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
         "/config/api/opa/policy": {
             "get": {
                 "produces": [
@@ -931,21 +484,351 @@
                     }
                 }
             }
-        },        "/config/api/resource/publish": {
+        },
+        "/config/api/plugin_group/publish": {
             "put": {
-                "description": "publish resources from unpublished spaces to published spaces",
+                "description": "publish the PluginGroup from the unpublished space to the published space.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Config"
                 ],
-                "summary": "publish all configuration information",
+                "summary": "batch Release PluginGroup Config",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "modify API route binding draft",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Original route binding name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "create API route binding draft",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "delete and publish one API route binding",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route binding name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Draft key mod revision",
+                        "name": "expectedRevision",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/detail": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "get API route binding detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route binding name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "draft or published",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "1 for draft, 0 for published",
+                        "name": "unpublished",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/diff": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "get API route binding diff",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route binding name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/list": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "get API route binding list",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "draft or published",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "1 for draft, 0 for published",
+                        "name": "unpublished",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/preview": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "preview API route binding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/publish": {
+            "put": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "atomically publish one API route binding",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route binding name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Draft route key mod revision",
+                        "name": "expectedRevision",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/schema": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "get API route binding schema",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/status": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "get API route binding status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route binding name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/route/validate": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "validate API route binding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/api/xds/status": {
+            "get": {
+                "description": "Returns xDS listener availability, last-good snapshot metadata, latest errors, readiness, and resource support matrix.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "XDS"
+                ],
+                "summary": "get Admin xDS publication status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_apache_dubbo-go-pixiu_admin_config.RetData"
                         }
                     }
                 }
@@ -1103,6 +986,17 @@
                         }
                     }
                 }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_apache_dubbo-go-pixiu_admin_config.RetData": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "data": {}
             }
         }
     }
