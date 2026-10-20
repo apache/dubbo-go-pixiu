@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
@@ -54,4 +55,20 @@ func TestCreateAPIConfigDefaultsGenericSerialization(t *testing.T) {
 	)
 
 	assert.Equal(t, "hessian2", api.Method.IntegrationRequest.Serialization)
+}
+
+func TestCreateAPIConfigDefaultsGenericMode(t *testing.T) {
+	api := CreateAPIConfig(
+		"/dubbo.io/org.apache.dubbo.sample.UserProvider",
+		"127.0.0.1:20000",
+		config.DubboBackendConfig{
+			ApplicationName: "dubbo.io",
+			Protocol:        "dubbo",
+			Interface:       "org.apache.dubbo.sample.UserProvider",
+		},
+		"GetUser",
+		nil,
+	)
+
+	assert.Equal(t, constant.GenericModeMap, api.Method.IntegrationRequest.Generic)
 }
