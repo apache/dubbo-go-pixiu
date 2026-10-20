@@ -151,7 +151,7 @@ func DeleteResourceInfo(c *gin.Context) {
 			return
 		}
 		if published {
-			legacyError(c, errors.New("The configuration has been published and cannot be deleted"))
+			legacyError(c, errors.New("the configuration has been published and cannot be deleted"))
 			return
 		}
 	}
@@ -237,7 +237,7 @@ func DeleteMethodInfo(c *gin.Context) {
 			return
 		}
 		if published {
-			legacyError(c, errors.New("The configuration has been published and cannot be deleted"))
+			legacyError(c, errors.New("the configuration has been published and cannot be deleted"))
 			return
 		}
 	}
