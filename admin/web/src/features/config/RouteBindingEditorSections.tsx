@@ -133,7 +133,7 @@ type HistoryViewProps = {
   readonly entries: RouteBindingHistoryEntry[]
   readonly loading: boolean
   readonly canRollback: boolean
-  readonly onRollback: (revision: number) => void
+  readonly onRollback: (revision: string) => void
 }
 
 type PreviewViewProps = {
@@ -177,7 +177,7 @@ type ContentProps = {
   readonly historyEntries: RouteBindingHistoryEntry[]
   readonly historyLoading: boolean
   readonly canRollback: boolean
-  readonly onRollback: (revision: number) => void
+  readonly onRollback: (revision: string) => void
 }
 
 function actionLabel(

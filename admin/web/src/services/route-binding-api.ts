@@ -114,7 +114,7 @@ export const routeBindingApi = {
     parseArrayResponse<RouteBindingHistorySummary>(
       await request<unknown>(pixiuAdminApi.routeBindings.historyList),
     ),
-  rollback: (name: string, revision: number, expectedRevision = 0) =>
+  rollback: (name: string, revision: string, expectedRevision = 0) =>
     request<RouteBindingPublishResult>(
       `${pixiuAdminApi.routeBindings.rollback}${query({
         name,

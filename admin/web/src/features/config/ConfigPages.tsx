@@ -579,7 +579,7 @@ export function ResourcePage({
     name: string
     entries: RouteBindingHistoryEntry[]
     loading: boolean
-    rollingBack: number | null
+    rollingBack: string | null
   } | null>(null)
   const [editor, setEditor] = useState<{
     mode: 'create' | 'edit'
@@ -716,7 +716,7 @@ export function ResourcePage({
       setError(e instanceof Error ? e.message : tx('加载路由历史失败'))
     }
   }
-  const rollbackHistory = async (name: string, revision: number) => {
+  const rollbackHistory = async (name: string, revision: string) => {
     if (historyDialog?.rollingBack != null) return
     setHistoryDialog((current) => (current ? { ...current, rollingBack: revision } : current))
     try {

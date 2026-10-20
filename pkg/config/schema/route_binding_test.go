@@ -229,6 +229,55 @@ func TestAdminRouteBindingValidatesTimeoutAndURIPathConsistency(t *testing.T) {
 	assert.Contains(t, err.Error(), "path parameter \"id\" must have a uri.id mapping")
 }
 
+func TestAdminRouteBindingURIParametersMatchRuntimePathSegments(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		path       string
+		from       string
+		wantValid  bool
+		wantDetail string
+	}{
+		{
+			name:       "embedded colon is not a parameter",
+			path:       "/users/x:id",
+			from:       "uri.id",
+			wantDetail: `URI parameter "id" does not appear`,
+		},
+		{
+			name:       "suffix is part of the parameter name",
+			path:       "/users/:id.json",
+			from:       "uri.id",
+			wantDetail: `URI parameter "id" does not appear`,
+		},
+		{
+			name:      "runtime parameter suffix can be mapped exactly",
+			path:      "/users/:id.json",
+			from:      "uri.id.json",
+			wantValid: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			object, err := registry.Normalize(validRouteBindingObject())
+			require.NoError(t, err)
+			object.Spec["entry"].(map[string]any)["path"] = test.path
+			invocation := object.Spec["invocation"].(map[string]any)
+			invocation["parameters"].([]any)[0].(map[string]any)["from"] = test.from
+
+			err = registry.Validate(object)
+			if test.wantValid {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.wantDetail)
+		})
+	}
+}
+
 func validRouteBindingObject() AdminObject {
 	return AdminObject{
 		Kind:     KindAdminRouteBinding,

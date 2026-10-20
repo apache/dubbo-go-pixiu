@@ -202,7 +202,8 @@ Host: 127.0.0.1:8080
 Each successful publish and delete stores an immutable snapshot in the same
 etcd transaction as the runtime update. History entries expose a monotonically
 increasing revision, publish time, and the binding object; a deletion entry has
-no object.
+no object. History revisions are decimal strings so clients can preserve their
+exact value when existing installations have large revision markers.
 
 `GET /config/api/route/history/list` returns the latest revision summary for
 every route, including tombstones. The Admin UI uses this endpoint to expose

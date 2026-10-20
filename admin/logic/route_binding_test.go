@@ -19,8 +19,10 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -568,6 +570,63 @@ func TestRouteBindingStoreHistoryAndRollback(t *testing.T) {
 	history, err := store.History(context.Background(), "user-get")
 	if err != nil || len(history) != 3 {
 		t.Fatalf("history after rollback: entries=%+v err=%v", history, err)
+	}
+}
+
+func TestRouteBindingHistoryPreservesLargeLegacyRevision(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	fake := fakeRouteBindingStoreKV(t, store)
+	fake.fakePut(store.publishedRevisionKey(), []byte("1700000000000000000"))
+	saved := saveAndPublishTestRoute(t, store)
+
+	history, err := store.History(context.Background(), saved.Object.Metadata.Name)
+	if err != nil || len(history) != 1 {
+		t.Fatalf("history: entries=%+v err=%v", history, err)
+	}
+	const expectedRevision = "1700000000000000001"
+	if history[0].Revision != 1700000000000000001 {
+		t.Fatalf("history revision = %d, want %s", history[0].Revision, expectedRevision)
+	}
+
+	historyJSON, err := json.Marshal(history)
+	if err != nil {
+		t.Fatalf("marshal history: %v", err)
+	}
+	if !strings.Contains(string(historyJSON), `"revision":"`+expectedRevision+`"`) {
+		t.Fatalf("history revision is not serialized as an exact string: %s", historyJSON)
+	}
+
+	summaries, err := store.HistorySummaries(context.Background())
+	if err != nil || len(summaries) != 1 {
+		t.Fatalf("history summaries: entries=%+v err=%v", summaries, err)
+	}
+	summaryJSON, err := json.Marshal(summaries)
+	if err != nil {
+		t.Fatalf("marshal history summaries: %v", err)
+	}
+	if !strings.Contains(string(summaryJSON), `"latestRevision":"`+expectedRevision+`"`) {
+		t.Fatalf("latest revision is not serialized as an exact string: %s", summaryJSON)
+	}
+
+	var clientEntries []struct {
+		Revision string `json:"revision"`
+	}
+	if err := json.Unmarshal(historyJSON, &clientEntries); err != nil {
+		t.Fatalf("decode history revision as client string: %v", err)
+	}
+	if len(clientEntries) != 1 || clientEntries[0].Revision != expectedRevision {
+		t.Fatalf("decoded client history revisions = %+v, want %s", clientEntries, expectedRevision)
+	}
+	revision, err := strconv.ParseInt(clientEntries[0].Revision, 10, 64)
+	if err != nil {
+		t.Fatalf("parse exact history revision: %v", err)
+	}
+	status, err := store.Status(context.Background(), saved.Object.Metadata.Name)
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, revision, status.DraftRevision); err != nil {
+		t.Fatalf("Rollback with exact serialized history revision: %v", err)
 	}
 }
 

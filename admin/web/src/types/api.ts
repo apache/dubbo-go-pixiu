@@ -129,7 +129,7 @@ export type RouteBindingDiff = {
 }
 
 export type RouteBindingHistoryEntry = {
-  revision: number
+  revision: string
   publishedAt: string
   object?: AdminRouteBindingObject
   resourceId?: number
@@ -138,7 +138,7 @@ export type RouteBindingHistoryEntry = {
 
 export type RouteBindingHistorySummary = {
   name: string
-  latestRevision: number
+  latestRevision: string
   publishedAt: string
   deleted: boolean
 }

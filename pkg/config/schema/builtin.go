@@ -19,9 +19,12 @@ package schema
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 )
 
 var supportedDubboParamTypes = []string{
@@ -333,12 +336,12 @@ func validateContiguousParameterIndexes(params []any, seenIndexes map[int]int) [
 	return issues
 }
 
-var routePathParameterPattern = regexp.MustCompile(`:([A-Za-z_][A-Za-z0-9_]*)`)
-
 func routePathParameters(path string) map[string]struct{} {
 	parameters := make(map[string]struct{})
-	for _, match := range routePathParameterPattern.FindAllStringSubmatch(path, -1) {
-		parameters[match[1]] = struct{}{}
+	for _, segment := range strings.Split(strings.TrimLeft(path, constant.PathSlash), constant.PathSlash) {
+		if strings.HasPrefix(segment, constant.PathParamIdentifier) {
+			parameters[strings.TrimPrefix(segment, constant.PathParamIdentifier)] = struct{}{}
+		}
 	}
 	return parameters
 }

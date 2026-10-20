@@ -117,7 +117,7 @@ type RouteBindingDiff struct {
 // RouteBindingHistoryEntry is an immutable snapshot of one successful route
 // publication. A nil Object records a deletion, allowing rollback across it.
 type RouteBindingHistoryEntry struct {
-	Revision    int64               `json:"revision"`
+	Revision    int64               `json:"revision,string"`
 	PublishedAt time.Time           `json:"publishedAt"`
 	Object      *schema.AdminObject `json:"object,omitempty"`
 	ResourceID  int                 `json:"resourceId,omitempty"`
@@ -128,7 +128,7 @@ type RouteBindingHistoryEntry struct {
 // route without requiring the caller to know its name in advance.
 type RouteBindingHistorySummary struct {
 	Name           string    `json:"name"`
-	LatestRevision int64     `json:"latestRevision"`
+	LatestRevision int64     `json:"latestRevision,string"`
 	PublishedAt    time.Time `json:"publishedAt"`
 	Deleted        bool      `json:"deleted"`
 }

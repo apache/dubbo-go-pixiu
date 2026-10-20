@@ -569,7 +569,7 @@ export function RouteBindingEditor({
     }
   }
 
-  const rollbackToRevision = async (historyRevision: number) => {
+  const rollbackToRevision = async (historyRevision: string) => {
     if (mode !== 'edit' || dirty || yamlError || !schema) return
     const selected = historyEntries.find((entry) => entry.revision === historyRevision)
     if (!selected) return
