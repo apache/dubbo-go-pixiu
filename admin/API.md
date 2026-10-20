@@ -88,7 +88,6 @@ spec:
     method: GET
   backendRef:
     type: registry
-    cluster: zookeeper
   serviceSelection:
     application: UserProvider
     interface: com.example.user.UserService
@@ -105,15 +104,11 @@ spec:
 ```
 
 `timeout` is a positive Go duration. URI mappings must correspond one-to-one
-with `:name` path segments. `backendRef.type: direct` uses `backendRef.url` and
-requires `invocation.serialization` and explicit parameter types. For registry
-discovery, `backendRef.cluster` is the registry ID (the key under
-`dgp.filter.http.dubboproxy.dubboProxyConfig.registries`) to use for this route;
-the generated runtime config carries it as `integrationRequest.registryId`.
-Configure registry endpoints on the `dgp.filter.http.dubboproxy` filter, while
-`serviceSelection.application` and `interface` identify the service. An unknown
-registry ID is reported by the runtime rather than falling back to every
-configured registry.
+with `:name` path segments. `backendRef.type` is currently fixed to `registry`;
+services are resolved from the registry set configured on the listener's
+`dgp.filter.http.dubboproxy` filter. `serviceSelection.application` and
+`interface` identify the service. The legacy `target.cluster` value is migrated
+to `integrationRequest.clusterName`; it does not choose a registry.
 See the [Dubbo registry configuration example](../docs/sample/dubbo/dubbo-registry.md)
 for the runtime registry setup. Objects written by PR #1046 using `target` and
 `params` are normalized on read/validation and migrate when saved.

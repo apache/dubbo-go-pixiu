@@ -27,12 +27,9 @@ import (
 import (
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/filter/generic"
-
 	hessian "github.com/apache/dubbo-go-hessian2"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -141,28 +138,6 @@ func TestResolveFromOutboundRegistryMode(t *testing.T) {
 	assert.Equal(t, "failover", spec.ConsumerDefaults.Cluster)
 	assert.Equal(t, "3", spec.ConsumerDefaults.Retries)
 	assert.Equal(t, cst.DefaultReqTimeout, spec.ConsumerDefaults.RequestTimeout)
-}
-
-func TestResolveFromOutboundRegistryModeSelectsConfiguredRegistry(t *testing.T) {
-	dc := NewDubboClient()
-	dc.SetConfig(&DubboProxyConfig{
-		Registries: map[string]model.Registry{
-			"zk":         {Protocol: "zookeeper", Address: "127.0.0.1:2181"},
-			"nacos-main": {Protocol: "nacos", Address: "127.0.0.1:8848"},
-		},
-	})
-	require.NoError(t, dc.Apply())
-
-	spec := dc.resolveFromOutbound(&DubboOutboundRequest{
-		Service:    "com.example.UserService",
-		RegistryID: "nacos-main",
-	})
-	assert.Equal(t, "registry", spec.Mode)
-	assert.Equal(t, []string{"nacos-main"}, spec.RegistryIDs)
-	assert.True(t, spec.UseNacosWarmup)
-
-	_, err := dc.Call(context.Background(), &DubboOutboundRequest{RegistryID: "missing"})
-	require.ErrorContains(t, err, `dubbo registry id "missing" is not configured`)
 }
 
 func TestPreparePayloadRejectsLengthMismatch(t *testing.T) {

@@ -39,7 +39,9 @@ func TestBuiltinRegistryContainsOnlyAdminRouteBinding(t *testing.T) {
 	assert.Contains(t, objectSchema.Fields, "serviceSelection")
 	assert.Contains(t, objectSchema.Fields, "invocation")
 	assert.Contains(t, objectSchema.Fields, "enabled")
+	assert.NotContains(t, objectSchema.Fields, "extensions")
 	assert.NotContains(t, objectSchema.Fields, "publish")
+	assert.Equal(t, []any{"registry"}, objectSchema.Fields["backendRef"].Properties["type"].Enum)
 }
 
 func TestDefaultRegistryIsSharedByProcess(t *testing.T) {
@@ -60,51 +62,4 @@ func TestBuiltinRouteSchemaPublishesSupportedParameterTypes(t *testing.T) {
 	assert.Contains(t, paramType.Enum, "int")
 	assert.Contains(t, paramType.Enum, "java.lang.Integer")
 	assert.Len(t, paramType.Enum, len(supportedDubboParamTypes))
-}
-
-func TestRegistryAddsTypedExtensionWithoutExposingMutableSchema(t *testing.T) {
-	registry, err := NewBuiltinRegistry()
-	require.NoError(t, err)
-	require.NoError(t, registry.RegisterField(
-		KindAdminRouteBinding,
-		"spec.extensions.retryPolicy",
-		FieldSchema{
-			Type: FieldTypeObject,
-			Properties: map[string]*FieldSchema{
-				"maxAttempts": {
-					Type:     FieldTypeInteger,
-					Required: true,
-					Minimum:  floatPointer(1),
-				},
-			},
-		},
-	))
-
-	objectSchema, ok := registry.Lookup(KindAdminRouteBinding)
-	require.True(t, ok)
-	delete(objectSchema.Fields["extensions"].Properties, "retryPolicy")
-	objectSchema, ok = registry.Lookup(KindAdminRouteBinding)
-	require.True(t, ok)
-	assert.Contains(t, objectSchema.Fields["extensions"].Properties, "retryPolicy")
-
-	object := validRouteBindingObject()
-	object.Spec["extensions"] = map[string]any{
-		"retryPolicy": map[string]any{"maxAttempts": 0},
-	}
-	err = registry.Validate(object)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "spec.extensions.retryPolicy.maxAttempts")
-}
-
-func TestRegistryRejectsUnregisteredExtension(t *testing.T) {
-	registry, err := NewBuiltinRegistry()
-	require.NoError(t, err)
-	object := validRouteBindingObject()
-	object.Spec["extensions"] = map[string]any{
-		"retryPolicy": map[string]any{"maxAttempts": 3},
-	}
-
-	err = registry.Validate(object)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "spec.extensions.retryPolicy")
 }

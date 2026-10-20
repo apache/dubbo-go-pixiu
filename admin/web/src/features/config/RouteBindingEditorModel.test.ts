@@ -43,9 +43,8 @@ const schema: RouteBindingObjectSchema = {
       type: 'object',
       required: true,
       properties: {
-        type: { type: 'string', default: 'registry', enum: ['registry', 'direct'] },
-        cluster: { type: 'string', default: '' },
-        url: { type: 'string', default: '' },
+        type: { type: 'string', default: 'registry', enum: ['registry'] },
+        clusterName: { type: 'string', default: '' },
       },
     },
     serviceSelection: {
@@ -64,7 +63,6 @@ const schema: RouteBindingObjectSchema = {
       properties: {
         method: { type: 'string', required: true },
         timeout: { type: 'string', default: '1s' },
-        serialization: { type: 'string', default: '' },
         parameters: {
           type: 'array',
           default: [],
@@ -80,7 +78,6 @@ const schema: RouteBindingObjectSchema = {
       },
     },
     enabled: { type: 'boolean', default: true },
-    extensions: { type: 'object', default: {}, properties: {} },
   },
 }
 
@@ -101,7 +98,6 @@ function routeObject(spec: Record<string, unknown> = {}) {
       },
       params: [{ from: 'uri.id', to: 0, type: 'int' }],
       enabled: true,
-      extensions: {},
       ...spec,
     },
   }
@@ -116,10 +112,14 @@ describe('route binding editor model', () => {
       method: 'GET',
     })
     expect(object.spec.backendRef.type).toBe('registry')
+    expect(object.spec.backendRef.clusterName).toBe('')
+    expect(normaliseRouteBindingObject(routeObject(), schema).spec.backendRef.clusterName).toBe(
+      'failover',
+    )
     expect(object.spec.enabled).toBe(true)
+    expect(object.spec).not.toHaveProperty('extensions')
     expect(routeEditorOptions(schema)).toEqual({
       entryProtocols: ['http'],
-      targetProtocols: ['registry', 'direct'],
       httpMethods: ['GET', 'POST'],
       paramTypes: ['string', 'int'],
     })
@@ -165,6 +165,31 @@ describe('route binding editor model', () => {
     expect(() => normaliseRouteBindingObject(routeObject({ typo: true }), schema)).toThrow(
       'spec.typo: is not defined by the route schema',
     )
+  })
+
+  it('only supports registry-backed routes and rejects non-empty extensions', () => {
+    const normalized = normaliseRouteBindingObject(routeObject(), schema)
+    expect(() =>
+      normaliseRouteBindingObject(
+        {
+          ...normalized,
+          spec: {
+            ...normalized.spec,
+            backendRef: { ...normalized.spec.backendRef, type: 'direct' },
+          },
+        },
+        schema,
+      ),
+    ).toThrow('spec.backendRef.type: must be one of: registry')
+    expect(() =>
+      normaliseRouteBindingObject(
+        routeObject({ extensions: { retry: { maxAttempts: 2 } } }),
+        schema,
+      ),
+    ).toThrow('spec.extensions: route extensions are not supported')
+    expect(
+      normaliseRouteBindingObject(routeObject({ extensions: {} }), schema).spec,
+    ).not.toHaveProperty('extensions')
   })
 
   it('removes the obsolete no-op publish preference only when loading a stored draft', () => {

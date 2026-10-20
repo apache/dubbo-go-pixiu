@@ -15,10 +15,9 @@ AdminRouteBinding
 
 ## Scope
 
-The route binding covers one HTTP entry mapped to one Dubbo method, using
-either the configured registry set or an explicit direct provider URL. Listener,
-Cluster, PluginGroup, RateLimiter, and OPA remain separate resources and can be
-connected through typed `extensions` fields.
+The route binding covers one HTTP entry mapped to one Dubbo method through the
+registry set configured on the listener. Other Admin object kinds are outside
+this issue's scope.
 
 `Resource` and `Method` are generated Pixiu runtime structures. They are not
 registered as Admin form objects.
@@ -32,11 +31,12 @@ defaults, and validation rules for the dynamic values.
 The built-in `AdminRouteBinding` schema has these separate concerns:
 
 - `entry`: HTTP protocol, path, and method.
-- `backendRef`: one configured Dubbo registry ID or a direct provider URL. In
-  registry mode the `cluster` value selects the key under
-  `dubboProxyConfig.registries` and compiles to `integrationRequest.registryId`.
+- `backendRef`: declares registry-backed discovery. Registry endpoints remain
+  listener-level `dubboProxyConfig.registries` configuration and apply to all
+  routes. A migrated legacy `target.cluster` is retained as
+  `integrationRequest.clusterName`, not treated as a registry ID.
 - `serviceSelection`: Dubbo application, interface, group, and version.
-- `invocation`: Dubbo method, positive timeout, serialization, and ordered
+- `invocation`: Dubbo method, positive timeout, and ordered
   HTTP-source to Dubbo-argument mappings.
 - `enabled`: whether the published route accepts requests; it defaults to `true`.
 
@@ -47,9 +47,6 @@ match the `:parameter` segments in `entry.path`.
 
 Draft and published lifecycle state is tracked by Admin separately; it is not a
 user-facing `spec.publish` field.
-
-Typed plugin fields can be inserted below `spec.extensions` through the same
-registry without changing the stored Go object.
 
 See [`testdata/admin_route_binding.yaml`](testdata/admin_route_binding.yaml) for
 the complete example and `CompiledRoute.PreviewYAML` for the legacy output.

@@ -26,7 +26,6 @@ import type {
 
 type RouteEditorOptions = {
   entryProtocols: string[]
-  targetProtocols: string[]
   httpMethods: string[]
   paramTypes: string[]
 }
@@ -213,6 +212,13 @@ export function normaliseRouteBindingObject(
     fail('spec.publish', 'is no longer supported; remove this field')
   }
   if (hasLegacyPublishPreference) delete specInput.publish
+  if (hasOwn(specInput, 'extensions')) {
+    const extensions = specInput.extensions
+    if (!isRecord(extensions) || Object.keys(extensions).length !== 0) {
+      fail('spec.extensions', 'route extensions are not supported; remove this field')
+    }
+    delete specInput.extensions
+  }
   const migratedSpec = migrateLegacyRouteBindingSpec(specInput)
   const spec = validateFields(migratedSpec, schema.fields, 'spec', false)
   return {
@@ -231,7 +237,15 @@ function migrateLegacyRouteBindingSpec(spec: Record<string, unknown>) {
   }
   const target = spec.target
   if (!isRecord(target)) fail('spec.target', 'legacy target must be an object')
-  const allowed = new Set(['protocol', 'application', 'interface', 'method', 'version', 'group', 'cluster'])
+  const allowed = new Set([
+    'protocol',
+    'application',
+    'interface',
+    'method',
+    'version',
+    'group',
+    'cluster',
+  ])
   for (const key of Object.keys(target)) {
     if (!allowed.has(key)) fail(`spec.target.${key}`, 'has no route model migration')
   }
@@ -239,7 +253,7 @@ function migrateLegacyRouteBindingSpec(spec: Record<string, unknown>) {
     fail('spec.target.protocol', 'only the legacy dubbo protocol can be migrated')
   }
   const migrated = { ...spec }
-  migrated.backendRef = { type: 'registry', cluster: target.cluster ?? '', url: '' }
+  migrated.backendRef = { type: 'registry', clusterName: target.cluster ?? '' }
   migrated.serviceSelection = {
     application: target.application ?? '',
     interface: target.interface ?? '',
@@ -258,6 +272,10 @@ function migrateLegacyRouteBindingSpec(spec: Record<string, unknown>) {
 
 export function hasLegacyPublishPreference(value: unknown) {
   return isRecord(value) && isRecord(value.spec) && hasOwn(value.spec, 'publish')
+}
+
+export function hasLegacyRouteExtensions(value: unknown) {
+  return isRecord(value) && isRecord(value.spec) && hasOwn(value.spec, 'extensions')
 }
 
 function yamlErrorMessage(error: unknown) {
@@ -308,7 +326,6 @@ export function routeEditorOptions(schema: RouteBindingObjectSchema): RouteEdito
   const params = schema.fields.invocation?.properties?.parameters?.items
   return {
     entryProtocols: stringEnum(property(entry, 'protocol')),
-    targetProtocols: ['registry', 'direct'],
     httpMethods: stringEnum(property(entry, 'method')),
     paramTypes: stringEnum(property(params, 'type')),
   }

@@ -8,8 +8,6 @@ spec:
     method: GET
   backendRef:
     type: registry
-    cluster: user-dubbo
-    url: ""
   serviceSelection:
     application: UserProvider
     interface: com.example.UserService

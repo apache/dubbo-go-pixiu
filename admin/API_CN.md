@@ -75,7 +75,6 @@ spec:
     method: GET
   backendRef:
     type: registry
-    cluster: zookeeper
   serviceSelection:
     application: UserProvider
     interface: com.example.user.UserService
@@ -91,7 +90,7 @@ spec:
   enabled: true
 ```
 
-`timeout` 必须是正数时长；路径中的每个 `:参数` 都必须且只能映射一次到对应的 `uri.参数`。直连后端使用 `backendRef.type: direct` 和 `backendRef.url`，并要求设置 `invocation.serialization`。注册中心模式下，`backendRef.cluster` 是该路由要使用的注册中心 ID，即 `dgp.filter.http.dubboproxy.dubboProxyConfig.registries` 中的键；生成的运行时配置会将其写为 `integrationRequest.registryId`。注册中心端点由 `dgp.filter.http.dubboproxy` 提供，`serviceSelection.application` 和 `interface` 指定服务；未知 ID 会由运行时明确报错，不会回退到所有已配置注册中心。运行时示例参见[Dubbo 注册中心配置](../docs/sample/dubbo/dubbo-registry.md)。PR #1046 生成的 `target`/`params` 对象会在读取和校验时迁移为当前模型，保存时写入新格式。
+`timeout` 必须是正数时长；路径中的每个 `:参数` 都必须且只能映射一次到对应的 `uri.参数`。当前 `backendRef.type` 固定为 `registry`，服务通过 Listener 的 `dgp.filter.http.dubboproxy` 中配置的注册中心集合发现；`serviceSelection.application` 和 `interface` 用于定位服务。旧 `target.cluster` 会迁移为 `integrationRequest.clusterName`，但不用于选择注册中心。运行时示例参见[Dubbo 注册中心配置](../docs/sample/dubbo/dubbo-registry.md)。PR #1046 生成的 `target`/`params` 对象会在读取和校验时迁移为当前模型，保存时写入新格式。
 
 ### 2.1 获取 API 路由 Schema
 

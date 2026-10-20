@@ -41,8 +41,7 @@ export type AdminRouteBindingObject = {
     }
     backendRef: {
       type: string
-      cluster: string
-      url: string
+      clusterName: string
     }
     serviceSelection: {
       application: string
@@ -53,11 +52,9 @@ export type AdminRouteBindingObject = {
     invocation: {
       method: string
       timeout: string
-      serialization: string
       parameters: RouteBindingParam[]
     }
     enabled: boolean
-    extensions: JsonObject
     [field: string]: unknown
   }
 }

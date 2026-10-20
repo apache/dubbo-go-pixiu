@@ -42,6 +42,7 @@ import {
 import type { BusyAction, EditorTab, Notice } from './RouteBindingEditorSections'
 import {
   createDefaultRouteBinding,
+  hasLegacyRouteExtensions,
   hasLegacyPublishPreference,
   normaliseRouteBindingObject,
   parseRouteBindingYaml,
@@ -66,11 +67,10 @@ function createEmptyObject(): AdminRouteBindingObject {
     metadata: { name: '' },
     spec: {
       entry: { protocol: '', path: '', method: '' },
-      backendRef: { type: 'registry', cluster: '', url: '' },
+      backendRef: { type: 'registry', clusterName: '' },
       serviceSelection: { application: '', interface: '', group: '', version: '' },
-      invocation: { method: '', timeout: '1s', serialization: '', parameters: [] },
+      invocation: { method: '', timeout: '1s', parameters: [] },
       enabled: false,
-      extensions: {},
     },
   }
 }
@@ -188,6 +188,7 @@ export function RouteBindingEditor({
     if (hydratedBindingKey.current === bindingKey) return
     let normalized: AdminRouteBindingObject
     const removedLegacyPublish = binding ? hasLegacyPublishPreference(binding.object) : false
+    const removedLegacyExtensions = binding ? hasLegacyRouteExtensions(binding.object) : false
     try {
       normalized = binding
         ? normaliseRouteBindingObject(binding.object, schema, true)
@@ -216,15 +217,15 @@ export function RouteBindingEditor({
     setRevision(binding?.revision || 0)
     setPublished(initialPublished)
     setPublishStatus(initialPublishStatus || null)
-    setDirty(initialMode === 'create' || removedLegacyPublish)
+    setDirty(initialMode === 'create' || removedLegacyPublish || removedLegacyExtensions)
     setIssues([])
     setNotice(
-      removedLegacyPublish
+      removedLegacyPublish || removedLegacyExtensions
         ? {
             tone: 'success',
             text: isEnglish
-              ? 'An obsolete no-op spec.publish field was removed. Save this draft to persist the cleanup.'
-              : '已移除旧的无效 spec.publish 字段；保存草稿后才会持久化这次清理。',
+              ? 'Obsolete no-op route fields were removed. Save this draft to persist the cleanup.'
+              : '已移除旧的无效路由字段；保存草稿后才会持久化这次清理。',
           }
         : null,
     )
@@ -329,26 +330,9 @@ export function RouteBindingEditor({
     })
 
   const updateTarget = (
-    key: 'protocol' | 'cluster' | 'url' | 'application' | 'interface' | 'method' | 'version' | 'group' | 'timeout' | 'serialization',
+    key: 'application' | 'interface' | 'method' | 'version' | 'group' | 'timeout',
     value: string,
   ) => {
-    if (key === 'protocol' || key === 'cluster' || key === 'url') {
-      const backendKey = key === 'protocol' ? 'type' : key
-      const backendRef =
-        key === 'protocol'
-          ? {
-              ...object.spec.backendRef,
-              type: value,
-              cluster: value === 'direct' ? '' : object.spec.backendRef.cluster,
-              url: value === 'registry' ? '' : object.spec.backendRef.url,
-            }
-          : { ...object.spec.backendRef, [backendKey]: value }
-      updateObject({
-        ...object,
-        spec: { ...object.spec, backendRef },
-      })
-      return
-    }
     if (key === 'application' || key === 'interface' || key === 'version' || key === 'group') {
       updateObject({
         ...object,
@@ -363,13 +347,6 @@ export function RouteBindingEditor({
       updateObject({
         ...object,
         spec: { ...object.spec, invocation: { ...object.spec.invocation, method: value } },
-      })
-      return
-    }
-    if (key === 'serialization') {
-      updateObject({
-        ...object,
-        spec: { ...object.spec, invocation: { ...object.spec.invocation, serialization: value } },
       })
       return
     }
@@ -414,7 +391,9 @@ export function RouteBindingEditor({
         ...object.spec,
         invocation: {
           ...object.spec.invocation,
-          parameters: object.spec.invocation.parameters.filter((_, paramIndex) => paramIndex !== index),
+          parameters: object.spec.invocation.parameters.filter(
+            (_, paramIndex) => paramIndex !== index,
+          ),
         },
       },
     })

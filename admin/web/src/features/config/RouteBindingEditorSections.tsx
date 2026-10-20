@@ -43,23 +43,18 @@ export type BusyAction = '' | 'save' | 'publish' | 'validate' | 'preview' | 'dif
 export type Notice = { tone: 'success' | 'error'; text: string }
 export type RouteEditorOptions = {
   readonly entryProtocols: string[]
-  readonly targetProtocols: string[]
   readonly httpMethods: string[]
   readonly paramTypes: string[]
 }
 export type IssueMessage = (path: string) => string
 export type RouteEntry = AdminRouteBindingObject['spec']['entry']
 export type RouteTarget = {
-  protocol: string
-  cluster: string
-  url: string
   application: string
   interface: string
   method: string
   version: string
   group: string
   timeout: string
-  serialization: string
 }
 type EditableTargetKey = keyof RouteTarget
 
@@ -106,7 +101,6 @@ type TargetCardProps = {
   readonly target: RouteTarget
   readonly issueMessage: IssueMessage
   readonly onChange: (key: EditableTargetKey, value: string) => void
-  readonly targetProtocols: string[]
 }
 
 type ParamCardProps = {
@@ -544,25 +538,13 @@ function TargetField({ label, value, placeholder, issue, onChange }: TargetField
   )
 }
 
-function RouteTargetCard({
-  isEnglish,
-  target,
-  issueMessage,
-  onChange,
-  targetProtocols,
-}: TargetCardProps) {
+function RouteTargetCard({ isEnglish, target, issueMessage, onChange }: TargetCardProps) {
   const fields: Array<{
     key: EditableTargetKey
     label: string
     placeholder: string
     issuePath: string
   }> = [
-    {
-      key: 'cluster',
-      label: isEnglish ? 'Registry ID' : '注册中心 ID',
-      placeholder: 'zookeeper',
-      issuePath: 'spec.backendRef.cluster',
-    },
     {
       key: 'application',
       label: 'Application',
@@ -578,9 +560,7 @@ function RouteTargetCard({
     { key: 'method', label: 'Method', placeholder: 'GetUser', issuePath: 'spec.invocation.method' },
     { key: 'group', label: 'Group', placeholder: 'stable', issuePath: '' },
     { key: 'version', label: 'Version', placeholder: '1.0.0', issuePath: '' },
-    { key: 'url', label: 'Direct Dubbo URL', placeholder: 'dubbo://127.0.0.1:20880', issuePath: 'spec.backendRef.url' },
     { key: 'timeout', label: 'Timeout', placeholder: '1s', issuePath: 'spec.invocation.timeout' },
-    { key: 'serialization', label: 'Serialization', placeholder: 'hessian2', issuePath: 'spec.invocation.serialization' },
   ]
   return (
     <section className="panel route-editor-card">
@@ -589,29 +569,13 @@ function RouteTargetCard({
           <h2>{isEnglish ? 'Backend target' : '后端目标'}</h2>
           <span>
             {isEnglish
-              ? 'Map the request to one Dubbo service method.'
-              : '将请求映射到一个 Dubbo 服务方法。'}
+              ? 'Services are resolved from registries configured on the listener.'
+              : '服务通过 Listener 上配置的注册中心发现。'}
           </span>
         </div>
       </div>
       <div className="route-target-fields">
-        <label className="route-field">
-          <span>{isEnglish ? 'Target protocol' : '目标协议'}</span>
-          <select value={target.protocol} onChange={(event) => onChange('protocol', event.target.value)}>
-            {targetProtocols.map((protocol) => (
-              <option key={protocol} value={protocol}>
-                {protocol.toUpperCase()}
-              </option>
-            ))}
-          </select>
-          <small>
-            {isEnglish ? 'Choose service discovery or a direct Dubbo URL.' : '选择注册中心发现或直连 Dubbo URL。'}
-          </small>
-        </label>
-        {fields
-          .filter((field) => field.key !== 'cluster' || target.protocol === 'registry')
-          .filter((field) => field.key !== 'url' || target.protocol === 'direct')
-          .map((field) => (
+        {fields.map((field) => (
           <TargetField
             key={field.key}
             label={field.label}
@@ -620,7 +584,7 @@ function RouteTargetCard({
             issue={field.issuePath ? issueMessage(field.issuePath) : ''}
             onChange={(value) => onChange(field.key, value)}
           />
-          ))}
+        ))}
       </div>
     </section>
   )
@@ -796,7 +760,6 @@ function RouteFormView(props: FormViewProps) {
     enabled,
     issueMessage,
     entryProtocols,
-    targetProtocols,
     httpMethods,
     paramTypes,
     onNameChange,
@@ -828,7 +791,6 @@ function RouteFormView(props: FormViewProps) {
           target={target}
           issueMessage={issueMessage}
           onChange={onChange}
-          targetProtocols={targetProtocols}
         />
       </div>
       <RouteParamsCard
@@ -943,13 +905,17 @@ function RouteHistoryView({
   const deletedLabel = isEnglish ? 'Deleted' : '已删除'
   const historyContent = (() => {
     if (loading) {
-      return <div className="route-diff-empty"><div className="loading-skeleton" /></div>
+      return (
+        <div className="route-diff-empty">
+          <div className="loading-skeleton" />
+        </div>
+      )
     }
     if (entries.length === 0) {
       return (
-      <div className="route-diff-empty">
-        <b>{isEnglish ? 'No published revisions yet' : '暂无已发布版本'}</b>
-      </div>
+        <div className="route-diff-empty">
+          <b>{isEnglish ? 'No published revisions yet' : '暂无已发布版本'}</b>
+        </div>
       )
     }
     return (
@@ -995,7 +961,11 @@ function RouteHistoryView({
       </div>
       {historyContent}
       {!canRollback && (
-        <small>{isEnglish ? 'Save or discard current edits before rollback.' : '请先保存或放弃当前编辑，再执行回滚。'}</small>
+        <small>
+          {isEnglish
+            ? 'Save or discard current edits before rollback.'
+            : '请先保存或放弃当前编辑，再执行回滚。'}
+        </small>
       )}
     </section>
   )
@@ -1203,22 +1173,17 @@ export function RouteEditorContent({
         entry={object.spec.entry}
         name={object.metadata.name}
         target={{
-          protocol: object.spec.backendRef.type,
-          cluster: object.spec.backendRef.cluster,
-          url: object.spec.backendRef.url,
           application: object.spec.serviceSelection.application,
           interface: object.spec.serviceSelection.interface,
           method: object.spec.invocation.method,
           version: object.spec.serviceSelection.version,
           group: object.spec.serviceSelection.group,
           timeout: object.spec.invocation.timeout,
-          serialization: object.spec.invocation.serialization,
         }}
         params={object.spec.invocation.parameters}
         enabled={object.spec.enabled}
         issueMessage={issueMessage}
         entryProtocols={options?.entryProtocols || []}
-        targetProtocols={options?.targetProtocols || []}
         httpMethods={options?.httpMethods || []}
         paramTypes={options?.paramTypes || []}
         onNameChange={onNameChange}

@@ -28,7 +28,6 @@ import (
 var (
 	ErrSchemaNotFound          = errors.New("admin object schema not found")
 	ErrSchemaAlreadyRegistered = errors.New("admin object schema already registered")
-	ErrFieldAlreadyRegistered  = errors.New("admin object field already registered")
 )
 
 type ObjectValidator func(AdminObject) []ValidationIssue
@@ -88,47 +87,6 @@ func (r *Registry) Register(objectSchema ObjectSchema) error {
 	return nil
 }
 
-// RegisterField adds a typed extension below an existing object field. Paths
-// are rooted at spec; intermediate fields must be objects.
-func (r *Registry) RegisterField(kind, path string, field FieldSchema) error {
-	parts, err := splitFieldPath(path)
-	if err != nil {
-		return err
-	}
-	if err := validateFieldDefinition(path, &field); err != nil {
-		return err
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	objectSchema, exists := r.schemas[strings.TrimSpace(kind)]
-	if !exists {
-		return fmt.Errorf("%w: %s", ErrSchemaNotFound, kind)
-	}
-
-	fields := objectSchema.Fields
-	for _, part := range parts[:len(parts)-1] {
-		parent, exists := fields[part]
-		if !exists {
-			return fmt.Errorf("schema field %q does not exist", part)
-		}
-		if parent.Type != FieldTypeObject {
-			return fmt.Errorf("schema field %q is %s, not object", part, parent.Type)
-		}
-		if parent.Properties == nil {
-			parent.Properties = make(map[string]*FieldSchema)
-		}
-		fields = parent.Properties
-	}
-
-	name := parts[len(parts)-1]
-	if _, exists := fields[name]; exists {
-		return fmt.Errorf("%w: %s", ErrFieldAlreadyRegistered, path)
-	}
-	fields[name] = field.clone()
-	return nil
-}
-
 func (r *Registry) RegisterValidator(kind string, validator ObjectValidator) error {
 	if validator == nil {
 		return errors.New("admin object validator is nil")
@@ -178,18 +136,4 @@ func (r *Registry) lookupEntry(kind string) (ObjectSchema, []ObjectValidator, bo
 	}
 	validators := append([]ObjectValidator(nil), r.validators[kind]...)
 	return objectSchema.clone(), validators, true
-}
-
-func splitFieldPath(path string) ([]string, error) {
-	path = strings.TrimSpace(strings.TrimPrefix(path, "spec."))
-	if path == "" {
-		return nil, errors.New("schema field path is empty")
-	}
-	parts := strings.Split(path, ".")
-	for _, part := range parts {
-		if strings.TrimSpace(part) == "" {
-			return nil, fmt.Errorf("schema field path %q contains an empty segment", path)
-		}
-	}
-	return parts, nil
 }

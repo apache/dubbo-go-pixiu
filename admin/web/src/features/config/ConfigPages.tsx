@@ -537,7 +537,6 @@ function routeRow(
   const object = binding.object
   const spec = asJsonObject(object.spec)
   const entry = asJsonObject(spec.entry)
-  const backend = asJsonObject(spec.backendRef)
   const service = asJsonObject(spec.serviceSelection)
   const name = String(object.metadata?.name || `route.${binding.resourceId}`)
   const publishedBinding = published.get(name)
@@ -552,12 +551,7 @@ function routeRow(
     name,
     path: routeDisplayString(entry.path, '-'),
     verb: routeDisplayString(entry.method, 'GET').toUpperCase(),
-    target:
-      targetLabel ||
-      routeDisplayString(
-        backend.type === 'direct' ? backend.url : backend.cluster,
-        translateText(locale, '未配置后端目标'),
-      ),
+    target: targetLabel || (locale === 'en-US' ? 'Dubbo service' : 'Dubbo 服务'),
     status: publishStatus.publishedExists && !publishStatus.dirty ? 'Published' : 'Draft',
     publishedEnabled: publishedBinding ? publishedSpec?.enabled !== false : null,
     publishedRevision: publishStatus.publishedRevision,
@@ -724,18 +718,14 @@ export function ResourcePage({
   }
   const rollbackHistory = async (name: string, revision: number) => {
     if (historyDialog?.rollingBack != null) return
-    setHistoryDialog((current) =>
-      current ? { ...current, rollingBack: revision } : current,
-    )
+    setHistoryDialog((current) => (current ? { ...current, rollingBack: revision } : current))
     try {
       await routeBindingApi.rollback(name, revision)
       setHistoryDialog(null)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : tx('回滚路由失败'))
-      setHistoryDialog((current) =>
-        current ? { ...current, rollingBack: null } : current,
-      )
+      setHistoryDialog((current) => (current ? { ...current, rollingBack: null } : current))
     }
   }
   const statusLabel = (value: RouteStatus) => (value === 'Published' ? tx('已发布') : tx('草稿'))
@@ -938,7 +928,11 @@ export function ResourcePage({
                   </pre>
                 </div>
                 <div className="route-diff-value after">
-                  <button className="secondary" type="button" onClick={() => void openHistory(summary)}>
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => void openHistory(summary)}
+                  >
                     {locale === 'en-US' ? 'View history' : '查看历史'}
                   </button>
                 </div>
@@ -960,7 +954,9 @@ export function ResourcePage({
               </button>
             </div>
             {historyDialog.loading ? (
-              <div className="route-editor-loading"><div className="loading-skeleton" /></div>
+              <div className="route-editor-loading">
+                <div className="loading-skeleton" />
+              </div>
             ) : historyDialog.entries.length === 0 ? (
               <div className="route-diff-empty">
                 <b>{locale === 'en-US' ? 'No history entries' : '没有历史版本'}</b>

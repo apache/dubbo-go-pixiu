@@ -64,7 +64,7 @@ func TestNormalizeAppliesFormDefaultsWithoutMutatingInput(t *testing.T) {
 	invocation := normalized.Spec["invocation"].(map[string]any)
 	assert.Equal(t, "http", entry["protocol"])
 	assert.Equal(t, "registry", backend["type"])
-	assert.Equal(t, "user-dubbo", backend["cluster"])
+	assert.Equal(t, "user-dubbo", backend["clusterName"])
 	assert.Equal(t, "UserProvider", service["application"])
 	assert.Equal(t, "GetUser", invocation["method"])
 	assert.Equal(t, "1s", invocation["timeout"])
@@ -84,6 +84,29 @@ func TestNormalizeDropsDeprecatedPublishMetadata(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, normalized.Spec, "publish")
 	assert.Contains(t, object.Spec, "publish")
+}
+
+func TestNormalizeRejectsOptionalBackendModesAndExtensions(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+
+	object := loadExampleRouteBinding(t)
+	backend := object.Spec["backendRef"].(map[string]any)
+	backend["type"] = "direct"
+	_, err = registry.Normalize(object)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "spec.backendRef.type")
+
+	object = loadExampleRouteBinding(t)
+	object.Spec["extensions"] = map[string]any{}
+	normalized, err := registry.Normalize(object)
+	require.NoError(t, err)
+	assert.NotContains(t, normalized.Spec, "extensions")
+
+	object.Spec["extensions"] = map[string]any{"retry": map[string]any{"maxAttempts": 2}}
+	_, err = registry.Normalize(object)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "spec.extensions")
 }
 
 func TestCompileAdminRouteBindingToLegacyResourceAndMethod(t *testing.T) {
@@ -110,7 +133,7 @@ func TestCompileAdminRouteBindingToLegacyResourceAndMethod(t *testing.T) {
 	assert.Equal(t, "GetUser", method.Method)
 	assert.Equal(t, "1.0.0", method.Version)
 	assert.Equal(t, "stable", method.Group)
-	assert.Equal(t, "user-dubbo", method.RegistryID)
+	assert.Empty(t, method.ClusterName)
 	assert.Equal(t, []string{"java.lang.String"}, method.ParameterTypes)
 	require.Len(t, method.MappingParams, 1)
 	assert.Equal(t, "uri.id", method.MappingParams[0].Name)
@@ -133,25 +156,6 @@ func TestCompileAdminRouteBindingPreservesDisabledState(t *testing.T) {
 	assert.False(t, compiled.Method.Enable)
 }
 
-func TestCompileDirectBackendURLAndTimeout(t *testing.T) {
-	registry, err := NewBuiltinRegistry()
-	require.NoError(t, err)
-	object := loadExampleRouteBinding(t)
-	backend := object.Spec["backendRef"].(map[string]any)
-	backend["type"] = "direct"
-	backend["cluster"] = ""
-	backend["url"] = "dubbo://127.0.0.1:20880"
-	object.Spec["invocation"].(map[string]any)["serialization"] = "hessian2"
-	compiled, err := CompileAdminRouteBinding(registry, object)
-	require.NoError(t, err)
-	assert.Equal(t, "dubbo://127.0.0.1:20880", compiled.Method.URL)
-	assert.Equal(t, "hessian2", compiled.Method.Serialization)
-	assert.Equal(t, 750*time.Millisecond, compiled.Method.Timeout)
-	preview, err := compiled.PreviewYAML()
-	require.NoError(t, err)
-	assert.Contains(t, string(preview), "url: dubbo://127.0.0.1:20880")
-}
-
 func TestPreviewYAMLContainsOnlyLegacyAPIConfig(t *testing.T) {
 	registry, err := NewBuiltinRegistry()
 	require.NoError(t, err)
@@ -163,11 +167,20 @@ func TestPreviewYAMLContainsOnlyLegacyAPIConfig(t *testing.T) {
 	previewString := string(preview)
 	assert.Contains(t, previewString, "resources:")
 	assert.Contains(t, previewString, "integrationRequest:")
-	assert.Contains(t, previewString, "registryId: user-dubbo")
+	assert.Contains(t, previewString, "clusterName: \"\"")
+	assert.NotContains(t, previewString, "registryId:")
 	assert.Contains(t, previewString, "mapTo: \"0\"")
 	assert.Contains(t, previewString, "parameterTypes:")
 	assert.NotContains(t, previewString, "AdminRouteBinding")
 	assert.NotContains(t, previewString, "publish:")
+}
+
+func TestCompileLegacyTargetClusterPreservesClusterName(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	compiled, err := CompileAdminRouteBinding(registry, validRouteBindingObject())
+	require.NoError(t, err)
+	assert.Equal(t, "user-dubbo", compiled.Method.ClusterName)
 }
 
 func TestAdminRouteBindingValidationReportsActionablePaths(t *testing.T) {

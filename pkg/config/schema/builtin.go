@@ -19,7 +19,6 @@ package schema
 
 import (
 	"fmt"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -81,22 +80,15 @@ func adminRouteBindingSchema() ObjectSchema {
 				Required: true,
 				Properties: map[string]*FieldSchema{
 					"type": {
-						Type:    FieldTypeString,
-						Default: "registry",
-						Enum:    []any{"registry", "direct"},
-						UI:      UIHints{Component: "select", Order: 10},
-					},
-					"cluster": {
 						Type:        FieldTypeString,
-						Default:     "",
-						Description: "Registry ID from dgp.filter.http.dubboproxy.dubboProxyConfig.registries when type is registry.",
-						UI:          UIHints{Component: "text", Order: 20},
+						Default:     "registry",
+						Enum:        []any{"registry"},
+						Description: "Dubbo services are resolved from the registries configured on the listener.",
+						UI:          UIHints{Component: "text", Order: 10},
 					},
-					"url": {
+					"clusterName": {
 						Type:        FieldTypeString,
-						Default:     "",
-						Description: "Direct Dubbo URL when type is direct; otherwise use the configured cluster.",
-						UI:          UIHints{Component: "text", Order: 30},
+						Description: "Preserved only when migrating legacy target.cluster to integrationRequest.clusterName.",
 					},
 				},
 				UI: UIHints{Group: "backend", Order: 20},
@@ -116,9 +108,8 @@ func adminRouteBindingSchema() ObjectSchema {
 				Type:     FieldTypeObject,
 				Required: true,
 				Properties: map[string]*FieldSchema{
-					"method":        {Type: FieldTypeString, Required: true, UI: UIHints{Component: "text", Order: 10}},
-					"timeout":       {Type: FieldTypeString, Default: "1s", Description: "Positive Go duration string", UI: UIHints{Component: "text", Order: 20}},
-					"serialization": {Type: FieldTypeString, Default: "", Description: "Dubbo serialization; required for a direct provider URL", UI: UIHints{Component: "text", Order: 25}},
+					"method":  {Type: FieldTypeString, Required: true, UI: UIHints{Component: "text", Order: 10}},
+					"timeout": {Type: FieldTypeString, Default: "1s", Description: "Positive Go duration string", UI: UIHints{Component: "text", Order: 20}},
 					"parameters": {
 						Type:        FieldTypeArray,
 						Default:     []any{},
@@ -157,11 +148,6 @@ func adminRouteBindingSchema() ObjectSchema {
 				Description: "Whether Pixiu accepts requests for the published route",
 				UI:          UIHints{Component: "switch", Group: "lifecycle", Order: 10},
 			},
-			"extensions": {
-				Type:    FieldTypeObject,
-				Default: map[string]any{},
-				UI:      UIHints{Component: "extension-fields", Group: "advanced", Order: 50, Advanced: true},
-			},
 		},
 	}
 }
@@ -171,6 +157,14 @@ func adminRouteBindingSchema() ObjectSchema {
 // migrates the known legacy fields and rejects mixed or unknown input rather
 // than silently discarding configuration.
 func migrateLegacyRouteBindingSpec(object *AdminObject) []ValidationIssue {
+	if extensions, exists := object.Spec["extensions"]; exists {
+		values, ok := extensions.(map[string]any)
+		if !ok || len(values) != 0 {
+			return []ValidationIssue{issue("spec.extensions", "unsupported", "route extensions are not supported; remove this field")}
+		}
+		delete(object.Spec, "extensions")
+	}
+
 	_, hasTarget := object.Spec["target"]
 	_, hasParams := object.Spec["params"]
 	if !hasTarget && !hasParams {
@@ -198,11 +192,11 @@ func migrateLegacyRouteBindingSpec(object *AdminObject) []ValidationIssue {
 	if len(issues) != 0 {
 		return issues
 	}
-	object.Spec["backendRef"] = map[string]any{
-		"type":    "registry",
-		"cluster": target["cluster"],
-		"url":     "",
+	backendRef := map[string]any{"type": "registry"}
+	if clusterName, exists := target["cluster"]; exists {
+		backendRef["clusterName"] = clusterName
 	}
+	object.Spec["backendRef"] = backendRef
 	object.Spec["serviceSelection"] = map[string]any{
 		"application": target["application"],
 		"interface":   target["interface"],
@@ -229,10 +223,8 @@ func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
 	path, _ := entry["path"].(string)
 	service, _ := object.Spec["serviceSelection"].(map[string]any)
 	invocation, _ := object.Spec["invocation"].(map[string]any)
-	backend, _ := object.Spec["backendRef"].(map[string]any)
 
 	issues = append(issues, validateRouteBindingService(service, invocation)...)
-	issues = append(issues, validateRouteBindingBackend(backend, invocation)...)
 	if params, ok := invocation["parameters"].([]any); ok {
 		issues = append(issues, validateRouteBindingParameters(params, routePathParameters(path))...)
 	}
@@ -255,47 +247,6 @@ func validateRouteBindingService(service, invocation map[string]any) []Validatio
 	duration, err := time.ParseDuration(timeout)
 	if err != nil || duration <= 0 {
 		issues = append(issues, issue("spec.invocation.timeout", "duration", "must be a positive duration such as 500ms or 2s"))
-	}
-	return issues
-}
-
-func validateRouteBindingBackend(backend, invocation map[string]any) []ValidationIssue {
-	issues := make([]ValidationIssue, 0)
-	backendType, _ := backend["type"].(string)
-	cluster, _ := backend["cluster"].(string)
-	directURL, _ := backend["url"].(string)
-	if backendType == "registry" {
-		issues = append(issues, validateRegistryBackend(cluster, directURL)...)
-	}
-	if backendType == "direct" {
-		issues = append(issues, validateDirectBackend(cluster, directURL, invocation)...)
-	}
-	return issues
-}
-
-func validateRegistryBackend(cluster, directURL string) []ValidationIssue {
-	issues := make([]ValidationIssue, 0, 2)
-	if strings.TrimSpace(cluster) == "" {
-		issues = append(issues, issue("spec.backendRef.cluster", "required", "registry ID is required for registry-backed Dubbo services"))
-	}
-	if strings.TrimSpace(directURL) != "" {
-		issues = append(issues, issue("spec.backendRef.url", "unsupported", "direct URL is only valid when backendRef.type is direct"))
-	}
-	return issues
-}
-
-func validateDirectBackend(cluster, directURL string, invocation map[string]any) []ValidationIssue {
-	issues := make([]ValidationIssue, 0, 3)
-	if strings.TrimSpace(cluster) != "" {
-		issues = append(issues, issue("spec.backendRef.cluster", "unsupported", "registry ID is only valid when backendRef.type is registry"))
-	}
-	parsed, parseErr := url.ParseRequestURI(strings.TrimSpace(directURL))
-	if parseErr != nil || parsed.Scheme != "dubbo" || parsed.Host == "" {
-		issues = append(issues, issue("spec.backendRef.url", "url", "must be an absolute dubbo:// URL when backendRef.type is direct"))
-	}
-	serialization, _ := invocation["serialization"].(string)
-	if strings.TrimSpace(serialization) == "" {
-		issues = append(issues, issue("spec.invocation.serialization", "required", "serialization is required for direct generic invocation"))
 	}
 	return issues
 }

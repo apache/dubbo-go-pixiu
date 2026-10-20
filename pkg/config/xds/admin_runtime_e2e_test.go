@@ -38,25 +38,20 @@ import (
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	"dubbo.apache.org/dubbo-go/v3/global"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
 	"dubbo.apache.org/dubbo-go/v3/protocol"
+	registryconfig "dubbo.apache.org/dubbo-go/v3/registry"
 	rpcserver "dubbo.apache.org/dubbo-go/v3/server"
-
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	extensionpb "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoyserver "github.com/envoyproxy/go-control-plane/pkg/server/v3"
-
 	"github.com/gin-gonic/gin"
-
 	"github.com/golang-jwt/jwt/v4"
-
 	"github.com/stretchr/testify/require"
-
 	clientv3 "go.etcd.io/etcd/client/v3"
-
 	"go.etcd.io/etcd/server/v3/embed"
-
 	"google.golang.org/grpc"
 )
 
@@ -78,10 +73,11 @@ import (
 )
 
 const (
-	runtimeE2EHTTPFilter         = "dgp.test.xds.runtime.proxy"
-	runtimeE2EProviderProcessEnv = "PIXIU_RUNTIME_E2E_DUBBO_PROVIDER"
-	runtimeE2EProviderPortEnv    = "PIXIU_RUNTIME_E2E_DUBBO_PORT"
-	runtimeE2EProviderMarkerEnv  = "PIXIU_RUNTIME_E2E_DUBBO_MARKER"
+	runtimeE2EHTTPFilter          = "dgp.test.xds.runtime.proxy"
+	runtimeE2EProviderProcessEnv  = "PIXIU_RUNTIME_E2E_DUBBO_PROVIDER"
+	runtimeE2EProviderPortEnv     = "PIXIU_RUNTIME_E2E_DUBBO_PORT"
+	runtimeE2EProviderMarkerEnv   = "PIXIU_RUNTIME_E2E_DUBBO_MARKER"
+	runtimeE2EProviderRegistryEnv = "PIXIU_RUNTIME_E2E_DUBBO_REGISTRY"
 )
 
 type runtimeE2EHTTPPlugin struct {
@@ -214,16 +210,41 @@ func TestRuntimeE2EDubboProviderProcess(t *testing.T) {
 	// listen overlaps the wildcard MetadataService listener; Linux rejects that
 	// with EADDRINUSE while BSD/macOS tolerates it. Sharing the wildcard
 	// location makes both services reuse one listener.
-	srv, err := rpcserver.NewServer(rpcserver.WithServerProtocol(
+	serverOptions := []rpcserver.ServerOption{rpcserver.WithServerProtocol(
 		protocol.WithDubbo(),
 		protocol.WithPort(port),
-	))
+	)}
+	serviceOptions := []rpcserver.ServiceOption{
+		rpcserver.WithInterface(runtimeE2EDubboServiceInfo.InterfaceName),
+	}
+	registryEndpoint := strings.TrimSpace(os.Getenv(runtimeE2EProviderRegistryEnv))
+	if registryEndpoint == "" {
+		serviceOptions = append(serviceOptions, rpcserver.WithNotRegister())
+	} else {
+		registryURL, parseErr := url.Parse(registryEndpoint)
+		require.NoError(t, parseErr)
+		registryAddress := registryURL.Host
+		if registryAddress == "" {
+			registryAddress = registryEndpoint
+		}
+		application := global.DefaultApplicationConfig()
+		application.Name = "runtime-e2e"
+		application.MetadataType = constant.RemoteMetadataStorageType
+		serverOptions = append(serverOptions,
+			rpcserver.SetServerApplication(application),
+			rpcserver.WithServerRegistry(
+				registryconfig.WithEtcdV3(),
+				registryconfig.WithID("runtime-e2e"),
+				registryconfig.WithAddress(registryAddress),
+			),
+		)
+	}
+	srv, err := rpcserver.NewServer(serverOptions...)
 	require.NoError(t, err)
 	require.NoError(t, srv.Register(
 		&RuntimeE2EDubboProvider{marker: os.Getenv(runtimeE2EProviderMarkerEnv)},
 		&runtimeE2EDubboServiceInfo,
-		rpcserver.WithInterface(runtimeE2EDubboServiceInfo.InterfaceName),
-		rpcserver.WithNotRegister(),
+		serviceOptions...,
 	))
 	require.NoError(t, srv.Serve())
 }
@@ -408,20 +429,21 @@ func TestAdminHTTPToRunningPixiuEndToEnd(t *testing.T) {
 
 	// Close the complete AdminRouteBinding loop: create/validate/publish through
 	// the Admin API, load the generated legacy Resource/Method keys from etcd,
-	// then invoke the running Dubbo provider through Pixiu's HTTP listener.
+	// then discover the registered Dubbo provider and invoke it through Pixiu's
+	// HTTP listener.
+	startRuntimeE2EDubboProvider(t, "rpc-admin", etcdEndpoint)
 	adminBinding := map[string]any{
 		"kind":     "AdminRouteBinding",
 		"metadata": map[string]any{"name": "admin-route-e2e"},
 		"spec": map[string]any{
 			"entry":            map[string]any{"protocol": "http", "path": "/admin-rpc", "method": "POST"},
-			"backendRef":       map[string]any{"type": "direct", "cluster": "", "url": fmt.Sprintf("dubbo://127.0.0.1:%d", providerOnePort)},
+			"backendRef":       map[string]any{"type": "registry"},
 			"serviceSelection": map[string]any{"application": "runtime-e2e", "interface": "pixiu.e2e.Greeter", "group": "", "version": ""},
 			"invocation": map[string]any{
-				"method": "SayHello", "timeout": "5s", "serialization": "hessian2",
+				"method": "SayHello", "timeout": "5s",
 				"parameters": []any{map[string]any{"from": "requestBody.name", "to": 0, "type": "java.lang.String"}},
 			},
-			"enabled":    true,
-			"extensions": map[string]any{},
+			"enabled": true,
 		},
 	}
 	adminBindingBody, err := json.Marshal(adminBinding)
@@ -431,9 +453,9 @@ func TestAdminHTTPToRunningPixiuEndToEnd(t *testing.T) {
 
 	adminRpcListenerPort := reserveRuntimeE2EPort(t)
 	runtimeE2EAdminForm(t, router, token, http.MethodPut, "/config/api/listener",
-		runtimeE2ERemoteDubboListenerYAML(adminRpcListenerPort, etcdEndpoint, etcdPath))
+		runtimeE2ERemoteDubboListenerYAML(adminRpcListenerPort, etcdEndpoint, etcdPath, registryAddressForRuntimeE2E(etcdEndpoint)))
 	adminRpcURL := fmt.Sprintf("http://127.0.0.1:%d/admin-rpc", adminRpcListenerPort)
-	requireRuntimeE2EPostContains(t, adminRpcURL, `{"name":"admin"}`, `rpc-one:admin`, 15*time.Second)
+	requireRuntimeE2EPostContains(t, adminRpcURL, `{"name":"admin"}`, `rpc-admin:admin`, 20*time.Second)
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/listener?listener=gateway")
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/route?name=admin-route-e2e")
 	historyRequest := httptest.NewRequest(http.MethodGet, "/config/api/route/history/list", nil)
@@ -552,7 +574,7 @@ func runtimeE2EReservedURL(t *testing.T) url.URL {
 	return *parsed
 }
 
-func startRuntimeE2EDubboProvider(t *testing.T, marker string) int {
+func startRuntimeE2EDubboProvider(t *testing.T, marker string, registryEndpoints ...string) int {
 	t.Helper()
 	port := reserveRuntimeE2EPort(t)
 	executable, err := os.Executable()
@@ -567,6 +589,9 @@ func startRuntimeE2EDubboProvider(t *testing.T, marker string) int {
 		runtimeE2EProviderPortEnv+"="+strconv.Itoa(port),
 		runtimeE2EProviderMarkerEnv+"="+marker,
 	)
+	if len(registryEndpoints) > 0 && strings.TrimSpace(registryEndpoints[0]) != "" {
+		cmd.Env = append(cmd.Env, runtimeE2EProviderRegistryEnv+"="+registryEndpoints[0])
+	}
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	require.NoError(t, cmd.Start())
@@ -832,7 +857,7 @@ http_filters:
 `, port, apiPath)
 }
 
-func runtimeE2ERemoteDubboListenerYAML(port int, etcdEndpoint, apiConfigPath string) string {
+func runtimeE2ERemoteDubboListenerYAML(port int, etcdEndpoint, apiConfigPath, registryAddress string) string {
 	return fmt.Sprintf(`name: gateway
 address:
   socket-address:
@@ -854,8 +879,20 @@ http_filters:
   - name: dgp.filter.http.dubboproxy
     config:
       dubboProxyConfig:
-        registries: {}
-`, port, etcdEndpoint, apiConfigPath)
+        registries:
+          runtime-e2e:
+            protocol: etcdv3
+            address: %q
+            timeout: 5s
+`, port, etcdEndpoint, apiConfigPath, registryAddress)
+}
+
+func registryAddressForRuntimeE2E(endpoint string) string {
+	parsed, err := url.Parse(endpoint)
+	if err == nil && parsed.Host != "" {
+		return parsed.Host
+	}
+	return strings.TrimPrefix(strings.TrimPrefix(endpoint, "http://"), "https://")
 }
 
 func runtimeE2EGet(target string) string {

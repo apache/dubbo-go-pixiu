@@ -134,7 +134,7 @@ method
 
 clusterName
 :
-> Legacy field retained for compatibility; it does not select the HTTP-to-Dubbo client's registry. AdminRouteBinding selects one configured registry with `backendRef.cluster`, compiled as `integrationRequest.registryId`.
+> Legacy field retained for compatibility. AdminRouteBinding resolves services through the registry set configured on the listener's `dgp.filter.http.dubboproxy` filter; its `serviceSelection.application` and `interface` identify the service. See the [Dubbo registry configuration example](../sample/dubbo/dubbo-registry.md).
 
 ### Migration from `dubboProxyConfig.auto_resolve`
 
