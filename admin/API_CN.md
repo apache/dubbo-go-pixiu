@@ -60,7 +60,37 @@ description: pixiu111 sample
 
 ## 二、API 路由
 
-API Router 配置使用 AdminRouteBinding 对象管理。旧 Resource/Method Admin CRUD 接口已由新模型替代；已有运行时 Resource/Method 配置不会自动导入新草稿模型，需要通过新接口管理的路由应重新创建为 AdminRouteBinding。新路由发布后仍会生成 Pixiu 使用的旧格式运行时配置。
+API Router 配置使用 AdminRouteBinding 对象管理，并编译为 Pixiu 现有的 Resource/Method 运行时格式。旧 Resource/Method Admin CRUD 和发布接口仍保留，用于兼容旧客户端；旧运行时记录不会自动导入 AdminRouteBinding 草稿，需要迁移到新模型管理的路由应通过新接口重新创建。
+
+新模型将 HTTP 入口、后端引用、Dubbo 服务选择和调用策略分开描述。例如：
+
+```yaml
+kind: AdminRouteBinding
+metadata:
+  name: user-get
+spec:
+  entry:
+    protocol: http
+    path: /api/v1/users/:id
+    method: GET
+  backendRef:
+    type: registry
+  serviceSelection:
+    application: UserProvider
+    interface: com.example.user.UserService
+    group: stable
+    version: 1.0.0
+  invocation:
+    method: GetUser
+    timeout: 750ms
+    parameters:
+      - from: uri.id
+        to: 0
+        type: java.lang.String
+  enabled: true
+```
+
+`timeout` 必须是正数时长；路径中的每个 `:参数` 都必须且只能映射一次到对应的 `uri.参数`。当前 `backendRef.type` 固定为 `registry`，服务通过 Listener 的 `dgp.filter.http.dubboproxy` 中配置的注册中心集合发现；`serviceSelection.application` 和 `interface` 用于定位服务。旧 `target.cluster` 会迁移为 `integrationRequest.clusterName`，但不用于选择注册中心。运行时示例参见[Dubbo 注册中心配置](../docs/sample/dubbo/dubbo-registry.md)。PR #1046 生成的 `target`/`params` 对象会在读取和校验时迁移为当前模型，保存时写入新格式。
 
 ### 2.1 获取 API 路由 Schema
 
@@ -151,7 +181,20 @@ cache-control: no-cache
 
 状态接口返回单条路由的草稿和已发布状态；Diff 接口返回草稿与已发布对象之间的字段差异。
 
-### 2.8 发布单条 API 路由
+### 2.8 查询已发布历史
+
+**请求**：
+
+```http
+GET /config/api/route/history?name=<路由名> HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+每次成功发布或删除都会在与运行时配置相同的 etcd 事务中保存不可变快照。历史记录包含单调递增 revision、发布时间和对象；删除记录不含对象。revision 以十进制字符串返回，以便旧安装中较大的 revision 标记可以被客户端精确保留。
+
+`GET /config/api/route/history/list` 返回所有路由的最近历史摘要，包括删除记录。Admin 页面通过它展示已从草稿和已发布列表中消失的路由，并允许恢复之前发布过的版本。
+
+### 2.9 发布单条 API 路由
 
 **请求**：
 
@@ -165,7 +208,18 @@ cache-control: no-cache
 
 发布前还会检查旧运行时 Resource/Method 配置冲突。若 HTTP 方法和路径冲突，应先从旧运行时配置中移除对应路由。
 
-### 2.9 删除单条 API 路由
+### 2.10 回滚到已发布历史版本
+
+**请求**：
+
+```http
+PUT /config/api/route/rollback?name=<路由名>&revision=<history-revision>&expectedRevision=<draft-revision> HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+回滚会将选定快照写入草稿，再通过正常的原子发布流程生效。若并发修改导致发布冲突，快照会保留为草稿，当前运行时配置不变。回滚到删除快照会删除该路由。
+
+### 2.11 删除单条 API 路由
 
 **请求**：
 
@@ -177,6 +231,16 @@ cache-control: no-cache
 
 删除会通过一个 etcd 事务立即移除路由草稿和对应的已发布运行时配置。客户端发送请求前应先向用户确认删除。
 expectedRevision 为可选项；如果提供，可避免删除读取后已被其他请求修改的草稿。
+
+### 2.12 旧版 Resource/Method API 兼容
+
+旧 Admin 客户端仍可使用以下接口：
+
+- `/config/api/resource/list`、`/detail` 和 `/resource`（POST/PUT/DELETE）
+- `/config/api/resource/method/list`、`/detail` 和 `/resource/method`（POST/PUT/DELETE）
+- `/config/api/resource/publish` 和 `/config/api/resource/method/publish`
+
+这些接口继续读写旧 etcd key 和 YAML 结构。AdminRouteBinding 发布前会检查与旧运行时路由的冲突；替换冲突路由前，应先通过旧接口或旧配置清理对应路由。
 
 ## 三、PluginGroup 和 Plugin 相关
 

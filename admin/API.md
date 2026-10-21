@@ -60,7 +60,7 @@ description: pixiu111 sample
 
 ## II. API Routes
 
-API Router configuration is managed through AdminRouteBinding objects. The legacy Resource/Method Admin CRUD API is replaced. Existing runtime Resource/Method records are not imported into the new draft model; recreate routes that need to be managed through this API. Publishing a new route continues to generate the legacy runtime configuration used by Pixiu.
+New API routes are managed through AdminRouteBinding objects and compiled to the existing Resource/Method runtime format. The legacy Resource/Method Admin CRUD and publish endpoints remain available for older clients and continue to use the old etcd keys. Existing legacy records are not imported into AdminRouteBinding drafts; use the new API to manage new routes, and use the compatibility endpoints to manage old records.
 
 ### 2.1 Get API Route Schema
 
@@ -73,6 +73,45 @@ cache-control: no-cache
 ```
 
 The response data contains the registered Admin object schemas, including the AdminRouteBinding schema used by the editor.
+
+The current route model keeps the backend reference, service selection, and
+invocation policy separate. A registry-backed draft has this shape:
+
+```yaml
+kind: AdminRouteBinding
+metadata:
+  name: user-get
+spec:
+  entry:
+    protocol: http
+    path: /api/v1/users/:id
+    method: GET
+  backendRef:
+    type: registry
+  serviceSelection:
+    application: UserProvider
+    interface: com.example.user.UserService
+    group: stable
+    version: 1.0.0
+  invocation:
+    method: GetUser
+    timeout: 750ms
+    parameters:
+      - from: uri.id
+        to: 0
+        type: java.lang.String
+  enabled: true
+```
+
+`timeout` is a positive Go duration. URI mappings must correspond one-to-one
+with `:name` path segments. `backendRef.type` is currently fixed to `registry`;
+services are resolved from the registry set configured on the listener's
+`dgp.filter.http.dubboproxy` filter. `serviceSelection.application` and
+`interface` identify the service. The legacy `target.cluster` value is migrated
+to `integrationRequest.clusterName`; it does not choose a registry.
+See the [Dubbo registry configuration example](../docs/sample/dubbo/dubbo-registry.md)
+for the runtime registry setup. Objects written by PR #1046 using `target` and
+`params` are normalized on read/validation and migrate when saved.
 
 ### 2.2 Get API Route List
 
@@ -151,7 +190,26 @@ cache-control: no-cache
 
 Status reports the draft and published state for one route. Diff returns the field-level differences between its draft and published objects.
 
-### 2.8 Publish One API Route
+### 2.8 Query Published History
+
+**Request**:
+
+```http
+GET /config/api/route/history?name=<route-name> HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+Each successful publish and delete stores an immutable snapshot in the same
+etcd transaction as the runtime update. History entries expose a monotonically
+increasing revision, publish time, and the binding object; a deletion entry has
+no object. History revisions are decimal strings so clients can preserve their
+exact value when existing installations have large revision markers.
+
+`GET /config/api/route/history/list` returns the latest revision summary for
+every route, including tombstones. The Admin UI uses this endpoint to expose
+history-only routes and restore a previously published object after deletion.
+
+### 2.9 Publish One API Route
 
 **Request**:
 
@@ -165,7 +223,21 @@ Publishing validates the route and atomically updates its published AdminRouteBi
 
 Before publishing, Admin checks for conflicts with legacy runtime Resource/Method records. A conflicting HTTP method and path must be removed from the old runtime configuration before the new route can be published.
 
-### 2.9 Delete One API Route
+### 2.10 Roll Back to a Published Revision
+
+**Request**:
+
+```http
+PUT /config/api/route/rollback?name=<route-name>&revision=<history-revision>&expectedRevision=<draft-revision> HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+Rollback stages the selected immutable snapshot and publishes it through the
+normal atomic Resource/Method publisher. If a concurrent change prevents
+publish, the snapshot remains a draft and the active runtime remains unchanged.
+Rolling back to a deletion snapshot removes the route.
+
+### 2.11 Delete One API Route
 
 **Request**:
 
@@ -177,6 +249,18 @@ cache-control: no-cache
 
 Deletion immediately removes the route draft and its published runtime configuration in one etcd transaction. The client should ask for confirmation before sending this request.
 expectedRevision is optional; when supplied, it prevents deleting a draft that changed after it was read.
+
+### 2.12 Legacy Resource/Method API Compatibility
+
+Older Admin clients can continue using the original endpoints:
+
+- `/config/api/resource/list`, `/detail`, and `/resource` (POST/PUT/DELETE)
+- `/config/api/resource/method/list`, `/detail`, and `/resource/method` (POST/PUT/DELETE)
+- `/config/api/resource/publish` and `/config/api/resource/method/publish`
+
+These endpoints keep the legacy etcd key layout and YAML shapes. New
+AdminRouteBinding publication checks for conflicts with those runtime routes;
+remove or migrate a conflicting old route before publishing its replacement.
 
 ## III. PluginGroup and Plugin Related
 

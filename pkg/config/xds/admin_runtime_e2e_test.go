@@ -19,6 +19,7 @@ package xds_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -37,8 +38,10 @@ import (
 
 import (
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	"dubbo.apache.org/dubbo-go/v3/global"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
 	"dubbo.apache.org/dubbo-go/v3/protocol"
+	registryconfig "dubbo.apache.org/dubbo-go/v3/registry"
 	rpcserver "dubbo.apache.org/dubbo-go/v3/server"
 
 	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -77,10 +80,11 @@ import (
 )
 
 const (
-	runtimeE2EHTTPFilter         = "dgp.test.xds.runtime.proxy"
-	runtimeE2EProviderProcessEnv = "PIXIU_RUNTIME_E2E_DUBBO_PROVIDER"
-	runtimeE2EProviderPortEnv    = "PIXIU_RUNTIME_E2E_DUBBO_PORT"
-	runtimeE2EProviderMarkerEnv  = "PIXIU_RUNTIME_E2E_DUBBO_MARKER"
+	runtimeE2EHTTPFilter          = "dgp.test.xds.runtime.proxy"
+	runtimeE2EProviderProcessEnv  = "PIXIU_RUNTIME_E2E_DUBBO_PROVIDER"
+	runtimeE2EProviderPortEnv     = "PIXIU_RUNTIME_E2E_DUBBO_PORT"
+	runtimeE2EProviderMarkerEnv   = "PIXIU_RUNTIME_E2E_DUBBO_MARKER"
+	runtimeE2EProviderRegistryEnv = "PIXIU_RUNTIME_E2E_DUBBO_REGISTRY"
 )
 
 type runtimeE2EHTTPPlugin struct {
@@ -213,16 +217,41 @@ func TestRuntimeE2EDubboProviderProcess(t *testing.T) {
 	// listen overlaps the wildcard MetadataService listener; Linux rejects that
 	// with EADDRINUSE while BSD/macOS tolerates it. Sharing the wildcard
 	// location makes both services reuse one listener.
-	srv, err := rpcserver.NewServer(rpcserver.WithServerProtocol(
+	serverOptions := []rpcserver.ServerOption{rpcserver.WithServerProtocol(
 		protocol.WithDubbo(),
 		protocol.WithPort(port),
-	))
+	)}
+	serviceOptions := []rpcserver.ServiceOption{
+		rpcserver.WithInterface(runtimeE2EDubboServiceInfo.InterfaceName),
+	}
+	registryEndpoint := strings.TrimSpace(os.Getenv(runtimeE2EProviderRegistryEnv))
+	if registryEndpoint == "" {
+		serviceOptions = append(serviceOptions, rpcserver.WithNotRegister())
+	} else {
+		registryURL, parseErr := url.Parse(registryEndpoint)
+		require.NoError(t, parseErr)
+		registryAddress := registryURL.Host
+		if registryAddress == "" {
+			registryAddress = registryEndpoint
+		}
+		application := global.DefaultApplicationConfig()
+		application.Name = "runtime-e2e"
+		application.MetadataType = constant.RemoteMetadataStorageType
+		serverOptions = append(serverOptions,
+			rpcserver.SetServerApplication(application),
+			rpcserver.WithServerRegistry(
+				registryconfig.WithEtcdV3(),
+				registryconfig.WithID("runtime-e2e"),
+				registryconfig.WithAddress(registryAddress),
+			),
+		)
+	}
+	srv, err := rpcserver.NewServer(serverOptions...)
 	require.NoError(t, err)
 	require.NoError(t, srv.Register(
 		&RuntimeE2EDubboProvider{marker: os.Getenv(runtimeE2EProviderMarkerEnv)},
 		&runtimeE2EDubboServiceInfo,
-		rpcserver.WithInterface(runtimeE2EDubboServiceInfo.InterfaceName),
-		rpcserver.WithNotRegister(),
+		serviceOptions...,
 	))
 	require.NoError(t, srv.Serve())
 }
@@ -404,6 +433,110 @@ func TestAdminHTTPToRunningPixiuEndToEnd(t *testing.T) {
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/listener?listener=gateway")
 	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/cluster?clusterId=2")
 	requireRuntimeE2EPortClosed(t, rpcListenerPort)
+
+	// Close the complete AdminRouteBinding loop: create/validate/publish through
+	// the Admin API, load the generated legacy Resource/Method keys from etcd,
+	// then discover the registered Dubbo provider and invoke it through Pixiu's
+	// HTTP listener.
+	startRuntimeE2EDubboProvider(t, "rpc-admin", etcdEndpoint)
+	adminBinding := map[string]any{
+		"kind":     "AdminRouteBinding",
+		"metadata": map[string]any{"name": "admin-route-e2e"},
+		"spec": map[string]any{
+			"entry":            map[string]any{"protocol": "http", "path": "/admin-rpc", "method": "POST"},
+			"backendRef":       map[string]any{"type": "registry"},
+			"serviceSelection": map[string]any{"application": "runtime-e2e", "interface": "pixiu.e2e.Greeter", "group": "", "version": ""},
+			"invocation": map[string]any{
+				"method": "SayHello", "timeout": "5s",
+				"parameters": []any{map[string]any{"from": "requestBody.name", "to": 0, "type": "java.lang.String"}},
+			},
+			"enabled": true,
+		},
+	}
+	adminBindingBody, err := json.Marshal(adminBinding)
+	require.NoError(t, err)
+	runtimeE2EAdminJSON(t, router, token, http.MethodPost, "/config/api/route", adminBindingBody)
+	runtimeE2EAdminRequest(t, router, token, http.MethodPut, "/config/api/route/publish?name=admin-route-e2e")
+
+	adminRpcListenerPort := reserveRuntimeE2EPort(t)
+	runtimeE2EAdminForm(t, router, token, http.MethodPut, "/config/api/listener",
+		runtimeE2ERemoteDubboListenerYAML(adminRpcListenerPort, etcdEndpoint, etcdPath, registryAddressForRuntimeE2E(etcdEndpoint)))
+	adminRpcURL := fmt.Sprintf("http://127.0.0.1:%d/admin-rpc", adminRpcListenerPort)
+	requireRuntimeE2EPostContains(t, adminRpcURL, `{"name":"admin"}`, `rpc-admin:admin`, 20*time.Second)
+	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/listener?listener=gateway")
+	runtimeE2EAdminRequest(t, router, token, http.MethodDelete, "/config/api/route?name=admin-route-e2e")
+	historyRequest := httptest.NewRequest(http.MethodGet, "/config/api/route/history/list", nil)
+	historyRequest.Header.Set("token", token)
+	historyResponse := httptest.NewRecorder()
+	router.ServeHTTP(historyResponse, historyRequest)
+	require.Equal(t, http.StatusOK, historyResponse.Code)
+	require.Contains(t, historyResponse.Body.String(), `"name":"admin-route-e2e"`)
+	require.Contains(t, historyResponse.Body.String(), `"deleted":true`)
+	requireRuntimeE2EPortClosed(t, adminRpcListenerPort)
+
+	// The legacy create endpoint still mirrors published Resource/Method
+	// records into draft storage. Both namespaces must use the same IDs so a
+	// later legacy edit or publish addresses the record that was created.
+	runtimeE2EAdminForm(t, router, token, http.MethodPost, "/config/api/resource", `type: restful
+path: /legacy-compat
+methods:
+  - httpVerb: POST
+    enable: true
+`)
+	legacyClient := adminconfig.Client.GetRawClient()
+	publishedLegacy, err := legacyClient.Get(ctx, etcdPath+"/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	draftLegacy, err := legacyClient.Get(ctx, etcdPath+"/unpublished/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	publishedKeys := make([]string, 0, len(publishedLegacy.Kvs))
+	for _, kv := range publishedLegacy.Kvs {
+		publishedKeys = append(publishedKeys, strings.TrimPrefix(string(kv.Key), etcdPath+"/resources/"))
+	}
+	draftKeys := make([]string, 0, len(draftLegacy.Kvs))
+	for _, kv := range draftLegacy.Kvs {
+		draftKeys = append(draftKeys, strings.TrimPrefix(string(kv.Key), etcdPath+"/unpublished/resources/"))
+	}
+	require.Len(t, publishedKeys, 2, "one Resource and its Method should be created")
+	require.ElementsMatch(t, publishedKeys, draftKeys, "legacy published and draft keys should share Resource/Method IDs")
+
+	runtimeE2EAdminRequest(t, router, token, http.MethodPut, "/config/api/resource/method/publish")
+	publishedLegacy, err = legacyClient.Get(ctx, etcdPath+"/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	var resourceRevision, methodRevision int64
+	var resourceKey string
+	for _, kv := range publishedLegacy.Kvs {
+		relative := strings.TrimPrefix(string(kv.Key), etcdPath+"/resources/")
+		if strings.Contains(relative, "/method/") {
+			methodRevision = kv.ModRevision
+		} else {
+			resourceRevision = kv.ModRevision
+			resourceKey = string(kv.Key)
+		}
+	}
+	require.NotZero(t, resourceRevision, "published Resource key was not written")
+	require.NotZero(t, methodRevision, "published Method key was not written")
+	require.Equal(t, resourceRevision, methodRevision, "Resource and Method must share one atomic etcd revision")
+
+	// A legacy client can also stage and publish a Method without a staged
+	// Resource record. That path must remain compatible and only update the
+	// Method key in the published tree.
+	draftResourceKey := etcdPath + "/unpublished/resources/" + strings.TrimPrefix(resourceKey, etcdPath+"/resources/")
+	_, err = legacyClient.Delete(ctx, draftResourceKey)
+	require.NoError(t, err)
+	runtimeE2EAdminRequest(t, router, token, http.MethodPut, "/config/api/resource/method/publish")
+	publishedLegacy, err = legacyClient.Get(ctx, etcdPath+"/resources/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	var methodOnlyResourceRevision, methodOnlyMethodRevision int64
+	for _, kv := range publishedLegacy.Kvs {
+		relative := strings.TrimPrefix(string(kv.Key), etcdPath+"/resources/")
+		if strings.Contains(relative, "/method/") {
+			methodOnlyMethodRevision = kv.ModRevision
+		} else {
+			methodOnlyResourceRevision = kv.ModRevision
+		}
+	}
+	require.Equal(t, resourceRevision, methodOnlyResourceRevision, "Method-only publish should not rewrite the Resource key")
+	require.Greater(t, methodOnlyMethodRevision, methodRevision, "Method-only publish should update the Method key")
 }
 
 func runtimeE2EEtcdEndpoint(t *testing.T) string {
@@ -448,7 +581,7 @@ func runtimeE2EReservedURL(t *testing.T) url.URL {
 	return *parsed
 }
 
-func startRuntimeE2EDubboProvider(t *testing.T, marker string) int {
+func startRuntimeE2EDubboProvider(t *testing.T, marker string, registryEndpoints ...string) int {
 	t.Helper()
 	port := reserveRuntimeE2EPort(t)
 	executable, err := os.Executable()
@@ -463,6 +596,9 @@ func startRuntimeE2EDubboProvider(t *testing.T, marker string) int {
 		runtimeE2EProviderPortEnv+"="+strconv.Itoa(port),
 		runtimeE2EProviderMarkerEnv+"="+marker,
 	)
+	if len(registryEndpoints) > 0 && strings.TrimSpace(registryEndpoints[0]) != "" {
+		cmd.Env = append(cmd.Env, runtimeE2EProviderRegistryEnv+"="+registryEndpoints[0])
+	}
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	require.NoError(t, cmd.Start())
@@ -664,6 +800,13 @@ func runtimeE2EAdminRequest(t *testing.T, router http.Handler, token, method, pa
 	runtimeE2EServeAdmin(t, router, token, httptest.NewRequest(method, path, nil))
 }
 
+func runtimeE2EAdminJSON(t *testing.T, router http.Handler, token, method, path string, body []byte) {
+	t.Helper()
+	request := httptest.NewRequest(method, path, strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", "application/json")
+	runtimeE2EServeAdmin(t, router, token, request)
+}
+
 func runtimeE2EServeAdmin(t *testing.T, router http.Handler, token string, request *http.Request) {
 	t.Helper()
 	request.Header.Set("token", token)
@@ -719,6 +862,44 @@ http_filters:
       dubboProxyConfig:
         registries: {}
 `, port, apiPath)
+}
+
+func runtimeE2ERemoteDubboListenerYAML(port int, etcdEndpoint, apiConfigPath, registryAddress string) string {
+	return fmt.Sprintf(`name: gateway
+address:
+  socket-address:
+    address: 127.0.0.1
+    port: %d
+route_config:
+  routes:
+    - match:
+        prefix: /
+      route:
+        cluster: backend
+        cluster_not_found_response_code: 503
+http_filters:
+  - name: dgp.filter.http.apiconfig
+    config:
+      api_meta_config:
+        address: %q
+        api_config_path: %q
+  - name: dgp.filter.http.dubboproxy
+    config:
+      dubboProxyConfig:
+        registries:
+          runtime-e2e:
+            protocol: etcdv3
+            address: %q
+            timeout: 5s
+`, port, etcdEndpoint, apiConfigPath, registryAddress)
+}
+
+func registryAddressForRuntimeE2E(endpoint string) string {
+	parsed, err := url.Parse(endpoint)
+	if err == nil && parsed.Host != "" {
+		return parsed.Host
+	}
+	return strings.TrimPrefix(strings.TrimPrefix(endpoint, "http://"), "https://")
 }
 
 func runtimeE2EGet(target string) string {
