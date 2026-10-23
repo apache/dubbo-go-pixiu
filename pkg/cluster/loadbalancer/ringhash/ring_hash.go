@@ -19,12 +19,17 @@ package ringhash
 
 import (
 	"math"
+)
 
+import (
+	"github.com/dubbogo/gost/hash/consistent"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/dubbogo/gost/hash/consistent"
 )
 
 func init() {

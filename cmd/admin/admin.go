@@ -30,6 +30,7 @@ import (
 
 import (
 	config2 "github.com/apache/dubbo-go-pixiu/admin/config"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	"github.com/apache/dubbo-go-pixiu/admin/core"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
@@ -51,24 +52,30 @@ var (
 		PreRun: func(cmd *cobra.Command, args []string) {
 			initDefaultValue()
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, err := auth.GetSignKey(); err != nil {
+				return err
+			}
 			_, err := config2.LoadAPIConfigFromFile(configPath)
 			if err != nil {
 				logger.Errorf("load admin config  error:%+v", err)
 			}
-			Start()
+			if err := Start(); err != nil {
+				return err
+			}
 			// gracefully shutdown
 			sigint := make(chan os.Signal, 1)
 			signal.Notify(sigint, os.Interrupt)
 			<-sigint
 			Stop()
+			return nil
 		},
 	}
 )
 
 // Start start init etcd client and start admin http server
-func Start() {
-	core.RunServer()
+func Start() error {
+	return core.RunServer()
 }
 
 func Stop() {
