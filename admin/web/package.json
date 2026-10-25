@@ -38,6 +38,6 @@
     "globals": "^17.12.0",
     "prettier": "^3.9.6",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }
