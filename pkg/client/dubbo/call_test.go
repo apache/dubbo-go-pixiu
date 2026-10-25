@@ -25,8 +25,10 @@ import (
 )
 
 import (
+	dclient "dubbo.apache.org/dubbo-go/v3/client"
 	dubboConstant "dubbo.apache.org/dubbo-go/v3/common/constant"
 	"dubbo.apache.org/dubbo-go/v3/filter/generic"
+	"dubbo.apache.org/dubbo-go/v3/global"
 
 	hessian "github.com/apache/dubbo-go-hessian2"
 
@@ -68,7 +70,7 @@ func restorePropagator(t *testing.T, propagator propagation.TextMapPropagator) {
 func cacheServiceForOutbound(t *testing.T, dc *Client, req *DubboOutboundRequest, service *generic.GenericService) {
 	t.Helper()
 
-	spec := dc.resolveFromOutbound(req)
+	spec := dc.resolveFromOutbound(req, cst.GenericModeMap)
 	key, err := spec.cacheKey()
 	require.NoError(t, err)
 	dc.GenericServicePool[key] = service
@@ -91,7 +93,7 @@ func TestResolveFromOutboundDirectMode(t *testing.T) {
 		Address:       "127.0.0.1:20880",
 		Protocol:      "dubbo",
 		Serialization: "hessian2",
-	})
+	}, cst.GenericModeProtobufJSON)
 
 	assert.Equal(t, "direct", spec.Mode)
 	assert.Equal(t, "com.example.UserService", spec.Interface)
@@ -100,6 +102,7 @@ func TestResolveFromOutboundDirectMode(t *testing.T) {
 	assert.Equal(t, "dubbo://127.0.0.1:20880", spec.URL)
 	assert.Equal(t, "dubbo", spec.EffectiveProtocol)
 	assert.Equal(t, "hessian2", spec.EffectiveSerialization)
+	assert.Equal(t, cst.GenericModeProtobufJSON, spec.EffectiveGeneric)
 	assert.Empty(t, spec.RegistryIDs)
 	assert.False(t, spec.UseNacosWarmup)
 	assert.Equal(t, "failover", spec.ConsumerDefaults.Cluster)
@@ -130,7 +133,7 @@ func TestResolveFromOutboundRegistryMode(t *testing.T) {
 		Version:       "1.0.0",
 		Protocol:      "tri",
 		Serialization: "protobuf",
-	})
+	}, cst.GenericModeMap)
 
 	assert.Equal(t, "registry", spec.Mode)
 	assert.Equal(t, "com.example.UserService", spec.Interface)
@@ -138,6 +141,7 @@ func TestResolveFromOutboundRegistryMode(t *testing.T) {
 	assert.True(t, spec.UseNacosWarmup)
 	assert.Equal(t, "tri", spec.EffectiveProtocol)
 	assert.Equal(t, "protobuf", spec.EffectiveSerialization)
+	assert.Equal(t, cst.GenericModeMap, spec.EffectiveGeneric)
 	assert.Equal(t, "failover", spec.ConsumerDefaults.Cluster)
 	assert.Equal(t, "3", spec.ConsumerDefaults.Retries)
 	assert.Equal(t, cst.DefaultReqTimeout, spec.ConsumerDefaults.RequestTimeout)
@@ -188,6 +192,75 @@ func TestCacheKeyIncludesConsumerDefaults(t *testing.T) {
 	assert.Equal(t, "random", decoded.LoadBalance)
 	assert.Equal(t, "5", decoded.Retries)
 	assert.Equal(t, "2s", decoded.RequestTimeout)
+}
+
+func TestCacheKeyIncludesGenericMode(t *testing.T) {
+	baseSpec := resolvedReferSpec{
+		Mode:                   "direct",
+		Interface:              "com.example.UserService",
+		URL:                    "tri://127.0.0.1:50052",
+		EffectiveProtocol:      "tri",
+		EffectiveSerialization: "hessian2",
+		EffectiveGeneric:       cst.GenericModeMap,
+		ConsumerDefaults: resolvedConsumerDefaults{
+			Cluster:        "failover",
+			RequestTimeout: time.Second,
+		},
+	}
+
+	changedSpec := baseSpec
+	changedSpec.EffectiveGeneric = cst.GenericModeProtobufJSON
+
+	baseKey, err := baseSpec.cacheKey()
+	require.NoError(t, err)
+	changedKey, err := changedSpec.cacheKey()
+	require.NoError(t, err)
+
+	assert.NotEqual(t, baseKey, changedKey)
+
+	var decoded genericServiceKey
+	require.NoError(t, json.Unmarshal([]byte(changedKey), &decoded))
+	assert.Equal(t, cst.GenericModeProtobufJSON, decoded.Generic)
+}
+
+func TestBuildReferenceOptionsCarriesGenericMode(t *testing.T) {
+	dc := NewDubboClient()
+
+	opts, err := dc.buildReferenceOptions(resolvedReferSpec{
+		Mode:              "direct",
+		Interface:         "com.example.UserService",
+		URL:               "tri://127.0.0.1:50052",
+		EffectiveProtocol: "tri",
+		EffectiveGeneric:  cst.GenericModeProtobufJSON,
+		ConsumerDefaults: resolvedConsumerDefaults{
+			Cluster:        "failover",
+			RequestTimeout: time.Second,
+		},
+	})
+	require.NoError(t, err)
+
+	var applied dclient.ReferenceOptions
+	applied.Reference = &global.ReferenceConfig{}
+	for _, opt := range opts {
+		opt(&applied)
+	}
+
+	assert.Equal(t, cst.GenericModeProtobufJSON, applied.Reference.Generic)
+}
+
+func TestCallRejectsUnsupportedGenericMode(t *testing.T) {
+	dc := NewDubboClient()
+
+	_, err := dc.Call(context.Background(), &DubboOutboundRequest{
+		Service:  "com.example.UserService",
+		Method:   "GetUser",
+		Address:  "127.0.0.1:20880",
+		Protocol: "dubbo",
+		Generic:  "unsupported",
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported")
 }
 
 func TestCallUsesOutboundOnly(t *testing.T) {
