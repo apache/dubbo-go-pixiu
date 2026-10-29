@@ -86,6 +86,6 @@ func (d *GuestDao) Register(username, password string) error {
 	return err
 }
 
-func (d *GuestDao) CheckLogin() {
-	panic("implement me")
+func (d *GuestDao) CheckLogin() error {
+	return errors.New("GuestDao.CheckLogin: session validation is not implemented")
 }

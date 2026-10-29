@@ -34,7 +34,6 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.0.12
 	github.com/mark3labs/mcp-go v0.32.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/nacos-group/nacos-sdk-go v1.1.3
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.2
 	github.com/open-policy-agent/opa v0.45.0
 	github.com/pb33f/libopenapi v0.36.1
