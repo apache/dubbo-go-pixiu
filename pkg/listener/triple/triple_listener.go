@@ -110,6 +110,7 @@ func (ls *TripleListenerService) Close() error {
 }
 
 func (ls *TripleListenerService) ShutDown(wg any) error {
+	defer wg.(*sync.WaitGroup).Done()
 	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
 	if timeout <= 0 {
 		return nil
@@ -122,7 +123,6 @@ func (ls *TripleListenerService) ShutDown(wg any) error {
 		time.Sleep(100 * time.Millisecond)
 		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.GetActiveCount())
 	}
-	wg.(*sync.WaitGroup).Done()
 	ls.server.Stop()
 	return nil
 }
