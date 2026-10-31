@@ -190,6 +190,53 @@ func BizGetMethodList(resourceID string, unpublished bool) ([]config.Method, err
 	return methods, nil
 }
 
+// BizUpdateResourceAndMethods updates a legacy Resource and its Methods in one
+// etcd transaction. This keeps Method.ResourcePath aligned with the Resource
+// when a legacy client changes the route path.
+func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Method, unpublished bool) error {
+	if resource == nil {
+		return errors.New("legacy resource is nil")
+	}
+	resourceID, err := normalizePositiveLegacyID(strconv.Itoa(resource.ID), ResourceID)
+	if err != nil {
+		return err
+	}
+	if adminconfig.Client == nil {
+		return errors.New("admin etcd client is unavailable")
+	}
+	client := adminconfig.Client.GetRawClient()
+	if client == nil {
+		return errors.New("admin etcd client is unavailable")
+	}
+
+	storedResource := *resource
+	storedResource.Methods = nil
+	resourceData, err := commonyaml.MarshalYML(storedResource)
+	if err != nil {
+		return fmt.Errorf("encode legacy resource: %w", err)
+	}
+	operations := []clientv3.Op{clientv3.OpPut(
+		legacyResourceKey(resourceID, unpublished), string(resourceData),
+	)}
+	for index := range methods {
+		if methods[index].ID <= 0 {
+			return fmt.Errorf("legacy method id must be positive, got %d", methods[index].ID)
+		}
+		methods[index].ResourcePath = resource.Path
+		methodData, err := commonyaml.MarshalYML(methods[index])
+		if err != nil {
+			return fmt.Errorf("encode legacy method %d: %w", methods[index].ID, err)
+		}
+		operations = append(operations, clientv3.OpPut(
+			legacyMethodKey(resourceID, strconv.Itoa(methods[index].ID), unpublished), string(methodData),
+		))
+	}
+	if _, err := client.Txn(adminconfig.Client.GetCtx()).Then(operations...).Commit(); err != nil {
+		return fmt.Errorf("save legacy resource and methods atomically: %w", err)
+	}
+	return nil
+}
+
 func BizGetMethodDetail(resourceID, methodID string, unpublished bool) (string, error) {
 	return adminconfig.Client.Get(legacyMethodKey(resourceID, methodID, unpublished))
 }

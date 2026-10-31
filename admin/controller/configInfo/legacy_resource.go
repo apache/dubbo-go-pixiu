@@ -111,26 +111,29 @@ func ModifyResourceInfo(c *gin.Context) {
 		}
 	}
 	unpublished := legacyUnpublished(c)
-	oldContent, oldErr := logic.BizGetResourceDetail(strconv.Itoa(resource.ID), unpublished)
-	var old config.Resource
-	if oldErr == nil {
-		_ = commonyaml.UnmarshalYML([]byte(oldContent), &old)
-	}
-	if err := logic.BizSetResourceInfo(resource, false, unpublished); err != nil {
+	oldContent, err := logic.BizGetResourceDetail(strconv.Itoa(resource.ID), unpublished)
+	if err != nil {
 		legacyError(c, err)
 		return
 	}
-	if oldErr == nil && old.Path != resource.Path {
+	var old config.Resource
+	if err := commonyaml.UnmarshalYML([]byte(oldContent), &old); err != nil {
+		legacyError(c, err)
+		return
+	}
+	if old.Path != resource.Path {
 		methods, err := logic.BizGetMethodList(strconv.Itoa(resource.ID), unpublished)
-		if err == nil {
-			for index := range methods {
-				methods[index].ResourcePath = resource.Path
-				if err := logic.BizSetResourceMethod(strconv.Itoa(resource.ID), &methods[index], false, unpublished); err != nil {
-					legacyError(c, err)
-					return
-				}
-			}
+		if err != nil {
+			legacyError(c, err)
+			return
 		}
+		err = logic.BizUpdateResourceAndMethods(resource, methods, unpublished)
+	} else {
+		err = logic.BizSetResourceInfo(resource, false, unpublished)
+	}
+	if err != nil {
+		legacyError(c, err)
+		return
 	}
 	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
 }

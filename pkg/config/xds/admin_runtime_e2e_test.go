@@ -499,6 +499,60 @@ methods:
 	require.Len(t, publishedKeys, 2, "one Resource and its Method should be created")
 	require.ElementsMatch(t, publishedKeys, draftKeys, "legacy published and draft keys should share Resource/Method IDs")
 
+	var legacyResourceKey, legacyMethodKey, originalMethod string
+	for _, kv := range publishedLegacy.Kvs {
+		if strings.Contains(string(kv.Key), "/method/") {
+			legacyMethodKey = string(kv.Key)
+			originalMethod = string(kv.Value)
+		} else {
+			legacyResourceKey = string(kv.Key)
+		}
+	}
+	require.NotEmpty(t, legacyResourceKey)
+	require.NotEmpty(t, legacyMethodKey)
+	legacyResourceID := strings.TrimPrefix(legacyResourceKey, etcdPath+"/resources/")
+	originalResource, err := legacyClient.Get(ctx, legacyResourceKey)
+	require.NoError(t, err)
+	require.Len(t, originalResource.Kvs, 1)
+
+	// A malformed stored Method makes the read fail. The legacy modify API
+	// must return that error without changing the Resource path.
+	_, err = legacyClient.Put(ctx, legacyMethodKey, "invalid: [unterminated")
+	require.NoError(t, err)
+	failureRequest := httptest.NewRequest(http.MethodPut,
+		"/config/api/resource?resourceId="+legacyResourceID,
+		strings.NewReader(url.Values{"content": []string{"type: restful\npath: /legacy-compat-rejected\n"}}.Encode()))
+	failureRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	failureRequest.Header.Set("token", token)
+	failureResponse := httptest.NewRecorder()
+	router.ServeHTTP(failureResponse, failureRequest)
+	var failureBody struct {
+		Code string `json:"code"`
+	}
+	require.NoError(t, json.Unmarshal(failureResponse.Body.Bytes(), &failureBody))
+	require.Equal(t, adminconfig.ERR, failureBody.Code, "a Method read error must not report success")
+	resourceAfterFailure, err := legacyClient.Get(ctx, legacyResourceKey)
+	require.NoError(t, err)
+	require.Equal(t, string(originalResource.Kvs[0].Value), string(resourceAfterFailure.Kvs[0].Value),
+		"a failed Method read must leave the Resource unchanged")
+	_, err = legacyClient.Put(ctx, legacyMethodKey, originalMethod)
+	require.NoError(t, err)
+
+	// A valid path change updates the Resource and every Method atomically.
+	runtimeE2EAdminForm(t, router, token, http.MethodPut,
+		"/config/api/resource?resourceId="+legacyResourceID,
+		"type: restful\npath: /legacy-compat-v2\n")
+	updatedResource, err := legacyClient.Get(ctx, legacyResourceKey)
+	require.NoError(t, err)
+	updatedMethod, err := legacyClient.Get(ctx, legacyMethodKey)
+	require.NoError(t, err)
+	require.Len(t, updatedResource.Kvs, 1)
+	require.Len(t, updatedMethod.Kvs, 1)
+	require.Contains(t, string(updatedResource.Kvs[0].Value), "path: /legacy-compat-v2")
+	require.Contains(t, string(updatedMethod.Kvs[0].Value), "resourcePath: /legacy-compat-v2")
+	require.Equal(t, updatedResource.Kvs[0].ModRevision, updatedMethod.Kvs[0].ModRevision,
+		"Resource and Method path updates must share one etcd transaction")
+
 	runtimeE2EAdminRequest(t, router, token, http.MethodPut, "/config/api/resource/method/publish")
 	publishedLegacy, err = legacyClient.Get(ctx, etcdPath+"/resources/", clientv3.WithPrefix())
 	require.NoError(t, err)
@@ -919,6 +973,7 @@ func requireRuntimeE2EBody(t *testing.T, target, want string, timeout time.Durat
 	for time.Now().Before(deadline) {
 		lastBody, lastStatus, lastErr = runtimeE2EGetResult(target)
 		if lastErr == nil && lastStatus == http.StatusOK && lastBody == want {
+			t.Logf("verified HTTP GET %s -> %q", target, lastBody)
 			return
 		}
 		time.Sleep(25 * time.Millisecond)
@@ -949,6 +1004,7 @@ func requireRuntimeE2EPostContains(t *testing.T, target, requestBody, want strin
 			lastErr = err
 		}
 		if lastErr == nil && lastStatus == http.StatusOK && strings.Contains(lastBody, want) {
+			t.Logf("verified HTTP POST %s -> %q", target, lastBody)
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
