@@ -26,6 +26,7 @@ import type {
   AdminRouteBindingObject,
   RouteBinding,
   RouteBindingDiff,
+  RouteBindingHistoryEntry,
   RouteBindingObjectSchema,
   RouteBindingParam,
   RouteBindingPublishStatus,
@@ -41,6 +42,7 @@ import {
 import type { BusyAction, EditorTab, Notice } from './RouteBindingEditorSections'
 import {
   createDefaultRouteBinding,
+  hasLegacyRouteExtensions,
   hasLegacyPublishPreference,
   normaliseRouteBindingObject,
   parseRouteBindingYaml,
@@ -65,18 +67,10 @@ function createEmptyObject(): AdminRouteBindingObject {
     metadata: { name: '' },
     spec: {
       entry: { protocol: '', path: '', method: '' },
-      target: {
-        protocol: '',
-        application: '',
-        interface: '',
-        method: '',
-        version: '',
-        group: '',
-        cluster: '',
-      },
-      params: [],
+      backendRef: { type: 'registry', clusterName: '' },
+      serviceSelection: { application: '', interface: '', group: '', version: '' },
+      invocation: { method: '', timeout: '1s', parameters: [] },
       enabled: false,
-      extensions: {},
     },
   }
 }
@@ -161,6 +155,8 @@ export function RouteBindingEditor({
   const [schemaLoading, setSchemaLoading] = useState(true)
   const [schemaError, setSchemaError] = useState('')
   const [diffData, setDiffData] = useState<RouteBindingDiff | null>(null)
+  const [historyEntries, setHistoryEntries] = useState<RouteBindingHistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const hydratedBindingKey = useRef('')
 
   const loadSchema = useCallback(async () => {
@@ -192,6 +188,7 @@ export function RouteBindingEditor({
     if (hydratedBindingKey.current === bindingKey) return
     let normalized: AdminRouteBindingObject
     const removedLegacyPublish = binding ? hasLegacyPublishPreference(binding.object) : false
+    const removedLegacyExtensions = binding ? hasLegacyRouteExtensions(binding.object) : false
     try {
       normalized = binding
         ? normaliseRouteBindingObject(binding.object, schema, true)
@@ -220,15 +217,15 @@ export function RouteBindingEditor({
     setRevision(binding?.revision || 0)
     setPublished(initialPublished)
     setPublishStatus(initialPublishStatus || null)
-    setDirty(initialMode === 'create' || removedLegacyPublish)
+    setDirty(initialMode === 'create' || removedLegacyPublish || removedLegacyExtensions)
     setIssues([])
     setNotice(
-      removedLegacyPublish
+      removedLegacyPublish || removedLegacyExtensions
         ? {
             tone: 'success',
             text: isEnglish
-              ? 'An obsolete no-op spec.publish field was removed. Save this draft to persist the cleanup.'
-              : '已移除旧的无效 spec.publish 字段；保存草稿后才会持久化这次清理。',
+              ? 'Obsolete no-op route fields were removed. Save this draft to persist the cleanup.'
+              : '已移除旧的无效路由字段；保存草稿后才会持久化这次清理。',
           }
         : null,
     )
@@ -333,30 +330,57 @@ export function RouteBindingEditor({
     })
 
   const updateTarget = (
-    key: 'application' | 'interface' | 'method' | 'version' | 'group' | 'cluster',
+    key: 'application' | 'interface' | 'method' | 'version' | 'group' | 'timeout',
     value: string,
-  ) =>
+  ) => {
+    if (key === 'application' || key === 'interface' || key === 'version' || key === 'group') {
+      updateObject({
+        ...object,
+        spec: {
+          ...object.spec,
+          serviceSelection: { ...object.spec.serviceSelection, [key]: value },
+        },
+      })
+      return
+    }
+    if (key === 'method') {
+      updateObject({
+        ...object,
+        spec: { ...object.spec, invocation: { ...object.spec.invocation, method: value } },
+      })
+      return
+    }
     updateObject({
       ...object,
-      spec: { ...object.spec, target: { ...object.spec.target, [key]: value } },
+      spec: { ...object.spec, invocation: { ...object.spec.invocation, timeout: value } },
     })
+  }
 
   const updateParam = (index: number, patch: Partial<RouteBindingParam>) => {
-    const params = object.spec.params.map((param, paramIndex) =>
+    const parameters = object.spec.invocation.parameters.map((param, paramIndex) =>
       paramIndex === index ? { ...param, ...patch } : param,
     )
-    updateObject({ ...object, spec: { ...object.spec, params } })
+    updateObject({
+      ...object,
+      spec: { ...object.spec, invocation: { ...object.spec.invocation, parameters } },
+    })
   }
 
   const addParam = () => {
     const nextParam: RouteBindingParam = {
       from: '',
-      to: object.spec.params.length,
+      to: object.spec.invocation.parameters.length,
       type: options?.paramTypes[0] || '',
     }
     updateObject({
       ...object,
-      spec: { ...object.spec, params: [...object.spec.params, nextParam] },
+      spec: {
+        ...object.spec,
+        invocation: {
+          ...object.spec.invocation,
+          parameters: [...object.spec.invocation.parameters, nextParam],
+        },
+      },
     })
   }
 
@@ -365,7 +389,12 @@ export function RouteBindingEditor({
       ...object,
       spec: {
         ...object.spec,
-        params: object.spec.params.filter((_, paramIndex) => paramIndex !== index),
+        invocation: {
+          ...object.spec.invocation,
+          parameters: object.spec.invocation.parameters.filter(
+            (_, paramIndex) => paramIndex !== index,
+          ),
+        },
       },
     })
 
@@ -527,6 +556,72 @@ export function RouteBindingEditor({
     }
   }
 
+  const loadHistory = async () => {
+    if (mode === 'create' || !object.metadata.name) return
+    setHistoryLoading(true)
+    setNotice(null)
+    try {
+      setHistoryEntries(await routeBindingApi.history(object.metadata.name))
+    } catch (error: unknown) {
+      setNotice({ tone: 'error', text: errorMessage(error, tx('加载历史失败')) })
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const rollbackToRevision = async (historyRevision: string) => {
+    if (mode !== 'edit' || dirty || yamlError || !schema) return
+    const selected = historyEntries.find((entry) => entry.revision === historyRevision)
+    if (!selected) return
+    let prompt: string
+    if (selected.object) {
+      prompt = isEnglish
+        ? `Publish revision ${historyRevision} again?`
+        : `确认重新发布历史版本 ${historyRevision}？`
+    } else {
+      prompt = isEnglish
+        ? 'This snapshot deletes the route. Continue?'
+        : '该历史快照会删除此路由，确认继续？'
+    }
+    if (!window.confirm(prompt)) return
+    setBusy('publish')
+    setNotice(null)
+    try {
+      const name = object.metadata.name
+      const currentStatus = await routeBindingApi.status(name)
+      await routeBindingApi.rollback(name, historyRevision, currentStatus.draftRevision)
+      if (!selected.object) {
+        await onSaved()
+        onBack()
+        return
+      }
+      const [binding, nextStatus, history] = await Promise.all([
+        routeBindingApi.detail(name, 'draft'),
+        routeBindingApi.status(name),
+        routeBindingApi.history(name),
+      ])
+      const normalized = normaliseRouteBindingObject(binding.object, schema)
+      setObject(normalized)
+      setRevision(binding.revision)
+      setRouteYaml(stringifyRouteBindingYaml(normalized))
+      setPublishStatus(nextStatus)
+      setPublished(Boolean(nextStatus.publishedExists && !nextStatus.dirty))
+      setHistoryEntries(history)
+      setDirty(false)
+      setNotice({
+        tone: 'success',
+        text: isEnglish
+          ? `Rolled back to revision ${historyRevision}.`
+          : `已回滚到历史版本 ${historyRevision}。`,
+      })
+      await onSaved()
+    } catch (error: unknown) {
+      setNotice({ tone: 'error', text: errorMessage(error, tx('回滚失败，请刷新后重试')) })
+    } finally {
+      setBusy('')
+    }
+  }
+
   const preview = async (tab: 'preview' | 'yaml' = 'preview') => {
     if (yamlError || editorBlocked || !schema) return
     setActiveTab(tab)
@@ -554,6 +649,10 @@ export function RouteBindingEditor({
     setActiveTab(tab)
     if (tab === 'diff' && !diffData) {
       void loadDiff()
+      return
+    }
+    if (tab === 'history') {
+      void loadHistory()
       return
     }
     if (tab === 'preview' && !previewYaml) void preview()
@@ -622,6 +721,10 @@ export function RouteBindingEditor({
         onApplyYaml={applyYamlToForm}
         onChangeYaml={updateYaml}
         onPreview={() => void preview()}
+        historyEntries={historyEntries}
+        historyLoading={historyLoading}
+        canRollback={mode === 'edit' && !dirty && !yamlError && busy === ''}
+        onRollback={(historyRevision) => void rollbackToRevision(historyRevision)}
       />
     </div>
   )

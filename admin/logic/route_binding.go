@@ -44,6 +44,7 @@ import (
 const (
 	routeBindingPathSegment        = "route-bindings"
 	routeBindingRevisionSegment    = "route-bindings-revision"
+	routeBindingHistorySegment     = "route-bindings-history"
 	routeBindingRuntimeResourceDir = "resources"
 	maxRouteBindingIDRetries       = 16
 )
@@ -111,6 +112,31 @@ type RouteBindingDiff struct {
 	Draft     *RouteBinding            `json:"draft,omitempty"`
 	Published *RouteBinding            `json:"published,omitempty"`
 	Changes   []RouteBindingDiffChange `json:"changes"`
+}
+
+// RouteBindingHistoryEntry is an immutable snapshot of one successful route
+// publication. A nil Object records a deletion, allowing rollback across it.
+type RouteBindingHistoryEntry struct {
+	Revision    int64               `json:"revision,string"`
+	PublishedAt time.Time           `json:"publishedAt"`
+	Object      *schema.AdminObject `json:"object,omitempty"`
+	ResourceID  int                 `json:"resourceId,omitempty"`
+	MethodID    int                 `json:"methodId,omitempty"`
+}
+
+// RouteBindingHistorySummary identifies the latest published snapshot for a
+// route without requiring the caller to know its name in advance.
+type RouteBindingHistorySummary struct {
+	Name           string    `json:"name"`
+	LatestRevision int64     `json:"latestRevision,string"`
+	PublishedAt    time.Time `json:"publishedAt"`
+	Deleted        bool      `json:"deleted"`
+}
+
+type routeBindingHistoryRecord struct {
+	Revision    int64               `json:"revision"`
+	PublishedAt time.Time           `json:"publishedAt"`
+	Binding     *routeBindingRecord `json:"binding,omitempty"`
 }
 
 type routeBindingRecord struct {
@@ -199,11 +225,17 @@ func (s *RouteBindingStore) List(ctx context.Context, unpublished bool) ([]Route
 		if err != nil {
 			return nil, err
 		}
-		statuses = routeBindingStatuses(entries, publishedEntries)
+		statuses, err = s.routeBindingStatuses(entries, publishedEntries)
+		if err != nil {
+			return nil, err
+		}
 	}
 	result := make([]RouteBinding, 0, len(entries))
 	for _, entry := range entries {
-		view := routeBindingView(entry)
+		view, err := s.view(entry)
+		if err != nil {
+			return nil, err
+		}
 		if status, exists := statuses[entry.record.Object.Metadata.Name]; exists {
 			view.PublishStatus = &status
 		}
@@ -212,7 +244,7 @@ func (s *RouteBindingStore) List(ctx context.Context, unpublished bool) ([]Route
 	return result, nil
 }
 
-func routeBindingStatuses(draftEntries, publishedEntries []routeBindingEntry) map[string]RouteBindingPublishStatus {
+func (s *RouteBindingStore) routeBindingStatuses(draftEntries, publishedEntries []routeBindingEntry) (map[string]RouteBindingPublishStatus, error) {
 	publishedByName := make(map[string]routeBindingEntry, len(publishedEntries))
 	for _, entry := range publishedEntries {
 		publishedByName[entry.record.Object.Metadata.Name] = entry
@@ -222,17 +254,28 @@ func routeBindingStatuses(draftEntries, publishedEntries []routeBindingEntry) ma
 	for _, draft := range draftEntries {
 		name := draft.record.Object.Metadata.Name
 		published, publishedExists := publishedByName[name]
+		draftObject, err := s.Normalize(draft.record.Object)
+		if err != nil {
+			return nil, fmt.Errorf("normalize draft route binding %q status: %w", name, err)
+		}
 		status := RouteBindingPublishStatus{
 			Name:              name,
 			DraftRevision:     draft.revision,
 			DraftExists:       true,
 			PublishedExists:   publishedExists,
 			PublishedRevision: published.revision,
-			Dirty:             !publishedExists || !reflect.DeepEqual(draft.record.Object, published.record.Object),
+			Dirty:             !publishedExists,
+		}
+		if publishedExists {
+			publishedObject, err := s.Normalize(published.record.Object)
+			if err != nil {
+				return nil, fmt.Errorf("normalize published route binding %q status: %w", name, err)
+			}
+			status.Dirty = !reflect.DeepEqual(draftObject, publishedObject)
 		}
 		statuses[name] = status
 	}
-	return statuses
+	return statuses, nil
 }
 
 // Get returns one high-level route binding from either the draft or published
@@ -250,7 +293,7 @@ func (s *RouteBindingStore) Get(ctx context.Context, name string, unpublished bo
 	if !exists {
 		return RouteBinding{}, fmt.Errorf("%w: %s", ErrRouteBindingNotFound, name)
 	}
-	return routeBindingView(entry), nil
+	return s.view(entry)
 }
 
 // Normalize validates an object and applies all registered schema defaults.
@@ -335,7 +378,7 @@ func (s *RouteBindingStore) SaveDraft(ctx context.Context, object schema.AdminOb
 		return RouteBinding{}, fmt.Errorf("route binding %q disappeared after save", name)
 	}
 	saved.revision = revision
-	return routeBindingView(saved), nil
+	return s.view(saved)
 }
 
 // UpdateDraft updates one existing route binding draft without allowing its
@@ -447,6 +490,10 @@ func (s *RouteBindingStore) DeleteAndPublish(ctx context.Context, name string, e
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
+	historyRevision, err := s.nextPublishedGeneration(ctx)
+	if err != nil {
+		return RouteBindingPublishResult{}, err
+	}
 	state, err := s.readPublishState(ctx, name)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
@@ -468,8 +515,13 @@ func (s *RouteBindingStore) DeleteAndPublish(ctx context.Context, name string, e
 		operations = append(operations, clientv3.OpDelete(s.bindingKey(state.publishedPrefix, name)))
 		deletedCount = 1
 	}
+	historyValue, err := json.Marshal(routeBindingHistoryRecord{Revision: historyRevision, PublishedAt: time.Now().UTC()})
+	if err != nil {
+		return RouteBindingPublishResult{}, fmt.Errorf("encode deleted route binding history: %w", err)
+	}
 	operations = append(operations,
-		clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(time.Now().UnixNano(), 10)))
+		clientv3.OpPut(s.historyKey(name, historyRevision), string(historyValue)),
+		clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(historyRevision, 10)))
 	response, err := s.kv.Txn(ctx).If(comparisons...).Then(operations...).Commit()
 	if err != nil {
 		return RouteBindingPublishResult{}, fmt.Errorf("delete route binding %q: %w", name, err)
@@ -505,6 +557,10 @@ func (s *RouteBindingStore) Publish(ctx context.Context, name string, expectedDr
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
+	historyRevision, err := s.nextPublishedGeneration(ctx)
+	if err != nil {
+		return RouteBindingPublishResult{}, err
+	}
 	state, err := s.readPublishState(ctx, name)
 	if err != nil {
 		return RouteBindingPublishResult{}, err
@@ -528,8 +584,19 @@ func (s *RouteBindingStore) Publish(ctx context.Context, name string, expectedDr
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
+	historyRecord := routeBindingHistoryRecord{Revision: historyRevision, PublishedAt: time.Now().UTC()}
+	if candidate != nil {
+		historyRecord.Binding = &routeBindingRecord{
+			Object: candidate.object.Clone(), ResourceID: candidate.legacy.Resource.ID, MethodID: candidate.legacy.Method.ID,
+		}
+	}
+	historyValue, err := json.Marshal(historyRecord)
+	if err != nil {
+		return RouteBindingPublishResult{}, fmt.Errorf("encode route binding history: %w", err)
+	}
 	operations = append(operations,
-		clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(time.Now().UnixNano(), 10)))
+		clientv3.OpPut(s.historyKey(name, historyRevision), string(historyValue)),
+		clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(historyRevision, 10)))
 	response, err := s.kv.Txn(ctx).If(comparisons...).Then(operations...).Commit()
 	if err != nil {
 		return RouteBindingPublishResult{}, fmt.Errorf("publish route binding %q: %w", name, err)
@@ -853,8 +920,18 @@ func (s *RouteBindingStore) Status(ctx context.Context, name string) (RouteBindi
 		return RouteBindingPublishStatus{}, fmt.Errorf("%w: %s", ErrRouteBindingNotFound, name)
 	}
 	dirty := draftExists != publishedExists
-	if draftExists && publishedExists {
-		dirty = !reflect.DeepEqual(draft.record.Object, published.record.Object)
+	if draftExists {
+		draftObject, err := s.Normalize(draft.record.Object)
+		if err != nil {
+			return RouteBindingPublishStatus{}, fmt.Errorf("normalize draft route binding %q status: %w", name, err)
+		}
+		if publishedExists {
+			publishedObject, err := s.Normalize(published.record.Object)
+			if err != nil {
+				return RouteBindingPublishStatus{}, fmt.Errorf("normalize published route binding %q status: %w", name, err)
+			}
+			dirty = !reflect.DeepEqual(draftObject, publishedObject)
+		}
 	}
 	return RouteBindingPublishStatus{
 		Name:              name,
@@ -888,26 +965,29 @@ func (s *RouteBindingStore) Diff(ctx context.Context, name string) (RouteBinding
 
 	var draftView, publishedView *RouteBinding
 	if draftExists {
-		view := routeBindingView(draft)
+		view, err := s.view(draft)
+		if err != nil {
+			return RouteBindingDiff{}, err
+		}
 		draftView = &view
 	}
 	if publishedExists {
-		view := routeBindingView(published)
+		view, err := s.view(published)
+		if err != nil {
+			return RouteBindingDiff{}, err
+		}
 		publishedView = &view
 	}
+	var draftObject, publishedObject schema.AdminObject
+	if draftView != nil {
+		draftObject = draftView.Object
+	}
+	if publishedView != nil {
+		publishedObject = publishedView.Object
+	}
 	changes, err := diffRouteBindingObjects(
-		func() schema.AdminObject {
-			if publishedExists {
-				return published.record.Object
-			}
-			return schema.AdminObject{}
-		}(),
-		func() schema.AdminObject {
-			if draftExists {
-				return draft.record.Object
-			}
-			return schema.AdminObject{}
-		}(),
+		publishedObject,
+		draftObject,
 		publishedExists,
 		draftExists,
 	)
@@ -920,6 +1000,143 @@ func (s *RouteBindingStore) Diff(ctx context.Context, name string) (RouteBinding
 		Published: publishedView,
 		Changes:   changes,
 	}, nil
+}
+
+// History returns immutable published snapshots for one route, oldest first.
+func (s *RouteBindingStore) History(ctx context.Context, name string) ([]RouteBindingHistoryEntry, error) {
+	ctx = routeBindingContext(ctx)
+	name, err := normalizeRouteBindingName(name)
+	if err != nil {
+		return nil, err
+	}
+	response, err := s.kv.Get(ctx, s.historyPrefix(name), clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("list route binding history %q: %w", name, err)
+	}
+	entries := make([]RouteBindingHistoryEntry, 0, len(response.Kvs))
+	for _, kv := range response.Kvs {
+		var record routeBindingHistoryRecord
+		if err := json.Unmarshal(kv.Value, &record); err != nil {
+			return nil, fmt.Errorf("decode route binding history %q: %w", string(kv.Key), err)
+		}
+		entry := RouteBindingHistoryEntry{Revision: record.Revision, PublishedAt: record.PublishedAt}
+		if record.Binding != nil {
+			object, err := s.Normalize(record.Binding.Object)
+			if err != nil {
+				return nil, fmt.Errorf("normalize route binding history %q: %w", string(kv.Key), err)
+			}
+			entry.Object = &object
+			entry.ResourceID = record.Binding.ResourceID
+			entry.MethodID = record.Binding.MethodID
+		}
+		entries = append(entries, entry)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Revision < entries[j].Revision })
+	return entries, nil
+}
+
+// HistorySummaries returns the latest published snapshot for every route.
+// This keeps deletion tombstones discoverable from the Admin UI after the
+// route has disappeared from both draft and published lists.
+func (s *RouteBindingStore) HistorySummaries(ctx context.Context) ([]RouteBindingHistorySummary, error) {
+	ctx = routeBindingContext(ctx)
+	prefix := s.root + "/" + routeBindingHistorySegment + "/"
+	response, err := s.kv.Get(ctx, prefix, clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("list route binding history summaries: %w", err)
+	}
+	latest := make(map[string]RouteBindingHistorySummary)
+	for _, kv := range response.Kvs {
+		relative := strings.TrimPrefix(string(kv.Key), prefix)
+		parts := strings.Split(relative, "/")
+		if len(parts) != 2 || parts[0] == "" {
+			return nil, fmt.Errorf("invalid route binding history key %q", string(kv.Key))
+		}
+		name, err := url.PathUnescape(parts[0])
+		if err != nil {
+			return nil, fmt.Errorf("decode route binding history key %q: %w", string(kv.Key), err)
+		}
+		name, err = normalizeRouteBindingName(name)
+		if err != nil {
+			return nil, fmt.Errorf("invalid route binding history key %q: %w", string(kv.Key), err)
+		}
+		keyRevision, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil || keyRevision <= 0 {
+			return nil, fmt.Errorf("invalid route binding history revision in key %q", string(kv.Key))
+		}
+		var record routeBindingHistoryRecord
+		if err := json.Unmarshal(kv.Value, &record); err != nil {
+			return nil, fmt.Errorf("decode route binding history %q: %w", string(kv.Key), err)
+		}
+		if record.Revision != keyRevision {
+			return nil, fmt.Errorf("route binding history key %q contains revision %d", string(kv.Key), record.Revision)
+		}
+		if current, exists := latest[name]; !exists || record.Revision > current.LatestRevision {
+			latest[name] = RouteBindingHistorySummary{
+				Name:           name,
+				LatestRevision: record.Revision,
+				PublishedAt:    record.PublishedAt,
+				Deleted:        record.Binding == nil,
+			}
+		}
+	}
+	summaries := make([]RouteBindingHistorySummary, 0, len(latest))
+	for _, summary := range latest {
+		summaries = append(summaries, summary)
+	}
+	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
+	return summaries, nil
+}
+
+// Rollback stages the selected published snapshot as the current draft and
+// sends it through the normal atomic publish path. If publish loses a race,
+// the selected version remains a draft and the active runtime stays intact.
+func (s *RouteBindingStore) Rollback(ctx context.Context, name string, historyRevision, expectedDraftRevision int64) (RouteBindingPublishResult, error) {
+	ctx = routeBindingContext(ctx)
+	name, err := normalizeRouteBindingName(name)
+	if err != nil {
+		return RouteBindingPublishResult{}, err
+	}
+	if historyRevision <= 0 {
+		return RouteBindingPublishResult{}, errors.New("history revision must be positive")
+	}
+	response, err := s.kv.Get(ctx, s.historyKey(name, historyRevision))
+	if err != nil {
+		return RouteBindingPublishResult{}, fmt.Errorf("read route binding history %q revision %d: %w", name, historyRevision, err)
+	}
+	if len(response.Kvs) == 0 {
+		return RouteBindingPublishResult{}, fmt.Errorf("route binding history revision %d not found for %q", historyRevision, name)
+	}
+	var record routeBindingHistoryRecord
+	if err := json.Unmarshal(response.Kvs[0].Value, &record); err != nil {
+		return RouteBindingPublishResult{}, fmt.Errorf("decode route binding history %q revision %d: %w", name, historyRevision, err)
+	}
+	if record.Binding == nil {
+		return s.DeleteAndPublish(ctx, name, expectedDraftRevision)
+	}
+	if record.Binding.Object.Metadata.Name != name {
+		return RouteBindingPublishResult{}, fmt.Errorf("history revision %d belongs to a different route", historyRevision)
+	}
+	saved, err := s.SaveDraft(ctx, record.Binding.Object, false, expectedDraftRevision)
+	if err != nil {
+		return RouteBindingPublishResult{}, err
+	}
+	return s.Publish(ctx, name, saved.Revision)
+}
+
+func (s *RouteBindingStore) nextPublishedGeneration(ctx context.Context) (int64, error) {
+	response, err := s.kv.Get(ctx, s.publishedRevisionKey())
+	if err != nil {
+		return 0, fmt.Errorf("read published route generation: %w", err)
+	}
+	if len(response.Kvs) == 0 {
+		return 1, nil
+	}
+	current, err := strconv.ParseInt(string(response.Kvs[0].Value), 10, 64)
+	if err != nil || current < 0 || current == int64(^uint64(0)>>1) {
+		return 0, fmt.Errorf("invalid published route generation %q", string(response.Kvs[0].Value))
+	}
+	return current + 1, nil
 }
 
 func diffRouteBindingObjects(before, after schema.AdminObject, beforeExists, afterExists bool) ([]RouteBindingDiffChange, error) {
@@ -1106,6 +1323,7 @@ type routeBindingMethodYAML struct {
 
 type routeBindingIntegrationRequestYAML struct {
 	RequestType     string                      `yaml:"requestType"`
+	URL             string                      `yaml:"url,omitempty"`
 	ClusterName     string                      `yaml:"clusterName"`
 	ApplicationName string                      `yaml:"applicationName"`
 	Protocol        string                      `yaml:"protocol,omitempty"`
@@ -1122,6 +1340,7 @@ type routeBindingIntegrationRequestYAML struct {
 func routeBindingIntegrationRequestYAMLFrom(request legacyconfig.IntegrationRequest) routeBindingIntegrationRequestYAML {
 	return routeBindingIntegrationRequestYAML{
 		RequestType:     request.RequestType,
+		URL:             request.URL,
 		ClusterName:     request.ClusterName,
 		ApplicationName: request.ApplicationName,
 		Protocol:        request.Protocol,
@@ -1280,6 +1499,16 @@ func routeBindingView(entry routeBindingEntry) RouteBinding {
 	}
 }
 
+func (s *RouteBindingStore) view(entry routeBindingEntry) (RouteBinding, error) {
+	view := routeBindingView(entry)
+	normalized, err := s.Normalize(view.Object)
+	if err != nil {
+		return RouteBinding{}, fmt.Errorf("normalize stored route binding %q: %w", view.Object.Metadata.Name, err)
+	}
+	view.Object = normalized
+	return view, nil
+}
+
 func normalizeRouteBindingName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -1318,6 +1547,14 @@ func (s *RouteBindingStore) bindingPrefix(unpublished bool) string {
 
 func (s *RouteBindingStore) bindingKey(prefix, name string) string {
 	return prefix + url.PathEscape(name)
+}
+
+func (s *RouteBindingStore) historyPrefix(name string) string {
+	return s.root + "/" + routeBindingHistorySegment + "/" + url.PathEscape(name) + "/"
+}
+
+func (s *RouteBindingStore) historyKey(name string, revision int64) string {
+	return s.historyPrefix(name) + strconv.FormatInt(revision, 10)
 }
 
 func (s *RouteBindingStore) publishedRevisionKey() string {

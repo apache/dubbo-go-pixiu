@@ -39,33 +39,45 @@ const schema: RouteBindingObjectSchema = {
         method: { type: 'string', required: true, default: 'GET', enum: ['GET', 'POST'] },
       },
     },
-    target: {
+    backendRef: {
       type: 'object',
       required: true,
       properties: {
-        protocol: { type: 'string', default: 'dubbo', enum: ['dubbo'] },
-        application: { type: 'string', required: true },
-        interface: { type: 'string', required: true },
-        method: { type: 'string', required: true },
-        version: { type: 'string', default: '' },
-        group: { type: 'string', default: '' },
-        cluster: { type: 'string', required: true },
+        type: { type: 'string', default: 'registry', enum: ['registry'] },
+        clusterName: { type: 'string', default: '' },
       },
     },
-    params: {
-      type: 'array',
-      default: [],
-      items: {
-        type: 'object',
-        properties: {
-          from: { type: 'string', required: true },
-          to: { type: 'integer', required: true, minimum: 0 },
-          type: { type: 'string', required: true, enum: ['string', 'int'] },
+    serviceSelection: {
+      type: 'object',
+      required: true,
+      properties: {
+        application: { type: 'string', required: true },
+        interface: { type: 'string', required: true },
+        group: { type: 'string', default: '' },
+        version: { type: 'string', default: '' },
+      },
+    },
+    invocation: {
+      type: 'object',
+      required: true,
+      properties: {
+        method: { type: 'string', required: true },
+        timeout: { type: 'string', default: '1s' },
+        parameters: {
+          type: 'array',
+          default: [],
+          items: {
+            type: 'object',
+            properties: {
+              from: { type: 'string', required: true },
+              to: { type: 'integer', required: true, minimum: 0 },
+              type: { type: 'string', required: true, enum: ['string', 'int'] },
+            },
+          },
         },
       },
     },
     enabled: { type: 'boolean', default: true },
-    extensions: { type: 'object', default: {}, properties: {} },
   },
 }
 
@@ -86,7 +98,6 @@ function routeObject(spec: Record<string, unknown> = {}) {
       },
       params: [{ from: 'uri.id', to: 0, type: 'int' }],
       enabled: true,
-      extensions: {},
       ...spec,
     },
   }
@@ -100,11 +111,15 @@ describe('route binding editor model', () => {
       path: '/api/v1/example',
       method: 'GET',
     })
-    expect(object.spec.target.protocol).toBe('dubbo')
+    expect(object.spec.backendRef.type).toBe('registry')
+    expect(object.spec.backendRef.clusterName).toBe('')
+    expect(normaliseRouteBindingObject(routeObject(), schema).spec.backendRef.clusterName).toBe(
+      'failover',
+    )
     expect(object.spec.enabled).toBe(true)
+    expect(object.spec).not.toHaveProperty('extensions')
     expect(routeEditorOptions(schema)).toEqual({
       entryProtocols: ['http'],
-      targetProtocols: ['dubbo'],
       httpMethods: ['GET', 'POST'],
       paramTypes: ['string', 'int'],
     })
@@ -119,7 +134,7 @@ describe('route binding editor model', () => {
         routeObject({ params: [{ from: 'uri.id', to: '0', type: 'int' }] }),
         schema,
       ),
-    ).toThrow('spec.params[0].to: must be an integer')
+    ).toThrow('spec.invocation.parameters[0].to: must be an integer')
   })
 
   it('keeps scalar pattern, range, and enum validation', () => {
@@ -134,13 +149,13 @@ describe('route binding editor model', () => {
         routeObject({ params: [{ from: 'uri.id', to: -1, type: 'int' }] }),
         schema,
       ),
-    ).toThrow('spec.params[0].to: must be at least 0')
+    ).toThrow('spec.invocation.parameters[0].to: must be at least 0')
     expect(() =>
       normaliseRouteBindingObject(
         routeObject({ params: [{ from: 'uri.id', to: 0, type: 'bool' }] }),
         schema,
       ),
-    ).toThrow('spec.params[0].type: must be one of: string, int')
+    ).toThrow('spec.invocation.parameters[0].type: must be one of: string, int')
   })
 
   it('rejects unknown and deprecated fields that would be dropped on save', () => {
@@ -150,6 +165,31 @@ describe('route binding editor model', () => {
     expect(() => normaliseRouteBindingObject(routeObject({ typo: true }), schema)).toThrow(
       'spec.typo: is not defined by the route schema',
     )
+  })
+
+  it('only supports registry-backed routes and rejects non-empty extensions', () => {
+    const normalized = normaliseRouteBindingObject(routeObject(), schema)
+    expect(() =>
+      normaliseRouteBindingObject(
+        {
+          ...normalized,
+          spec: {
+            ...normalized.spec,
+            backendRef: { ...normalized.spec.backendRef, type: 'direct' },
+          },
+        },
+        schema,
+      ),
+    ).toThrow('spec.backendRef.type: must be one of: registry')
+    expect(() =>
+      normaliseRouteBindingObject(
+        routeObject({ extensions: { retry: { maxAttempts: 2 } } }),
+        schema,
+      ),
+    ).toThrow('spec.extensions: route extensions are not supported')
+    expect(
+      normaliseRouteBindingObject(routeObject({ extensions: {} }), schema).spec,
+    ).not.toHaveProperty('extensions')
   })
 
   it('removes the obsolete no-op publish preference only when loading a stored draft', () => {

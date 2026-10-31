@@ -46,6 +46,9 @@ describe('Pixiu Admin API contract', () => {
       publish: '/config/api/route/publish',
       status: '/config/api/route/status',
       diff: '/config/api/route/diff',
+      history: '/config/api/route/history',
+      historyList: '/config/api/route/history/list',
+      rollback: '/config/api/route/rollback',
     })
     expect(JSON.stringify(pixiuAdminApi)).not.toContain('/config/api/resource')
     expect(JSON.stringify(pixiuAdminApi)).not.toContain('/config/api/resource/method')

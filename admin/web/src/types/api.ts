@@ -39,18 +39,22 @@ export type AdminRouteBindingObject = {
       path: string
       method: string
     }
-    target: {
-      protocol: string
+    backendRef: {
+      type: string
+      clusterName: string
+    }
+    serviceSelection: {
       application: string
       interface: string
-      method: string
-      version: string
       group: string
-      cluster: string
+      version: string
     }
-    params: RouteBindingParam[]
+    invocation: {
+      method: string
+      timeout: string
+      parameters: RouteBindingParam[]
+    }
     enabled: boolean
-    extensions: JsonObject
     [field: string]: unknown
   }
 }
@@ -122,6 +126,21 @@ export type RouteBindingDiff = {
   draft?: RouteBinding
   published?: RouteBinding
   changes: RouteBindingDiffChange[]
+}
+
+export type RouteBindingHistoryEntry = {
+  revision: string
+  publishedAt: string
+  object?: AdminRouteBindingObject
+  resourceId?: number
+  methodId?: number
+}
+
+export type RouteBindingHistorySummary = {
+  name: string
+  latestRevision: string
+  publishedAt: string
+  deleted: boolean
 }
 
 export type RouteBindingPublishResult = {

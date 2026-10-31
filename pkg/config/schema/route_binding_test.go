@@ -56,13 +56,20 @@ func TestNormalizeAppliesFormDefaultsWithoutMutatingInput(t *testing.T) {
 	normalized, err := registry.Normalize(object)
 	require.NoError(t, err)
 	assert.NotContains(t, object.Spec, "publish")
-	assert.NotContains(t, object.Spec, "params")
+	assert.Contains(t, object.Spec, "params")
 
 	entry := normalized.Spec["entry"].(map[string]any)
-	target := normalized.Spec["target"].(map[string]any)
+	backend := normalized.Spec["backendRef"].(map[string]any)
+	service := normalized.Spec["serviceSelection"].(map[string]any)
+	invocation := normalized.Spec["invocation"].(map[string]any)
 	assert.Equal(t, "http", entry["protocol"])
-	assert.Equal(t, "dubbo", target["protocol"])
-	assert.Equal(t, []any{}, normalized.Spec["params"])
+	assert.Equal(t, "registry", backend["type"])
+	assert.Equal(t, "user-dubbo", backend["clusterName"])
+	assert.Equal(t, "UserProvider", service["application"])
+	assert.Equal(t, "GetUser", invocation["method"])
+	assert.Equal(t, "1s", invocation["timeout"])
+	assert.Equal(t, []any{map[string]any{"from": "uri.id", "to": 0, "type": "java.lang.String"}}, invocation["parameters"])
+	assert.NotContains(t, normalized.Spec, "target")
 	assert.Equal(t, true, normalized.Spec["enabled"])
 	assert.NotContains(t, normalized.Spec, "publish")
 }
@@ -79,6 +86,29 @@ func TestNormalizeDropsDeprecatedPublishMetadata(t *testing.T) {
 	assert.Contains(t, object.Spec, "publish")
 }
 
+func TestNormalizeRejectsOptionalBackendModesAndExtensions(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+
+	object := loadExampleRouteBinding(t)
+	backend := object.Spec["backendRef"].(map[string]any)
+	backend["type"] = "direct"
+	_, err = registry.Normalize(object)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "spec.backendRef.type")
+
+	object = loadExampleRouteBinding(t)
+	object.Spec["extensions"] = map[string]any{}
+	normalized, err := registry.Normalize(object)
+	require.NoError(t, err)
+	assert.NotContains(t, normalized.Spec, "extensions")
+
+	object.Spec["extensions"] = map[string]any{"retry": map[string]any{"maxAttempts": 2}}
+	_, err = registry.Normalize(object)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "spec.extensions")
+}
+
 func TestCompileAdminRouteBindingToLegacyResourceAndMethod(t *testing.T) {
 	object := loadExampleRouteBinding(t)
 	registry, err := NewBuiltinRegistry()
@@ -88,14 +118,14 @@ func TestCompileAdminRouteBindingToLegacyResourceAndMethod(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/api/v1/users/:id", compiled.Resource.Path)
 	assert.Equal(t, "restful", compiled.Resource.Type)
-	assert.Equal(t, time.Second, compiled.Resource.Timeout)
+	assert.Equal(t, 750*time.Millisecond, compiled.Resource.Timeout)
 	assert.Empty(t, compiled.Resource.Methods)
 
 	method := compiled.Method
 	assert.Equal(t, "/api/v1/users/:id", method.ResourcePath)
 	assert.Equal(t, "GET", method.HTTPVerb)
 	assert.True(t, method.Enable)
-	assert.Equal(t, time.Second, method.Timeout)
+	assert.Equal(t, 750*time.Millisecond, method.Timeout)
 	assert.Equal(t, "http", method.InboundRequest.RequestType)
 	assert.Equal(t, "dubbo", method.IntegrationRequest.RequestType)
 	assert.Equal(t, "UserProvider", method.ApplicationName)
@@ -103,7 +133,7 @@ func TestCompileAdminRouteBindingToLegacyResourceAndMethod(t *testing.T) {
 	assert.Equal(t, "GetUser", method.Method)
 	assert.Equal(t, "1.0.0", method.Version)
 	assert.Equal(t, "stable", method.Group)
-	assert.Equal(t, "user-dubbo", method.ClusterName)
+	assert.Empty(t, method.ClusterName)
 	assert.Equal(t, []string{"java.lang.String"}, method.ParameterTypes)
 	require.Len(t, method.MappingParams, 1)
 	assert.Equal(t, "uri.id", method.MappingParams[0].Name)
@@ -137,27 +167,115 @@ func TestPreviewYAMLContainsOnlyLegacyAPIConfig(t *testing.T) {
 	previewString := string(preview)
 	assert.Contains(t, previewString, "resources:")
 	assert.Contains(t, previewString, "integrationRequest:")
+	assert.Contains(t, previewString, "clusterName: \"\"")
+	assert.NotContains(t, previewString, "registryId:")
 	assert.Contains(t, previewString, "mapTo: \"0\"")
 	assert.Contains(t, previewString, "parameterTypes:")
 	assert.NotContains(t, previewString, "AdminRouteBinding")
 	assert.NotContains(t, previewString, "publish:")
 }
 
+func TestCompileLegacyTargetClusterPreservesClusterName(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	compiled, err := CompileAdminRouteBinding(registry, validRouteBindingObject())
+	require.NoError(t, err)
+	assert.Equal(t, "user-dubbo", compiled.Method.ClusterName)
+}
+
 func TestAdminRouteBindingValidationReportsActionablePaths(t *testing.T) {
 	registry, err := NewBuiltinRegistry()
 	require.NoError(t, err)
-	object := validRouteBindingObject()
-	object.Spec["params"] = []any{
+	object, err := registry.Normalize(validRouteBindingObject())
+	require.NoError(t, err)
+	object.Spec["invocation"].(map[string]any)["parameters"] = []any{
 		map[string]any{"from": "query.id", "to": 1, "type": "String"},
 		map[string]any{"from": "uri.id", "to": 1, "type": "java.lang.String"},
 	}
 
 	err = registry.Validate(object)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "spec.params[0].from")
-	assert.Contains(t, err.Error(), "spec.params[0].type")
-	assert.Contains(t, err.Error(), "spec.params[1].to")
+	assert.Contains(t, err.Error(), "spec.invocation.parameters[0].from")
+	assert.Contains(t, err.Error(), "spec.invocation.parameters[0].type")
+	assert.Contains(t, err.Error(), "spec.invocation.parameters[1].to")
 	assert.Contains(t, err.Error(), "argument indexes must be contiguous from 0")
+}
+
+func TestNormalizeRejectsMixedLegacyAndSeparatedModels(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	object := validRouteBindingObject()
+	object.Spec["invocation"] = map[string]any{"method": "GetUser"}
+
+	err = registry.Validate(object)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot combine the legacy target/params fields")
+}
+
+func TestAdminRouteBindingValidatesTimeoutAndURIPathConsistency(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	object, err := registry.Normalize(validRouteBindingObject())
+	require.NoError(t, err)
+	object.Spec["entry"].(map[string]any)["path"] = "/users/:id"
+	invocation := object.Spec["invocation"].(map[string]any)
+	invocation["timeout"] = "0s"
+	invocation["parameters"] = []any{map[string]any{"from": "uri.missing", "to": 0, "type": "string"}}
+
+	err = registry.Validate(object)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "spec.invocation.timeout")
+	assert.Contains(t, err.Error(), "URI parameter \"missing\" does not appear")
+	assert.Contains(t, err.Error(), "path parameter \"id\" must have a uri.id mapping")
+}
+
+func TestAdminRouteBindingURIParametersMatchRuntimePathSegments(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		path       string
+		from       string
+		wantValid  bool
+		wantDetail string
+	}{
+		{
+			name:       "embedded colon is not a parameter",
+			path:       "/users/x:id",
+			from:       "uri.id",
+			wantDetail: `URI parameter "id" does not appear`,
+		},
+		{
+			name:       "suffix is part of the parameter name",
+			path:       "/users/:id.json",
+			from:       "uri.id",
+			wantDetail: `URI parameter "id" does not appear`,
+		},
+		{
+			name:      "runtime parameter suffix can be mapped exactly",
+			path:      "/users/:id.json",
+			from:      "uri.id.json",
+			wantValid: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			object, err := registry.Normalize(validRouteBindingObject())
+			require.NoError(t, err)
+			object.Spec["entry"].(map[string]any)["path"] = test.path
+			invocation := object.Spec["invocation"].(map[string]any)
+			invocation["parameters"].([]any)[0].(map[string]any)["from"] = test.from
+
+			err = registry.Validate(object)
+			if test.wantValid {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.wantDetail)
+		})
+	}
 }
 
 func validRouteBindingObject() AdminObject {
@@ -175,6 +293,7 @@ func validRouteBindingObject() AdminObject {
 				"method":      "GetUser",
 				"cluster":     "user-dubbo",
 			},
+			"params": []any{map[string]any{"from": "uri.id", "to": 0, "type": "java.lang.String"}},
 		},
 	}
 }
