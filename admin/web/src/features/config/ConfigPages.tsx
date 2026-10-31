@@ -983,19 +983,19 @@ export function ResourcePage({
         </section>
       )}
       {historyDialog && (
-        <div className="drawer-backdrop">
+        <dialog
+          open
+          className="drawer-backdrop"
+          aria-modal="true"
+          aria-labelledby="route-history-dialog-title"
+        >
           <button
             className="drawer-backdrop-dismiss"
             type="button"
             aria-label={locale === 'en-US' ? 'Close route history' : '关闭路由历史'}
             onClick={() => setHistoryDialog(null)}
           />
-          <aside
-            className="drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="route-history-dialog-title"
-          >
+          <div className="drawer">
             <div className="drawer-head">
               <div>
                 <span className="eyebrow">{locale === 'en-US' ? 'ROUTE HISTORY' : '路由历史'}</span>
@@ -1017,8 +1017,8 @@ export function ResourcePage({
               busyRevision={historyDialog.rollingBack}
               onAction={(revision) => void rollbackHistory(historyDialog.name, revision)}
             />
-          </aside>
-        </div>
+          </div>
+        </dialog>
       )}
     </div>
   )
