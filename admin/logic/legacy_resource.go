@@ -316,12 +316,9 @@ func BizMethodExists(resourceID, methodID string, unpublished bool) (bool, error
 // Resource or Method publication, so both endpoints share this transaction
 // boundary while remaining independent of AdminRouteBinding publishing.
 func BizBatchReleaseResources() error {
-	if adminconfig.Client == nil {
-		return errors.New("admin etcd client is unavailable")
-	}
-	client := adminconfig.Client.GetRawClient()
-	if client == nil {
-		return errors.New("admin etcd client is unavailable")
+	client, err := legacyResourcePublishClient()
+	if err != nil {
+		return err
 	}
 	fromPrefix := getUnpublishedRootPath(legacyResources) + "/"
 	response, err := client.Get(adminconfig.Client.GetCtx(), fromPrefix, clientv3.WithPrefix())
@@ -330,30 +327,52 @@ func BizBatchReleaseResources() error {
 	}
 	grouped := make(map[string][]clientv3.Op)
 	for _, item := range response.Kvs {
-		relative := strings.TrimPrefix(string(item.Key), fromPrefix)
-		parts := strings.SplitN(relative, "/", 2)
-		if relative == "" || strings.HasPrefix(relative, "/") {
-			return fmt.Errorf("invalid staged legacy resource key %q", string(item.Key))
-		}
-		resourceID, err := normalizePositiveLegacyID(parts[0], ResourceID)
+		resourceID, operation, err := legacyResourcePublishOperation(item.Key, item.Value, fromPrefix)
 		if err != nil {
-			return fmt.Errorf("invalid staged legacy resource key %q: %w", string(item.Key), err)
+			return err
 		}
-		if len(parts) == 2 {
-			methodParts := strings.Split(parts[1], "/")
-			if len(methodParts) != 2 || methodParts[0] != Method {
-				return fmt.Errorf("invalid staged legacy resource key %q", string(item.Key))
-			}
-			if _, err := normalizePositiveLegacyID(methodParts[1], MethodID); err != nil {
-				return fmt.Errorf("invalid staged legacy resource key %q: %w", string(item.Key), err)
-			}
-		}
-		grouped[resourceID] = append(grouped[resourceID], clientv3.OpPut(
-			getRootPath(legacyResources)+"/"+relative,
-			string(item.Value),
-		))
+		grouped[resourceID] = append(grouped[resourceID], operation)
 	}
 
+	return publishLegacyResourceGroups(client, grouped)
+}
+
+func legacyResourcePublishClient() (*clientv3.Client, error) {
+	if adminconfig.Client == nil {
+		return nil, errors.New("admin etcd client is unavailable")
+	}
+	client := adminconfig.Client.GetRawClient()
+	if client == nil {
+		return nil, errors.New("admin etcd client is unavailable")
+	}
+	return client, nil
+}
+
+func legacyResourcePublishOperation(key, value []byte, fromPrefix string) (string, clientv3.Op, error) {
+	keyString := string(key)
+	relative := strings.TrimPrefix(keyString, fromPrefix)
+	parts := strings.SplitN(relative, "/", 2)
+	if relative == "" || strings.HasPrefix(relative, "/") {
+		return "", clientv3.Op{}, fmt.Errorf("invalid staged legacy resource key %q", keyString)
+	}
+	resourceID, err := normalizePositiveLegacyID(parts[0], ResourceID)
+	if err != nil {
+		return "", clientv3.Op{}, fmt.Errorf("invalid staged legacy resource key %q: %w", keyString, err)
+	}
+	if len(parts) == 2 {
+		methodParts := strings.Split(parts[1], "/")
+		if len(methodParts) != 2 || methodParts[0] != Method {
+			return "", clientv3.Op{}, fmt.Errorf("invalid staged legacy resource key %q", keyString)
+		}
+		if _, err := normalizePositiveLegacyID(methodParts[1], MethodID); err != nil {
+			return "", clientv3.Op{}, fmt.Errorf("invalid staged legacy resource key %q: %w", keyString, err)
+		}
+	}
+	operation := clientv3.OpPut(getRootPath(legacyResources)+"/"+relative, string(value))
+	return resourceID, operation, nil
+}
+
+func publishLegacyResourceGroups(client *clientv3.Client, grouped map[string][]clientv3.Op) error {
 	resourceIDs := make([]string, 0, len(grouped))
 	for resourceID := range grouped {
 		resourceIDs = append(resourceIDs, resourceID)

@@ -160,29 +160,55 @@ func adminRouteBindingSchema() ObjectSchema {
 // migrates the known legacy fields and rejects mixed or unknown input rather
 // than silently discarding configuration.
 func migrateLegacyRouteBindingSpec(object *AdminObject) []ValidationIssue {
-	if extensions, exists := object.Spec["extensions"]; exists {
-		values, ok := extensions.(map[string]any)
-		if !ok || len(values) != 0 {
-			return []ValidationIssue{issue("spec.extensions", "unsupported", "route extensions are not supported; remove this field")}
-		}
-		delete(object.Spec, "extensions")
+	if issues := removeEmptyLegacyExtensions(object.Spec); len(issues) > 0 {
+		return issues
 	}
-
-	_, hasTarget := object.Spec["target"]
-	_, hasParams := object.Spec["params"]
-	if !hasTarget && !hasParams {
+	if !hasLegacyRouteBindingFields(object.Spec) {
 		return nil
 	}
+	target, issues := validateLegacyRouteBindingTarget(object.Spec)
+	if len(issues) > 0 {
+		return issues
+	}
+	applyLegacyRouteBindingMigration(object.Spec, target)
+	return nil
+}
+
+func removeEmptyLegacyExtensions(spec map[string]any) []ValidationIssue {
+	extensions, exists := spec["extensions"]
+	if !exists {
+		return nil
+	}
+	values, ok := extensions.(map[string]any)
+	if !ok || len(values) != 0 {
+		return []ValidationIssue{issue("spec.extensions", "unsupported", "route extensions are not supported; remove this field")}
+	}
+	delete(spec, "extensions")
+	return nil
+}
+
+func hasLegacyRouteBindingFields(spec map[string]any) bool {
+	_, hasTarget := spec["target"]
+	_, hasParams := spec["params"]
+	return hasTarget || hasParams
+}
+
+func validateLegacyRouteBindingTarget(spec map[string]any) (map[string]any, []ValidationIssue) {
 	for _, field := range []string{"backendRef", "serviceSelection", "invocation"} {
-		if _, exists := object.Spec[field]; exists {
-			return []ValidationIssue{issue("spec."+field, "mixed_model", "cannot combine the legacy target/params fields with the separated route model")}
+		if _, exists := spec[field]; exists {
+			return nil, []ValidationIssue{issue("spec."+field, "mixed_model", "cannot combine the legacy target/params fields with the separated route model")}
 		}
 	}
-	issues := make([]ValidationIssue, 0)
-	target, ok := object.Spec["target"].(map[string]any)
-	if !hasTarget || !ok {
-		return []ValidationIssue{issue("spec.target", "migration", "legacy target must be an object")}
+	target, ok := spec["target"].(map[string]any)
+	if _, hasTarget := spec["target"]; !hasTarget || !ok {
+		return nil, []ValidationIssue{issue("spec.target", "migration", "legacy target must be an object")}
 	}
+	issues := validateLegacyTargetFields(target)
+	return target, issues
+}
+
+func validateLegacyTargetFields(target map[string]any) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
 	allowedTargetFields := map[string]bool{"protocol": true, "application": true, "interface": true, "method": true, "version": true, "group": true, "cluster": true}
 	for key := range target {
 		if !allowedTargetFields[key] {
@@ -192,32 +218,32 @@ func migrateLegacyRouteBindingSpec(object *AdminObject) []ValidationIssue {
 	if protocol, _ := target["protocol"].(string); protocol != "" && protocol != "dubbo" {
 		issues = append(issues, issue("spec.target.protocol", "migration", "only the legacy dubbo protocol can be migrated"))
 	}
-	if len(issues) != 0 {
-		return issues
-	}
+	return issues
+}
+
+func applyLegacyRouteBindingMigration(spec, target map[string]any) {
 	backendRef := map[string]any{"type": "registry"}
 	if clusterName, exists := target["cluster"]; exists {
 		backendRef["clusterName"] = clusterName
 	}
-	object.Spec["backendRef"] = backendRef
-	object.Spec["serviceSelection"] = map[string]any{
+	spec["backendRef"] = backendRef
+	spec["serviceSelection"] = map[string]any{
 		"application": target["application"],
 		"interface":   target["interface"],
 		"group":       target["group"],
 		"version":     target["version"],
 	}
-	parameters, exists := object.Spec["params"]
+	parameters, exists := spec["params"]
 	if !exists {
 		parameters = []any{}
 	}
-	object.Spec["invocation"] = map[string]any{
+	spec["invocation"] = map[string]any{
 		"method":     target["method"],
 		"timeout":    "1s",
 		"parameters": parameters,
 	}
-	delete(object.Spec, "target")
-	delete(object.Spec, "params")
-	return nil
+	delete(spec, "target")
+	delete(spec, "params")
 }
 
 func validateAdminRouteBinding(object AdminObject) []ValidationIssue {
