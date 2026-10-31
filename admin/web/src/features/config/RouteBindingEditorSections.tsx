@@ -37,6 +37,7 @@ import type {
   RouteBindingParam,
   RouteBindingPublishStatus,
 } from '../../types/api'
+import { RouteBindingHistoryList } from './RouteBindingHistory'
 
 export type EditorTab = 'form' | 'preview' | 'diff' | 'history' | 'yaml'
 export type BusyAction = '' | 'save' | 'publish' | 'validate' | 'preview' | 'diff'
@@ -902,7 +903,6 @@ function RouteHistoryView({
   canRollback,
   onRollback,
 }: HistoryViewProps) {
-  const deletedLabel = isEnglish ? 'Deleted' : '已删除'
   const historyContent = (() => {
     if (loading) {
       return (
@@ -919,31 +919,14 @@ function RouteHistoryView({
       )
     }
     return (
-      <div className="route-diff-list">
-        {[...entries].reverse().map((entry) => {
-          const method = entry.object?.spec.invocation?.method
-          const revisionLabel = entry.object ? String(method || '—') : deletedLabel
-          return (
-            <div className="route-diff-row" key={entry.revision}>
-              <code>rev {entry.revision}</code>
-              <div className="route-diff-value before">
-                <small>{new Date(entry.publishedAt).toLocaleString()}</small>
-                <pre>{revisionLabel}</pre>
-              </div>
-              <div className="route-diff-value after">
-                <button
-                  className="secondary"
-                  type="button"
-                  disabled={!canRollback}
-                  onClick={() => onRollback(entry.revision)}
-                >
-                  {isEnglish ? 'Roll back to this revision' : '回滚到此版本'}
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      <RouteBindingHistoryList
+        isEnglish={isEnglish}
+        entries={entries}
+        canRollback={canRollback}
+        action="rollback"
+        includeDeletedAction
+        onAction={onRollback}
+      />
     )
   })()
 

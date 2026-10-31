@@ -39,6 +39,7 @@ import { opaApi } from '../../services/opa-api'
 import { baseApi } from '../../services/base-api'
 import { Locale, translateText } from '../../i18n'
 import { RouteBindingEditor } from './RouteBindingEditor'
+import { RouteBindingHistoryList } from './RouteBindingHistory'
 import { routeBindingApi } from '../../services/route-binding-api'
 import { asJsonObject, JsonObject } from '../../types/api'
 import type {
@@ -962,45 +963,14 @@ export function ResourcePage({
                 <b>{locale === 'en-US' ? 'No history entries' : '没有历史版本'}</b>
               </div>
             ) : (
-              <div className="route-diff-list route-history-recovery-list">
-                {[...historyDialog.entries].reverse().map((entry) => {
-                  const invocation = asJsonObject(entry.object?.spec.invocation)
-                  const canRestore = Boolean(entry.object)
-                  return (
-                    <div className="route-diff-row route-history-revision-row" key={entry.revision}>
-                      <code>rev {entry.revision}</code>
-                      <div className="route-diff-value before">
-                        <small>{new Date(entry.publishedAt).toLocaleString()}</small>
-                        <pre>
-                          {canRestore
-                            ? String(invocation.method || '—')
-                            : locale === 'en-US'
-                              ? 'Deleted'
-                              : '已删除'}
-                        </pre>
-                      </div>
-                      <div className="route-diff-value after">
-                        {canRestore && (
-                          <button
-                            className="secondary"
-                            type="button"
-                            disabled={historyDialog.rollingBack !== null}
-                            onClick={() => void rollbackHistory(historyDialog.name, entry.revision)}
-                          >
-                            {historyDialog.rollingBack === entry.revision
-                              ? locale === 'en-US'
-                                ? 'Restoring…'
-                                : '恢复中…'
-                              : locale === 'en-US'
-                                ? 'Restore this revision'
-                                : '恢复此版本'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <RouteBindingHistoryList
+                isEnglish={locale === 'en-US'}
+                entries={historyDialog.entries}
+                canRollback
+                action="restore"
+                busyRevision={historyDialog.rollingBack}
+                onAction={(revision) => void rollbackHistory(historyDialog.name, revision)}
+              />
             )}
           </aside>
         </div>
