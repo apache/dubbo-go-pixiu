@@ -121,18 +121,19 @@ func ModifyResourceInfo(c *gin.Context) {
 		legacyError(c, err)
 		return
 	}
+	var updateErr error
 	if old.Path != resource.Path {
 		methods, err := logic.BizGetMethodList(strconv.Itoa(resource.ID), unpublished)
 		if err != nil {
 			legacyError(c, err)
 			return
 		}
-		err = logic.BizUpdateResourceAndMethods(resource, methods, unpublished)
+		updateErr = logic.BizUpdateResourceAndMethods(resource, methods, unpublished)
 	} else {
-		err = logic.BizSetResourceInfo(resource, false, unpublished)
+		updateErr = logic.BizSetResourceInfo(resource, false, unpublished)
 	}
-	if err != nil {
-		legacyError(c, err)
+	if updateErr != nil {
+		legacyError(c, updateErr)
 		return
 	}
 	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
