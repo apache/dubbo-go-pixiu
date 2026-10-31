@@ -186,27 +186,37 @@ function validateFields(
   return result
 }
 
-export function normaliseRouteBindingObject(
+function validateRouteBindingEnvelope(
   value: unknown,
   schema: RouteBindingObjectSchema,
-  stripLegacyPublishPreference = false,
-): AdminRouteBindingObject {
+  stripLegacyPublishPreference: boolean,
+) {
   if (!isRecord(value)) fail('YAML', 'top level must be an object')
   for (const key of Object.keys(value)) {
     if (!['kind', 'metadata', 'spec'].includes(key)) fail(key, 'is not part of AdminRouteBinding')
   }
   if (value.kind !== schema.kind) fail('kind', `must be ${schema.kind}`)
-  if (!isRecord(value.metadata)) fail('metadata', 'must be an object')
-  for (const key of Object.keys(value.metadata)) {
+
+  const metadataName = validateRouteBindingMetadata(value.metadata)
+  const specInput = normaliseRouteBindingSpecInput(value.spec, stripLegacyPublishPreference)
+  return { metadataName, specInput }
+}
+
+function validateRouteBindingMetadata(value: unknown) {
+  if (!isRecord(value)) fail('metadata', 'must be an object')
+  for (const key of Object.keys(value)) {
     if (key !== 'name') fail(`metadata.${key}`, 'is not defined by the route schema')
   }
-  if (typeof value.metadata.name !== 'string') fail('metadata.name', 'must be a string')
-  if (!isRecord(value.spec)) fail('spec', 'must be an object')
+  if (typeof value.name !== 'string') fail('metadata.name', 'must be a string')
+  return value.name
+}
 
+function normaliseRouteBindingSpecInput(value: unknown, stripLegacyPublishPreference: boolean) {
+  if (!isRecord(value)) fail('spec', 'must be an object')
   // The old publish preference was a no-op and is deliberately removed by the
   // backend normalizer. Reject it in edited YAML so it cannot appear synced
   // while being omitted from the submitted object.
-  const specInput = { ...value.spec }
+  const specInput = { ...value }
   const hasLegacyPublishPreference = hasOwn(specInput, 'publish')
   if (hasLegacyPublishPreference && !stripLegacyPublishPreference) {
     fail('spec.publish', 'is no longer supported; remove this field')
@@ -219,11 +229,23 @@ export function normaliseRouteBindingObject(
     }
     delete specInput.extensions
   }
-  const migratedSpec = migrateLegacyRouteBindingSpec(specInput)
-  const spec = validateFields(migratedSpec, schema.fields, 'spec', false)
+  return migrateLegacyRouteBindingSpec(specInput)
+}
+
+export function normaliseRouteBindingObject(
+  value: unknown,
+  schema: RouteBindingObjectSchema,
+  stripLegacyPublishPreference = false,
+): AdminRouteBindingObject {
+  const { metadataName, specInput } = validateRouteBindingEnvelope(
+    value,
+    schema,
+    stripLegacyPublishPreference,
+  )
+  const spec = validateFields(specInput, schema.fields, 'spec', false)
   return {
     kind: schema.kind,
-    metadata: { name: value.metadata.name },
+    metadata: { name: metadataName },
     spec: spec as AdminRouteBindingObject['spec'],
   }
 }

@@ -698,6 +698,17 @@ td:first-child small {
   background: #08101188;
   z-index: 10;
 }
+.drawer-backdrop-dismiss {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: default;
+}
 .drawer {
   position: absolute;
   right: 0;
@@ -708,6 +719,7 @@ td:first-child small {
   box-shadow: -15px 0 50px #07101133;
   display: flex;
   flex-direction: column;
+  z-index: 1;
 }
 .dark .drawer {
   background: #141b1d;

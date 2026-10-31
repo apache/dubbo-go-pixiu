@@ -38,43 +38,58 @@ export function routeHistoryChanges(
   previous: RouteBindingHistoryEntry | undefined,
   isEnglish: boolean,
 ): RouteHistoryChange[] {
+  if (!previous) return initialRouteHistoryChange(current, isEnglish)
+  if (!current.object) return deletedRouteHistoryChange(previous, isEnglish)
+  if (!previous.object) return republishedRouteHistoryChange(isEnglish)
+
+  return changedRouteHistoryFields(current.object, previous.object, isEnglish)
+}
+
+function initialRouteHistoryChange(
+  current: RouteBindingHistoryEntry,
+  isEnglish: boolean,
+): RouteHistoryChange[] {
   const revisionLabel = isEnglish ? 'Revision' : '版本'
-  const routeStateLabel = isEnglish ? 'Route state' : '路由状态'
+  const deletedLabel = isEnglish ? 'Deleted' : '已删除'
+
+  let after = deletedLabel
+  if (current.object) after = isEnglish ? 'First publication' : '首次发布'
+  return [{ field: revisionLabel, before: '—', after }]
+}
+
+function deletedRouteHistoryChange(
+  previous: RouteBindingHistoryEntry,
+  isEnglish: boolean,
+): RouteHistoryChange[] {
   const deletedLabel = isEnglish ? 'Deleted' : '已删除'
   const publishedLabel = isEnglish ? 'Published' : '已发布'
+  const before = previous.object ? publishedLabel : deletedLabel
+  return [
+    {
+      field: isEnglish ? 'Route state' : '路由状态',
+      before,
+      after: deletedLabel,
+    },
+  ]
+}
 
-  if (!previous) {
-    return [
-      {
-        field: revisionLabel,
-        before: '—',
-        after: current.object ? (isEnglish ? 'First publication' : '首次发布') : deletedLabel,
-      },
-    ]
-  }
+function republishedRouteHistoryChange(isEnglish: boolean): RouteHistoryChange[] {
+  return [
+    {
+      field: isEnglish ? 'Route state' : '路由状态',
+      before: isEnglish ? 'Deleted' : '已删除',
+      after: isEnglish ? 'Published again' : '重新发布',
+    },
+  ]
+}
 
-  if (!current.object) {
-    return [
-      {
-        field: routeStateLabel,
-        before: previous.object ? publishedLabel : deletedLabel,
-        after: deletedLabel,
-      },
-    ]
-  }
-
-  if (!previous.object) {
-    return [
-      {
-        field: routeStateLabel,
-        before: deletedLabel,
-        after: isEnglish ? 'Published again' : '重新发布',
-      },
-    ]
-  }
-
-  const before = historyValues(previous.object, isEnglish)
-  const after = historyValues(current.object, isEnglish)
+function changedRouteHistoryFields(
+  current: AdminRouteBindingObject,
+  previous: AdminRouteBindingObject,
+  isEnglish: boolean,
+): RouteHistoryChange[] {
+  const before = historyValues(previous, isEnglish)
+  const after = historyValues(current, isEnglish)
   return Object.keys(after)
     .filter((key) => before[key] !== after[key])
     .map((key) => ({

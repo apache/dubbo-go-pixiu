@@ -50,12 +50,65 @@ import type {
 } from '../../types/api'
 
 type Kind = 'cluster' | 'listener' | 'plugin'
+type RouteHistoryDialogState = {
+  name: string
+  entries: RouteBindingHistoryEntry[]
+  loading: boolean
+  rollingBack: string | null
+}
+
 const templates = {
   cluster: 'name: local-cluster\ntype: Static\naddress: 127.0.0.1\nport: 20880\n',
   listener:
     'name: http-listener\naddress:\n  socket-address:\n    address: 0.0.0.0\n    port: 8888\nroute_config:\n  routes: []\n',
   plugin:
     'groupName: group1\nplugins:\n  - name: rate limit\n    version: 0.0.1\n    priority: 1000\n    externalLookupName: ExternalPluginRateLimit\n',
+}
+
+function routeHistoryRecoveryStatusLabel(deleted: boolean, locale: Locale) {
+  if (deleted) return locale === 'en-US' ? 'Deleted' : '已删除'
+  return locale === 'en-US' ? 'Not active' : '未启用'
+}
+
+function RouteBindingHistoryDialogBody({
+  isEnglish,
+  loading,
+  entries,
+  busyRevision,
+  onAction,
+}: {
+  readonly isEnglish: boolean
+  readonly loading: boolean
+  readonly entries: RouteBindingHistoryEntry[]
+  readonly busyRevision: string | null
+  readonly onAction: (revision: string) => void
+}) {
+  if (loading) {
+    return (
+      <div className="route-editor-loading">
+        <div className="loading-skeleton" />
+      </div>
+    )
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="route-diff-empty">
+        <b>{isEnglish ? 'No history entries' : '没有历史版本'}</b>
+      </div>
+    )
+  }
+
+  return (
+    <RouteBindingHistoryList
+      isEnglish={isEnglish}
+      entries={entries}
+      canRollback
+      action="restore"
+      busyRevision={busyRevision}
+      onAction={onAction}
+    />
+  )
 }
 
 function Editor({
@@ -576,12 +629,7 @@ export function ResourcePage({
   const [deletingRoute, setDeletingRoute] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [historyOnly, setHistoryOnly] = useState<RouteBindingHistorySummary[]>([])
-  const [historyDialog, setHistoryDialog] = useState<{
-    name: string
-    entries: RouteBindingHistoryEntry[]
-    loading: boolean
-    rollingBack: string | null
-  } | null>(null)
+  const [historyDialog, setHistoryDialog] = useState<RouteHistoryDialogState | null>(null)
   const [editor, setEditor] = useState<{
     mode: 'create' | 'edit'
     name: string
@@ -918,15 +966,7 @@ export function ResourcePage({
                   <small>
                     {locale === 'en-US' ? 'Latest revision' : '最近版本'} {summary.latestRevision}
                   </small>
-                  <pre>
-                    {summary.deleted
-                      ? locale === 'en-US'
-                        ? 'Deleted'
-                        : '已删除'
-                      : locale === 'en-US'
-                        ? 'Not active'
-                        : '未启用'}
-                  </pre>
+                  <pre>{routeHistoryRecoveryStatusLabel(summary.deleted, locale)}</pre>
                 </div>
                 <div className="route-diff-value after">
                   <button
@@ -943,35 +983,40 @@ export function ResourcePage({
         </section>
       )}
       {historyDialog && (
-        <div className="drawer-backdrop" onClick={() => setHistoryDialog(null)}>
-          <aside className="drawer" onClick={(event) => event.stopPropagation()}>
+        <div className="drawer-backdrop">
+          <button
+            className="drawer-backdrop-dismiss"
+            type="button"
+            aria-label={locale === 'en-US' ? 'Close route history' : '关闭路由历史'}
+            onClick={() => setHistoryDialog(null)}
+          />
+          <aside
+            className="drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="route-history-dialog-title"
+          >
             <div className="drawer-head">
               <div>
                 <span className="eyebrow">{locale === 'en-US' ? 'ROUTE HISTORY' : '路由历史'}</span>
-                <h2>{historyDialog.name}</h2>
+                <h2 id="route-history-dialog-title">{historyDialog.name}</h2>
               </div>
-              <button className="icon-btn" onClick={() => setHistoryDialog(null)}>
+              <button
+                className="icon-btn"
+                type="button"
+                aria-label={locale === 'en-US' ? 'Close route history' : '关闭路由历史'}
+                onClick={() => setHistoryDialog(null)}
+              >
                 <X size={18} />
               </button>
             </div>
-            {historyDialog.loading ? (
-              <div className="route-editor-loading">
-                <div className="loading-skeleton" />
-              </div>
-            ) : historyDialog.entries.length === 0 ? (
-              <div className="route-diff-empty">
-                <b>{locale === 'en-US' ? 'No history entries' : '没有历史版本'}</b>
-              </div>
-            ) : (
-              <RouteBindingHistoryList
-                isEnglish={locale === 'en-US'}
-                entries={historyDialog.entries}
-                canRollback
-                action="restore"
-                busyRevision={historyDialog.rollingBack}
-                onAction={(revision) => void rollbackHistory(historyDialog.name, revision)}
-              />
-            )}
+            <RouteBindingHistoryDialogBody
+              isEnglish={locale === 'en-US'}
+              loading={historyDialog.loading}
+              entries={historyDialog.entries}
+              busyRevision={historyDialog.rollingBack}
+              onAction={(revision) => void rollbackHistory(historyDialog.name, revision)}
+            />
           </aside>
         </div>
       )}
