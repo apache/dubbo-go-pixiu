@@ -146,6 +146,29 @@ func TestTrie_MatchAndGet(t *testing.T) {
 	assert.True(t, node.GetBizInfo() == "test1")
 }
 
+func TestTrie_MatchWithPredicateFallsBackInTraversalOrder(t *testing.T) {
+	tr := NewTrie()
+	if ok, err := tr.Put("GET/items/42", "exact"); !ok || err != nil {
+		t.Fatalf("Put exact = (%v, %v)", ok, err)
+	}
+	if ok, err := tr.Put("GET/items/**", "prefix"); !ok || err != nil {
+		t.Fatalf("Put prefix = (%v, %v)", ok, err)
+	}
+
+	// The original API still chooses the exact route without a predicate.
+	node, _, ok := tr.Match("GET/items/42")
+	if !ok || node.GetBizInfo() != "exact" {
+		t.Fatalf("Match() = (%#v, %v), want exact", node, ok)
+	}
+
+	node, _, ok = tr.MatchWithPredicate("GET/items/42", func(candidate *Node) bool {
+		return candidate.GetBizInfo() == "prefix"
+	})
+	if !ok || node.GetBizInfo() != "prefix" {
+		t.Fatalf("MatchWithPredicate() = (%#v, %v), want prefix after exact rejection", node, ok)
+	}
+}
+
 func TestTrie_Clear(t *testing.T) {
 	v := "http://baidu.com/aa/bb"
 	v = stringutil.GetTrieKey("PUT", v)

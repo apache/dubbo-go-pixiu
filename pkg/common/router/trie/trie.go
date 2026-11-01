@@ -111,9 +111,15 @@ func (trie Trie) Get(withOutHost string) (*Node, []string, bool, error) {
 // bool is ok
 // error
 func (trie Trie) Match(withOutHost string) (*Node, []string, bool) {
+	return trie.MatchWithPredicate(withOutHost, nil)
+}
+
+// MatchWithPredicate returns the first matching node accepted by predicate.
+// A rejected match continues along the same traversal order as Match.
+func (trie Trie) MatchWithPredicate(withOutHost string, predicate func(*Node) bool) (*Node, []string, bool) {
 	withOutHost = strings.Split(withOutHost, "?")[0]
 	parts := stringutil.Split(withOutHost)
-	node, param, ok := trie.root.Match(parts)
+	node, param, ok := trie.root.match(parts, predicate)
 	length := len(param)
 	for i := 0; i < length/2; i++ {
 		temp := param[length-1-i]
@@ -196,6 +202,10 @@ func (node *Node) GetBizInfo() any {
 //Match node match
 
 func (node *Node) Match(parts []string) (*Node, []string, bool) {
+	return node.match(parts, nil)
+}
+
+func (node *Node) match(parts []string, predicate func(*Node) bool) (*Node, []string, bool) {
 	key := parts[0]
 	childKeys := parts[1:]
 	// isEnd is the end of url path, means node is a place of url end,so the path with parentNode has a real url exists.
@@ -203,24 +213,27 @@ func (node *Node) Match(parts []string) (*Node, []string, bool) {
 	if isEnd {
 
 		if node.children != nil && node.children[key] != nil && node.children[key].endOfPath {
-			return node.children[key], []string{}, true
+			candidate := node.children[key]
+			if predicate == nil || predicate(candidate) {
+				return candidate, []string{}, true
+			}
 		}
 		//consider  trie node ：/aaa/bbb/xxxxx/ccc/ddd  /aaa/bbb/:id/ccc   and request url is ：/aaa/bbb/xxxxx/ccc
 		if node.PathVariableNode != nil {
-			if node.PathVariableNode.endOfPath {
+			if node.PathVariableNode.endOfPath && (predicate == nil || predicate(node.PathVariableNode)) {
 				return node.PathVariableNode, []string{key}, true
 			}
 		}
 
 	} else {
 		if node.children != nil && node.children[key] != nil {
-			n, param, ok := node.children[key].Match(childKeys)
+			n, param, ok := node.children[key].match(childKeys, predicate)
 			if ok {
 				return n, param, ok
 			}
 		}
 		if node.PathVariableNode != nil {
-			n, param, ok := node.PathVariableNode.Match(childKeys)
+			n, param, ok := node.PathVariableNode.match(childKeys, predicate)
 			param = append(param, key)
 			if ok {
 				return n, param, ok
@@ -228,9 +241,12 @@ func (node *Node) Match(parts []string) (*Node, []string, bool) {
 		}
 	}
 	if node.children != nil && node.children[key] != nil && node.children[key].MatchAllNode != nil {
-		return node.children[key].MatchAllNode, []string{}, true
+		candidate := node.children[key].MatchAllNode
+		if predicate == nil || predicate(candidate) {
+			return candidate, []string{}, true
+		}
 	}
-	if node.MatchAllNode != nil {
+	if node.MatchAllNode != nil && (predicate == nil || predicate(node.MatchAllNode)) {
 		return node.MatchAllNode, []string{}, true
 	}
 	return nil, nil, false

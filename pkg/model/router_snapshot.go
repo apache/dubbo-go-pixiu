@@ -47,6 +47,38 @@ type HeaderRoute struct {
 	Action  RouteAction
 }
 
+type RouteCandidate struct {
+	Headers []CompiledHeader
+	Action  RouteAction
+}
+
+type RouteCandidates struct {
+	First      RouteCandidate
+	Additional []RouteCandidate
+	Count      int
+}
+
+func (r *RouteCandidates) Add(candidate RouteCandidate) {
+	if r.Count == 0 {
+		r.First = candidate
+		r.Count = 1
+		return
+	}
+	r.Additional = append(r.Additional, candidate)
+	r.Count++
+}
+
+func (r *RouteCandidates) ForEach(fn func(RouteCandidate) bool) {
+	if r.Count == 0 || !fn(r.First) {
+		return
+	}
+	for _, candidate := range r.Additional {
+		if !fn(candidate) {
+			return
+		}
+	}
+}
+
 type CompiledHeader struct {
 	Name   string
 	Regex  *regexp.Regexp
@@ -84,14 +116,6 @@ func getRegexpWithCache(pat string) *regexp.Regexp {
 	return re
 }
 
-// compiledHeaderSlicePool is a pool for temporary []CompiledHeader slices during snapshot building
-var compiledHeaderSlicePool = sync.Pool{
-	New: func() any {
-		s := make([]CompiledHeader, 0, 4) // start with small capacity, grow as needed
-		return &s
-	},
-}
-
 func ToSnapshot(routes []*Router) *RouteSnapshot {
 	s := &RouteSnapshot{
 		MethodTries: make(map[string]*trie.Trie, 8),
@@ -118,6 +142,7 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 		s.MethodTries[m] = &nt
 		return &nt
 	}
+	routeCandidates := make(map[string]*RouteCandidates, len(routes))
 
 	for _, r := range routes {
 		// A) header-only：with Headers, without Path / Prefix
@@ -126,45 +151,7 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 				Methods: r.Match.Methods,
 				Action:  r.Route,
 			}
-
-			// use temporary slice from pool to build compiled headers
-			chPtr := compiledHeaderSlicePool.Get().(*[]CompiledHeader)
-			ch := (*chPtr)[:0] // reset
-
-			for _, h := range r.Match.Headers {
-				c := CompiledHeader{Name: h.Name}
-				if h.Regex {
-					// 1) the model already has compiled regex (if any) → use it directly
-					if h.valueRE != nil {
-						c.Regex = h.valueRE
-					} else if len(h.Values) > 0 && h.Values[0] != "" {
-						// 2) else use global cache/compile (cross-snapshot reuse)
-						if re := getRegexpWithCache(h.Values[0]); re != nil {
-							c.Regex = re
-						} else {
-							// invalid regex → skip this header matcher
-							logger.Errorf("Header regex compiled fail for %v", h.Values[0])
-							continue
-						}
-					}
-				} else {
-					// not regex → copy values directly (if any)
-					if len(h.Values) > 0 {
-						// direct assignment is ok here (string slice)
-						c.Values = append(c.Values, h.Values...)
-					}
-				}
-				ch = append(ch, c)
-			}
-
-			// move the temporary slice content to snapshot (ownership transferred)
-			hr.Headers = make([]CompiledHeader, len(ch))
-			copy(hr.Headers, ch)
-
-			// reset and put back the temporary slice to pool
-			*chPtr = (*chPtr)[:0]
-			compiledHeaderSlicePool.Put(chPtr)
-
+			hr.Headers = compileHeaders(r.Match.Headers)
 			s.HeaderOnly = append(s.HeaderOnly, hr)
 			continue
 		}
@@ -174,10 +161,58 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 		if len(methods) == 0 {
 			methods = constMethods
 		}
+		headers := compileHeaders(r.Match.Headers)
 		for _, m := range methods {
 			t := getTrie(m)
-			t.Put(stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, r.Match.Prefix != ""), r.Route)
+			key := stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, r.Match.Prefix != "")
+			candidates := routeCandidates[key]
+			if candidates == nil {
+				candidates = &RouteCandidates{}
+				routeCandidates[key] = candidates
+				_, _ = t.Put(key, candidates)
+			}
+			candidates.Add(RouteCandidate{
+				Headers: headers,
+				Action:  r.Route,
+			})
 		}
 	}
 	return s
+}
+
+func compileHeaders(headers []HeaderMatcher) []CompiledHeader {
+	if len(headers) == 0 {
+		return nil
+	}
+	valueCount := 0
+	for _, h := range headers {
+		if !h.Regex {
+			valueCount += len(h.Values)
+		}
+	}
+	compiled := make([]CompiledHeader, 0, len(headers))
+	values := make([]string, valueCount)
+	valueOffset := 0
+	for _, h := range headers {
+		c := CompiledHeader{Name: h.Name}
+		if h.Regex {
+			if h.valueRE != nil {
+				c.Regex = h.valueRE
+			} else if len(h.Values) > 0 && h.Values[0] != "" {
+				if re := getRegexpWithCache(h.Values[0]); re != nil {
+					c.Regex = re
+				} else {
+					logger.Errorf("Header regex compiled fail for %v", h.Values[0])
+					continue
+				}
+			}
+		} else if len(h.Values) > 0 {
+			end := valueOffset + len(h.Values)
+			copy(values[valueOffset:end], h.Values)
+			c.Values = values[valueOffset:end]
+			valueOffset = end
+		}
+		compiled = append(compiled, c)
+	}
+	return compiled
 }
