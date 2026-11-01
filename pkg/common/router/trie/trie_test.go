@@ -18,6 +18,7 @@
 package trie
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -166,6 +167,52 @@ func TestTrie_MatchWithPredicateFallsBackInTraversalOrder(t *testing.T) {
 	})
 	if !ok || node.GetBizInfo() != "prefix" {
 		t.Fatalf("MatchWithPredicate() = (%#v, %v), want prefix after exact rejection", node, ok)
+	}
+}
+
+func TestTrie_MatchWithPredicateFallbackPreservesParameters(t *testing.T) {
+	tr := NewTrie()
+	if ok, err := tr.Put("GET/a/:name/x", "literal-branch"); !ok || err != nil {
+		t.Fatalf("Put literal branch = (%v, %v)", ok, err)
+	}
+	if ok, err := tr.Put("GET/:first/:second/x", "parameter-branch"); !ok || err != nil {
+		t.Fatalf("Put parameter branch = (%v, %v)", ok, err)
+	}
+
+	node, params, ok := tr.MatchWithPredicate("GET/a/b/x", matchBizInfo("literal-branch"))
+	if !ok || node.GetBizInfo() != "literal-branch" || !slices.Equal(params, []string{"b"}) {
+		t.Fatalf("literal match = (%#v, %v, %v), want literal-branch with [b]", node, params, ok)
+	}
+
+	node, params, ok = tr.MatchWithPredicate("GET/a/b/x", matchBizInfo("parameter-branch"))
+	if !ok || node.GetBizInfo() != "parameter-branch" || !slices.Equal(params, []string{"a", "b"}) {
+		t.Fatalf("fallback match = (%#v, %v, %v), want parameter-branch with [a b]", node, params, ok)
+	}
+}
+
+func TestTrie_MatchWithPredicateMatchAllFallback(t *testing.T) {
+	tr := NewTrie()
+	if ok, err := tr.Put("GET/items/:id", "parameter"); !ok || err != nil {
+		t.Fatalf("Put parameter = (%v, %v)", ok, err)
+	}
+	if ok, err := tr.Put("GET/items/**", "prefix"); !ok || err != nil {
+		t.Fatalf("Put prefix = (%v, %v)", ok, err)
+	}
+
+	node, params, ok := tr.MatchWithPredicate("GET/items/42", matchBizInfo("prefix"))
+	if !ok || node.GetBizInfo() != "prefix" || len(params) != 0 {
+		t.Fatalf("fallback match = (%#v, %v, %v), want prefix without params", node, params, ok)
+	}
+
+	node, _, ok = tr.MatchWithPredicate("GET/items/42", func(*Node) bool { return false })
+	if ok || node != nil {
+		t.Fatalf("rejected match = (%#v, %v), want no match", node, ok)
+	}
+}
+
+func matchBizInfo(want any) func(*Node) bool {
+	return func(candidate *Node) bool {
+		return candidate.GetBizInfo() == want
 	}
 }
 

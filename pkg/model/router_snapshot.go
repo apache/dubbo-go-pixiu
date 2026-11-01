@@ -220,35 +220,54 @@ func compileHeaders(headers []HeaderMatcher) []CompiledHeader {
 	if len(headers) == 0 {
 		return nil
 	}
-	valueCount := 0
-	for _, h := range headers {
-		if !h.Regex {
-			valueCount += len(h.Values)
-		}
-	}
 	compiled := make([]CompiledHeader, 0, len(headers))
-	values := make([]string, valueCount)
+	values := make([]string, headerValueCount(headers))
 	valueOffset := 0
 	for _, h := range headers {
-		c := CompiledHeader{Name: h.Name}
-		if h.Regex {
-			if h.valueRE != nil {
-				c.Regex = h.valueRE
-			} else if len(h.Values) > 0 && h.Values[0] != "" {
-				if re := getRegexpWithCache(h.Values[0]); re != nil {
-					c.Regex = re
-				} else {
-					logger.Errorf("Header regex compiled fail for %v", h.Values[0])
-					continue
-				}
-			}
-		} else if len(h.Values) > 0 {
-			end := valueOffset + len(h.Values)
-			copy(values[valueOffset:end], h.Values)
-			c.Values = values[valueOffset:end]
-			valueOffset = end
+		c, ok := compileHeader(h, values[valueOffset:])
+		if !ok {
+			continue
 		}
+		valueOffset += len(c.Values)
 		compiled = append(compiled, c)
 	}
 	return compiled
+}
+
+func headerValueCount(headers []HeaderMatcher) int {
+	count := 0
+	for _, h := range headers {
+		if !h.Regex {
+			count += len(h.Values)
+		}
+	}
+	return count
+}
+
+func compileHeader(h HeaderMatcher, values []string) (CompiledHeader, bool) {
+	compiled := CompiledHeader{Name: h.Name}
+	if h.Regex {
+		return compileRegexHeader(h, compiled)
+	}
+	if len(h.Values) > 0 {
+		compiled.Values = values[:len(h.Values)]
+		copy(compiled.Values, h.Values)
+	}
+	return compiled, true
+}
+
+func compileRegexHeader(h HeaderMatcher, compiled CompiledHeader) (CompiledHeader, bool) {
+	if h.valueRE != nil {
+		compiled.Regex = h.valueRE
+		return compiled, true
+	}
+	if len(h.Values) == 0 || h.Values[0] == "" {
+		return compiled, true
+	}
+	compiled.Regex = getRegexpWithCache(h.Values[0])
+	if compiled.Regex == nil {
+		logger.Errorf("Header regex compiled fail for %v", h.Values[0])
+		return CompiledHeader{}, false
+	}
+	return compiled, true
 }
