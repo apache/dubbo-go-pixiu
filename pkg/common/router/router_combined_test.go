@@ -146,6 +146,120 @@ func TestCombinedRouteDynamicSnapshotAddAndDelete(t *testing.T) {
 	assertCombinedRoute(t, rm, "GET", "/dynamic", map[string]string{"X-Route": "second"}, "second")
 }
 
+func TestCombinedEquivalentPathCandidates(t *testing.T) {
+	for _, tc := range []struct {
+		name, first, second, path string
+		prefix                    bool
+	}{
+		{name: "renamed parameter", first: "/orders/:id", second: "/orders/:name", path: "/orders/42"},
+		{name: "wildcard then parameter", first: "/orders/*", second: "/orders/:id", path: "/orders/42"},
+		{name: "parameter then wildcard", first: "/orders/:id", second: "/orders/*", path: "/orders/42"},
+		{name: "renamed prefix parameter", first: "/orders/:id", second: "/orders/:name", path: "/orders/42/details", prefix: true},
+		{name: "renamed intermediate parameter", first: "/orders/:id/items", second: "/orders/:name/items", path: "/orders/42/items"},
+		{name: "intermediate wildcard", first: "/orders/*/items", second: "/orders/:id/items", path: "/orders/42/items"},
+		{name: "multiple renamed parameters", first: "/orgs/:org/orders/:id", second: "/orgs/:tenant/orders/:name", path: "/orgs/7/orders/42"},
+		{name: "renamed intermediate prefix parameter", first: "/orders/:id/items", second: "/orders/:name/items", path: "/orders/42/items/details", prefix: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first := combinedRoute("first", []string{"GET"}, tc.first, "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"a", "shared"}}}, "first")
+			second := combinedRoute("second", []string{"GET"}, tc.second, "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"b", "shared"}}}, "second")
+			if tc.prefix {
+				first.Match.Path, first.Match.Prefix = "", tc.first
+				second.Match.Path, second.Match.Prefix = "", tc.second
+			}
+			rm := CreateRouterCoordinator(&model.RouteConfiguration{Routes: []*model.Router{first, second}})
+			assertCombinedRoute(t, rm, "GET", tc.path, map[string]string{"X-Tenant": "a"}, "first")
+			assertCombinedRoute(t, rm, "GET", tc.path, map[string]string{"X-Tenant": "b"}, "second")
+			assertCombinedRoute(t, rm, "GET", tc.path, map[string]string{"X-Tenant": "shared"}, "first")
+			assertCombinedRoute(t, rm, "GET", tc.path, map[string]string{"X-Tenant": "other"}, "")
+
+			action, err := rm.RouteByPathAndName(tc.path, "GET")
+			if err != nil || action.Cluster != "first" {
+				t.Fatalf("RouteByPathAndName() = (%#v, %v), want first candidate", action, err)
+			}
+		})
+	}
+}
+
+func TestCombinedTrieIdentityBoundaries(t *testing.T) {
+	routes := []*model.Router{
+		combinedRoute("root", []string{"GET"}, "/", "", []model.HeaderMatcher{{Name: "X-Route", Values: []string{"root"}}}, "root"),
+		combinedRoute("parameter", []string{"GET"}, "/:token", "", []model.HeaderMatcher{{Name: "X-Route", Values: []string{"parameter"}}}, "parameter"),
+		combinedRoute("single-wildcard", []string{"GET"}, "/*", "", []model.HeaderMatcher{{Name: "X-Route", Values: []string{"single"}}}, "single"),
+		combinedRoute("match-all", []string{"GET"}, "/**", "", []model.HeaderMatcher{{Name: "X-Route", Values: []string{"all"}}}, "all"),
+		combinedRoute("post-parameter", []string{"POST"}, "/:other", "", []model.HeaderMatcher{{Name: "X-Route", Values: []string{"post"}}}, "post"),
+	}
+	rm := CreateRouterCoordinator(&model.RouteConfiguration{Routes: routes})
+
+	assertCombinedRoute(t, rm, "GET", "/", map[string]string{"X-Route": "root"}, "root")
+	assertCombinedRoute(t, rm, "GET", "/42?query=removed", map[string]string{"X-Route": "parameter"}, "parameter")
+	assertCombinedRoute(t, rm, "GET", "/42", map[string]string{"X-Route": "single"}, "single")
+	assertCombinedRoute(t, rm, "GET", "/a/b", map[string]string{"X-Route": "all"}, "all")
+	assertCombinedRoute(t, rm, "GET", "/a/b", map[string]string{"X-Route": "single"}, "")
+	assertCombinedRoute(t, rm, "GET", "/42", map[string]string{"X-Route": "post"}, "")
+	assertCombinedRoute(t, rm, "POST", "/42", map[string]string{"X-Route": "post"}, "post")
+
+	action, err := rm.RouteByPathAndName("/42?query=removed", "GET")
+	if err != nil || action.Cluster != "parameter" {
+		t.Fatalf("RouteByPathAndName() = (%#v, %v), want parameter after query removal", action, err)
+	}
+}
+
+func TestCombinedEquivalentPathsKeepDistinctNodes(t *testing.T) {
+	routes := []*model.Router{
+		combinedRoute("first", []string{"GET"}, "/orders/:id/items", "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"a"}}}, "first"),
+		combinedRoute("second", []string{"GET"}, "/orders/:name/items", "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"b"}}}, "second"),
+		combinedRoute("other-suffix", []string{"GET"}, "/orders/:id/details", "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"c"}}}, "other-suffix"),
+		combinedRoute("literal", []string{"GET"}, "/orders/special/items", "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"d"}}}, "literal"),
+		combinedRoute("prefix", []string{"GET"}, "", "/orders", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"fallback"}}}, "prefix"),
+	}
+	rm := CreateRouterCoordinator(&model.RouteConfiguration{Routes: routes})
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "b"}, "second")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "c"}, "")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "d"}, "")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/details", map[string]string{"X-Tenant": "b"}, "")
+	assertCombinedRoute(t, rm, "GET", "/orders/special/items", map[string]string{"X-Tenant": "d"}, "literal")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "fallback"}, "prefix")
+}
+
+func TestCombinedRouteOverlappingPriority(t *testing.T) {
+	headers := []model.HeaderMatcher{{Name: "X-Route", Values: []string{"shared"}}}
+	routes := []*model.Router{
+		combinedRoute("first", []string{"GET"}, "/ordered", "", headers, "first"),
+		combinedRoute("second", []string{"GET"}, "/ordered", "", headers, "second"),
+		combinedRoute("wildcard", []string{"*"}, "/method", "", headers, "wildcard"),
+		combinedRoute("specific", []string{"GET"}, "/method", "", headers, "specific"),
+	}
+	rm := CreateRouterCoordinator(&model.RouteConfiguration{Routes: routes})
+	assertCombinedRoute(t, rm, "GET", "/ordered", map[string]string{"X-Route": "shared"}, "first")
+	assertCombinedRoute(t, rm, "GET", "/method", map[string]string{"X-Route": "shared"}, "specific")
+}
+
+func TestCombinedEquivalentPathDynamicSnapshotAddAndDelete(t *testing.T) {
+	first := combinedRoute("first", []string{"GET"}, "/orders/:id/items", "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"a", "shared"}}}, "first")
+	second := combinedRoute("second", []string{"GET"}, "/orders/:name/items", "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"b", "shared"}}}, "second")
+	third := combinedRoute("third", []string{"GET"}, "/orders/*/items", "", []model.HeaderMatcher{{Name: "X-Tenant", Values: []string{"c", "shared"}}}, "third")
+	rm := CreateRouterCoordinator(&model.RouteConfiguration{Routes: []*model.Router{first}, Dynamic: true})
+	rm.debounce = 0
+
+	rm.OnAddRouter(second)
+	rm.OnAddRouter(third)
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "a"}, "first")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "b"}, "second")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "c"}, "third")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "shared"}, "first")
+
+	rm.OnDeleteRouter(first)
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "a"}, "")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "b"}, "second")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "c"}, "third")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "shared"}, "second")
+
+	rm.OnDeleteRouter(second)
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "b"}, "")
+	assertCombinedRoute(t, rm, "GET", "/orders/42/items", map[string]string{"X-Tenant": "shared"}, "third")
+}
+
 func combinedRoute(id string, methods []string, path, prefix string, headers []model.HeaderMatcher, cluster string) *model.Router {
 	return &model.Router{
 		ID: id,

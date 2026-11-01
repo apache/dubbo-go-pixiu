@@ -19,6 +19,7 @@ package model
 
 import (
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -143,7 +144,6 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 		return &nt
 	}
 	routeCandidates := make(map[string]*RouteCandidates, len(routes))
-
 	for _, r := range routes {
 		// A) header-only：with Headers, without Path / Prefix
 		if r.Match.Path == "" && r.Match.Prefix == "" && len(r.Match.Headers) > 0 {
@@ -165,12 +165,15 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 		for _, m := range methods {
 			t := getTrie(m)
 			key := stringutil.GetTrieKeyWithPrefix(m, r.Match.Path, r.Match.Prefix, r.Match.Prefix != "")
-			candidates := routeCandidates[key]
+			identity := trieRouteIdentity(key)
+			candidates := routeCandidates[identity]
 			if candidates == nil {
 				candidates = &RouteCandidates{}
-				routeCandidates[key] = candidates
-				_, _ = t.Put(key, candidates)
+				routeCandidates[identity] = candidates
 			}
+			// Put every spelling so parameter and single-segment wildcard aliases
+			// reach the same candidate list through the existing Trie node.
+			_, _ = t.Put(key, candidates)
 			candidates.Add(RouteCandidate{
 				Headers: headers,
 				Action:  r.Route,
@@ -178,6 +181,39 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 		}
 	}
 	return s
+}
+
+// trieRouteIdentity matches the trie's shared node for parameter and single-
+// segment wildcard tokens without merging literals or match-all suffixes.
+func trieRouteIdentity(key string) string {
+	// Scan exact slash-delimited segments first so literal routes keep the
+	// original key without allocating a normalized copy.
+	firstSlash := strings.IndexByte(key, '/')
+	if firstSlash < 0 {
+		return key
+	}
+	for start := firstSlash + 1; start <= len(key); {
+		end := strings.IndexByte(key[start:], '/')
+		if end < 0 {
+			end = len(key)
+		} else {
+			end += start
+		}
+		if stringutil.IsPathVariableOrWildcard(key[start:end]) {
+			break
+		}
+		if end == len(key) {
+			return key
+		}
+		start = end + 1
+	}
+	parts := strings.Split(key, "/")
+	for i := 1; i < len(parts); i++ {
+		if stringutil.IsPathVariableOrWildcard(parts[i]) {
+			parts[i] = "*"
+		}
+	}
+	return strings.Join(parts, "/")
 }
 
 func compileHeaders(headers []HeaderMatcher) []CompiledHeader {
