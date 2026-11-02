@@ -18,6 +18,7 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -138,22 +139,51 @@ func BizSetResourceInfo(resource *config.Resource, created, unpublished bool) er
 		return fmt.Errorf("encode legacy resource: %w", err)
 	}
 	key := legacyResourceKey(strconv.Itoa(storedResource.ID), unpublished)
-	if created {
-		err = adminconfig.Client.Create(key, string(data))
-	} else {
-		err = adminconfig.Client.Update(key, string(data))
-	}
-	if err != nil {
-		return fmt.Errorf("save legacy resource: %w", err)
-	}
-	if created {
-		for index := range methods {
-			methods[index].ResourcePath = storedResource.Path
-			if err := BizSetResourceMethod(strconv.Itoa(storedResource.ID), &methods[index], true, unpublished); err != nil {
-				return err
+	if unpublished {
+		if created {
+			err = adminconfig.Client.Create(key, string(data))
+		} else {
+			err = adminconfig.Client.Update(key, string(data))
+		}
+		if err != nil {
+			return fmt.Errorf("save legacy resource: %w", err)
+		}
+		if created {
+			for index := range methods {
+				methods[index].ResourcePath = storedResource.Path
+				if err := BizSetResourceMethod(strconv.Itoa(storedResource.ID), &methods[index], true, unpublished); err != nil {
+					return err
+				}
+				resource.Methods[index] = methods[index]
 			}
+		}
+		return nil
+	}
+
+	operations := []clientv3.Op{clientv3.OpPut(key, string(data))}
+	comparisons := make([]clientv3.Cmp, 0, len(methods)+1)
+	if created {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(key), "=", 0))
+		for index := range methods {
+			if methods[index].ID <= 0 {
+				methods[index].ID = nextLegacyMethodID()
+				if methods[index].ID <= 0 {
+					return errors.New("could not allocate legacy method id")
+				}
+			}
+			methods[index].ResourcePath = storedResource.Path
+			methodData, err := commonyaml.MarshalYML(methods[index])
+			if err != nil {
+				return fmt.Errorf("encode legacy method: %w", err)
+			}
+			methodKey := legacyMethodKey(strconv.Itoa(storedResource.ID), strconv.Itoa(methods[index].ID), false)
+			operations = append(operations, clientv3.OpPut(methodKey, string(methodData)))
+			comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(methodKey), "=", 0))
 			resource.Methods[index] = methods[index]
 		}
+	}
+	if err := publishLegacyResourceOperations(operations, comparisons...); err != nil {
+		return fmt.Errorf("save legacy resource: %w", err)
 	}
 	return nil
 }
@@ -170,7 +200,15 @@ func BizDeleteResourceInfo(id string, unpublished bool) error {
 	if client == nil {
 		return errors.New("admin etcd client is unavailable")
 	}
-	_, err = client.Delete(adminconfig.Client.GetCtx(), legacyResourceKey(id, unpublished), clientv3.WithPrefix())
+	key := legacyResourceKey(id, unpublished)
+	return deleteLegacyResource(adminconfig.Client.GetCtx(), client, key)
+}
+
+func deleteLegacyResource(ctx context.Context, kv routeBindingKV, key string) error {
+	_, err := kv.Txn(ctx).Then(
+		clientv3.OpDelete(key),
+		clientv3.OpDelete(key+"/", clientv3.WithPrefix()),
+	).Commit()
 	return err
 }
 
@@ -231,7 +269,13 @@ func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Met
 			legacyMethodKey(resourceID, strconv.Itoa(methods[index].ID), unpublished), string(methodData),
 		))
 	}
-	if _, err := client.Txn(adminconfig.Client.GetCtx()).Then(operations...).Commit(); err != nil {
+	if unpublished {
+		if _, err := client.Txn(adminconfig.Client.GetCtx()).Then(operations...).Commit(); err != nil {
+			return fmt.Errorf("save legacy resource and methods atomically: %w", err)
+		}
+		return nil
+	}
+	if err := publishLegacyResourceOperations(operations); err != nil {
 		return fmt.Errorf("save legacy resource and methods atomically: %w", err)
 	}
 	return nil
@@ -258,12 +302,22 @@ func BizSetResourceMethod(resourceID string, method *config.Method, created, unp
 		return fmt.Errorf("encode legacy method: %w", err)
 	}
 	key := legacyMethodKey(resourceID, strconv.Itoa(method.ID), unpublished)
-	if created {
-		err = adminconfig.Client.Create(key, string(data))
-	} else {
-		err = adminconfig.Client.Update(key, string(data))
+	if unpublished {
+		if created {
+			err = adminconfig.Client.Create(key, string(data))
+		} else {
+			err = adminconfig.Client.Update(key, string(data))
+		}
+		if err != nil {
+			return fmt.Errorf("save legacy method: %w", err)
+		}
+		return nil
 	}
-	if err != nil {
+	comparisons := make([]clientv3.Cmp, 0, 1)
+	if created {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(key), "=", 0))
+	}
+	if err := publishLegacyResourceOperations([]clientv3.Op{clientv3.OpPut(key, string(data))}, comparisons...); err != nil {
 		return fmt.Errorf("save legacy method: %w", err)
 	}
 	return nil
@@ -313,8 +367,8 @@ func BizMethodExists(resourceID, methodID string, unpublished bool) (bool, error
 
 // BizBatchReleaseResources publishes each staged legacy Resource and its
 // Method records in one etcd transaction. The legacy API can address either
-// Resource or Method publication, so both endpoints share this transaction
-// boundary while remaining independent of AdminRouteBinding publishing.
+// Resource or Method publication, so both endpoints share route conflict and
+// generation checks with AdminRouteBinding publishing.
 func BizBatchReleaseResources() error {
 	client, err := legacyResourcePublishClient()
 	if err != nil {
@@ -334,7 +388,7 @@ func BizBatchReleaseResources() error {
 		grouped[resourceID] = append(grouped[resourceID], operation)
 	}
 
-	return publishLegacyResourceGroups(client, grouped)
+	return publishLegacyResourceGroups(grouped)
 }
 
 func legacyResourcePublishClient() (*clientv3.Client, error) {
@@ -372,7 +426,7 @@ func legacyResourcePublishOperation(key, value []byte, fromPrefix string) (strin
 	return resourceID, operation, nil
 }
 
-func publishLegacyResourceGroups(client *clientv3.Client, grouped map[string][]clientv3.Op) error {
+func publishLegacyResourceGroups(grouped map[string][]clientv3.Op) error {
 	resourceIDs := make([]string, 0, len(grouped))
 	for resourceID := range grouped {
 		resourceIDs = append(resourceIDs, resourceID)
@@ -381,10 +435,204 @@ func publishLegacyResourceGroups(client *clientv3.Client, grouped map[string][]c
 	for _, resourceID := range resourceIDs {
 		ops := grouped[resourceID]
 		sort.Slice(ops, func(i, j int) bool { return string(ops[i].KeyBytes()) < string(ops[j].KeyBytes()) })
-		_, err := client.Txn(adminconfig.Client.GetCtx()).Then(ops...).Commit()
-		if err != nil {
+		if err := publishLegacyResourceOperations(ops); err != nil {
 			return fmt.Errorf("publish legacy resource %q atomically: %w", resourceID, err)
 		}
+	}
+	return nil
+}
+
+func publishLegacyResourceOperations(operations []clientv3.Op, comparisons ...clientv3.Cmp) error {
+	client, err := legacyResourcePublishClient()
+	if err != nil {
+		return err
+	}
+	if adminconfig.Bootstrap == nil {
+		return errors.New("admin bootstrap is unavailable")
+	}
+	root := strings.TrimRight(strings.TrimSpace(adminconfig.Bootstrap.GetPath()), "/")
+	if root == "" {
+		return errors.New("admin etcd root path is empty")
+	}
+	store := &RouteBindingStore{kv: client, root: root}
+	return store.publishLegacyResourceOperations(adminconfig.Client.GetCtx(), operations, comparisons)
+}
+
+func (s *RouteBindingStore) publishLegacyResourceOperations(ctx context.Context, operations []clientv3.Op, comparisons []clientv3.Cmp) error {
+	if len(operations) == 0 {
+		return nil
+	}
+	ctx = routeBindingContext(ctx)
+	markerRevision, markerExists, err := s.markerRevision(ctx, s.publishedRevisionKey())
+	if err != nil {
+		return err
+	}
+	generation, err := s.nextPublishedGeneration(ctx)
+	if err != nil {
+		return err
+	}
+	prefix := s.runtimeResourcePrefix()
+	runtimeResponse, err := s.kv.Get(ctx, prefix, clientv3.WithPrefix())
+	if err != nil {
+		return fmt.Errorf("list existing runtime routes before legacy publish: %w", err)
+	}
+	resources, err := runtimeResourcesFromResponse(prefix, runtimeResponse)
+	if err != nil {
+		return err
+	}
+	resourcePaths, runtimeRoutes := indexRuntimeResourceRoutes(resources, len(runtimeResponse.Kvs))
+	methodRoutes, err := runtimeMethodRoutesFromResponse(prefix, runtimeResponse, resourcePaths, routeBindingPublishState{})
+	if err != nil {
+		return err
+	}
+	runtimeRoutes = append(runtimeRoutes, methodRoutes...)
+	candidateRoutes, err := legacyResourcePublishRoutes(operations, runtimeResponse, prefix, resourcePaths)
+	if err != nil {
+		return err
+	}
+	if err := s.rejectLegacyAdminRouteBindingWrites(ctx, candidateRoutes); err != nil {
+		return err
+	}
+	if err := findLegacyRuntimeRouteConflict(candidateRoutes, runtimeRoutes); err != nil {
+		return err
+	}
+	if markerExists {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(s.publishedRevisionKey()), "=", markerRevision))
+	} else {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(s.publishedRevisionKey()), "=", 0))
+	}
+	operations = append(append([]clientv3.Op(nil), operations...), clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(generation, 10)))
+	response, err := s.kv.Txn(ctx).If(comparisons...).Then(operations...).Commit()
+	if err != nil {
+		return fmt.Errorf("publish legacy resources atomically: %w", err)
+	}
+	if !response.Succeeded {
+		return fmt.Errorf("%w: legacy resource publish", ErrRouteBindingPublishConflict)
+	}
+	return nil
+}
+
+func (s *RouteBindingStore) rejectLegacyAdminRouteBindingWrites(ctx context.Context, candidates []runtimeRouteBinding) error {
+	publishedBindings, err := s.listEntries(ctx, s.bindingPrefix(false))
+	if err != nil {
+		return err
+	}
+	methodOwners := make(map[[2]int]string, len(publishedBindings))
+	for _, binding := range publishedBindings {
+		methodOwners[[2]int{binding.record.ResourceID, binding.record.MethodID}] = binding.record.Object.Metadata.Name
+	}
+	for _, candidate := range candidates {
+		resourceID, methodID, ok, err := runtimeMethodIDs(s.runtimeResourcePrefix(), candidate.key)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		if name, exists := methodOwners[[2]int{resourceID, methodID}]; exists {
+			return fmt.Errorf("%w: runtime method %q is owned by AdminRouteBinding %q", ErrRouteBindingRuntimeConflict, candidate.key, name)
+		}
+	}
+	return nil
+}
+
+func legacyResourcePublishRoutes(
+	operations []clientv3.Op,
+	runtimeResponse *clientv3.GetResponse,
+	prefix string,
+	resourcePaths map[int]string,
+) ([]runtimeRouteBinding, error) {
+	affectedResourceIDs := make(map[int]struct{})
+	stagedMethodValues := make(map[string][]byte)
+	routes := make([]runtimeRouteBinding, 0)
+	for _, operation := range operations {
+		key := string(operation.KeyBytes())
+		if resourceID, ok := runtimeResourceID(prefix, key); ok {
+			var resource config.Resource
+			if err := commonyaml.UnmarshalYML(operation.ValueBytes(), &resource); err != nil {
+				return nil, fmt.Errorf("decode staged legacy resource %q: %w", key, err)
+			}
+			collectLegacyResourceIDs(resource, resourceID, affectedResourceIDs)
+			collectRuntimeResourceRoutes(resource, "", resourceID, resourcePaths, &routes)
+			continue
+		}
+		resourceID, _, ok, err := runtimeMethodIDs(prefix, key)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("invalid legacy runtime publish key %q", key)
+		}
+		affectedResourceIDs[resourceID] = struct{}{}
+		stagedMethodValues[key] = operation.ValueBytes()
+	}
+
+	methodValues := make(map[string][]byte)
+	for _, item := range runtimeResponse.Kvs {
+		resourceID, _, ok, err := runtimeMethodIDs(prefix, string(item.Key))
+		if err != nil {
+			return nil, err
+		}
+		if _, affected := affectedResourceIDs[resourceID]; ok && affected {
+			methodValues[string(item.Key)] = item.Value
+		}
+	}
+	for key, value := range stagedMethodValues {
+		methodValues[key] = value
+	}
+	methodKeys := make([]string, 0, len(methodValues))
+	for key := range methodValues {
+		methodKeys = append(methodKeys, key)
+	}
+	sort.Strings(methodKeys)
+	for _, key := range methodKeys {
+		resourceID, _, ok, err := runtimeMethodIDs(prefix, key)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("invalid legacy runtime method key %q", key)
+		}
+		var method config.Method
+		if err := commonyaml.UnmarshalYML(methodValues[key], &method); err != nil {
+			return nil, fmt.Errorf("decode staged legacy method %q: %w", key, err)
+		}
+		path := strings.TrimSpace(method.ResourcePath)
+		if path == "" {
+			path = resourcePaths[resourceID]
+		}
+		if path == "" {
+			continue
+		}
+		routes = append(routes, runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb, key: key})
+	}
+	return routes, nil
+}
+
+func collectLegacyResourceIDs(resource config.Resource, keyResourceID int, ids map[int]struct{}) {
+	if keyResourceID > 0 {
+		ids[keyResourceID] = struct{}{}
+	}
+	if resource.ID > 0 {
+		ids[resource.ID] = struct{}{}
+	}
+	for _, nested := range resource.Resources {
+		collectLegacyResourceIDs(nested, nested.ID, ids)
+	}
+}
+
+func findLegacyRuntimeRouteConflict(candidates, existing []runtimeRouteBinding) error {
+	seen := append([]runtimeRouteBinding(nil), existing...)
+	for _, candidate := range candidates {
+		for _, route := range seen {
+			if route.key == candidate.key {
+				continue
+			}
+			if runtimeRouteConflicts(candidate, route) {
+				return fmt.Errorf("%w: %s %s already exists at %q", ErrRouteBindingRuntimeConflict, strings.TrimSpace(candidate.httpVerb), candidate.path, route.key)
+			}
+		}
+		seen = append(seen, candidate)
 	}
 	return nil
 }

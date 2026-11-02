@@ -91,6 +91,29 @@ func TestRouteBindingStoreDeleteKeepsNeighboringResourceIDs(t *testing.T) {
 	}
 }
 
+func TestDeleteLegacyResourceKeepsNeighboringResourceIDs(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	fake := fakeRouteBindingStoreKV(t, store)
+	resource := store.runtimeResourceKey(1)
+	method := store.runtimeMethodKey(1, 1)
+	neighborResource := store.runtimeResourceKey(10)
+	neighborMethod := store.runtimeMethodKey(10, 10)
+	fake.fakePut(resource, []byte("resource 1"))
+	fake.fakePut(method, []byte("method 1"))
+	fake.fakePut(neighborResource, []byte("resource 10"))
+	fake.fakePut(neighborMethod, []byte("method 10"))
+
+	if err := deleteLegacyResource(context.Background(), fake, resource); err != nil {
+		t.Fatalf("deleteLegacyResource: %v", err)
+	}
+	if fake.fakeHasKey(resource) || fake.fakeHasKey(method) {
+		t.Fatal("legacy resource and its child method were not deleted")
+	}
+	if !fake.fakeHasKey(neighborResource) || !fake.fakeHasKey(neighborMethod) {
+		t.Fatal("deleting legacy resource 1 also removed resource 10")
+	}
+}
+
 func TestRouteBindingStoreListIncludesPublishStatus(t *testing.T) {
 	store := newTestRouteBindingStore(t)
 	saved, err := store.SaveDraft(context.Background(), testRouteBinding("status-route", "/api/status", "GET"), true, 0)
@@ -442,6 +465,88 @@ func TestRouteBindingStoreRejectsExistingRuntimeRoute(t *testing.T) {
 	}
 	if fake.fakeHasKey(store.runtimeResourceKey(saved.ResourceID)) {
 		t.Fatal("runtime conflict wrote a generated resource")
+	}
+}
+
+func TestLegacyPublishRejectsExistingRouteBindingRoute(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved, err := store.SaveDraft(context.Background(), testRouteBinding("admin-users", "/api/users", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	if _, err := store.Publish(context.Background(), "admin-users", saved.Revision); err != nil {
+		t.Fatalf("Publish AdminRouteBinding: %v", err)
+	}
+	fake := fakeRouteBindingStoreKV(t, store)
+	markerBefore := string(fake.fakeValue(store.publishedRevisionKey()))
+	resourceKey := store.runtimeResourceKey(99)
+	methodKey := store.runtimeMethodKey(99, 7)
+	resourceValue, err := commonyaml.MarshalYML(legacyconfig.Resource{ID: 99, Path: "/api/users"})
+	if err != nil {
+		t.Fatalf("marshal legacy Resource: %v", err)
+	}
+	methodValue, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/users", HTTPVerb: "GET"})
+	if err != nil {
+		t.Fatalf("marshal legacy Method: %v", err)
+	}
+	operations := []clientv3.Op{
+		clientv3.OpPut(resourceKey, string(resourceValue)),
+		clientv3.OpPut(methodKey, string(methodValue)),
+	}
+
+	err = store.publishLegacyResourceOperations(context.Background(), operations, nil)
+	if !errors.Is(err, ErrRouteBindingRuntimeConflict) {
+		t.Fatalf("legacy publish error: want %v, got %v", ErrRouteBindingRuntimeConflict, err)
+	}
+	if fake.fakeHasKey(resourceKey) || fake.fakeHasKey(methodKey) {
+		t.Fatal("conflicting legacy route was written")
+	}
+	if got := string(fake.fakeValue(store.publishedRevisionKey())); got != markerBefore {
+		t.Fatalf("publish generation changed after rejected legacy route: got %q, want %q", got, markerBefore)
+	}
+}
+
+func TestLegacyPublishRejectsConcurrentRouteBindingPublish(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved, err := store.SaveDraft(context.Background(), testRouteBinding("admin-users", "/api/users", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	fake := fakeRouteBindingStoreKV(t, store)
+	fired := false
+	guardedStore := *store
+	guardedStore.kv = &hookedRouteBindingKV{
+		routeBindingKV: store.kv,
+		afterGet: func(key string) {
+			if fired || key != store.runtimeResourcePrefix() {
+				return
+			}
+			fired = true
+			if _, publishErr := store.Publish(context.Background(), saved.Object.Metadata.Name, saved.Revision); publishErr != nil {
+				t.Fatalf("concurrent AdminRouteBinding publish: %v", publishErr)
+			}
+		},
+	}
+	methodKey := store.runtimeMethodKey(99, 7)
+	methodValue, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/legacy", HTTPVerb: "GET"})
+	if err != nil {
+		t.Fatalf("marshal legacy Method: %v", err)
+	}
+
+	err = guardedStore.publishLegacyResourceOperations(context.Background(), []clientv3.Op{
+		clientv3.OpPut(methodKey, string(methodValue)),
+	}, nil)
+	if !fired {
+		t.Fatal("concurrent publish hook was not reached")
+	}
+	if !errors.Is(err, ErrRouteBindingPublishConflict) {
+		t.Fatalf("legacy publish error: want %v, got %v", ErrRouteBindingPublishConflict, err)
+	}
+	if fake.fakeHasKey(methodKey) {
+		t.Fatal("stale legacy publish wrote a runtime method")
+	}
+	if !fake.fakeHasKey(store.bindingKey(store.bindingPrefix(false), saved.Object.Metadata.Name)) {
+		t.Fatal("concurrent AdminRouteBinding publish did not complete")
 	}
 }
 

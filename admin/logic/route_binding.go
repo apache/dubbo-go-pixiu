@@ -858,14 +858,21 @@ func runtimeMethodRouteFromKV(
 }
 
 func findRuntimeRouteConflict(candidate *compiledRouteEntry, runtimeRoutes []runtimeRouteBinding) error {
-	candidatePath := strings.ToLower(candidate.legacy.Resource.Path)
-	candidateVerb := strings.TrimSpace(candidate.legacy.Method.HTTPVerb)
+	candidateRoute := runtimeRouteBinding{
+		path:     candidate.legacy.Resource.Path,
+		httpVerb: candidate.legacy.Method.HTTPVerb,
+	}
 	for _, route := range runtimeRoutes {
-		if strings.ToLower(route.path) == candidatePath && strings.EqualFold(route.httpVerb, candidateVerb) {
-			return fmt.Errorf("%w: %s %s already exists at %q", ErrRouteBindingRuntimeConflict, candidateVerb, candidate.legacy.Resource.Path, route.key)
+		if runtimeRouteConflicts(candidateRoute, route) {
+			return fmt.Errorf("%w: %s %s already exists at %q", ErrRouteBindingRuntimeConflict, strings.TrimSpace(candidateRoute.httpVerb), candidateRoute.path, route.key)
 		}
 	}
 	return nil
+}
+
+func runtimeRouteConflicts(candidate, existing runtimeRouteBinding) bool {
+	return strings.EqualFold(existing.path, candidate.path) &&
+		strings.EqualFold(existing.httpVerb, strings.TrimSpace(candidate.httpVerb))
 }
 
 type runtimeRouteBinding struct {
