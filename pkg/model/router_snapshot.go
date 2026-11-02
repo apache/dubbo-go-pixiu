@@ -37,14 +37,17 @@ type RouteSnapshot struct {
 	// multi-trie for each method, built once and read-only
 	MethodTries map[string]*trie.Trie
 
-	// precompiled regex for header-only routes
+	// precompiled regex for routes matched only by headers
 	HeaderOnly []HeaderRoute
+	// precompiled header routes that also match a path or prefix
+	HeaderPath []HeaderRoute
 }
 
 type HeaderRoute struct {
-	Methods []string
-	Headers []CompiledHeader
-	Action  RouteAction
+	Methods     []string
+	Headers     []CompiledHeader
+	PathMatcher *trie.Trie
+	Action      RouteAction
 }
 
 type CompiledHeader struct {
@@ -65,6 +68,19 @@ func MethodAllowed(methods []string, m string) bool {
 		}
 	}
 	return false
+}
+
+// MatchesPath reports whether the route's method and optional path constraint
+// match. A nil PathMatcher represents a header-only route.
+func (hr HeaderRoute) MatchesPath(method, path string) bool {
+	if !MethodAllowed(hr.Methods, method) {
+		return false
+	}
+	if hr.PathMatcher == nil {
+		return true
+	}
+	node, _, ok := hr.PathMatcher.Match(stringutil.GetTrieKey("", path))
+	return ok && node != nil
 }
 
 var regexCache sync.Map // map[string]*regexp.Regexp
@@ -120,8 +136,9 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 	}
 
 	for _, r := range routes {
-		// A) header-only：with Headers, without Path / Prefix
-		if r.Match.Path == "" && r.Match.Prefix == "" && len(r.Match.Headers) > 0 {
+		// Routes with headers need a request-aware check. Keep path-constrained
+		// routes out of MethodTries so a path match cannot bypass their headers.
+		if len(r.Match.Headers) > 0 {
 			hr := HeaderRoute{
 				Methods: r.Match.Methods,
 				Action:  r.Route,
@@ -165,7 +182,15 @@ func ToSnapshot(routes []*Router) *RouteSnapshot {
 			*chPtr = (*chPtr)[:0]
 			compiledHeaderSlicePool.Put(chPtr)
 
-			s.HeaderOnly = append(s.HeaderOnly, hr)
+			if r.Match.Path == "" && r.Match.Prefix == "" {
+				s.HeaderOnly = append(s.HeaderOnly, hr)
+			} else {
+				pathMatcher := trie.NewTrie()
+				key := stringutil.GetTrieKeyWithPrefix("", r.Match.Path, r.Match.Prefix, r.Match.Prefix != "")
+				_, _ = pathMatcher.Put(key, true)
+				hr.PathMatcher = &pathMatcher
+				s.HeaderPath = append(s.HeaderPath, hr)
+			}
 			continue
 		}
 

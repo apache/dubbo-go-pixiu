@@ -113,6 +113,14 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 			return act, err
 		}
 	}
+	// This lookup has no headers to evaluate. If no path-only route matched,
+	// return the action of the first path-constrained header route for the path.
+	for _, hr := range s.HeaderPath {
+		if hr.MatchesPath(method, path) {
+			action := hr.Action
+			return &action, nil
+		}
+	}
 	return nil, errors.Errorf("route failed for %s, no rules matched", key)
 }
 
@@ -124,10 +132,17 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 
 	// header-only first
 	for _, hr := range s.HeaderOnly {
-		if !model.MethodAllowed(hr.Methods, req.Method) {
-			continue
+		if hr.MatchesPath(req.Method, req.URL.Path) && matchHeaders(hr.Headers, req) {
+			if len(hr.Action.Cluster) == 0 {
+				return nil, errors.New("action is nil. please check your configuration.")
+			}
+			return &hr.Action, nil
 		}
-		if matchHeaders(hr.Headers, req) {
+	}
+	// Path-constrained header routes are evaluated before the path-only trie.
+	// A failed header predicate can then fall through to another path route.
+	for _, hr := range s.HeaderPath {
+		if hr.MatchesPath(req.Method, req.URL.Path) && matchHeaders(hr.Headers, req) {
 			if len(hr.Action.Cluster) == 0 {
 				return nil, errors.New("action is nil. please check your configuration.")
 			}
