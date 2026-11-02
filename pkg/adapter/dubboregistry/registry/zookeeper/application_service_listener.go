@@ -207,7 +207,8 @@ func (asl *applicationServiceListener) getUrls(path string) []*dubboCommon.URL {
 	instance := toZookeeperInstance(iss)
 
 	metaData := instance.GetMetadata()
-	metadataInfo, err := servicediscovery.GetMetadataInfo(instance.GetServiceName(), instance, metaData[dubboConst.ExportedServicesRevisionPropertyName])
+	// No registry ID is configured here; retain the default metadata report lookup.
+	metadataInfo, err := servicediscovery.GetMetadataInfo(instance.GetServiceName(), instance, metaData[dubboConst.ExportedServicesRevisionPropertyName], "")
 	if err != nil {
 		logger.Errorf("get instance %s metadata info error %v", insPath, err.Error())
 		return nil

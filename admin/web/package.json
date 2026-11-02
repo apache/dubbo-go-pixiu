@@ -26,9 +26,9 @@
     "react-router-dom": "^7.18.3",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
-    "vite": "8.2.2",
+    "vite": "8.3.4",
     "yaml": "^2.9.1",
-    "zod": "^4.5.4"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -38,6 +38,6 @@
     "globals": "^17.12.0",
     "prettier": "^3.9.6",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }
