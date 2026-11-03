@@ -98,7 +98,7 @@ func BizGetResourceDetail(id string, unpublished bool) (string, error) {
 }
 
 func BizGetResourceDetailWithRevision(id string, unpublished bool) (string, int64, error) {
-	client, err := legacyResourceRawClient()
+	client, err := legacyResourceClient()
 	if err != nil {
 		return "", 0, err
 	}
@@ -134,8 +134,19 @@ func BizResourceExists(id string, unpublished bool) (bool, error) {
 }
 
 func BizSetResourceInfo(resource *config.Resource, created, unpublished bool) error {
+	storedResource, methods, resourceData, err := prepareLegacyResourceInfo(resource, created)
+	if err != nil {
+		return err
+	}
+	if unpublished {
+		return saveLegacyResourceDraft(resource, storedResource, methods, resourceData, created)
+	}
+	return publishLegacyResourceInfo(resource, storedResource, methods, resourceData, created)
+}
+
+func prepareLegacyResourceInfo(resource *config.Resource, created bool) (config.Resource, []config.Method, []byte, error) {
 	if resource == nil {
-		return errors.New("legacy resource is nil")
+		return config.Resource{}, nil, nil, errors.New("legacy resource is nil")
 	}
 	methods := append([]config.Method(nil), resource.Methods...)
 	storedResource := *resource
@@ -143,38 +154,46 @@ func BizSetResourceInfo(resource *config.Resource, created, unpublished bool) er
 	if created && storedResource.ID <= 0 {
 		storedResource.ID = nextLegacyResourceID()
 		if storedResource.ID <= 0 {
-			return errors.New("could not allocate legacy resource id")
+			return config.Resource{}, nil, nil, errors.New("could not allocate legacy resource id")
 		}
 	} else if storedResource.ID <= 0 {
-		return errors.New("legacy resource id must be positive")
+		return config.Resource{}, nil, nil, errors.New("legacy resource id must be positive")
 	}
 	resource.ID = storedResource.ID
 	data, err := commonyaml.MarshalYML(storedResource)
 	if err != nil {
-		return fmt.Errorf("encode legacy resource: %w", err)
+		return config.Resource{}, nil, nil, fmt.Errorf("encode legacy resource: %w", err)
 	}
-	key := legacyResourceKey(strconv.Itoa(storedResource.ID), unpublished)
-	if unpublished {
-		if created {
-			err = adminconfig.Client.Create(key, string(data))
-		} else {
-			err = adminconfig.Client.Update(key, string(data))
-		}
-		if err != nil {
-			return fmt.Errorf("save legacy resource: %w", err)
-		}
-		if created {
-			for index := range methods {
-				methods[index].ResourcePath = storedResource.Path
-				if err := BizSetResourceMethod(strconv.Itoa(storedResource.ID), &methods[index], true, unpublished); err != nil {
-					return err
-				}
-				resource.Methods[index] = methods[index]
-			}
-		}
+	return storedResource, methods, data, nil
+}
+
+func saveLegacyResourceDraft(resource *config.Resource, storedResource config.Resource, methods []config.Method, data []byte, created bool) error {
+	resourceID := strconv.Itoa(storedResource.ID)
+	key := legacyResourceKey(resourceID, true)
+	var err error
+	if created {
+		err = adminconfig.Client.Create(key, string(data))
+	} else {
+		err = adminconfig.Client.Update(key, string(data))
+	}
+	if err != nil {
+		return fmt.Errorf("save legacy resource: %w", err)
+	}
+	if !created {
 		return nil
 	}
+	for index := range methods {
+		methods[index].ResourcePath = storedResource.Path
+		if err := BizSetResourceMethod(resourceID, &methods[index], true, true); err != nil {
+			return err
+		}
+		resource.Methods[index] = methods[index]
+	}
+	return nil
+}
 
+func publishLegacyResourceInfo(resource *config.Resource, storedResource config.Resource, methods []config.Method, data []byte, created bool) error {
+	key := legacyResourceKey(strconv.Itoa(storedResource.ID), false)
 	operations := []clientv3.Op{clientv3.OpPut(key, string(data))}
 	comparisons := make([]clientv3.Cmp, 0, len(methods)+1)
 	if created {
@@ -258,7 +277,7 @@ func BizCreatePublishedResourceInfo(resource *config.Resource) error {
 			clientv3.Compare(clientv3.CreateRevision(draftKey), "=", 0),
 		)
 	}
-	client, err := legacyResourceRawClient()
+	client, err := legacyResourceClient()
 	if err != nil {
 		return err
 	}
@@ -323,7 +342,7 @@ type LegacyKeyRevision struct {
 }
 
 func BizGetMethodListWithRevisions(resourceID string, unpublished bool) ([]config.Method, []LegacyKeyRevision, LegacyKeyRevision, error) {
-	client, err := legacyResourceRawClient()
+	client, err := legacyResourceClient()
 	if err != nil {
 		return nil, nil, LegacyKeyRevision{}, err
 	}
@@ -386,32 +405,100 @@ func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Met
 	if err != nil {
 		return err
 	}
-	if adminconfig.Client == nil {
-		return errors.New("admin etcd client is unavailable")
-	}
-	client := adminconfig.Client.GetRawClient()
-	if client == nil {
-		return errors.New("admin etcd client is unavailable")
+	client, err := legacyResourceClient()
+	if err != nil {
+		return err
 	}
 	if resourceRevision <= 0 {
 		return errors.New("legacy resource revision must be positive")
 	}
-
-	storedResource := *resource
-	storedResource.Methods = nil
-	resourceData, err := commonyaml.MarshalYML(storedResource)
+	resourceData, err := marshalLegacyResourceForPathUpdate(resource)
 	if err != nil {
-		return fmt.Errorf("encode legacy resource: %w", err)
+		return err
 	}
-	operations := []clientv3.Op{clientv3.OpPut(
-		legacyResourceKey(resourceID, unpublished), string(resourceData),
-	)}
-	resourceKey := legacyResourceKey(resourceID, unpublished)
-	comparisons := []clientv3.Cmp{clientv3.Compare(clientv3.ModRevision(resourceKey), "=", resourceRevision)}
 	store, err := legacyRouteBindingStore(client)
 	if err != nil {
 		return err
 	}
+	operations, comparisons, err := buildLegacyResourceAndMethodUpdate(resource, resourceID, methods, unpublished, resourceRevision, resourceData, methodRevisions, snapshotRevision, store)
+	if err != nil {
+		return err
+	}
+	if err := store.updateLegacyResourceAndMethods(adminconfig.Client.GetCtx(), operations, comparisons, unpublished); err != nil {
+		return fmt.Errorf("save legacy resource and methods atomically: %w", err)
+	}
+	return nil
+}
+
+func marshalLegacyResourceForPathUpdate(resource *config.Resource) ([]byte, error) {
+	storedResource := *resource
+	storedResource.Methods = nil
+	resourceData, err := commonyaml.MarshalYML(storedResource)
+	if err != nil {
+		return nil, fmt.Errorf("encode legacy resource: %w", err)
+	}
+	return resourceData, nil
+}
+
+func buildLegacyResourceAndMethodUpdate(
+	resource *config.Resource,
+	resourceID string,
+	methods []config.Method,
+	unpublished bool,
+	resourceRevision int64,
+	resourceData []byte,
+	methodRevisions []LegacyKeyRevision,
+	snapshotRevision LegacyKeyRevision,
+	store *RouteBindingStore,
+) ([]clientv3.Op, []clientv3.Cmp, error) {
+	operations := []clientv3.Op{clientv3.OpPut(legacyResourceKey(resourceID, unpublished), string(resourceData))}
+	comparisons := []clientv3.Cmp{clientv3.Compare(clientv3.ModRevision(legacyResourceKey(resourceID, unpublished)), "=", resourceRevision)}
+	revisionByKey, snapshotComparisons, err := buildLegacyMethodSnapshotComparisons(resourceID, unpublished, store, snapshotRevision, methodRevisions)
+	if err != nil {
+		return nil, nil, err
+	}
+	comparisons = append(comparisons, snapshotComparisons...)
+	methodOperations, err := buildLegacyMethodUpdateOperations(resource, resourceID, methods, unpublished, revisionByKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	operations = append(operations, methodOperations...)
+	return operations, comparisons, nil
+}
+
+func buildLegacyMethodUpdateOperations(
+	resource *config.Resource,
+	resourceID string,
+	methods []config.Method,
+	unpublished bool,
+	revisionByKey map[string]int64,
+) ([]clientv3.Op, error) {
+	operations := make([]clientv3.Op, 0, len(methods))
+	for index := range methods {
+		if methods[index].ID <= 0 {
+			return nil, fmt.Errorf("legacy method id must be positive, got %d", methods[index].ID)
+		}
+		methodKey := legacyMethodKey(resourceID, strconv.Itoa(methods[index].ID), unpublished)
+		if _, exists := revisionByKey[methodKey]; !exists {
+			return nil, fmt.Errorf("legacy method %d was not included in the path update snapshot", methods[index].ID)
+		}
+		methods[index].ResourcePath = resource.Path
+		methodData, err := commonyaml.MarshalYML(methods[index])
+		if err != nil {
+			return nil, fmt.Errorf("encode legacy method %d: %w", methods[index].ID, err)
+		}
+		operations = append(operations, clientv3.OpPut(methodKey, string(methodData)))
+	}
+	return operations, nil
+}
+
+func buildLegacyMethodSnapshotComparisons(
+	resourceID string,
+	unpublished bool,
+	store *RouteBindingStore,
+	snapshotRevision LegacyKeyRevision,
+	methodRevisions []LegacyKeyRevision,
+) (map[string]int64, []clientv3.Cmp, error) {
 	expectedSnapshotKey := store.publishedRevisionKey()
 	if unpublished {
 		expectedSnapshotKey = store.legacyDraftMethodRevisionKey(resourceID)
@@ -419,44 +506,25 @@ func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Met
 	if snapshotRevision.Key != expectedSnapshotKey ||
 		(snapshotRevision.Exists && snapshotRevision.Revision <= 0) ||
 		(!snapshotRevision.Exists && snapshotRevision.Revision != 0) {
-		return fmt.Errorf("invalid legacy method snapshot revision for resource %q", resourceID)
+		return nil, nil, fmt.Errorf("invalid legacy method snapshot revision for resource %q", resourceID)
 	}
+	revisionByKey := make(map[string]int64, len(methodRevisions))
+	for _, revision := range methodRevisions {
+		if revision.Revision <= 0 || !strings.HasPrefix(revision.Key, legacyMethodPrefix(resourceID, unpublished)+"/") {
+			return nil, nil, fmt.Errorf("invalid legacy method revision for resource %q", resourceID)
+		}
+		revisionByKey[revision.Key] = revision.Revision
+	}
+	comparisons := make([]clientv3.Cmp, 0, len(revisionByKey)+1)
 	if snapshotRevision.Exists {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(snapshotRevision.Key), "=", snapshotRevision.Revision))
 	} else {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(snapshotRevision.Key), "=", 0))
 	}
-	revisionByKey := make(map[string]int64, len(methodRevisions))
-	for _, revision := range methodRevisions {
-		if revision.Revision <= 0 || !strings.HasPrefix(revision.Key, legacyMethodPrefix(resourceID, unpublished)+"/") {
-			return fmt.Errorf("invalid legacy method revision for resource %q", resourceID)
-		}
-		revisionByKey[revision.Key] = revision.Revision
-	}
-	for index := range methods {
-		if methods[index].ID <= 0 {
-			return fmt.Errorf("legacy method id must be positive, got %d", methods[index].ID)
-		}
-		methodKey := legacyMethodKey(resourceID, strconv.Itoa(methods[index].ID), unpublished)
-		if _, exists := revisionByKey[methodKey]; !exists {
-			return fmt.Errorf("legacy method %d was not included in the path update snapshot", methods[index].ID)
-		}
-		methods[index].ResourcePath = resource.Path
-		methodData, err := commonyaml.MarshalYML(methods[index])
-		if err != nil {
-			return fmt.Errorf("encode legacy method %d: %w", methods[index].ID, err)
-		}
-		operations = append(operations, clientv3.OpPut(
-			legacyMethodKey(resourceID, strconv.Itoa(methods[index].ID), unpublished), string(methodData),
-		))
-	}
 	for key, revision := range revisionByKey {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(key), "=", revision))
 	}
-	if err := store.updateLegacyResourceAndMethods(adminconfig.Client.GetCtx(), operations, comparisons, unpublished); err != nil {
-		return fmt.Errorf("save legacy resource and methods atomically: %w", err)
-	}
-	return nil
+	return revisionByKey, comparisons, nil
 }
 
 func BizGetMethodDetail(resourceID, methodID string, unpublished bool) (string, error) {
@@ -479,7 +547,7 @@ func BizSetResourceMethod(resourceID string, method *config.Method, created, unp
 	if err != nil {
 		return err
 	}
-	client, err := legacyResourceRawClient()
+	client, err := legacyResourceClient()
 	if err != nil {
 		return err
 	}
@@ -611,7 +679,7 @@ func BizDeleteMethodInfo(resourceID, methodID string, unpublished bool) error {
 		return errors.New("admin etcd client is unavailable")
 	}
 	if unpublished {
-		client, err := legacyResourceRawClient()
+		client, err := legacyResourceClient()
 		if err != nil {
 			return err
 		}
@@ -621,7 +689,7 @@ func BizDeleteMethodInfo(resourceID, methodID string, unpublished bool) error {
 		}
 		return store.deleteLegacyDraftMethod(adminconfig.Client.GetCtx(), resourceID, legacyMethodKey(resourceID, methodID, true))
 	}
-	client, err := legacyResourceRawClient()
+	client, err := legacyResourceClient()
 	if err != nil {
 		return err
 	}
@@ -665,7 +733,7 @@ func BizMethodExists(resourceID, methodID string, unpublished bool) (bool, error
 // Resource or Method publication, so both endpoints share route conflict and
 // generation checks with AdminRouteBinding publishing.
 func BizBatchReleaseResources() error {
-	client, err := legacyResourcePublishClient()
+	client, err := legacyResourceClient()
 	if err != nil {
 		return err
 	}
@@ -686,18 +754,7 @@ func BizBatchReleaseResources() error {
 	return publishLegacyResourceGroups(grouped)
 }
 
-func legacyResourcePublishClient() (*clientv3.Client, error) {
-	if adminconfig.Client == nil {
-		return nil, errors.New("admin etcd client is unavailable")
-	}
-	client := adminconfig.Client.GetRawClient()
-	if client == nil {
-		return nil, errors.New("admin etcd client is unavailable")
-	}
-	return client, nil
-}
-
-func legacyResourceRawClient() (*clientv3.Client, error) {
+func legacyResourceClient() (*clientv3.Client, error) {
 	if adminconfig.Client == nil {
 		return nil, errors.New("admin etcd client is unavailable")
 	}
@@ -771,7 +828,7 @@ func publishLegacyResourceGroups(grouped map[string][]clientv3.Op) error {
 }
 
 func publishLegacyResourceOperations(operations []clientv3.Op, comparisons ...clientv3.Cmp) error {
-	client, err := legacyResourcePublishClient()
+	client, err := legacyResourceClient()
 	if err != nil {
 		return err
 	}
@@ -951,6 +1008,26 @@ func legacyResourcePublishRoutes(
 	prefix string,
 	resourcePaths map[int]string,
 ) ([]runtimeRouteBinding, error) {
+	affectedResourceIDs, stagedMethodValues, routes, err := collectLegacyResourcePublishInputs(operations, prefix, resourcePaths)
+	if err != nil {
+		return nil, err
+	}
+	methodValues, err := collectLegacyResourcePublishMethodValues(runtimeResponse, prefix, affectedResourceIDs, stagedMethodValues)
+	if err != nil {
+		return nil, err
+	}
+	methodRoutes, err := buildLegacyResourcePublishMethodRoutes(methodValues, prefix, resourcePaths)
+	if err != nil {
+		return nil, err
+	}
+	return append(routes, methodRoutes...), nil
+}
+
+func collectLegacyResourcePublishInputs(
+	operations []clientv3.Op,
+	prefix string,
+	resourcePaths map[int]string,
+) (map[int]struct{}, map[string][]byte, []runtimeRouteBinding, error) {
 	affectedResourceIDs := make(map[int]struct{})
 	stagedMethodValues := make(map[string][]byte)
 	routes := make([]runtimeRouteBinding, 0)
@@ -959,7 +1036,7 @@ func legacyResourcePublishRoutes(
 		if resourceID, ok := runtimeResourceID(prefix, key); ok {
 			var resource config.Resource
 			if err := commonyaml.UnmarshalYML(operation.ValueBytes(), &resource); err != nil {
-				return nil, fmt.Errorf("decode staged legacy resource %q: %w", key, err)
+				return nil, nil, nil, fmt.Errorf("decode staged legacy resource %q: %w", key, err)
 			}
 			collectLegacyResourceIDs(resource, resourceID, affectedResourceIDs)
 			collectRuntimeResourceRoutes(resource, "", resourceID, resourcePaths, &routes)
@@ -967,15 +1044,23 @@ func legacyResourcePublishRoutes(
 		}
 		resourceID, _, ok, err := runtimeMethodIDs(prefix, key)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		if !ok {
-			return nil, fmt.Errorf("invalid legacy runtime publish key %q", key)
+			return nil, nil, nil, fmt.Errorf("invalid legacy runtime publish key %q", key)
 		}
 		affectedResourceIDs[resourceID] = struct{}{}
 		stagedMethodValues[key] = operation.ValueBytes()
 	}
+	return affectedResourceIDs, stagedMethodValues, routes, nil
+}
 
+func collectLegacyResourcePublishMethodValues(
+	runtimeResponse *clientv3.GetResponse,
+	prefix string,
+	affectedResourceIDs map[int]struct{},
+	stagedMethodValues map[string][]byte,
+) (map[string][]byte, error) {
 	methodValues := make(map[string][]byte)
 	for _, item := range runtimeResponse.Kvs {
 		resourceID, _, ok, err := runtimeMethodIDs(prefix, string(item.Key))
@@ -989,11 +1074,20 @@ func legacyResourcePublishRoutes(
 	for key, value := range stagedMethodValues {
 		methodValues[key] = value
 	}
+	return methodValues, nil
+}
+
+func buildLegacyResourcePublishMethodRoutes(
+	methodValues map[string][]byte,
+	prefix string,
+	resourcePaths map[int]string,
+) ([]runtimeRouteBinding, error) {
 	methodKeys := make([]string, 0, len(methodValues))
 	for key := range methodValues {
 		methodKeys = append(methodKeys, key)
 	}
 	sort.Strings(methodKeys)
+	routes := make([]runtimeRouteBinding, 0, len(methodKeys))
 	for _, key := range methodKeys {
 		resourceID, _, ok, err := runtimeMethodIDs(prefix, key)
 		if err != nil {

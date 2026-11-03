@@ -229,79 +229,119 @@ func TestLegacyPublishWritesPublishedAndDraftRecordsAtomically(t *testing.T) {
 func TestLegacyPathUpdateRejectsStaleMethodSnapshot(t *testing.T) {
 	for _, concurrentChange := range []string{"edit", "delete"} {
 		t.Run(concurrentChange, func(t *testing.T) {
-			store := newTestRouteBindingStore(t)
-			fake := fakeRouteBindingStoreKV(t, store)
-			resourceKey := store.root + "/" + Unpublished + "/" + legacyResources + "/99"
-			methodKey := resourceKey + "/" + Method + "/7"
-			resourceBefore, err := commonyaml.MarshalYML(legacyconfig.Resource{ID: 99, Path: "/api/old"})
-			if err != nil {
-				t.Fatalf("marshal Resource: %v", err)
-			}
-			methodBefore, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/old", HTTPVerb: "GET"})
-			if err != nil {
-				t.Fatalf("marshal Method: %v", err)
-			}
-			fake.fakePut(resourceKey, resourceBefore)
-			fake.fakePut(methodKey, methodBefore)
-			resourceSnapshot, err := fake.Get(context.Background(), resourceKey)
-			if err != nil || len(resourceSnapshot.Kvs) != 1 {
-				t.Fatalf("read Resource snapshot: response=%+v err=%v", resourceSnapshot, err)
-			}
-			methodSnapshot, err := fake.Get(context.Background(), methodKey)
-			if err != nil || len(methodSnapshot.Kvs) != 1 {
-				t.Fatalf("read Method snapshot: response=%+v err=%v", methodSnapshot, err)
-			}
-			methodRevision := LegacyKeyRevision{Key: methodKey, Revision: methodSnapshot.Kvs[0].ModRevision}
-
-			if concurrentChange == "edit" {
-				newerMethod, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/concurrent", HTTPVerb: "GET"})
-				if err != nil {
-					t.Fatalf("marshal concurrent Method: %v", err)
-				}
-				fake.fakePut(methodKey, newerMethod)
-			} else {
-				if _, err := fake.Txn(context.Background()).Then(clientv3.OpDelete(methodKey)).Commit(); err != nil {
-					t.Fatalf("delete concurrent Method: %v", err)
-				}
-			}
-
-			resourceAfter, err := commonyaml.MarshalYML(legacyconfig.Resource{ID: 99, Path: "/api/new"})
-			if err != nil {
-				t.Fatalf("marshal updated Resource: %v", err)
-			}
-			methodAfter, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/new", HTTPVerb: "GET"})
-			if err != nil {
-				t.Fatalf("marshal updated Method: %v", err)
-			}
-			operations := []clientv3.Op{
-				clientv3.OpPut(resourceKey, string(resourceAfter)),
-				clientv3.OpPut(methodKey, string(methodAfter)),
-			}
-			comparisons := []clientv3.Cmp{
-				clientv3.Compare(clientv3.ModRevision(resourceKey), "=", resourceSnapshot.Kvs[0].ModRevision),
-				clientv3.Compare(clientv3.ModRevision(methodKey), "=", methodRevision.Revision),
-			}
-			err = store.updateLegacyResourceAndMethods(context.Background(), operations, comparisons, true)
+			fixture := newLegacyPathUpdateFixture(t)
+			applyConcurrentLegacyMethodChange(t, fixture, concurrentChange)
+			operations, comparisons := staleLegacyPathUpdateOperations(t, fixture)
+			err := fixture.store.updateLegacyResourceAndMethods(context.Background(), operations, comparisons, true)
 			if !errors.Is(err, ErrRouteBindingPublishConflict) {
 				t.Fatalf("stale path update error: want conflict, got %v", err)
 			}
-			if !bytes.Equal(fake.fakeValue(resourceKey), resourceBefore) {
-				t.Fatal("stale path update changed the Resource")
-			}
-			if concurrentChange == "delete" {
-				if fake.fakeHasKey(methodKey) {
-					t.Fatal("stale path update restored a concurrently deleted Method")
-				}
-			} else {
-				var actual legacyconfig.Method
-				if err := commonyaml.UnmarshalYML(fake.fakeValue(methodKey), &actual); err != nil {
-					t.Fatalf("decode concurrent Method: %v", err)
-				}
-				if actual.ResourcePath != "/api/concurrent" {
-					t.Fatalf("stale path update overwrote concurrent Method path %q", actual.ResourcePath)
-				}
-			}
+			assertLegacyPathUpdateLeftSnapshotUntouched(t, fixture, concurrentChange)
 		})
+	}
+}
+
+type legacyPathUpdateFixture struct {
+	store            *RouteBindingStore
+	fake             *fakeRouteBindingKV
+	resourceKey      string
+	methodKey        string
+	resourceBefore   []byte
+	resourceRevision int64
+	methodRevision   int64
+}
+
+func newLegacyPathUpdateFixture(t *testing.T) legacyPathUpdateFixture {
+	t.Helper()
+	store := newTestRouteBindingStore(t)
+	fake := fakeRouteBindingStoreKV(t, store)
+	resourceKey := store.root + "/" + Unpublished + "/" + legacyResources + "/99"
+	methodKey := resourceKey + "/" + Method + "/7"
+	resourceBefore, err := commonyaml.MarshalYML(legacyconfig.Resource{ID: 99, Path: "/api/old"})
+	if err != nil {
+		t.Fatalf("marshal Resource: %v", err)
+	}
+	methodBefore, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/old", HTTPVerb: "GET"})
+	if err != nil {
+		t.Fatalf("marshal Method: %v", err)
+	}
+	fake.fakePut(resourceKey, resourceBefore)
+	fake.fakePut(methodKey, methodBefore)
+	resourceSnapshot, err := fake.Get(context.Background(), resourceKey)
+	if err != nil || len(resourceSnapshot.Kvs) != 1 {
+		t.Fatalf("read Resource snapshot: response=%+v err=%v", resourceSnapshot, err)
+	}
+	methodSnapshot, err := fake.Get(context.Background(), methodKey)
+	if err != nil || len(methodSnapshot.Kvs) != 1 {
+		t.Fatalf("read Method snapshot: response=%+v err=%v", methodSnapshot, err)
+	}
+	return legacyPathUpdateFixture{
+		store:            store,
+		fake:             fake,
+		resourceKey:      resourceKey,
+		methodKey:        methodKey,
+		resourceBefore:   resourceBefore,
+		resourceRevision: resourceSnapshot.Kvs[0].ModRevision,
+		methodRevision:   methodSnapshot.Kvs[0].ModRevision,
+	}
+}
+
+func applyConcurrentLegacyMethodChange(t *testing.T, fixture legacyPathUpdateFixture, change string) {
+	t.Helper()
+	switch change {
+	case "edit":
+		newerMethod, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/concurrent", HTTPVerb: "GET"})
+		if err != nil {
+			t.Fatalf("marshal concurrent Method: %v", err)
+		}
+		fixture.fake.fakePut(fixture.methodKey, newerMethod)
+	case "delete":
+		if _, err := fixture.fake.Txn(context.Background()).Then(clientv3.OpDelete(fixture.methodKey)).Commit(); err != nil {
+			t.Fatalf("delete concurrent Method: %v", err)
+		}
+	default:
+		t.Fatalf("unsupported concurrent Method change %q", change)
+	}
+}
+
+func staleLegacyPathUpdateOperations(t *testing.T, fixture legacyPathUpdateFixture) ([]clientv3.Op, []clientv3.Cmp) {
+	t.Helper()
+	resourceAfter, err := commonyaml.MarshalYML(legacyconfig.Resource{ID: 99, Path: "/api/new"})
+	if err != nil {
+		t.Fatalf("marshal updated Resource: %v", err)
+	}
+	methodAfter, err := commonyaml.MarshalYML(legacyconfig.Method{ID: 7, ResourcePath: "/api/new", HTTPVerb: "GET"})
+	if err != nil {
+		t.Fatalf("marshal updated Method: %v", err)
+	}
+	operations := []clientv3.Op{
+		clientv3.OpPut(fixture.resourceKey, string(resourceAfter)),
+		clientv3.OpPut(fixture.methodKey, string(methodAfter)),
+	}
+	comparisons := []clientv3.Cmp{
+		clientv3.Compare(clientv3.ModRevision(fixture.resourceKey), "=", fixture.resourceRevision),
+		clientv3.Compare(clientv3.ModRevision(fixture.methodKey), "=", fixture.methodRevision),
+	}
+	return operations, comparisons
+}
+
+func assertLegacyPathUpdateLeftSnapshotUntouched(t *testing.T, fixture legacyPathUpdateFixture, change string) {
+	t.Helper()
+	if !bytes.Equal(fixture.fake.fakeValue(fixture.resourceKey), fixture.resourceBefore) {
+		t.Fatal("stale path update changed the Resource")
+	}
+	if change == "delete" {
+		if fixture.fake.fakeHasKey(fixture.methodKey) {
+			t.Fatal("stale path update restored a concurrently deleted Method")
+		}
+		return
+	}
+	var actual legacyconfig.Method
+	if err := commonyaml.UnmarshalYML(fixture.fake.fakeValue(fixture.methodKey), &actual); err != nil {
+		t.Fatalf("decode concurrent Method: %v", err)
+	}
+	if actual.ResourcePath != "/api/concurrent" {
+		t.Fatalf("stale path update overwrote concurrent Method path %q", actual.ResourcePath)
 	}
 }
 
