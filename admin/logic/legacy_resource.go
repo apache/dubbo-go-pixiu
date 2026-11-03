@@ -341,15 +341,23 @@ type LegacyKeyRevision struct {
 	Exists   bool
 }
 
-func BizGetMethodListWithRevisions(resourceID string, unpublished bool) ([]config.Method, []LegacyKeyRevision, LegacyKeyRevision, error) {
+// LegacyMethodSnapshot holds method records and the revisions read with them
+// in one etcd transaction.
+type LegacyMethodSnapshot struct {
+	Methods          []config.Method
+	Revisions        []LegacyKeyRevision
+	SnapshotRevision LegacyKeyRevision
+}
+
+func BizGetMethodListWithRevisions(resourceID string, unpublished bool) (LegacyMethodSnapshot, error) {
 	client, err := legacyResourceClient()
 	if err != nil {
-		return nil, nil, LegacyKeyRevision{}, err
+		return LegacyMethodSnapshot{}, err
 	}
 	prefix := legacyMethodPrefix(resourceID, unpublished) + "/"
 	store, err := legacyRouteBindingStore(client)
 	if err != nil {
-		return nil, nil, LegacyKeyRevision{}, err
+		return LegacyMethodSnapshot{}, err
 	}
 	revisionKey := store.legacyDraftMethodRevisionKey(resourceID)
 	if !unpublished {
@@ -360,7 +368,7 @@ func BizGetMethodListWithRevisions(resourceID string, unpublished bool) ([]confi
 		clientv3.OpGet(revisionKey),
 	).Commit()
 	if err != nil {
-		return nil, nil, LegacyKeyRevision{}, fmt.Errorf("read legacy methods for resource %q: %w", resourceID, err)
+		return LegacyMethodSnapshot{}, fmt.Errorf("read legacy methods for resource %q: %w", resourceID, err)
 	}
 	methodResponse := response.Responses[0].GetResponseRange()
 	revisionResponse := response.Responses[1].GetResponseRange()
@@ -373,15 +381,15 @@ func BizGetMethodListWithRevisions(resourceID string, unpublished bool) ([]confi
 		}
 		var method config.Method
 		if err := commonyaml.UnmarshalYML(item.Value, &method); err != nil {
-			return nil, nil, LegacyKeyRevision{}, fmt.Errorf("decode legacy method %q: %w", item.Key, err)
+			return LegacyMethodSnapshot{}, fmt.Errorf("decode legacy method %q: %w", item.Key, err)
 		}
 		keyID, err := normalizePositiveLegacyID(relativeKey, MethodID)
 		if err != nil {
-			return nil, nil, LegacyKeyRevision{}, fmt.Errorf("invalid legacy method key %q: %w", item.Key, err)
+			return LegacyMethodSnapshot{}, fmt.Errorf("invalid legacy method key %q: %w", item.Key, err)
 		}
 		keyIDNumber, _ := strconv.Atoi(keyID)
 		if method.ID != keyIDNumber {
-			return nil, nil, LegacyKeyRevision{}, fmt.Errorf("legacy method key %q contains ID %d", item.Key, method.ID)
+			return LegacyMethodSnapshot{}, fmt.Errorf("legacy method key %q contains ID %d", item.Key, method.ID)
 		}
 		methods = append(methods, method)
 		revisions = append(revisions, LegacyKeyRevision{Key: string(item.Key), Revision: item.ModRevision})
@@ -391,13 +399,17 @@ func BizGetMethodListWithRevisions(resourceID string, unpublished bool) ([]confi
 		methodRevision.Revision = revisionResponse.Kvs[0].ModRevision
 		methodRevision.Exists = true
 	}
-	return methods, revisions, methodRevision, nil
+	return LegacyMethodSnapshot{
+		Methods:          methods,
+		Revisions:        revisions,
+		SnapshotRevision: methodRevision,
+	}, nil
 }
 
 // BizUpdateResourceAndMethods updates a legacy Resource and its Methods in one
 // etcd transaction. This keeps Method.ResourcePath aligned with the Resource
 // when a legacy client changes the route path.
-func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Method, unpublished bool, resourceRevision int64, methodRevisions []LegacyKeyRevision, snapshotRevision LegacyKeyRevision) error {
+func BizUpdateResourceAndMethods(resource *config.Resource, methodSnapshot LegacyMethodSnapshot, unpublished bool, resourceRevision int64) error {
 	if resource == nil {
 		return errors.New("legacy resource is nil")
 	}
@@ -420,7 +432,7 @@ func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Met
 	if err != nil {
 		return err
 	}
-	operations, comparisons, err := buildLegacyResourceAndMethodUpdate(resource, resourceID, methods, unpublished, resourceRevision, resourceData, methodRevisions, snapshotRevision, store)
+	operations, comparisons, err := buildLegacyResourceAndMethodUpdate(resource, resourceID, methodSnapshot, unpublished, resourceRevision, resourceData, store)
 	if err != nil {
 		return err
 	}
@@ -443,22 +455,20 @@ func marshalLegacyResourceForPathUpdate(resource *config.Resource) ([]byte, erro
 func buildLegacyResourceAndMethodUpdate(
 	resource *config.Resource,
 	resourceID string,
-	methods []config.Method,
+	methodSnapshot LegacyMethodSnapshot,
 	unpublished bool,
 	resourceRevision int64,
 	resourceData []byte,
-	methodRevisions []LegacyKeyRevision,
-	snapshotRevision LegacyKeyRevision,
 	store *RouteBindingStore,
 ) ([]clientv3.Op, []clientv3.Cmp, error) {
 	operations := []clientv3.Op{clientv3.OpPut(legacyResourceKey(resourceID, unpublished), string(resourceData))}
 	comparisons := []clientv3.Cmp{clientv3.Compare(clientv3.ModRevision(legacyResourceKey(resourceID, unpublished)), "=", resourceRevision)}
-	revisionByKey, snapshotComparisons, err := buildLegacyMethodSnapshotComparisons(resourceID, unpublished, store, snapshotRevision, methodRevisions)
+	revisionByKey, snapshotComparisons, err := buildLegacyMethodSnapshotComparisons(resourceID, unpublished, store, methodSnapshot.SnapshotRevision, methodSnapshot.Revisions)
 	if err != nil {
 		return nil, nil, err
 	}
 	comparisons = append(comparisons, snapshotComparisons...)
-	methodOperations, err := buildLegacyMethodUpdateOperations(resource, resourceID, methods, unpublished, revisionByKey)
+	methodOperations, err := buildLegacyMethodUpdateOperations(resource, resourceID, methodSnapshot.Methods, unpublished, revisionByKey)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -110,12 +110,12 @@ func ModifyResourceInfo(c *gin.Context) {
 	}
 	var updateErr error
 	if old.Path != resource.Path {
-		methods, methodRevisions, snapshotRevision, err := logic.BizGetMethodListWithRevisions(strconv.Itoa(resource.ID), unpublished)
+		methodSnapshot, err := logic.BizGetMethodListWithRevisions(strconv.Itoa(resource.ID), unpublished)
 		if err != nil {
 			legacyError(c, err)
 			return
 		}
-		updateErr = logic.BizUpdateResourceAndMethods(resource, methods, unpublished, resourceRevision, methodRevisions, snapshotRevision)
+		updateErr = logic.BizUpdateResourceAndMethods(resource, methodSnapshot, unpublished, resourceRevision)
 	} else {
 		updateErr = logic.BizSetResourceInfo(resource, false, unpublished)
 	}
