@@ -208,6 +208,8 @@ exact value when existing installations have large revision markers.
 `GET /config/api/route/history/list` returns the latest revision summary for
 every route, including tombstones. The Admin UI uses this endpoint to expose
 history-only routes and restore a previously published object after deletion.
+History is retained without automatic pruning so earlier revisions remain
+available for rollback.
 
 ### 2.9 Publish One API Route
 
@@ -261,6 +263,14 @@ Older Admin clients can continue using the original endpoints:
 These endpoints keep the legacy etcd key layout and YAML shapes. New
 AdminRouteBinding publication checks for conflicts with those runtime routes;
 remove or migrate a conflicting old route before publishing its replacement.
+The legacy Method update endpoint accepts `methodId` as an optional query
+parameter; when omitted, the method ID in the YAML body is preserved. Published
+legacy Resource creation writes the runtime and draft copies atomically. Legacy
+deletes reject runtime IDs owned by a published AdminRouteBinding, and path
+updates that race with another Resource/Method write return a retryable conflict.
+Legacy handlers retain their HTTP 200 response envelope for compatibility; the
+`code` and `data` fields carry the result. RouteBinding endpoints use the same
+HTTP status convention but may return structured validation details.
 
 ## III. PluginGroup and Plugin Related
 

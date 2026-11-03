@@ -215,8 +215,13 @@ func validateLegacyTargetFields(target map[string]any) []ValidationIssue {
 			issues = append(issues, issue("spec.target."+key, "migration", "legacy field has no AdminRouteBinding migration"))
 		}
 	}
-	if protocol, _ := target["protocol"].(string); protocol != "" && protocol != "dubbo" {
-		issues = append(issues, issue("spec.target.protocol", "migration", "only the legacy dubbo protocol can be migrated"))
+	if rawProtocol, exists := target["protocol"]; exists {
+		protocol, ok := rawProtocol.(string)
+		if !ok {
+			issues = append(issues, issue("spec.target.protocol", "migration", "legacy protocol must be a string"))
+		} else if protocol != "" && protocol != "dubbo" {
+			issues = append(issues, issue("spec.target.protocol", "migration", "only the legacy dubbo protocol can be migrated"))
+		}
 	}
 	return issues
 }

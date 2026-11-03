@@ -18,6 +18,7 @@
 package schema
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -210,6 +211,21 @@ func TestNormalizeRejectsMixedLegacyAndSeparatedModels(t *testing.T) {
 	err = registry.Validate(object)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot combine the legacy target/params fields")
+}
+
+func TestNormalizeRejectsNonStringLegacyProtocol(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	for _, protocol := range []any{123, false, map[string]any{"name": "dubbo"}} {
+		t.Run(fmt.Sprintf("%T", protocol), func(t *testing.T) {
+			object := validRouteBindingObject()
+			object.Spec["target"].(map[string]any)["protocol"] = protocol
+
+			_, err := registry.Normalize(object)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "legacy protocol must be a string")
+		})
+	}
 }
 
 func TestAdminRouteBindingValidatesTimeoutAndURIPathConsistency(t *testing.T) {

@@ -1119,6 +1119,14 @@ func (s *RouteBindingStore) Rollback(ctx context.Context, name string, historyRe
 		return RouteBindingPublishResult{}, fmt.Errorf("decode route binding history %q revision %d: %w", name, historyRevision, err)
 	}
 	if record.Binding == nil {
+		if _, stateErr := s.readPublishState(ctx, name); errors.Is(stateErr, ErrRouteBindingNotFound) {
+			if expectedDraftRevision > 0 {
+				return RouteBindingPublishResult{}, fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
+			}
+			return RouteBindingPublishResult{Name: name}, nil
+		} else if stateErr != nil {
+			return RouteBindingPublishResult{}, stateErr
+		}
 		return s.DeleteAndPublish(ctx, name, expectedDraftRevision)
 	}
 	if record.Binding.Object.Metadata.Name != name {

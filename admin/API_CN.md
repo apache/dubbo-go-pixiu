@@ -193,6 +193,7 @@ Host: 127.0.0.1:8080
 每次成功发布或删除都会在与运行时配置相同的 etcd 事务中保存不可变快照。历史记录包含单调递增 revision、发布时间和对象；删除记录不含对象。revision 以十进制字符串返回，以便旧安装中较大的 revision 标记可以被客户端精确保留。
 
 `GET /config/api/route/history/list` 返回所有路由的最近历史摘要，包括删除记录。Admin 页面通过它展示已从草稿和已发布列表中消失的路由，并允许恢复之前发布过的版本。
+历史记录不会自动清理，以保留旧版本回滚能力。
 
 ### 2.9 发布单条 API 路由
 
@@ -241,6 +242,9 @@ expectedRevision 为可选项；如果提供，可避免删除读取后已被其
 - `/config/api/resource/publish` 和 `/config/api/resource/method/publish`
 
 这些接口继续读写旧 etcd key 和 YAML 结构。AdminRouteBinding 发布前会检查与旧运行时路由的冲突；替换冲突路由前，应先通过旧接口或旧配置清理对应路由。
+旧版 Method 更新接口的 `methodId` 查询参数为可选项；省略时保留 YAML 请求体中的 Method ID。通过旧接口创建已发布 Resource 时，运行时和草稿副本会在同一个事务中写入。旧版删除接口会拒绝删除已发布 AdminRouteBinding 所属的运行时 ID；路径更新若与其他 Resource/Method 写入竞争，会返回可重试冲突。
+
+旧接口为兼容性保留 HTTP 200 响应信封，并在 `code` 和 `data` 字段中返回结果。RouteBinding 接口也使用 HTTP 200，但可能在响应中返回结构化校验详情。
 
 ## 三、PluginGroup 和 Plugin 相关
 

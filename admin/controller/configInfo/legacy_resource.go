@@ -20,6 +20,7 @@ package configInfo
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -73,21 +74,7 @@ func CreateResourceInfo(c *gin.Context) {
 	if legacyUnpublished(c) {
 		err = logic.BizSetResourceInfo(resource, true, true)
 	} else {
-		err = logic.BizSetResourceInfo(resource, true, false)
-		if err == nil {
-			// Mirror the published records into the draft namespace with the
-			// same Resource/Method IDs. Allocating a second set here would make
-			// subsequent edits and publishes address a different route.
-			err = logic.BizSetResourceInfo(resource, false, true)
-		}
-		if err == nil {
-			resourceID := strconv.Itoa(resource.ID)
-			for index := range resource.Methods {
-				if err = logic.BizSetResourceMethod(resourceID, &resource.Methods[index], false, true); err != nil {
-					break
-				}
-			}
-		}
+		err = logic.BizCreatePublishedResourceInfo(resource)
 	}
 	if err != nil {
 		legacyError(c, err)
@@ -111,7 +98,7 @@ func ModifyResourceInfo(c *gin.Context) {
 		}
 	}
 	unpublished := legacyUnpublished(c)
-	oldContent, err := logic.BizGetResourceDetail(strconv.Itoa(resource.ID), unpublished)
+	oldContent, resourceRevision, err := logic.BizGetResourceDetailWithRevision(strconv.Itoa(resource.ID), unpublished)
 	if err != nil {
 		legacyError(c, err)
 		return
@@ -123,12 +110,12 @@ func ModifyResourceInfo(c *gin.Context) {
 	}
 	var updateErr error
 	if old.Path != resource.Path {
-		methods, err := logic.BizGetMethodList(strconv.Itoa(resource.ID), unpublished)
+		methods, methodRevisions, snapshotRevision, err := logic.BizGetMethodListWithRevisions(strconv.Itoa(resource.ID), unpublished)
 		if err != nil {
 			legacyError(c, err)
 			return
 		}
-		updateErr = logic.BizUpdateResourceAndMethods(resource, methods, unpublished)
+		updateErr = logic.BizUpdateResourceAndMethods(resource, methods, unpublished, resourceRevision, methodRevisions, snapshotRevision)
 	} else {
 		updateErr = logic.BizSetResourceInfo(resource, false, unpublished)
 	}
@@ -208,7 +195,7 @@ func saveLegacyMethod(c *gin.Context, create bool) {
 	}
 	method.ResourcePath = resource.Path
 	if !create {
-		methodID, err := strconv.Atoi(c.Query(logic.MethodID))
+		methodID, err := legacyMethodID(c.Query(logic.MethodID), method.ID)
 		if err != nil {
 			legacyError(c, err)
 			return
@@ -222,6 +209,18 @@ func saveLegacyMethod(c *gin.Context, create bool) {
 		return
 	}
 	c.JSON(http.StatusOK, adminconfig.WithRet("Success"))
+}
+
+func legacyMethodID(queryValue string, bodyID int) (int, error) {
+	queryValue = strings.TrimSpace(queryValue)
+	if queryValue == "" {
+		return bodyID, nil
+	}
+	methodID, err := strconv.Atoi(queryValue)
+	if err != nil {
+		return 0, fmt.Errorf("methodId must be an integer: %w", err)
+	}
+	return methodID, nil
 }
 
 func DeleteMethodInfo(c *gin.Context) {

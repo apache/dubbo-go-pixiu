@@ -57,3 +57,29 @@ func TestDeleteResourceInfoRejectsUnsafeIDsBeforeStorageAccess(t *testing.T) {
 		})
 	}
 }
+
+func TestLegacyMethodIDKeepsBodyIDWhenQueryIsOmitted(t *testing.T) {
+	methodID, err := legacyMethodID("", 17)
+	if err != nil {
+		t.Fatalf("legacyMethodID: %v", err)
+	}
+	if methodID != 17 {
+		t.Fatalf("method ID = %d, want body ID 17", methodID)
+	}
+}
+
+func TestLegacyMethodIDQueryOverridesBodyID(t *testing.T) {
+	methodID, err := legacyMethodID(" 23 ", 17)
+	if err != nil {
+		t.Fatalf("legacyMethodID: %v", err)
+	}
+	if methodID != 23 {
+		t.Fatalf("method ID = %d, want query ID 23", methodID)
+	}
+}
+
+func TestLegacyMethodIDRejectsMalformedQuery(t *testing.T) {
+	if _, err := legacyMethodID("abc", 17); err == nil {
+		t.Fatal("legacyMethodID accepted malformed query ID")
+	}
+}

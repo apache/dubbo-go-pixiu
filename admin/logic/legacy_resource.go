@@ -97,6 +97,21 @@ func BizGetResourceDetail(id string, unpublished bool) (string, error) {
 	return adminconfig.Client.Get(legacyResourceKey(id, unpublished))
 }
 
+func BizGetResourceDetailWithRevision(id string, unpublished bool) (string, int64, error) {
+	client, err := legacyResourceRawClient()
+	if err != nil {
+		return "", 0, err
+	}
+	response, err := client.Get(adminconfig.Client.GetCtx(), legacyResourceKey(id, unpublished))
+	if err != nil {
+		return "", 0, fmt.Errorf("read legacy resource %q: %w", id, err)
+	}
+	if len(response.Kvs) == 0 {
+		return "", 0, fmt.Errorf("legacy resource %q not found", id)
+	}
+	return string(response.Kvs[0].Value), response.Kvs[0].ModRevision, nil
+}
+
 // BizResourceExists checks an exact legacy Resource key without conflating a
 // missing record with an etcd read failure.
 func BizResourceExists(id string, unpublished bool) (bool, error) {
@@ -188,6 +203,72 @@ func BizSetResourceInfo(resource *config.Resource, created, unpublished bool) er
 	return nil
 }
 
+// BizCreatePublishedResourceInfo writes a legacy Resource and its Methods to
+// both the published and draft namespaces in the same transaction. The
+// published route checks and generation update remain part of that transaction.
+func BizCreatePublishedResourceInfo(resource *config.Resource) error {
+	if resource == nil {
+		return errors.New("legacy resource is nil")
+	}
+	if adminconfig.Client == nil {
+		return errors.New("admin etcd client is unavailable")
+	}
+	if resource.ID <= 0 {
+		resource.ID = nextLegacyResourceID()
+		if resource.ID <= 0 {
+			return errors.New("could not allocate legacy resource id")
+		}
+	}
+	resourceID := strconv.Itoa(resource.ID)
+	methods := append([]config.Method(nil), resource.Methods...)
+	for index := range methods {
+		if methods[index].ID <= 0 {
+			methods[index].ID = nextLegacyMethodID()
+			if methods[index].ID <= 0 {
+				return errors.New("could not allocate legacy method id")
+			}
+		}
+		methods[index].ResourcePath = resource.Path
+		resource.Methods[index] = methods[index]
+	}
+
+	storedResource := *resource
+	storedResource.Methods = nil
+	resourceData, err := commonyaml.MarshalYML(storedResource)
+	if err != nil {
+		return fmt.Errorf("encode legacy resource: %w", err)
+	}
+	runtimeOps := []clientv3.Op{clientv3.OpPut(legacyResourceKey(resourceID, false), string(resourceData))}
+	draftOps := []clientv3.Op{clientv3.OpPut(legacyResourceKey(resourceID, true), string(resourceData))}
+	comparisons := []clientv3.Cmp{
+		clientv3.Compare(clientv3.CreateRevision(legacyResourceKey(resourceID, false)), "=", 0),
+		clientv3.Compare(clientv3.CreateRevision(legacyResourceKey(resourceID, true)), "=", 0),
+	}
+	for _, method := range methods {
+		methodData, err := commonyaml.MarshalYML(method)
+		if err != nil {
+			return fmt.Errorf("encode legacy method %d: %w", method.ID, err)
+		}
+		runtimeKey := legacyMethodKey(resourceID, strconv.Itoa(method.ID), false)
+		draftKey := legacyMethodKey(resourceID, strconv.Itoa(method.ID), true)
+		runtimeOps = append(runtimeOps, clientv3.OpPut(runtimeKey, string(methodData)))
+		draftOps = append(draftOps, clientv3.OpPut(draftKey, string(methodData)))
+		comparisons = append(comparisons,
+			clientv3.Compare(clientv3.CreateRevision(runtimeKey), "=", 0),
+			clientv3.Compare(clientv3.CreateRevision(draftKey), "=", 0),
+		)
+	}
+	client, err := legacyResourceRawClient()
+	if err != nil {
+		return err
+	}
+	store, err := legacyRouteBindingStore(client)
+	if err != nil {
+		return err
+	}
+	return store.publishLegacyResourceOperationsWithAdditional(adminconfig.Client.GetCtx(), runtimeOps, draftOps, comparisons)
+}
+
 func BizDeleteResourceInfo(id string, unpublished bool) error {
 	id, err := normalizePositiveLegacyID(id, ResourceID)
 	if err != nil {
@@ -201,7 +282,14 @@ func BizDeleteResourceInfo(id string, unpublished bool) error {
 		return errors.New("admin etcd client is unavailable")
 	}
 	key := legacyResourceKey(id, unpublished)
-	return deleteLegacyResource(adminconfig.Client.GetCtx(), client, key)
+	if unpublished {
+		return deleteLegacyResource(adminconfig.Client.GetCtx(), client, key)
+	}
+	store, err := legacyRouteBindingStore(client)
+	if err != nil {
+		return err
+	}
+	return store.deletePublishedLegacyResource(adminconfig.Client.GetCtx(), id)
 }
 
 func deleteLegacyResource(ctx context.Context, kv routeBindingKV, key string) error {
@@ -228,10 +316,69 @@ func BizGetMethodList(resourceID string, unpublished bool) ([]config.Method, err
 	return methods, nil
 }
 
+type LegacyKeyRevision struct {
+	Key      string
+	Revision int64
+	Exists   bool
+}
+
+func BizGetMethodListWithRevisions(resourceID string, unpublished bool) ([]config.Method, []LegacyKeyRevision, LegacyKeyRevision, error) {
+	client, err := legacyResourceRawClient()
+	if err != nil {
+		return nil, nil, LegacyKeyRevision{}, err
+	}
+	prefix := legacyMethodPrefix(resourceID, unpublished) + "/"
+	store, err := legacyRouteBindingStore(client)
+	if err != nil {
+		return nil, nil, LegacyKeyRevision{}, err
+	}
+	revisionKey := store.legacyDraftMethodRevisionKey(resourceID)
+	if !unpublished {
+		revisionKey = store.publishedRevisionKey()
+	}
+	response, err := client.Txn(adminconfig.Client.GetCtx()).Then(
+		clientv3.OpGet(prefix, clientv3.WithPrefix()),
+		clientv3.OpGet(revisionKey),
+	).Commit()
+	if err != nil {
+		return nil, nil, LegacyKeyRevision{}, fmt.Errorf("read legacy methods for resource %q: %w", resourceID, err)
+	}
+	methodResponse := response.Responses[0].GetResponseRange()
+	revisionResponse := response.Responses[1].GetResponseRange()
+	methods := make([]config.Method, 0, len(methodResponse.Kvs))
+	revisions := make([]LegacyKeyRevision, 0, len(methodResponse.Kvs))
+	for _, item := range methodResponse.Kvs {
+		relativeKey := strings.TrimPrefix(string(item.Key), prefix)
+		if relativeKey == "" || strings.Contains(relativeKey, "/") {
+			continue
+		}
+		var method config.Method
+		if err := commonyaml.UnmarshalYML(item.Value, &method); err != nil {
+			return nil, nil, LegacyKeyRevision{}, fmt.Errorf("decode legacy method %q: %w", item.Key, err)
+		}
+		keyID, err := normalizePositiveLegacyID(relativeKey, MethodID)
+		if err != nil {
+			return nil, nil, LegacyKeyRevision{}, fmt.Errorf("invalid legacy method key %q: %w", item.Key, err)
+		}
+		keyIDNumber, _ := strconv.Atoi(keyID)
+		if method.ID != keyIDNumber {
+			return nil, nil, LegacyKeyRevision{}, fmt.Errorf("legacy method key %q contains ID %d", item.Key, method.ID)
+		}
+		methods = append(methods, method)
+		revisions = append(revisions, LegacyKeyRevision{Key: string(item.Key), Revision: item.ModRevision})
+	}
+	methodRevision := LegacyKeyRevision{Key: revisionKey}
+	if len(revisionResponse.Kvs) > 0 {
+		methodRevision.Revision = revisionResponse.Kvs[0].ModRevision
+		methodRevision.Exists = true
+	}
+	return methods, revisions, methodRevision, nil
+}
+
 // BizUpdateResourceAndMethods updates a legacy Resource and its Methods in one
 // etcd transaction. This keeps Method.ResourcePath aligned with the Resource
 // when a legacy client changes the route path.
-func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Method, unpublished bool) error {
+func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Method, unpublished bool, resourceRevision int64, methodRevisions []LegacyKeyRevision, snapshotRevision LegacyKeyRevision) error {
 	if resource == nil {
 		return errors.New("legacy resource is nil")
 	}
@@ -246,6 +393,9 @@ func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Met
 	if client == nil {
 		return errors.New("admin etcd client is unavailable")
 	}
+	if resourceRevision <= 0 {
+		return errors.New("legacy resource revision must be positive")
+	}
 
 	storedResource := *resource
 	storedResource.Methods = nil
@@ -256,9 +406,40 @@ func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Met
 	operations := []clientv3.Op{clientv3.OpPut(
 		legacyResourceKey(resourceID, unpublished), string(resourceData),
 	)}
+	resourceKey := legacyResourceKey(resourceID, unpublished)
+	comparisons := []clientv3.Cmp{clientv3.Compare(clientv3.ModRevision(resourceKey), "=", resourceRevision)}
+	store, err := legacyRouteBindingStore(client)
+	if err != nil {
+		return err
+	}
+	expectedSnapshotKey := store.publishedRevisionKey()
+	if unpublished {
+		expectedSnapshotKey = store.legacyDraftMethodRevisionKey(resourceID)
+	}
+	if snapshotRevision.Key != expectedSnapshotKey ||
+		(snapshotRevision.Exists && snapshotRevision.Revision <= 0) ||
+		(!snapshotRevision.Exists && snapshotRevision.Revision != 0) {
+		return fmt.Errorf("invalid legacy method snapshot revision for resource %q", resourceID)
+	}
+	if snapshotRevision.Exists {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(snapshotRevision.Key), "=", snapshotRevision.Revision))
+	} else {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(snapshotRevision.Key), "=", 0))
+	}
+	revisionByKey := make(map[string]int64, len(methodRevisions))
+	for _, revision := range methodRevisions {
+		if revision.Revision <= 0 || !strings.HasPrefix(revision.Key, legacyMethodPrefix(resourceID, unpublished)+"/") {
+			return fmt.Errorf("invalid legacy method revision for resource %q", resourceID)
+		}
+		revisionByKey[revision.Key] = revision.Revision
+	}
 	for index := range methods {
 		if methods[index].ID <= 0 {
 			return fmt.Errorf("legacy method id must be positive, got %d", methods[index].ID)
+		}
+		methodKey := legacyMethodKey(resourceID, strconv.Itoa(methods[index].ID), unpublished)
+		if _, exists := revisionByKey[methodKey]; !exists {
+			return fmt.Errorf("legacy method %d was not included in the path update snapshot", methods[index].ID)
 		}
 		methods[index].ResourcePath = resource.Path
 		methodData, err := commonyaml.MarshalYML(methods[index])
@@ -269,13 +450,10 @@ func BizUpdateResourceAndMethods(resource *config.Resource, methods []config.Met
 			legacyMethodKey(resourceID, strconv.Itoa(methods[index].ID), unpublished), string(methodData),
 		))
 	}
-	if unpublished {
-		if _, err := client.Txn(adminconfig.Client.GetCtx()).Then(operations...).Commit(); err != nil {
-			return fmt.Errorf("save legacy resource and methods atomically: %w", err)
-		}
-		return nil
+	for key, revision := range revisionByKey {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(key), "=", revision))
 	}
-	if err := publishLegacyResourceOperations(operations); err != nil {
+	if err := store.updateLegacyResourceAndMethods(adminconfig.Client.GetCtx(), operations, comparisons, unpublished); err != nil {
 		return fmt.Errorf("save legacy resource and methods atomically: %w", err)
 	}
 	return nil
@@ -297,28 +475,124 @@ func BizSetResourceMethod(resourceID string, method *config.Method, created, unp
 	} else if method.ID <= 0 {
 		return errors.New("legacy method id must be positive")
 	}
+	resourceID, err := normalizePositiveLegacyID(resourceID, ResourceID)
+	if err != nil {
+		return err
+	}
+	client, err := legacyResourceRawClient()
+	if err != nil {
+		return err
+	}
+	resourceKey := legacyResourceKey(resourceID, unpublished)
+	resourceResponse, err := client.Get(adminconfig.Client.GetCtx(), resourceKey)
+	if err != nil {
+		return fmt.Errorf("read legacy resource %q before saving Method: %w", resourceID, err)
+	}
+	if len(resourceResponse.Kvs) == 0 {
+		return fmt.Errorf("legacy resource %q not found", resourceID)
+	}
+	var resource config.Resource
+	if err := commonyaml.UnmarshalYML(resourceResponse.Kvs[0].Value, &resource); err != nil {
+		return fmt.Errorf("decode legacy resource %q before saving Method: %w", resourceID, err)
+	}
+	method.ResourcePath = resource.Path
 	data, err := commonyaml.MarshalYML(method)
 	if err != nil {
 		return fmt.Errorf("encode legacy method: %w", err)
 	}
 	key := legacyMethodKey(resourceID, strconv.Itoa(method.ID), unpublished)
 	if unpublished {
-		if created {
-			err = adminconfig.Client.Create(key, string(data))
-		} else {
-			err = adminconfig.Client.Update(key, string(data))
-		}
+		store, err := legacyRouteBindingStore(client)
 		if err != nil {
-			return fmt.Errorf("save legacy method: %w", err)
+			return err
 		}
-		return nil
+		return store.saveLegacyDraftMethod(adminconfig.Client.GetCtx(), resourceID, key, string(data), resourceResponse.Kvs[0].ModRevision, created)
 	}
-	comparisons := make([]clientv3.Cmp, 0, 1)
+	comparisons := []clientv3.Cmp{clientv3.Compare(clientv3.ModRevision(resourceKey), "=", resourceResponse.Kvs[0].ModRevision)}
 	if created {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(key), "=", 0))
 	}
 	if err := publishLegacyResourceOperations([]clientv3.Op{clientv3.OpPut(key, string(data))}, comparisons...); err != nil {
 		return fmt.Errorf("save legacy method: %w", err)
+	}
+	return nil
+}
+
+func (s *RouteBindingStore) saveLegacyDraftMethod(ctx context.Context, resourceID, methodKey, value string, resourceRevision int64, created bool) error {
+	resourceKey := s.legacyDraftResourceKey(resourceID)
+	revisionKey := s.legacyDraftMethodRevisionKey(resourceID)
+	revisionResponse, err := s.kv.Get(routeBindingContext(ctx), revisionKey)
+	if err != nil {
+		return fmt.Errorf("read draft legacy method revision: %w", err)
+	}
+	methodResponse, err := s.kv.Get(routeBindingContext(ctx), methodKey)
+	if err != nil {
+		return fmt.Errorf("read draft legacy Method: %w", err)
+	}
+	comparisons := []clientv3.Cmp{clientv3.Compare(clientv3.ModRevision(resourceKey), "=", resourceRevision)}
+	if len(revisionResponse.Kvs) > 0 {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(revisionKey), "=", revisionResponse.Kvs[0].ModRevision))
+	} else {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(revisionKey), "=", 0))
+	}
+	if created {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(methodKey), "=", 0))
+	} else if len(methodResponse.Kvs) > 0 {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(methodKey), "=", methodResponse.Kvs[0].ModRevision))
+	} else {
+		return fmt.Errorf("draft legacy Method %q not found", methodKey)
+	}
+	response, err := s.kv.Txn(routeBindingContext(ctx)).If(comparisons...).Then(
+		clientv3.OpPut(methodKey, value),
+		clientv3.OpPut(revisionKey, "1"),
+	).Commit()
+	if err != nil {
+		return fmt.Errorf("save draft legacy Method: %w", err)
+	}
+	if !response.Succeeded {
+		return fmt.Errorf("%w: draft legacy Method changed during update", ErrRouteBindingPublishConflict)
+	}
+	return nil
+}
+
+func (s *RouteBindingStore) deleteLegacyDraftMethod(ctx context.Context, resourceID, methodKey string) error {
+	resourceKey := s.legacyDraftResourceKey(resourceID)
+	revisionKey := s.legacyDraftMethodRevisionKey(resourceID)
+	resourceResponse, err := s.kv.Get(routeBindingContext(ctx), resourceKey)
+	if err != nil {
+		return fmt.Errorf("read draft legacy Resource before deleting Method: %w", err)
+	}
+	methodResponse, err := s.kv.Get(routeBindingContext(ctx), methodKey)
+	if err != nil {
+		return fmt.Errorf("read draft legacy Method before deletion: %w", err)
+	}
+	revisionResponse, err := s.kv.Get(routeBindingContext(ctx), revisionKey)
+	if err != nil {
+		return fmt.Errorf("read draft legacy method revision before deletion: %w", err)
+	}
+	comparisons := make([]clientv3.Cmp, 0, 3)
+	if len(resourceResponse.Kvs) > 0 {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(resourceKey), "=", resourceResponse.Kvs[0].ModRevision))
+	} else {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(resourceKey), "=", 0))
+	}
+	if len(methodResponse.Kvs) > 0 {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(methodKey), "=", methodResponse.Kvs[0].ModRevision))
+	} else {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(methodKey), "=", 0))
+	}
+	if len(revisionResponse.Kvs) > 0 {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(revisionKey), "=", revisionResponse.Kvs[0].ModRevision))
+	} else {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(revisionKey), "=", 0))
+	}
+	operations := []clientv3.Op{clientv3.OpDelete(methodKey), clientv3.OpPut(revisionKey, "1")}
+	response, err := s.kv.Txn(routeBindingContext(ctx)).If(comparisons...).Then(operations...).Commit()
+	if err != nil {
+		return fmt.Errorf("delete draft legacy Method: %w", err)
+	}
+	if !response.Succeeded {
+		return fmt.Errorf("%w: draft legacy Method changed during deletion", ErrRouteBindingPublishConflict)
 	}
 	return nil
 }
@@ -336,7 +610,28 @@ func BizDeleteMethodInfo(resourceID, methodID string, unpublished bool) error {
 	if adminconfig.Client == nil {
 		return errors.New("admin etcd client is unavailable")
 	}
-	return adminconfig.Client.Delete(legacyMethodKey(resourceID, methodID, unpublished))
+	if unpublished {
+		client, err := legacyResourceRawClient()
+		if err != nil {
+			return err
+		}
+		store, err := legacyRouteBindingStore(client)
+		if err != nil {
+			return err
+		}
+		return store.deleteLegacyDraftMethod(adminconfig.Client.GetCtx(), resourceID, legacyMethodKey(resourceID, methodID, true))
+	}
+	client, err := legacyResourceRawClient()
+	if err != nil {
+		return err
+	}
+	store, err := legacyRouteBindingStore(client)
+	if err != nil {
+		return err
+	}
+	resourceNumber, _ := strconv.Atoi(resourceID)
+	methodNumber, _ := strconv.Atoi(methodID)
+	return store.deletePublishedLegacyMethod(adminconfig.Client.GetCtx(), resourceNumber, methodNumber)
 }
 
 // BizMethodExists checks an exact legacy Method key without conflating a
@@ -402,6 +697,39 @@ func legacyResourcePublishClient() (*clientv3.Client, error) {
 	return client, nil
 }
 
+func legacyResourceRawClient() (*clientv3.Client, error) {
+	if adminconfig.Client == nil {
+		return nil, errors.New("admin etcd client is unavailable")
+	}
+	client := adminconfig.Client.GetRawClient()
+	if client == nil {
+		return nil, errors.New("admin etcd client is unavailable")
+	}
+	return client, nil
+}
+
+func legacyRouteBindingStore(client *clientv3.Client) (*RouteBindingStore, error) {
+	if client == nil {
+		return nil, errors.New("admin etcd client is unavailable")
+	}
+	if adminconfig.Bootstrap == nil {
+		return nil, errors.New("admin bootstrap is unavailable")
+	}
+	root := strings.TrimRight(strings.TrimSpace(adminconfig.Bootstrap.GetPath()), "/")
+	if root == "" {
+		return nil, errors.New("admin etcd root path is empty")
+	}
+	return &RouteBindingStore{kv: client, root: root}, nil
+}
+
+func (s *RouteBindingStore) legacyDraftResourceKey(resourceID string) string {
+	return s.root + "/" + Unpublished + "/" + legacyResources + "/" + resourceID
+}
+
+func (s *RouteBindingStore) legacyDraftMethodRevisionKey(resourceID string) string {
+	return s.root + "/" + Unpublished + "/legacy-method-revisions/" + resourceID
+}
+
 func legacyResourcePublishOperation(key, value []byte, fromPrefix string) (string, clientv3.Op, error) {
 	keyString := string(key)
 	relative := strings.TrimPrefix(keyString, fromPrefix)
@@ -447,18 +775,32 @@ func publishLegacyResourceOperations(operations []clientv3.Op, comparisons ...cl
 	if err != nil {
 		return err
 	}
-	if adminconfig.Bootstrap == nil {
-		return errors.New("admin bootstrap is unavailable")
+	store, err := legacyRouteBindingStore(client)
+	if err != nil {
+		return err
 	}
-	root := strings.TrimRight(strings.TrimSpace(adminconfig.Bootstrap.GetPath()), "/")
-	if root == "" {
-		return errors.New("admin etcd root path is empty")
-	}
-	store := &RouteBindingStore{kv: client, root: root}
 	return store.publishLegacyResourceOperations(adminconfig.Client.GetCtx(), operations, comparisons)
 }
 
 func (s *RouteBindingStore) publishLegacyResourceOperations(ctx context.Context, operations []clientv3.Op, comparisons []clientv3.Cmp) error {
+	return s.publishLegacyResourceOperationsWithAdditional(ctx, operations, nil, comparisons)
+}
+
+func (s *RouteBindingStore) updateLegacyResourceAndMethods(ctx context.Context, operations []clientv3.Op, comparisons []clientv3.Cmp, unpublished bool) error {
+	if !unpublished {
+		return s.publishLegacyResourceOperations(ctx, operations, comparisons)
+	}
+	response, err := s.kv.Txn(routeBindingContext(ctx)).If(comparisons...).Then(operations...).Commit()
+	if err != nil {
+		return fmt.Errorf("save legacy resource and methods atomically: %w", err)
+	}
+	if !response.Succeeded {
+		return fmt.Errorf("%w: legacy resource changed during path update", ErrRouteBindingPublishConflict)
+	}
+	return nil
+}
+
+func (s *RouteBindingStore) publishLegacyResourceOperationsWithAdditional(ctx context.Context, operations, additionalOperations []clientv3.Op, comparisons []clientv3.Cmp) error {
 	if len(operations) == 0 {
 		return nil
 	}
@@ -501,13 +843,80 @@ func (s *RouteBindingStore) publishLegacyResourceOperations(ctx context.Context,
 	} else {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(s.publishedRevisionKey()), "=", 0))
 	}
-	operations = append(append([]clientv3.Op(nil), operations...), clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(generation, 10)))
-	response, err := s.kv.Txn(ctx).If(comparisons...).Then(operations...).Commit()
+	allOperations := append(append([]clientv3.Op(nil), operations...), additionalOperations...)
+	allOperations = append(allOperations, clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(generation, 10)))
+	response, err := s.kv.Txn(ctx).If(comparisons...).Then(allOperations...).Commit()
 	if err != nil {
 		return fmt.Errorf("publish legacy resources atomically: %w", err)
 	}
 	if !response.Succeeded {
 		return fmt.Errorf("%w: legacy resource publish", ErrRouteBindingPublishConflict)
+	}
+	return nil
+}
+
+func (s *RouteBindingStore) deletePublishedLegacyResource(ctx context.Context, resourceID string) error {
+	normalizedID, err := normalizePositiveLegacyID(resourceID, ResourceID)
+	if err != nil {
+		return err
+	}
+	resourceNumber, _ := strconv.Atoi(normalizedID)
+	return s.deletePublishedLegacyRuntime(ctx, resourceNumber, nil)
+}
+
+func (s *RouteBindingStore) deletePublishedLegacyMethod(ctx context.Context, resourceID, methodID int) error {
+	if resourceID <= 0 || methodID <= 0 {
+		return errors.New("resourceId and methodId must be positive integers")
+	}
+	return s.deletePublishedLegacyRuntime(ctx, resourceID, &methodID)
+}
+
+func (s *RouteBindingStore) deletePublishedLegacyRuntime(ctx context.Context, resourceID int, methodID *int) error {
+	ctx = routeBindingContext(ctx)
+	markerRevision, markerExists, err := s.markerRevision(ctx, s.publishedRevisionKey())
+	if err != nil {
+		return err
+	}
+	generation, err := s.nextPublishedGeneration(ctx)
+	if err != nil {
+		return err
+	}
+	publishedBindings, err := s.listEntries(ctx, s.bindingPrefix(false))
+	if err != nil {
+		return err
+	}
+	for _, binding := range publishedBindings {
+		if binding.record.ResourceID != resourceID {
+			continue
+		}
+		if methodID == nil || binding.record.MethodID == *methodID {
+			return fmt.Errorf("%w: runtime identity %d/%d is owned by AdminRouteBinding %q", ErrRouteBindingRuntimeConflict, resourceID, binding.record.MethodID, binding.record.Object.Metadata.Name)
+		}
+	}
+
+	comparisons := make([]clientv3.Cmp, 0, 1)
+	if markerExists {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(s.publishedRevisionKey()), "=", markerRevision))
+	} else {
+		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(s.publishedRevisionKey()), "=", 0))
+	}
+	resourceKey := s.runtimeResourceKey(resourceID)
+	operations := []clientv3.Op{}
+	if methodID == nil {
+		operations = append(operations,
+			clientv3.OpDelete(resourceKey),
+			clientv3.OpDelete(resourceKey+"/", clientv3.WithPrefix()),
+		)
+	} else {
+		operations = append(operations, clientv3.OpDelete(s.runtimeMethodKey(resourceID, *methodID)))
+	}
+	operations = append(operations, clientv3.OpPut(s.publishedRevisionKey(), strconv.FormatInt(generation, 10)))
+	response, err := s.kv.Txn(ctx).If(comparisons...).Then(operations...).Commit()
+	if err != nil {
+		return fmt.Errorf("delete legacy runtime configuration: %w", err)
+	}
+	if !response.Succeeded {
+		return fmt.Errorf("%w: legacy runtime delete", ErrRouteBindingPublishConflict)
 	}
 	return nil
 }
