@@ -68,29 +68,28 @@ func IsMatchAll(key string) bool {
 }
 
 func GetTrieKey(method string, path string) string {
-	// "http://localhost:8882/api/v1/test-dubbo/user?name=tc/"
+	// Query delimiters must not be interpreted as authority or path delimiters.
+	path, _, _ = strings.Cut(path, "?")
 	ret := ""
 
 	if strings.Contains(path, constant.ProtocolSlash) {
 		path = path[strings.Index(path, constant.ProtocolSlash)+len(constant.ProtocolSlash):]
-		path = path[strings.Index(path, constant.PathSlash)+1:]
+		if slash := strings.Index(path, constant.PathSlash); slash >= 0 {
+			path = path[slash+1:]
+		} else {
+			path = ""
+		}
 	}
-	// "api/v1/test-dubbo/user?name=tc/"
 
 	if strings.HasPrefix(path, constant.PathSlash) {
 		ret = method + path
 	} else {
 		ret = method + constant.PathSlash + path
 	}
-	// "METHOD/api/v1/test-dubbo/user?name=tc/"
 
 	if strings.HasSuffix(ret, constant.PathSlash) {
 		ret = ret[0 : len(ret)-1]
 	}
-	// "METHOD/api/v1/test-dubbo/user?name=tc"
-
-	ret = strings.Split(ret, "?")[0]
-	// "METHOD/api/v1/test-dubbo/user"
 
 	return ret
 }
