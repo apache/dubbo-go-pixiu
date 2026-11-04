@@ -883,7 +883,7 @@ func runtimeMethodRouteFromKV(
 	if path == "" {
 		return runtimeRouteBinding{}, false, nil
 	}
-	return runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb}, true, nil
+	return runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb, key: key}, true, nil
 }
 
 func findRuntimeRouteConflict(candidate *compiledRouteEntry, runtimeRoutes []runtimeRouteBinding) error {
@@ -926,6 +926,7 @@ func runtimeRouteConflictKey(method, path string) string {
 type runtimeRouteBinding struct {
 	path     string
 	httpVerb string
+	key      string
 }
 
 func collectRuntimeResourceRoutes(resource legacyconfig.Resource, parentPath string, keyResourceID int, resourcePaths map[int]string, routes *[]runtimeRouteBinding) {
@@ -943,8 +944,9 @@ func collectRuntimeResourceRoutes(resource legacyconfig.Resource, parentPath str
 	if resource.ID > 0 {
 		resourcePaths[resource.ID] = fullPath
 	}
+	resourceKey := fmt.Sprintf("resource %d", keyResourceID)
 	for _, method := range resource.Methods {
-		*routes = append(*routes, runtimeRouteBinding{path: fullPath, httpVerb: method.HTTPVerb})
+		*routes = append(*routes, runtimeRouteBinding{path: fullPath, httpVerb: method.HTTPVerb, key: resourceKey})
 	}
 	for _, nested := range resource.Resources {
 		// Match addAPIFromResource: nested resources are visited with their

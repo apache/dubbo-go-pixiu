@@ -1006,7 +1006,7 @@ func (s *RouteBindingStore) rejectLegacyAdminRouteBindingWrites(ctx context.Cont
 			continue
 		}
 		if name, exists := methodOwners[[2]int{resourceID, methodID}]; exists {
-			return fmt.Errorf("%w: runtime method %q is owned by AdminRouteBinding %q", ErrRouteBindingRuntimeConflict, candidate.key, name)
+			return fmt.Errorf("%w: route %s %s is owned by AdminRouteBinding %q", ErrRouteBindingRuntimeConflict, strings.TrimSpace(candidate.httpVerb), candidate.path, name)
 		}
 	}
 	return nil
@@ -1142,7 +1142,12 @@ func findLegacyRuntimeRouteConflict(candidates, existing []runtimeRouteBinding) 
 				continue
 			}
 			if runtimeRouteConflicts(candidate, route) {
-				return fmt.Errorf("%w: %s %s already exists at %q", ErrRouteBindingRuntimeConflict, strings.TrimSpace(candidate.httpVerb), candidate.path, route.key)
+				return fmt.Errorf(
+					"%w: route %s %s conflicts with existing route %s %s; Pixiu treats paths with the same structure as one route, so trailing slashes and path variable names do not distinguish routes",
+					ErrRouteBindingRuntimeConflict,
+					strings.TrimSpace(candidate.httpVerb), candidate.path,
+					strings.TrimSpace(route.httpVerb), route.path,
+				)
 			}
 		}
 		seen = append(seen, candidate)
