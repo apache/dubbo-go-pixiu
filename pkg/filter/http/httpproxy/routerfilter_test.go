@@ -32,6 +32,7 @@ import (
 )
 
 import (
+	// Register RoundRobin so the real cluster manager can select the loopback endpoint.
 	_ "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/roundrobin"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
