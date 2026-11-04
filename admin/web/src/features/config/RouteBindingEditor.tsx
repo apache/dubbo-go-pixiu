@@ -588,7 +588,7 @@ export function RouteBindingEditor({
     setNotice(null)
     try {
       const name = object.metadata.name
-      await routeBindingApi.rollback(name, historyRevision, revision)
+      await routeBindingApi.rollback(name, historyRevision, { expectedRevision: revision })
       if (!selected.object) {
         await onSaved()
         onBack()

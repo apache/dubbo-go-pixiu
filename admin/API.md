@@ -230,13 +230,23 @@ Before publishing, Admin checks for conflicts with legacy runtime Resource/Metho
 **Request**:
 
 ```http
-PUT /config/api/route/rollback?name=<route-name>&revision=<history-revision>&expectedRevision=<draft-revision> HTTP/1.1
+PUT /config/api/route/rollback?name=<route-name>&revision=<history-revision>&expectedRevision=<current-draft-revision> HTTP/1.1
 Host: 127.0.0.1:8080
 ```
 
 Rollback stages the selected immutable snapshot and publishes it through the
 normal atomic Resource/Method publisher. If a concurrent change prevents
 publish, the snapshot remains a draft and the active runtime remains unchanged.
+Provide exactly one concurrency precondition: `expectedRevision` must be the
+current draft revision, or use `expectedAbsent=true` when the route is absent
+from both draft and published scopes. History-only rollback uses the latter.
+For an absent route, the request is:
+
+```http
+PUT /config/api/route/rollback?name=<route-name>&revision=<history-revision>&expectedAbsent=true HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
 Rolling back to a deletion snapshot removes the route.
 
 ### 2.11 Delete One API Route

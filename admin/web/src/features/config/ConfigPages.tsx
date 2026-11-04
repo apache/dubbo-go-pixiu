@@ -769,7 +769,7 @@ export function ResourcePage({
     if (historyDialog?.rollingBack != null) return
     setHistoryDialog((current) => (current ? { ...current, rollingBack: revision } : current))
     try {
-      await routeBindingApi.rollback(name, revision)
+      await routeBindingApi.rollback(name, revision, { expectedAbsent: true })
       setHistoryDialog(null)
       await load()
     } catch (e) {

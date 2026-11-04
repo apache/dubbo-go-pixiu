@@ -214,11 +214,18 @@ cache-control: no-cache
 **请求**：
 
 ```http
-PUT /config/api/route/rollback?name=<路由名>&revision=<history-revision>&expectedRevision=<draft-revision> HTTP/1.1
+PUT /config/api/route/rollback?name=<路由名>&revision=<history-revision>&expectedRevision=<当前草稿版本> HTTP/1.1
 Host: 127.0.0.1:8080
 ```
 
-回滚会将选定快照写入草稿，再通过正常的原子发布流程生效。若并发修改导致发布冲突，快照会保留为草稿，当前运行时配置不变。回滚到删除快照会删除该路由。
+回滚会将选定快照写入草稿，再通过正常的原子发布流程生效。若并发修改导致发布冲突，快照会保留为草稿，当前运行时配置不变。请求必须且只能提供一个并发前置条件：`expectedRevision` 传入当前草稿版本；当路由在草稿和已发布范围都不存在时，使用 `expectedAbsent=true`。仅历史记录页面的回滚使用后一种条件，例如：
+
+```http
+PUT /config/api/route/rollback?name=<路由名>&revision=<history-revision>&expectedAbsent=true HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+回滚到删除快照会删除该路由。
 
 ### 2.11 删除单条 API 路由
 

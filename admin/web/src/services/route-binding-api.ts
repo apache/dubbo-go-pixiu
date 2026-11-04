@@ -114,13 +114,18 @@ export const routeBindingApi = {
     parseArrayResponse<RouteBindingHistorySummary>(
       await request<unknown>(pixiuAdminApi.routeBindings.historyList),
     ),
-  rollback: (name: string, revision: string, expectedRevision = 0) =>
-    request<RouteBindingPublishResult>(
-      `${pixiuAdminApi.routeBindings.rollback}${query({
-        name,
-        revision,
-        expectedRevision: expectedRevision || undefined,
-      })}`,
+  rollback: (
+    name: string,
+    revision: string,
+    precondition: { expectedRevision: number } | { expectedAbsent: true },
+  ) => {
+    const queryPrecondition =
+      'expectedAbsent' in precondition
+        ? { expectedAbsent: 'true' }
+        : { expectedRevision: precondition.expectedRevision }
+    return request<RouteBindingPublishResult>(
+      `${pixiuAdminApi.routeBindings.rollback}${query({ name, revision, ...queryPrecondition })}`,
       { method: 'PUT' },
-    ),
+    )
+  },
 }

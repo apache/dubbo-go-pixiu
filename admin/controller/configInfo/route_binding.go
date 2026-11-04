@@ -435,7 +435,7 @@ func RollbackRouteBinding(c *gin.Context) {
 		writeRouteBindingError(c, errors.New("route binding name and positive history revision are required for rollback"))
 		return
 	}
-	expectedDraftRevision, err := routeBindingExpectedRevision(c)
+	expectedDraftRevision, expectedAbsent, err := routeBindingRollbackPrecondition(c)
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
@@ -445,12 +445,32 @@ func RollbackRouteBinding(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	result, err := store.Rollback(c.Request.Context(), name, historyRevision, expectedDraftRevision)
+	result, err := store.Rollback(c.Request.Context(), name, historyRevision, expectedDraftRevision, expectedAbsent)
 	if err != nil {
 		writeRouteBindingError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, adminconfig.WithRet(result))
+}
+
+func routeBindingRollbackPrecondition(c *gin.Context) (int64, bool, error) {
+	if value := strings.TrimSpace(c.Query("expectedAbsent")); value != "" {
+		if !strings.EqualFold(value, "true") {
+			return 0, false, errors.New("expectedAbsent must be true when provided")
+		}
+		if strings.TrimSpace(c.Query("expectedRevision")) != "" || strings.TrimSpace(c.GetHeader("If-Match")) != "" {
+			return 0, false, errors.New("provide either expectedRevision or expectedAbsent=true, not both")
+		}
+		return 0, true, nil
+	}
+	expectedRevision, err := routeBindingExpectedRevision(c)
+	if err != nil {
+		return 0, false, err
+	}
+	if expectedRevision <= 0 {
+		return 0, false, errors.New("rollback requires a positive expectedRevision or expectedAbsent=true")
+	}
+	return expectedRevision, false, nil
 }
 
 func decodeRouteBindingRequest(c *gin.Context) (schema.AdminObject, int64, error) {

@@ -181,6 +181,42 @@ func TestWriteRouteBindingErrorReturnsRetryCode(t *testing.T) {
 	}
 }
 
+func TestRouteBindingRollbackPrecondition(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		ifMatch      string
+		wantRevision int64
+		wantAbsent   bool
+		wantError    bool
+	}{
+		{name: "current revision", query: "?expectedRevision=42", wantRevision: 42},
+		{name: "explicitly absent", query: "?expectedAbsent=true", wantAbsent: true},
+		{name: "missing condition", wantError: true},
+		{name: "zero revision", query: "?expectedRevision=0", wantError: true},
+		{name: "both conditions", query: "?expectedRevision=42&expectedAbsent=true", wantError: true},
+		{name: "invalid absent value", query: "?expectedAbsent=false&expectedRevision=42", wantError: true},
+		{name: "if-match revision", ifMatch: `"42"`, wantRevision: 42},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPut, "/"+test.query, nil)
+			if test.ifMatch != "" {
+				request.Header.Set("If-Match", test.ifMatch)
+			}
+			context, _ := gin.CreateTestContext(httptest.NewRecorder())
+			context.Request = request
+			revision, absent, err := routeBindingRollbackPrecondition(context)
+			if (err != nil) != test.wantError {
+				t.Fatalf("precondition error = %v, wantError %t", err, test.wantError)
+			}
+			if err == nil && (revision != test.wantRevision || absent != test.wantAbsent) {
+				t.Fatalf("precondition = (%d, %t), want (%d, %t)", revision, absent, test.wantRevision, test.wantAbsent)
+			}
+		})
+	}
+}
+
 func invokeRouteBindingHandler(t *testing.T, method string, body []byte, handler gin.HandlerFunc) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

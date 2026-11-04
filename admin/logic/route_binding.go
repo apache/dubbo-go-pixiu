@@ -36,6 +36,7 @@ import (
 
 import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
 	commonyaml "github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema"
@@ -334,9 +335,19 @@ func (s *RouteBindingStore) Preview(object schema.AdminObject) (schema.AdminObje
 // expectedRevision is the draft key's mod revision and may be zero to allow
 // an unconditional write.
 func (s *RouteBindingStore) SaveDraft(ctx context.Context, object schema.AdminObject, create bool, expectedRevision int64) (RouteBinding, error) {
+	return s.saveDraft(ctx, object, create, expectedRevision, false)
+}
+
+// saveDraft optionally requires both draft and published keys to remain absent
+// through the create transaction. History rollback uses this when the caller
+// loaded a route that was absent from both scopes.
+func (s *RouteBindingStore) saveDraft(ctx context.Context, object schema.AdminObject, create bool, expectedRevision int64, expectedPublishedAbsent bool) (RouteBinding, error) {
 	ctx = routeBindingContext(ctx)
 	if err := validateSaveDraftRequest(create, expectedRevision); err != nil {
 		return RouteBinding{}, err
+	}
+	if expectedPublishedAbsent && (!create || expectedRevision != 0) {
+		return RouteBinding{}, errors.New("an absent route precondition requires a create without an expected revision")
 	}
 	normalized, err := s.Normalize(object)
 	if err != nil {
@@ -347,6 +358,18 @@ func (s *RouteBindingStore) SaveDraft(ctx context.Context, object schema.AdminOb
 	draftEntry, draftExists, draftRevision, err := s.getEntry(ctx, draftPrefix, name)
 	if err != nil {
 		return RouteBinding{}, err
+	}
+	if expectedPublishedAbsent {
+		if draftExists {
+			return RouteBinding{}, fmt.Errorf("%w: route %q is no longer absent", ErrRouteBindingConflict, name)
+		}
+		_, publishedExists, _, err := s.getEntry(ctx, s.bindingPrefix(false), name)
+		if err != nil {
+			return RouteBinding{}, err
+		}
+		if publishedExists {
+			return RouteBinding{}, fmt.Errorf("%w: route %q is no longer absent", ErrRouteBindingConflict, name)
+		}
 	}
 	if err := validateDraftSaveState(name, create, expectedRevision, draftExists, draftRevision); err != nil {
 		return RouteBinding{}, err
@@ -366,7 +389,7 @@ func (s *RouteBindingStore) SaveDraft(ctx context.Context, object schema.AdminOb
 	if err != nil {
 		return RouteBinding{}, fmt.Errorf("encode route binding %q: %w", name, err)
 	}
-	if err := s.commitDraft(ctx, name, draftPrefix, value, create, expectedRevision); err != nil {
+	if err := s.commitDraft(ctx, name, draftPrefix, value, create, expectedRevision, expectedPublishedAbsent); err != nil {
 		return RouteBinding{}, err
 	}
 
@@ -446,10 +469,13 @@ func (s *RouteBindingStore) resolveRuntimeIdentity(ctx context.Context, name str
 	return resourceID, methodID, nil
 }
 
-func (s *RouteBindingStore) commitDraft(ctx context.Context, name, draftPrefix string, value []byte, create bool, expectedRevision int64) error {
-	comparisons := make([]clientv3.Cmp, 0, 1)
+func (s *RouteBindingStore) commitDraft(ctx context.Context, name, draftPrefix string, value []byte, create bool, expectedRevision int64, expectedPublishedAbsent bool) error {
+	comparisons := make([]clientv3.Cmp, 0, 2)
 	if create {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(s.bindingKey(draftPrefix, name)), "=", 0))
+		if expectedPublishedAbsent {
+			comparisons = append(comparisons, clientv3.Compare(clientv3.CreateRevision(s.bindingKey(s.bindingPrefix(false), name)), "=", 0))
+		}
 	} else if expectedRevision > 0 {
 		comparisons = append(comparisons, clientv3.Compare(clientv3.ModRevision(s.bindingKey(draftPrefix, name)), "=", expectedRevision))
 	}
@@ -468,6 +494,9 @@ func (s *RouteBindingStore) commitDraft(ctx context.Context, name, draftPrefix s
 		return nil
 	}
 	if create {
+		if expectedPublishedAbsent {
+			return fmt.Errorf("%w: route %q is no longer absent", ErrRouteBindingConflict, name)
+		}
 		return fmt.Errorf("%w: %s", ErrRouteBindingAlreadyExists, name)
 	}
 	return fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
@@ -854,7 +883,7 @@ func runtimeMethodRouteFromKV(
 	if path == "" {
 		return runtimeRouteBinding{}, false, nil
 	}
-	return runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb, key: key}, true, nil
+	return runtimeRouteBinding{path: path, httpVerb: method.HTTPVerb}, true, nil
 }
 
 func findRuntimeRouteConflict(candidate *compiledRouteEntry, runtimeRoutes []runtimeRouteBinding) error {
@@ -864,21 +893,39 @@ func findRuntimeRouteConflict(candidate *compiledRouteEntry, runtimeRoutes []run
 	}
 	for _, route := range runtimeRoutes {
 		if runtimeRouteConflicts(candidateRoute, route) {
-			return fmt.Errorf("%w: %s %s already exists at %q", ErrRouteBindingRuntimeConflict, strings.TrimSpace(candidateRoute.httpVerb), candidateRoute.path, route.key)
+			return fmt.Errorf(
+				"%w: route %s %s conflicts with existing route %s %s; Pixiu treats paths with the same structure as one route, so trailing slashes and path variable names do not distinguish routes",
+				ErrRouteBindingRuntimeConflict,
+				strings.TrimSpace(candidateRoute.httpVerb), candidateRoute.path,
+				strings.TrimSpace(route.httpVerb), route.path,
+			)
 		}
 	}
 	return nil
 }
 
 func runtimeRouteConflicts(candidate, existing runtimeRouteBinding) bool {
-	return strings.EqualFold(existing.path, candidate.path) &&
-		strings.EqualFold(existing.httpVerb, strings.TrimSpace(candidate.httpVerb))
+	return runtimeRouteConflictKey(existing.httpVerb, existing.path) == runtimeRouteConflictKey(strings.TrimSpace(candidate.httpVerb), candidate.path)
+}
+
+// runtimeRouteConflictKey mirrors Route.PutAPI and the route trie: paths are
+// lowercased, one trailing slash and query are removed, and every path
+// variable or single-segment wildcard shares the same trie node. The **
+// match-all segment remains distinct, as it does in trie.Node.put.
+func runtimeRouteConflictKey(method, path string) string {
+	key := stringutil.GetTrieKey(strings.ToUpper(method), strings.ToLower(path))
+	segments := strings.Split(key, "/")
+	for index := 1; index < len(segments); index++ {
+		if stringutil.IsPathVariableOrWildcard(segments[index]) && !stringutil.IsMatchAll(segments[index]) {
+			segments[index] = ":"
+		}
+	}
+	return strings.Join(segments, "/")
 }
 
 type runtimeRouteBinding struct {
 	path     string
 	httpVerb string
-	key      string
 }
 
 func collectRuntimeResourceRoutes(resource legacyconfig.Resource, parentPath string, keyResourceID int, resourcePaths map[int]string, routes *[]runtimeRouteBinding) {
@@ -896,9 +943,8 @@ func collectRuntimeResourceRoutes(resource legacyconfig.Resource, parentPath str
 	if resource.ID > 0 {
 		resourcePaths[resource.ID] = fullPath
 	}
-	resourceKey := fmt.Sprintf("resource %d", keyResourceID)
 	for _, method := range resource.Methods {
-		*routes = append(*routes, runtimeRouteBinding{path: fullPath, httpVerb: method.HTTPVerb, key: resourceKey})
+		*routes = append(*routes, runtimeRouteBinding{path: fullPath, httpVerb: method.HTTPVerb})
 	}
 	for _, nested := range resource.Resources {
 		// Match addAPIFromResource: nested resources are visited with their
@@ -1098,7 +1144,7 @@ func (s *RouteBindingStore) HistorySummaries(ctx context.Context) ([]RouteBindin
 // Rollback stages the selected published snapshot as the current draft and
 // sends it through the normal atomic publish path. If publish loses a race,
 // the selected version remains a draft and the active runtime stays intact.
-func (s *RouteBindingStore) Rollback(ctx context.Context, name string, historyRevision, expectedDraftRevision int64) (RouteBindingPublishResult, error) {
+func (s *RouteBindingStore) Rollback(ctx context.Context, name string, historyRevision, expectedDraftRevision int64, expectedAbsent bool) (RouteBindingPublishResult, error) {
 	ctx = routeBindingContext(ctx)
 	name, err := normalizeRouteBindingName(name)
 	if err != nil {
@@ -1106,6 +1152,13 @@ func (s *RouteBindingStore) Rollback(ctx context.Context, name string, historyRe
 	}
 	if historyRevision <= 0 {
 		return RouteBindingPublishResult{}, errors.New("history revision must be positive")
+	}
+	if expectedAbsent {
+		if expectedDraftRevision != 0 {
+			return RouteBindingPublishResult{}, errors.New("rollback must use either an expected revision or an absent-route precondition, not both")
+		}
+	} else if expectedDraftRevision <= 0 {
+		return RouteBindingPublishResult{}, errors.New("rollback requires the current draft revision or an absent-route precondition")
 	}
 	response, err := s.kv.Get(ctx, s.historyKey(name, historyRevision))
 	if err != nil {
@@ -1119,11 +1172,15 @@ func (s *RouteBindingStore) Rollback(ctx context.Context, name string, historyRe
 		return RouteBindingPublishResult{}, fmt.Errorf("decode route binding history %q revision %d: %w", name, historyRevision, err)
 	}
 	if record.Binding == nil {
-		if _, stateErr := s.readPublishState(ctx, name); errors.Is(stateErr, ErrRouteBindingNotFound) {
-			if expectedDraftRevision > 0 {
-				return RouteBindingPublishResult{}, fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
+		if expectedAbsent {
+			if err := s.requireRouteBindingAbsent(ctx, name); err != nil {
+				return RouteBindingPublishResult{}, err
 			}
 			return RouteBindingPublishResult{Name: name}, nil
+		}
+		state, stateErr := s.readPublishState(ctx, name)
+		if errors.Is(stateErr, ErrRouteBindingNotFound) || (stateErr == nil && (!state.draftExists || state.draftRevision != expectedDraftRevision)) {
+			return RouteBindingPublishResult{}, fmt.Errorf("%w: %s", ErrRouteBindingConflict, name)
 		} else if stateErr != nil {
 			return RouteBindingPublishResult{}, stateErr
 		}
@@ -1132,11 +1189,37 @@ func (s *RouteBindingStore) Rollback(ctx context.Context, name string, historyRe
 	if record.Binding.Object.Metadata.Name != name {
 		return RouteBindingPublishResult{}, fmt.Errorf("history revision %d belongs to a different route", historyRevision)
 	}
-	saved, err := s.SaveDraft(ctx, record.Binding.Object, false, expectedDraftRevision)
+	var saved RouteBinding
+	if expectedAbsent {
+		saved, err = s.saveDraft(ctx, record.Binding.Object, true, 0, true)
+	} else {
+		saved, err = s.SaveDraft(ctx, record.Binding.Object, false, expectedDraftRevision)
+	}
 	if err != nil {
 		return RouteBindingPublishResult{}, err
 	}
 	return s.Publish(ctx, name, saved.Revision)
+}
+
+// requireRouteBindingAbsent checks the draft and published keys in one etcd
+// transaction so a deletion-snapshot rollback cannot race with route creation.
+func (s *RouteBindingStore) requireRouteBindingAbsent(ctx context.Context, name string) error {
+	draftKey := s.bindingKey(s.bindingPrefix(true), name)
+	publishedKey := s.bindingKey(s.bindingPrefix(false), name)
+	response, err := s.kv.Txn(ctx).
+		If(
+			clientv3.Compare(clientv3.CreateRevision(draftKey), "=", 0),
+			clientv3.Compare(clientv3.CreateRevision(publishedKey), "=", 0),
+		).
+		Then(clientv3.OpGet(draftKey), clientv3.OpGet(publishedKey)).
+		Commit()
+	if err != nil {
+		return fmt.Errorf("check route binding %q absence before rollback: %w", name, err)
+	}
+	if !response.Succeeded {
+		return fmt.Errorf("%w: route %q is no longer absent; reload route history before retrying", ErrRouteBindingConflict, name)
+	}
+	return nil
 }
 
 func (s *RouteBindingStore) nextPublishedGeneration(ctx context.Context) (int64, error) {
@@ -1258,7 +1341,7 @@ type compiledRouteEntry struct {
 
 func (s *RouteBindingStore) compileSnapshot(entries []routeBindingEntry) ([]compiledRouteEntry, error) {
 	result := make([]compiledRouteEntry, 0, len(entries))
-	paths := make(map[string]string, len(entries))
+	paths := make(map[string]compiledRouteEntry, len(entries))
 	resourceIDs := make(map[int]string, len(entries))
 	for _, entry := range entries {
 		if entry.record.ResourceID <= 0 || entry.record.MethodID <= 0 {
@@ -1274,14 +1357,18 @@ func (s *RouteBindingStore) compileSnapshot(entries []routeBindingEntry) ([]comp
 		}
 		legacy.Resource.ID = entry.record.ResourceID
 		legacy.Method.ID = entry.record.MethodID
-		routeKey := legacy.Resource.Path + "\x00" + legacy.Method.HTTPVerb
+		routeKey := runtimeRouteConflictKey(legacy.Method.HTTPVerb, legacy.Resource.Path)
 		if previous, exists := paths[routeKey]; exists {
-			return nil, fmt.Errorf("route binding %q conflicts with route binding %q for %s %s", entry.record.Object.Metadata.Name, previous, legacy.Method.HTTPVerb, legacy.Resource.Path)
+			return nil, fmt.Errorf(
+				"route binding %q (%s %s) conflicts with route binding %q (%s %s); Pixiu treats paths with the same structure as one route, so trailing slashes and path variable names do not distinguish routes",
+				entry.record.Object.Metadata.Name, legacy.Method.HTTPVerb, legacy.Resource.Path,
+				previous.object.Metadata.Name, previous.legacy.Method.HTTPVerb, previous.legacy.Resource.Path,
+			)
 		}
 		if previous, exists := resourceIDs[legacy.Resource.ID]; exists && previous != entry.record.Object.Metadata.Name {
 			return nil, fmt.Errorf("route binding %q reuses runtime resource id %d from %q", entry.record.Object.Metadata.Name, legacy.Resource.ID, previous)
 		}
-		paths[routeKey] = entry.record.Object.Metadata.Name
+		paths[routeKey] = compiledRouteEntry{entry: entry, object: normalized, legacy: legacy}
 		resourceIDs[legacy.Resource.ID] = entry.record.Object.Metadata.Name
 		result = append(result, compiledRouteEntry{entry: entry, object: normalized, legacy: legacy})
 	}

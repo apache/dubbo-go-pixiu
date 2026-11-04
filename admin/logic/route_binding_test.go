@@ -916,6 +916,84 @@ func TestRouteBindingStoreRejectsCaseInsensitiveRuntimeRoute(t *testing.T) {
 	}
 }
 
+func TestRouteBindingStoreRejectsRuntimeTrieEquivalentRoutes(t *testing.T) {
+	tests := []struct {
+		name          string
+		existingPath  string
+		candidatePath string
+	}{
+		{name: "trailing slash", existingPath: "/api/users/", candidatePath: "/API/USERS"},
+		{name: "path variable names", existingPath: "/api/users/:id", candidatePath: "/api/users/:name"},
+		{name: "single wildcard and path variable", existingPath: "/api/users/*", candidatePath: "/api/users/:id"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := newTestRouteBindingStore(t)
+			fake := fakeRouteBindingStoreKV(t, store)
+			legacyMethod, err := commonyaml.MarshalYML(legacyconfig.Method{
+				ID:           7,
+				ResourcePath: test.existingPath,
+				HTTPVerb:     "GET",
+			})
+			if err != nil {
+				t.Fatalf("marshal legacy Method: %v", err)
+			}
+			methodKey := store.runtimeMethodKey(99, 7)
+			fake.fakePut(methodKey, legacyMethod)
+
+			saved, err := store.SaveDraft(context.Background(), testRouteBinding("new-user-get", test.candidatePath, "GET"), true, 0)
+			if err != nil {
+				t.Fatalf("SaveDraft: %v", err)
+			}
+			if _, err := store.Publish(context.Background(), saved.Object.Metadata.Name, saved.Revision); !errors.Is(err, ErrRouteBindingRuntimeConflict) {
+				t.Fatalf("runtime conflict: want %v, got %v", ErrRouteBindingRuntimeConflict, err)
+			} else if !strings.Contains(err.Error(), "same structure") || strings.Contains(err.Error(), methodKey) {
+				t.Fatalf("runtime conflict should explain the route collision without exposing the storage key: %v", err)
+			}
+		})
+	}
+}
+
+func TestRuntimeRouteConflictKeyMirrorsRouterNormalization(t *testing.T) {
+	tests := []struct {
+		name  string
+		left  string
+		right string
+		want  bool
+	}{
+		{name: "trailing slash and path case", left: "/API/users/", right: "/api/users", want: true},
+		{name: "path variable names", left: "/api/users/:id", right: "/api/users/:name", want: true},
+		{name: "path variable and single wildcard", left: "/api/users/:id", right: "/api/users/*", want: true},
+		{name: "match-all remains distinct", left: "/api/**", right: "/api/*", want: false},
+		{name: "literal remains distinct from a variable", left: "/api/users/me", right: "/api/users/:id", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := runtimeRouteConflictKey("GET", test.left) == runtimeRouteConflictKey("GET", test.right)
+			if got != test.want {
+				t.Fatalf("runtime route keys for %q and %q equal = %t, want %t", test.left, test.right, got, test.want)
+			}
+		})
+	}
+}
+
+func TestRouteBindingStoreRejectsTrieEquivalentBindingsInPublishSnapshot(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	first := saveAndPublishTestRoute(t, store)
+	second, err := store.SaveDraft(context.Background(), testRouteBinding("user-name-get", "/api/users/:name", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("SaveDraft second route: %v", err)
+	}
+	if _, err := store.Publish(context.Background(), second.Object.Metadata.Name, second.Revision); err == nil {
+		t.Fatal("publish accepted routes that share one runtime trie identity")
+	} else if !strings.Contains(err.Error(), first.Object.Metadata.Name) || !strings.Contains(err.Error(), second.Object.Metadata.Name) || !strings.Contains(err.Error(), "path variable names do not distinguish routes") {
+		t.Fatalf("publish error should identify both routes and explain the collision: %v", err)
+	}
+	if _, err := store.Get(context.Background(), second.Object.Metadata.Name, false); !errors.Is(err, ErrRouteBindingNotFound) {
+		t.Fatalf("conflicting route was published: %v", err)
+	}
+}
+
 func TestRouteBindingStoreRepublishAllowsOwnRuntimeRoute(t *testing.T) {
 	store := newTestRouteBindingStore(t)
 	saved := saveAndPublishTestRoute(t, store)
@@ -968,7 +1046,7 @@ func TestRouteBindingStoreHistoryAndRollback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	rolledBack, err := store.Rollback(context.Background(), "user-get", firstHistory[0].Revision, status.DraftRevision)
+	rolledBack, err := store.Rollback(context.Background(), "user-get", firstHistory[0].Revision, status.DraftRevision, false)
 	if err != nil {
 		t.Fatalf("Rollback: %v", err)
 	}
@@ -1041,7 +1119,7 @@ func TestRouteBindingHistoryPreservesLargeLegacyRevision(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, revision, status.DraftRevision); err != nil {
+	if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, revision, status.DraftRevision, false); err != nil {
 		t.Fatalf("Rollback with exact serialized history revision: %v", err)
 	}
 }
@@ -1076,7 +1154,7 @@ func TestRouteBindingRollbackRestoresDeletedRoute(t *testing.T) {
 		t.Fatalf("DeleteAndPublish: %v", err)
 	}
 
-	result, err := store.Rollback(context.Background(), "user-get", 1, 0)
+	result, err := store.Rollback(context.Background(), "user-get", 1, 0, true)
 	if err != nil {
 		t.Fatalf("Rollback deleted route to revision 1: %v", err)
 	}
@@ -1095,7 +1173,7 @@ func TestRouteBindingRollbackDeletedSnapshotIsIdempotent(t *testing.T) {
 		t.Fatalf("DeleteAndPublish: %v", err)
 	}
 
-	result, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, 2, 0)
+	result, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, 2, 0, true)
 	if err != nil {
 		t.Fatalf("Rollback already-applied deletion snapshot: %v", err)
 	}
@@ -1113,8 +1191,96 @@ func TestRouteBindingRollbackDeletedSnapshotStillChecksStaleDraft(t *testing.T) 
 	if _, err := store.DeleteAndPublish(context.Background(), saved.Object.Metadata.Name, saved.Revision); err != nil {
 		t.Fatalf("DeleteAndPublish: %v", err)
 	}
-	if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, 2, saved.Revision); !errors.Is(err, ErrRouteBindingConflict) {
+	if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, 2, saved.Revision, false); !errors.Is(err, ErrRouteBindingConflict) {
 		t.Fatalf("Rollback with stale draft revision: want conflict, got %v", err)
+	}
+}
+
+func TestRouteBindingRollbackRequiresExplicitPrecondition(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, 1, 0, false); err == nil || !strings.Contains(err.Error(), "requires the current draft revision") {
+		t.Fatalf("rollback without a precondition should fail clearly, got %v", err)
+	}
+	if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, 1, saved.Revision, true); err == nil || !strings.Contains(err.Error(), "either an expected revision or an absent-route precondition") {
+		t.Fatalf("rollback with conflicting preconditions should fail clearly, got %v", err)
+	}
+}
+
+func TestRouteBindingRollbackAbsentPreconditionRejectsRecreatedRoute(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	if _, err := store.DeleteAndPublish(context.Background(), saved.Object.Metadata.Name, saved.Revision); err != nil {
+		t.Fatalf("DeleteAndPublish: %v", err)
+	}
+
+	recreated, err := store.SaveDraft(context.Background(), testRouteBinding(saved.Object.Metadata.Name, "/api/users/:id", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("recreate route draft: %v", err)
+	}
+	recreatedObject := testRouteBinding(saved.Object.Metadata.Name, "/api/users/:id", "GET")
+	recreatedObject.Spec["target"].(map[string]any)["method"] = "GetUserV2"
+	recreated, err = store.UpdateDraft(context.Background(), saved.Object.Metadata.Name, recreatedObject, recreated.Revision)
+	if err != nil {
+		t.Fatalf("update recreated route draft: %v", err)
+	}
+	if _, err := store.Publish(context.Background(), recreated.Object.Metadata.Name, recreated.Revision); err != nil {
+		t.Fatalf("publish recreated route: %v", err)
+	}
+
+	for _, historyRevision := range []int64{1, 2} {
+		if _, err := store.Rollback(context.Background(), saved.Object.Metadata.Name, historyRevision, 0, true); !errors.Is(err, ErrRouteBindingConflict) {
+			t.Fatalf("rollback history revision %d with stale absent precondition: want conflict, got %v", historyRevision, err)
+		}
+	}
+	published, err := store.Get(context.Background(), saved.Object.Metadata.Name, false)
+	if err != nil {
+		t.Fatalf("get recreated published route: %v", err)
+	}
+	if got := published.Object.Spec["target"].(map[string]any)["method"]; got != "GetUserV2" {
+		t.Fatalf("stale history rollback overwrote recreated route method: got %v", got)
+	}
+}
+
+func TestRouteBindingRollbackAbsentPreconditionIsAtomicWithRouteCreation(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	saved := saveAndPublishTestRoute(t, store)
+	if _, err := store.DeleteAndPublish(context.Background(), saved.Object.Metadata.Name, saved.Revision); err != nil {
+		t.Fatalf("DeleteAndPublish: %v", err)
+	}
+
+	fired := false
+	guardedStore := *store
+	guardedStore.kv = &hookedRouteBindingKV{
+		routeBindingKV: store.kv,
+		afterGet: func(key string) {
+			if fired || key != store.runtimeResourcePrefix() {
+				return
+			}
+			fired = true
+			object := testRouteBinding(saved.Object.Metadata.Name, "/api/users/:id", "GET")
+			object.Spec["target"].(map[string]any)["method"] = "GetUserV2"
+			concurrent, err := store.SaveDraft(context.Background(), object, true, 0)
+			if err != nil {
+				t.Fatalf("concurrent route creation: %v", err)
+			}
+			if _, err := store.Publish(context.Background(), concurrent.Object.Metadata.Name, concurrent.Revision); err != nil {
+				t.Fatalf("publish concurrent route: %v", err)
+			}
+		},
+	}
+	if _, err := guardedStore.Rollback(context.Background(), saved.Object.Metadata.Name, 1, 0, true); !errors.Is(err, ErrRouteBindingConflict) {
+		t.Fatalf("rollback racing with route creation: want conflict, got %v", err)
+	}
+	if !fired {
+		t.Fatal("route creation race hook was not reached")
+	}
+	published, err := store.Get(context.Background(), saved.Object.Metadata.Name, false)
+	if err != nil {
+		t.Fatalf("get concurrently published route: %v", err)
+	}
+	if got := published.Object.Spec["target"].(map[string]any)["method"]; got != "GetUserV2" {
+		t.Fatalf("history rollback overwrote concurrent route: got method %v", got)
 	}
 }
 
@@ -1144,6 +1310,8 @@ func testRouteBinding(name, path, method string) schema.AdminObject {
 	parameterSource := "queryStrings.id"
 	if strings.Contains(path, ":id") {
 		parameterSource = "uri.id"
+	} else if strings.Contains(path, ":name") {
+		parameterSource = "uri.name"
 	}
 	return schema.AdminObject{
 		Kind: schema.KindAdminRouteBinding,
@@ -1313,11 +1481,18 @@ func (t *fakeRouteBindingTxn) Commit() (*clientv3.TxnResponse, error) {
 	if !succeeded {
 		operations = t.elseOps
 	}
-	if len(operations) > 0 {
-		t.store.revision++
-		for _, operation := range operations {
-			t.store.applyOperation(operation)
+	write := false
+	for _, operation := range operations {
+		if operation.IsPut() || operation.IsDelete() {
+			write = true
+			break
 		}
+	}
+	if write {
+		t.store.revision++
+	}
+	for _, operation := range operations {
+		t.store.applyOperation(operation)
 	}
 	return &clientv3.TxnResponse{
 		Header:    &pb.ResponseHeader{Revision: t.store.revision},
