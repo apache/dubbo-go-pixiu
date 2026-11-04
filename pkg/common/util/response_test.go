@@ -22,6 +22,8 @@ import (
 )
 
 import (
+	hessian "github.com/apache/dubbo-go-hessian2"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -92,4 +94,78 @@ func TestNewDubboSliceResponse(t *testing.T) {
 	assert.Equal(t, 1, r["iD"])
 	assert.Equal(t, "tc", r["name"])
 	assert.Equal(t, "bob", r["father"].(map[string]any)["name"])
+}
+
+func TestNewDubboResponsePreservesNullMapValues(t *testing.T) {
+	var nullString *string
+	for _, tt := range []struct {
+		name     string
+		input    any
+		want     string
+		humpWant string
+	}{
+		{
+			name:     "string map",
+			input:    map[string]any{"nullValue": nil, "zero": 0, "false": false, "empty": ""},
+			want:     `{"nullValue":null,"zero":0,"false":false,"empty":""}`,
+			humpWant: `{"null_value":null,"zero":0,"false":false,"empty":""}`,
+		},
+		{
+			name:     "generic map",
+			input:    map[any]any{"nullValue": nil, "zero": 0, "false": false, "empty": "", "class": "java.util.Map"},
+			want:     `{"nullValue":null,"zero":0,"false":false,"empty":""}`,
+			humpWant: `{"null_value":null,"zero":0,"false":false,"empty":""}`,
+		},
+		{
+			name:     "nested generic map",
+			input:    map[any]any{"child": map[any]any{"nullValue": nil}},
+			want:     `{"child":{"nullValue":null}}`,
+			humpWant: `{"child":{"null_value":null}}`,
+		},
+		{
+			name:     "generic map in slice",
+			input:    []any{map[any]any{"nullValue": nil}},
+			want:     `[{"nullValue":null}]`,
+			humpWant: `[{"null_value":null}]`,
+		},
+		{
+			name:     "nested string map",
+			input:    map[any]any{"child": map[string]any{"nullValue": nil}},
+			want:     `{"child":{"nullValue":null}}`,
+			humpWant: `{"child":{"null_value":null}}`,
+		},
+		{
+			name:     "typed nil value",
+			input:    map[any]any{"nullValue": nullString},
+			want:     `{"nullValue":null}`,
+			humpWant: `{"null_value":null}`,
+		},
+		{
+			name:     "non-string key and class metadata",
+			input:    map[any]any{1: nil, "class": nil},
+			want:     `{"1":null}`,
+			humpWant: `{"1":null}`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Run("without hump conversion", func(t *testing.T) {
+				assert.JSONEq(t, tt.want, string(NewDubboResponse(tt.input, false).Data))
+			})
+			t.Run("with hump conversion", func(t *testing.T) {
+				assert.JSONEq(t, tt.humpWant, string(NewDubboResponse(tt.input, true).Data))
+			})
+		})
+	}
+}
+
+func TestNewDubboResponsePreservesHessianNullMapValues(t *testing.T) {
+	encoder := hessian.NewEncoder()
+	if err := encoder.Encode(map[string]any{"nullable": nil, "zero": int32(0)}); err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := hessian.NewDecoder(encoder.Buffer()).Decode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.JSONEq(t, `{"nullable":null,"zero":0}`, string(NewDubboResponse(decoded, false).Data))
 }
