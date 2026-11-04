@@ -135,6 +135,7 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 		Host:     endpoint.Address.GetAddress(),
 		Scheme:   f.scheme,
 		Path:     r.URL.Path,
+		RawPath:  r.URL.RawPath,
 		RawQuery: r.URL.RawQuery,
 	}
 
