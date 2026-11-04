@@ -1237,7 +1237,7 @@ func TestRouteBindingRollbackAbsentPreconditionRejectsRecreatedRoute(t *testing.
 	if err != nil {
 		t.Fatalf("get recreated published route: %v", err)
 	}
-	if got := published.Object.Spec["target"].(map[string]any)["method"]; got != "GetUserV2" {
+	if got := published.Object.Spec["invocation"].(map[string]any)["method"]; got != "GetUserV2" {
 		t.Fatalf("stale history rollback overwrote recreated route method: got %v", got)
 	}
 }
@@ -1279,7 +1279,7 @@ func TestRouteBindingRollbackAbsentPreconditionIsAtomicWithRouteCreation(t *test
 	if err != nil {
 		t.Fatalf("get concurrently published route: %v", err)
 	}
-	if got := published.Object.Spec["target"].(map[string]any)["method"]; got != "GetUserV2" {
+	if got := published.Object.Spec["invocation"].(map[string]any)["method"]; got != "GetUserV2" {
 		t.Fatalf("history rollback overwrote concurrent route: got method %v", got)
 	}
 }
