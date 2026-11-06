@@ -79,7 +79,8 @@ func (factory *FilterFactory) Apply() error {
 	if len(factory.cfg.UriRegex) != 2 {
 		return errors.Errorf("UriRegex len must == 2, %v", factory.cfg.UriRegex)
 	}
-	return nil
+	_, err := regexp.Compile(factory.cfg.UriRegex[0])
+	return err
 }
 
 func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, chain filter.FilterChain) error {

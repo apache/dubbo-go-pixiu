@@ -63,3 +63,31 @@ func TestConfigUpdate(t *testing.T) {
 
 	assert.Equal(t, ctx.GetUrl(), "/query")
 }
+
+func TestApplyURIRegex(t *testing.T) {
+	tests := []struct {
+		name      string
+		regex     []string
+		wantError bool
+	}{
+		{name: "missing regex", wantError: true},
+		{name: "missing replacement", regex: []string{"^/"}, wantError: true},
+		{name: "too many entries", regex: []string{"^/", "/", "/extra"}, wantError: true},
+		{name: "unclosed character class", regex: []string{"[", "/"}, wantError: true},
+		{name: "unclosed group", regex: []string{"(", "/"}, wantError: true},
+		{name: "invalid range", regex: []string{"[z-a]", "/"}, wantError: true},
+		{name: "invalid repetition", regex: []string{"*", "/"}, wantError: true},
+		{name: "trailing escape", regex: []string{`\`, "/"}, wantError: true},
+		{name: "empty expression", regex: []string{"", "/"}},
+		{name: "capture replacement", regex: []string{"^/([^/]*)/(.*)$", "/$2"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			factory := &FilterFactory{cfg: &Config{UriRegex: tt.regex}}
+			err := factory.Apply()
+			if (err != nil) != tt.wantError {
+				t.Fatalf("Apply() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
+	}
+}
