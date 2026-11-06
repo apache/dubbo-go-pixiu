@@ -41,6 +41,9 @@ type (
 		// Close the listener service forcefully
 		Close() error
 		// ShutDown gracefully shuts down the listener.
+		// The caller supplies a *sync.WaitGroup incremented once for this call.
+		// Implementations must call Done exactly once on every return path.
+		// The manager coordinates shutdown using the method's return value.
 		ShutDown(any) error
 		// Refresh config
 		Refresh(model.Listener) error
