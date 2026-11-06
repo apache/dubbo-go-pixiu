@@ -39,6 +39,7 @@ type MockDeployer struct {
 	initializeErr error
 	startErr      error
 	stopErr       error
+	stopCalls     int
 }
 
 func (m *MockDeployer) initialize() error {
@@ -50,6 +51,7 @@ func (m *MockDeployer) start() error {
 }
 
 func (m *MockDeployer) stop() error {
+	m.stopCalls++
 	return m.stopErr
 }
 
@@ -75,8 +77,7 @@ func TestDefaultDeployerStart(t *testing.T) {
 func TestDefaultDeployerStop(t *testing.T) {
 	d := &DefaultDeployer{}
 	err := d.stop()
-	assert.Error(t, err)
-	assert.Equal(t, "stop not implemented", err.Error())
+	assert.NoError(t, err)
 }
 
 func TestStartGatewayCmdPreRunE(t *testing.T) {
@@ -133,23 +134,33 @@ func TestStartGatewayCmdPreRunE(t *testing.T) {
 
 func TestStartGatewayCmdRunE(t *testing.T) {
 	tests := []struct {
-		name          string
-		deployer      Deployer
-		expectedError bool
+		name              string
+		deployer          *MockDeployer
+		expectedError     string
+		expectedStopCalls int
 	}{
 		{
 			name: "successful start",
 			deployer: &MockDeployer{
 				startErr: nil,
 			},
-			expectedError: false,
+			expectedStopCalls: 1,
 		},
 		{
 			name: "failed start",
 			deployer: &MockDeployer{
 				startErr: errors.New("start failed"),
 			},
-			expectedError: true,
+			expectedError:     "failed to start gateway",
+			expectedStopCalls: 1,
+		},
+		{
+			name: "failed stop",
+			deployer: &MockDeployer{
+				stopErr: errors.New("stop failed"),
+			},
+			expectedError:     "failed to stop gateway",
+			expectedStopCalls: 1,
 		},
 	}
 
@@ -173,12 +184,14 @@ func TestStartGatewayCmdRunE(t *testing.T) {
 			// Execute RunE
 			err := testCmd.RunE(testCmd, []string{})
 
-			if tt.expectedError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "failed to start gateway")
+			if tt.expectedError != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tt.expectedError)
+				}
 			} else {
 				assert.NoError(t, err)
 			}
+			assert.Equal(t, tt.expectedStopCalls, tt.deployer.stopCalls)
 		})
 	}
 }
