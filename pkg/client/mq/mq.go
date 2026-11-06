@@ -83,7 +83,7 @@ type Client struct {
 }
 
 func (c Client) Apply() error {
-	panic("implement me")
+	return perrors.New("mq: Apply not implemented")
 }
 
 func (c Client) Close() error {

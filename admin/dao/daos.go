@@ -22,7 +22,7 @@ type GuestDao interface {
 	// Login login
 	Login(username, password string) (bool, int)
 	// CheckLogin check login
-	CheckLogin()
+	CheckLogin() error
 	// Register register
 	Register(username, password string) error
 }

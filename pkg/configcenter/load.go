@@ -43,6 +43,11 @@ type (
 	Load interface {
 		LoadConfigs(boot *model.Bootstrap, opts ...Option) (v *model.Bootstrap, err error)
 		ViewRemoteConfig() *model.Bootstrap
+
+		// Close releases the underlying remote config client. It is intended
+		// for the shutdown path and must be safe to call when no remote config
+		// center is configured.
+		Close()
 	}
 
 	Option func(opt *Options)
@@ -131,6 +136,16 @@ func (d *DefaultConfigLoad) LoadConfigs(boot *model.Bootstrap, opts ...Option) (
 // ViewRemoteConfig returns the current remote configuration.
 func (d *DefaultConfigLoad) ViewRemoteConfig() *model.Bootstrap {
 	return d.configClient.ViewConfig()
+}
+
+// Close releases the underlying remote config client. Safe to call when no
+// remote config center is configured (NewConfigLoad returns nil in that case,
+// and callers guard on that).
+func (d *DefaultConfigLoad) Close() {
+	if d == nil || d.configClient == nil {
+		return
+	}
+	d.configClient.Close()
 }
 
 func ParseYamlBytes(content []byte, v any) error {

@@ -32,8 +32,8 @@ import (
 	"dubbo.apache.org/dubbo-go/v3/registry/servicediscovery"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
 
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
 )
 
 import (
@@ -52,8 +52,10 @@ type appServiceListener struct {
 	cacheLock   sync.Mutex
 
 	exit            chan struct{}
+	closeOnce       sync.Once
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
+	watchOnce       sync.Once
 }
 
 func newNacosAppSrvListener(client naming_client.INamingClient, adapterListener common2.RegistryEventListener) *appServiceListener {
@@ -66,15 +68,20 @@ func newNacosAppSrvListener(client naming_client.INamingClient, adapterListener 
 }
 
 func (l *appServiceListener) WatchAndHandle() {
-	panic("implement me")
+	// TODO: implement WatchAndHandle for application-level service discovery
+	l.watchOnce.Do(func() {
+		logger.Warnf("appServiceListener: WatchAndHandle not implemented")
+	})
 }
 
 func (l *appServiceListener) Close() {
-	close(l.exit)
-	l.wg.Wait()
+	l.closeOnce.Do(func() {
+		close(l.exit)
+		l.wg.Wait()
+	})
 }
 
-func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, err error) {
+func (l *appServiceListener) Callback(services []nacosModel.Instance, err error) {
 	if err != nil {
 		logger.Errorf("nacos subscribe callback error:%s", err.Error())
 		return
@@ -94,7 +101,7 @@ func (l *appServiceListener) Callback(services []nacosModel.SubscribeService, er
 		}
 		host := services[i].Ip + ":" + strconv.Itoa(int(services[i].Port))
 		services[i].ServiceName = handleServiceName(services[i].ServiceName)
-		instance := generateInstance(services[i])
+		instance := services[i]
 		newInstanceMap[host] = instance
 		if old, ok := l.instanceMap[host]; ok {
 			// instance does not exist in cache, add it to cache

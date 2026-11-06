@@ -138,13 +138,11 @@ func (m *MockedNacosConfigClient) GetConfig(param vo.ConfigParam) (string, error
 }
 
 func (m *MockedNacosConfigClient) PublishConfig(_ vo.ConfigParam) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	return false, fmt.Errorf("PublishConfig: not implemented in mock")
 }
 
 func (m *MockedNacosConfigClient) DeleteConfig(_ vo.ConfigParam) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	return false, fmt.Errorf("DeleteConfig: not implemented in mock")
 }
 
 func (m *MockedNacosConfigClient) ListenConfig(params vo.ConfigParam) (err error) {
@@ -203,8 +201,7 @@ func (m *MockedNacosConfigClient) SearchConfig(param vo.SearchConfigParam) (*mod
 }
 
 func (m *MockedNacosConfigClient) CloseClient() {
-	//TODO implement me
-	panic("implement me")
+	// no-op: test mock cleanup
 }
 
 type MockedNacosNamingClient struct {
@@ -212,23 +209,19 @@ type MockedNacosNamingClient struct {
 }
 
 func (m MockedNacosNamingClient) RegisterInstance(_ vo.RegisterInstanceParam) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	return false, fmt.Errorf("RegisterInstance: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) BatchRegisterInstance(_ vo.BatchRegisterInstanceParam) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	return false, fmt.Errorf("BatchRegisterInstance: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) DeregisterInstance(_ vo.DeregisterInstanceParam) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	return false, fmt.Errorf("DeregisterInstance: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) UpdateInstance(_ vo.UpdateInstanceParam) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	return false, fmt.Errorf("UpdateInstance: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) GetService(param vo.GetServiceParam) (model.Service, error) {
@@ -245,18 +238,15 @@ func (m MockedNacosNamingClient) GetService(param vo.GetServiceParam) (model.Ser
 }
 
 func (m MockedNacosNamingClient) SelectAllInstances(_ vo.SelectAllInstancesParam) ([]model.Instance, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, fmt.Errorf("SelectAllInstances: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) SelectInstances(_ vo.SelectInstancesParam) ([]model.Instance, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, fmt.Errorf("SelectInstances: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) SelectOneHealthyInstance(_ vo.SelectOneHealthInstanceParam) (*model.Instance, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, fmt.Errorf("SelectOneHealthyInstance: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) Subscribe(param *vo.SubscribeParam) error {
@@ -272,18 +262,15 @@ func (m MockedNacosNamingClient) Unsubscribe(_ *vo.SubscribeParam) error {
 }
 
 func (m MockedNacosNamingClient) GetAllServicesInfo(_ vo.GetAllServiceInfoParam) (model.ServiceList, error) {
-	//TODO implement me
-	panic("implement me")
+	return model.ServiceList{}, fmt.Errorf("GetAllServicesInfo: not implemented in mock")
 }
 
 func (m MockedNacosNamingClient) ServerHealthy() bool {
-	//TODO implement me
-	panic("implement me")
+	return false
 }
 
 func (m MockedNacosNamingClient) CloseClient() {
-	//TODO implement me
-	panic("implement me")
+	// no-op: test mock cleanup
 }
 
 func TestNacosRegistryClient_ListMcpServer(t *testing.T) {
