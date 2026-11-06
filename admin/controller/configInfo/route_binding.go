@@ -390,6 +390,89 @@ func GetRouteBindingDiff(c *gin.Context) {
 	c.JSON(http.StatusOK, adminconfig.WithRet(diff))
 }
 
+// GetRouteBindingHistory lists immutable snapshots recorded by successful
+// publishes and deletes.
+func GetRouteBindingHistory(c *gin.Context) {
+	name := strings.TrimSpace(c.Query("name"))
+	if name == "" {
+		writeRouteBindingError(c, errors.New("route binding name is required for history"))
+		return
+	}
+	store, err := logic.NewAdminRouteBindingStore()
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	history, err := store.History(c.Request.Context(), name)
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, adminconfig.WithRet(history))
+}
+
+// GetRouteBindingHistoryList exposes routes present only in the immutable
+// history store, including deleted routes that no longer appear in list APIs.
+func GetRouteBindingHistoryList(c *gin.Context) {
+	store, err := logic.NewAdminRouteBindingStore()
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	summaries, err := store.HistorySummaries(c.Request.Context())
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, adminconfig.WithRet(summaries))
+}
+
+// RollbackRouteBinding republishes a previously recorded route snapshot.
+func RollbackRouteBinding(c *gin.Context) {
+	name := strings.TrimSpace(c.Query("name"))
+	historyRevision, err := strconv.ParseInt(strings.TrimSpace(c.Query("revision")), 10, 64)
+	if name == "" || err != nil || historyRevision <= 0 {
+		writeRouteBindingError(c, errors.New("route binding name and positive history revision are required for rollback"))
+		return
+	}
+	expectedDraftRevision, expectedAbsent, err := routeBindingRollbackPrecondition(c)
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	store, err := logic.NewAdminRouteBindingStore()
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	result, err := store.Rollback(c.Request.Context(), name, historyRevision, expectedDraftRevision, expectedAbsent)
+	if err != nil {
+		writeRouteBindingError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, adminconfig.WithRet(result))
+}
+
+func routeBindingRollbackPrecondition(c *gin.Context) (int64, bool, error) {
+	if value := strings.TrimSpace(c.Query("expectedAbsent")); value != "" {
+		if !strings.EqualFold(value, "true") {
+			return 0, false, errors.New("expectedAbsent must be true when provided")
+		}
+		if strings.TrimSpace(c.Query("expectedRevision")) != "" || strings.TrimSpace(c.GetHeader("If-Match")) != "" {
+			return 0, false, errors.New("provide either expectedRevision or expectedAbsent=true, not both")
+		}
+		return 0, true, nil
+	}
+	expectedRevision, err := routeBindingExpectedRevision(c)
+	if err != nil {
+		return 0, false, err
+	}
+	if expectedRevision <= 0 {
+		return 0, false, errors.New("rollback requires a positive expectedRevision or expectedAbsent=true")
+	}
+	return expectedRevision, false, nil
+}
+
 func decodeRouteBindingRequest(c *gin.Context) (schema.AdminObject, int64, error) {
 	if content := c.PostForm("content"); strings.TrimSpace(content) != "" {
 		object, err := schema.DecodeAdminObjectYAML([]byte(content))

@@ -23,6 +23,8 @@ import type {
   AdminRouteBindingObject,
   RouteBinding,
   RouteBindingDiff,
+  RouteBindingHistoryEntry,
+  RouteBindingHistorySummary,
   RouteBindingObjectSchema,
   RouteBindingPreview,
   RouteBindingPublishResult,
@@ -104,4 +106,26 @@ export const routeBindingApi = {
     request<RouteBindingPublishStatus>(`${pixiuAdminApi.routeBindings.status}${query({ name })}`),
   diff: (name: string) =>
     request<RouteBindingDiff>(`${pixiuAdminApi.routeBindings.diff}${query({ name })}`),
+  history: async (name: string) =>
+    parseArrayResponse<RouteBindingHistoryEntry>(
+      await request<unknown>(`${pixiuAdminApi.routeBindings.history}${query({ name })}`),
+    ),
+  historyList: async () =>
+    parseArrayResponse<RouteBindingHistorySummary>(
+      await request<unknown>(pixiuAdminApi.routeBindings.historyList),
+    ),
+  rollback: (
+    name: string,
+    revision: string,
+    precondition: { expectedRevision: number } | { expectedAbsent: true },
+  ) => {
+    const queryPrecondition =
+      'expectedAbsent' in precondition
+        ? { expectedAbsent: 'true' }
+        : { expectedRevision: precondition.expectedRevision }
+    return request<RouteBindingPublishResult>(
+      `${pixiuAdminApi.routeBindings.rollback}${query({ name, revision, ...queryPrecondition })}`,
+      { method: 'PUT' },
+    )
+  },
 }

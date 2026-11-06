@@ -60,38 +60,49 @@ func CompileAdminRouteBinding(registry *Registry, object AdminObject) (CompiledR
 	if err != nil {
 		return CompiledRoute{}, err
 	}
-	target, err := objectField(normalized.Spec, "target")
+	backend, err := objectField(normalized.Spec, "backendRef")
+	if err != nil {
+		return CompiledRoute{}, err
+	}
+	service, err := objectField(normalized.Spec, "serviceSelection")
+	if err != nil {
+		return CompiledRoute{}, err
+	}
+	invocation, err := objectField(normalized.Spec, "invocation")
 	if err != nil {
 		return CompiledRoute{}, err
 	}
 
 	path := stringField(entry, "path")
 	entryProtocol := stringField(entry, "protocol")
-	targetProtocol := stringField(target, "protocol")
+	timeout, err := time.ParseDuration(stringField(invocation, "timeout"))
+	if err != nil || timeout <= 0 {
+		return CompiledRoute{}, fmt.Errorf("invalid invocation timeout %q", stringField(invocation, "timeout"))
+	}
 	enabled, _ := normalized.Spec["enabled"].(bool)
 	method := legacyconfig.Method{
 		ResourcePath: path,
 		Enable:       enabled,
-		Timeout:      defaultRouteTimeout,
+		Timeout:      timeout,
 		HTTPVerb:     stringField(entry, "method"),
 		InboundRequest: legacyconfig.InboundRequest{
 			RequestType: entryProtocol,
 		},
 		IntegrationRequest: legacyconfig.IntegrationRequest{
-			RequestType: targetProtocol,
+			RequestType: "dubbo",
 			DubboBackendConfig: legacyconfig.DubboBackendConfig{
-				ClusterName:     stringField(target, "cluster"),
-				ApplicationName: stringField(target, "application"),
-				Protocol:        targetProtocol,
-				Group:           stringField(target, "group"),
-				Version:         stringField(target, "version"),
-				Interface:       stringField(target, "interface"),
-				Method:          stringField(target, "method"),
+				ClusterName:     stringField(backend, "clusterName"),
+				ApplicationName: stringField(service, "application"),
+				Protocol:        "dubbo",
+				Group:           stringField(service, "group"),
+				Version:         stringField(service, "version"),
+				Interface:       stringField(service, "interface"),
+				Method:          stringField(invocation, "method"),
 			},
 		},
 	}
 
-	params, _ := normalized.Spec["params"].([]any)
+	params, _ := invocation["parameters"].([]any)
 	method.MappingParams = make([]legacyconfig.MappingParam, 0, len(params))
 	method.ParameterTypes = make([]string, len(params))
 	for _, rawParam := range params {
@@ -110,7 +121,7 @@ func CompileAdminRouteBinding(registry *Registry, object AdminObject) (CompiledR
 	resource := legacyconfig.Resource{
 		Type:    "restful",
 		Path:    path,
-		Timeout: defaultRouteTimeout,
+		Timeout: timeout,
 	}
 	return CompiledRoute{
 		Source:   normalized,
@@ -148,6 +159,7 @@ func (r CompiledRoute) PreviewYAML() ([]byte, error) {
 				},
 				IntegrationRequest: legacyIntegrationRequestPreview{
 					RequestType:     r.Method.IntegrationRequest.RequestType,
+					URL:             r.Method.URL,
 					ApplicationName: r.Method.ApplicationName,
 					Protocol:        r.Method.Protocol,
 					Group:           r.Method.Group,
@@ -156,6 +168,7 @@ func (r CompiledRoute) PreviewYAML() ([]byte, error) {
 					Method:          r.Method.Method,
 					ClusterName:     r.Method.ClusterName,
 					ParameterTypes:  append([]string(nil), r.Method.ParameterTypes...),
+					Serialization:   r.Method.Serialization,
 					MappingParams:   append([]legacyconfig.MappingParam(nil), r.Method.MappingParams...),
 				},
 			}},
@@ -194,6 +207,7 @@ type legacyInboundRequestPreview struct {
 
 type legacyIntegrationRequestPreview struct {
 	RequestType     string                      `yaml:"requestType"`
+	URL             string                      `yaml:"url,omitempty"`
 	ApplicationName string                      `yaml:"applicationName"`
 	Protocol        string                      `yaml:"protocol"`
 	Group           string                      `yaml:"group,omitempty"`
@@ -202,6 +216,7 @@ type legacyIntegrationRequestPreview struct {
 	Method          string                      `yaml:"method"`
 	ClusterName     string                      `yaml:"clusterName"`
 	ParameterTypes  []string                    `yaml:"parameterTypes,omitempty"`
+	Serialization   string                      `yaml:"serialization,omitempty"`
 	MappingParams   []legacyconfig.MappingParam `yaml:"mappingParams,omitempty"`
 }
 

@@ -26,7 +26,6 @@ import type {
 
 type RouteEditorOptions = {
   entryProtocols: string[]
-  targetProtocols: string[]
   httpMethods: string[]
   paramTypes: string[]
 }
@@ -187,42 +186,118 @@ function validateFields(
   return result
 }
 
-export function normaliseRouteBindingObject(
+function validateRouteBindingEnvelope(
   value: unknown,
   schema: RouteBindingObjectSchema,
-  stripLegacyPublishPreference = false,
-): AdminRouteBindingObject {
+  stripLegacyPublishPreference: boolean,
+) {
   if (!isRecord(value)) fail('YAML', 'top level must be an object')
   for (const key of Object.keys(value)) {
     if (!['kind', 'metadata', 'spec'].includes(key)) fail(key, 'is not part of AdminRouteBinding')
   }
   if (value.kind !== schema.kind) fail('kind', `must be ${schema.kind}`)
-  if (!isRecord(value.metadata)) fail('metadata', 'must be an object')
-  for (const key of Object.keys(value.metadata)) {
+
+  const metadataName = validateRouteBindingMetadata(value.metadata)
+  const specInput = normaliseRouteBindingSpecInput(value.spec, stripLegacyPublishPreference)
+  return { metadataName, specInput }
+}
+
+function validateRouteBindingMetadata(value: unknown) {
+  if (!isRecord(value)) fail('metadata', 'must be an object')
+  for (const key of Object.keys(value)) {
     if (key !== 'name') fail(`metadata.${key}`, 'is not defined by the route schema')
   }
-  if (typeof value.metadata.name !== 'string') fail('metadata.name', 'must be a string')
-  if (!isRecord(value.spec)) fail('spec', 'must be an object')
+  if (typeof value.name !== 'string') fail('metadata.name', 'must be a string')
+  return value.name
+}
 
+function normaliseRouteBindingSpecInput(value: unknown, stripLegacyPublishPreference: boolean) {
+  if (!isRecord(value)) fail('spec', 'must be an object')
   // The old publish preference was a no-op and is deliberately removed by the
   // backend normalizer. Reject it in edited YAML so it cannot appear synced
   // while being omitted from the submitted object.
-  const specInput = { ...value.spec }
+  const specInput = { ...value }
   const hasLegacyPublishPreference = hasOwn(specInput, 'publish')
   if (hasLegacyPublishPreference && !stripLegacyPublishPreference) {
     fail('spec.publish', 'is no longer supported; remove this field')
   }
   if (hasLegacyPublishPreference) delete specInput.publish
+  if (hasOwn(specInput, 'extensions')) {
+    const extensions = specInput.extensions
+    if (!isRecord(extensions) || Object.keys(extensions).length !== 0) {
+      fail('spec.extensions', 'route extensions are not supported; remove this field')
+    }
+    delete specInput.extensions
+  }
+  return migrateLegacyRouteBindingSpec(specInput)
+}
+
+export function normaliseRouteBindingObject(
+  value: unknown,
+  schema: RouteBindingObjectSchema,
+  stripLegacyPublishPreference = false,
+): AdminRouteBindingObject {
+  const { metadataName, specInput } = validateRouteBindingEnvelope(
+    value,
+    schema,
+    stripLegacyPublishPreference,
+  )
   const spec = validateFields(specInput, schema.fields, 'spec', false)
   return {
     kind: schema.kind,
-    metadata: { name: value.metadata.name },
+    metadata: { name: metadataName },
     spec: spec as AdminRouteBindingObject['spec'],
   }
 }
 
+function migrateLegacyRouteBindingSpec(spec: Record<string, unknown>) {
+  if (!hasOwn(spec, 'target') && !hasOwn(spec, 'params')) return spec
+  for (const field of ['backendRef', 'serviceSelection', 'invocation']) {
+    if (hasOwn(spec, field)) {
+      fail(`spec.${field}`, 'cannot be combined with legacy target/params fields')
+    }
+  }
+  const target = spec.target
+  if (!isRecord(target)) fail('spec.target', 'legacy target must be an object')
+  const allowed = new Set([
+    'protocol',
+    'application',
+    'interface',
+    'method',
+    'version',
+    'group',
+    'cluster',
+  ])
+  for (const key of Object.keys(target)) {
+    if (!allowed.has(key)) fail(`spec.target.${key}`, 'has no route model migration')
+  }
+  if (target.protocol !== undefined && target.protocol !== '' && target.protocol !== 'dubbo') {
+    fail('spec.target.protocol', 'only the legacy dubbo protocol can be migrated')
+  }
+  const migrated = { ...spec }
+  migrated.backendRef = { type: 'registry', clusterName: target.cluster ?? '' }
+  migrated.serviceSelection = {
+    application: target.application ?? '',
+    interface: target.interface ?? '',
+    group: target.group ?? '',
+    version: target.version ?? '',
+  }
+  migrated.invocation = {
+    method: target.method ?? '',
+    timeout: '1s',
+    parameters: hasOwn(spec, 'params') ? spec.params : [],
+  }
+  delete migrated.target
+  delete migrated.params
+  return migrated
+}
+
 export function hasLegacyPublishPreference(value: unknown) {
   return isRecord(value) && isRecord(value.spec) && hasOwn(value.spec, 'publish')
+}
+
+export function hasLegacyRouteExtensions(value: unknown) {
+  return isRecord(value) && isRecord(value.spec) && hasOwn(value.spec, 'extensions')
 }
 
 function yamlErrorMessage(error: unknown) {
@@ -270,11 +345,9 @@ function property(field: RouteBindingFieldSchema | undefined, key: string) {
 
 export function routeEditorOptions(schema: RouteBindingObjectSchema): RouteEditorOptions {
   const entry = schema.fields.entry
-  const target = schema.fields.target
-  const params = schema.fields.params?.items
+  const params = schema.fields.invocation?.properties?.parameters?.items
   return {
     entryProtocols: stringEnum(property(entry, 'protocol')),
-    targetProtocols: stringEnum(property(target, 'protocol')),
     httpMethods: stringEnum(property(entry, 'method')),
     paramTypes: stringEnum(property(params, 'type')),
   }

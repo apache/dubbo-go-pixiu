@@ -124,10 +124,7 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 
 	// header-only first
 	for _, hr := range s.HeaderOnly {
-		if !model.MethodAllowed(hr.Methods, req.Method) {
-			continue
-		}
-		if matchHeaders(hr.Headers, req) {
+		if model.MethodAllowed(hr.Methods, req.Method) && matchHeaders(hr.Headers, req) {
 			if len(hr.Action.Cluster) == 0 {
 				return nil, errors.New("action is nil. please check your configuration.")
 			}
