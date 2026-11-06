@@ -71,7 +71,7 @@ func (qs queryStringsMapper) Map(mp config.MappingParam, c *client.Request, rawT
 	}
 	queryValues, err := url.ParseQuery(c.IngressRequest.URL.RawQuery)
 	if err != nil {
-		return errors.Wrap(err, "Error happened when parsing the query paramters")
+		return errors.Wrap(err, "Error happened when parsing the query parameters")
 	}
 	rawValue := queryValues.Get(fromKey[0])
 	if len(rawValue) == 0 {
