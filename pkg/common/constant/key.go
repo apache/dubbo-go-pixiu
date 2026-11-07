@@ -115,3 +115,17 @@ const (
 	// GRPCRequest represents the grpc request
 	GRPCRequest = "grpc"
 )
+
+// Generic invocation modes accepted by integrationRequest.generic.
+const (
+	// GenericModeMap is the default map based mode: values are sent as typed
+	// arguments and the provider returns a map.
+	GenericModeMap = "true"
+	// GenericModeGson sends the request as JSON text and expects JSON text back.
+	GenericModeGson = "gson"
+	// GenericModeProtobufJSON sends the request as protobuf JSON text and
+	// expects protobuf JSON text back.
+	GenericModeProtobufJSON = "protobuf-json"
+	// GenericModeBean is the Java bean compatible mode.
+	GenericModeBean = "bean"
+)

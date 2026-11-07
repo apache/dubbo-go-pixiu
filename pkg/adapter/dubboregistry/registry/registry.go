@@ -99,6 +99,9 @@ func CreateAPIConfig(urlPattern, location string, dboBackendConfig config.DubboB
 	if strings.TrimSpace(dboBackendConfig.Serialization) == "" {
 		dboBackendConfig.Serialization = dubboConstant.Hessian2Serialization
 	}
+	if strings.TrimSpace(dboBackendConfig.Generic) == "" {
+		dboBackendConfig.Generic = constant.GenericModeMap
+	}
 	url := strings.Join([]string{urlPattern, methodString}, constant.PathSlash)
 	var requestType string
 	switch dboBackendConfig.Protocol {
