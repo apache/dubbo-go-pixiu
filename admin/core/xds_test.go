@@ -28,10 +28,14 @@ import (
 )
 
 import (
+	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoyServer "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 import (
@@ -297,5 +301,63 @@ func TestStartXDSServerRecordsBindFailure(t *testing.T) {
 	status := adminxds.DefaultStatusStore.Snapshot()
 	if status.Listening || status.ListenError == "" || status.NodeID != "bind-failure" {
 		t.Fatalf("bind failure was not reflected in status: %+v", status)
+	}
+}
+
+func TestRunXDSServerForcesShutdownOfActiveStream(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lis.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opened := make(chan struct{})
+	closed := make(chan struct{})
+	srv := envoyServer.NewServer(ctx, cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger()), envoyServer.CallbackFuncs{
+		DeltaStreamOpenFunc: func(streamCtx context.Context, _ int64, _ string) error {
+			close(opened)
+			// Model a stream blocked in an RPC operation: only closing the
+			// transport, not canceling the server context, releases it.
+			<-streamCtx.Done()
+			close(closed)
+			return streamCtx.Err()
+		},
+	})
+	done := make(chan error, 1)
+	go func() { done <- runXDSServer(ctx, srv, lis) }()
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	streamCtx, stopStream := context.WithTimeout(context.Background(), 2*grpcShutdownTimeout)
+	defer stopStream()
+	stream, err := discoverygrpc.NewAggregatedDiscoveryServiceClient(conn).DeltaAggregatedResources(streamCtx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-opened:
+	case <-time.After(2 * time.Second):
+		t.Fatal("delta xDS stream did not open")
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected clean shutdown, got %v", err)
+		}
+	case <-time.After(grpcShutdownTimeout + 2*time.Second):
+		t.Fatal("active delta xDS stream blocked server shutdown")
+	}
+	if _, err := stream.Recv(); err == nil {
+		t.Fatal("stream remained open after forced shutdown")
+	}
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("stream handler did not exit after forced shutdown")
 	}
 }

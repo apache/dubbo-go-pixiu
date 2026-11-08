@@ -18,13 +18,22 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"net"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
+	"time"
 )
 
 import (
 	"github.com/stretchr/testify/require"
+
+	"go.etcd.io/etcd/server/v3/embed"
 )
 
 import (
@@ -57,5 +66,98 @@ func TestAdminRejectsUnsafeSigningKeyBeforeLoadingConfiguration(t *testing.T) {
 			err = Start("")
 			require.ErrorContains(t, err, "DUBBOGO_PIXIU_JWT_SIGN_KEY")
 		})
+	}
+}
+
+func TestAdminSignalShutdown(t *testing.T) {
+	if signalName := os.Getenv("PIXIU_TEST_ADMIN_SIGNAL"); signalName != "" {
+		testAdminSignalShutdown(t, signalName)
+		return
+	}
+	for _, signalName := range []string{"SIGINT", "SIGTERM"} {
+		t.Run(signalName, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			executable, err := os.Executable()
+			require.NoError(t, err)
+			cmd := exec.CommandContext(ctx, executable, "-test.run=^TestAdminSignalShutdown$")
+			cmd.Env = append(os.Environ(), "PIXIU_TEST_ADMIN_SIGNAL="+signalName)
+			output, err := cmd.CombinedOutput()
+			require.NoError(t, err, "%s", output)
+		})
+	}
+}
+
+// Use a subprocess so real OS signals and global server state stay isolated.
+func testAdminSignalShutdown(t *testing.T, signalName string) {
+	t.Helper()
+	etcdConfig := embed.NewConfig()
+	etcdConfig.Dir = t.TempDir()
+	etcdConfig.LogLevel = "error"
+	etcdConfig.LCUrls = []url.URL{{Scheme: "http", Host: "127.0.0.1:0"}}
+	etcdConfig.ACUrls = etcdConfig.LCUrls
+	etcdConfig.LPUrls = []url.URL{{Scheme: "http", Host: "127.0.0.1:0"}}
+	etcdConfig.APUrls = etcdConfig.LPUrls
+	etcdConfig.InitialCluster = etcdConfig.InitialClusterFromName(etcdConfig.Name)
+	etcd, err := embed.StartEtcd(etcdConfig)
+	require.NoError(t, err)
+	defer etcd.Close()
+	select {
+	case <-etcd.Server.ReadyNotify():
+	case <-time.After(10 * time.Second):
+		t.Fatal("embedded etcd did not start")
+	}
+
+	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	xdsListener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	httpPort := httpListener.Addr().(*net.TCPAddr).Port
+	xdsPort := xdsListener.Addr().(*net.TCPAddr).Port
+	require.NoError(t, httpListener.Close())
+	require.NoError(t, xdsListener.Close())
+
+	dir := t.TempDir()
+	adminPath := filepath.Join(dir, "admin.yaml")
+	apiPath := filepath.Join(dir, "api.yaml")
+	require.NoError(t, os.WriteFile(adminPath, []byte(fmt.Sprintf("system:\n  addr: %d\nzap:\n  director: %s\n", httpPort, dir)), 0o600))
+	require.NoError(t, os.WriteFile(apiPath, []byte(fmt.Sprintf("etcd:\n  address: %s\nxds:\n  listen_port: %d\n", etcd.Clients[0].Addr(), xdsPort)), 0o600))
+	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "admin-signal-test-key-at-least-32-bytes-long")
+
+	addresses := []string{fmt.Sprintf("127.0.0.1:%d", httpPort), fmt.Sprintf("127.0.0.1:%d", xdsPort)}
+	signalErr := make(chan error, 1)
+	go func() {
+		deadline := time.Now().Add(10 * time.Second)
+		for _, address := range addresses {
+			for {
+				conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
+				if err == nil {
+					_ = conn.Close()
+					break
+				}
+				if time.Now().After(deadline) {
+					signalErr <- fmt.Errorf("server %s did not start: %w", address, err)
+					return
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+		sig := syscall.SIGINT
+		if signalName == "SIGTERM" {
+			sig = syscall.SIGTERM
+		}
+		signalErr <- syscall.Kill(os.Getpid(), sig)
+	}()
+	command := getRootCmd()
+	command.SetArgs([]string{"--config", adminPath, "--api-config", apiPath})
+	require.NoError(t, command.Execute())
+	require.NoError(t, <-signalErr)
+	require.Nil(t, config2.Client, "etcd client must close after servers stop")
+	for _, address := range addresses {
+		conn, err := net.DialTimeout("tcp", address, time.Second)
+		if conn != nil {
+			_ = conn.Close()
+		}
+		require.Error(t, err, "command returned while %s was still listening", address)
 	}
 }

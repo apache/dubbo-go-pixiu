@@ -20,7 +20,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
 	"time"
 )
@@ -61,22 +60,8 @@ var (
 			if err != nil {
 				return fmt.Errorf("load admin config error: %w", err)
 			}
-			// Start server in a goroutine
-			errCh := make(chan error, 1)
-			go func() {
-				errCh <- Start(configPath)
-			}()
-			// gracefully shutdown
-			sigint := make(chan os.Signal, 1)
-			signal.Notify(sigint, os.Interrupt)
-			select {
-			case <-sigint:
-				Stop()
-				return nil
-			case err := <-errCh:
-				Stop()
-				return err
-			}
+			defer Stop()
+			return Start(configPath)
 		},
 	}
 )

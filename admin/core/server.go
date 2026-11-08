@@ -22,7 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -60,6 +63,9 @@ type server interface {
 // other, and its error is returned so the CLI can surface a startup failure
 // instead of leaving the process false-healthy.
 func RunServer(configPath string) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	if _, err := auth.GetSignKey(); err != nil {
 		return err
 	}
@@ -82,7 +88,7 @@ func RunServer(configPath string) error {
 
 	s := initServer(address, router)
 
-	return runCoordinated(context.Background(),
+	return runCoordinated(ctx,
 		func(ctx context.Context) error { return runHTTPServer(ctx, s, address) },
 		func(ctx context.Context) error { return StartxDsServer(ctx) },
 	)

@@ -57,6 +57,7 @@ var (
 const (
 	grpcKeepaliveTime        = 30 * time.Second
 	grpcKeepaliveTimeout     = 5 * time.Second
+	grpcShutdownTimeout      = 5 * time.Second
 	grpcKeepaliveMinTime     = 30 * time.Second
 	grpcMaxConcurrentStreams = 1000000
 	configWatchRetryDelay    = time.Second
@@ -144,7 +145,19 @@ func runXDSServer(ctx context.Context, srv envoyServer.Server, lis net.Listener)
 	select {
 	case err = <-serveErr:
 	case <-ctx.Done():
-		grpcServer.GracefulStop()
+		stopped := make(chan struct{})
+		go func() {
+			grpcServer.GracefulStop()
+			close(stopped)
+		}()
+		timer := time.NewTimer(grpcShutdownTimeout)
+		defer timer.Stop()
+		select {
+		case <-stopped:
+		case <-timer.C:
+			// Long-lived xDS streams must not block shutdown indefinitely.
+			grpcServer.Stop()
+		}
 		err = <-serveErr
 	}
 	// Cancellation can stop the server before the Serve goroutine starts.
