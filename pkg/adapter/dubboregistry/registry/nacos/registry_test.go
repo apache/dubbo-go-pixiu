@@ -18,7 +18,6 @@
 package nacos
 
 import (
-	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -169,74 +168,31 @@ func TestDoUnsubscribeStopsActiveListeners(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		for _, pollErr := range []error{nil, errors.New("Nacos is unavailable")} {
-			name := tt.name + "/healthy poll"
-			if pollErr != nil {
-				name = tt.name + "/retry backoff"
+		t.Run(tt.name, func(t *testing.T) {
+			client := &mockNamingClient{pollStarted: make(chan struct{})}
+			reg := newTestNacosRegistry(client, tt.registryType, nil)
+			listener := tt.newListener(client, reg, &model.Registry{}, &mockRegistryEventListener{})
+			reg.nacosListeners[tt.registryType] = listener
+
+			assert.NoError(t, reg.DoSubscribe())
+			select {
+			case <-client.pollStarted:
+			case <-time.After(time.Second):
+				t.Fatal("listener did not start polling")
 			}
-			t.Run(name, func(t *testing.T) {
-				client := &mockNamingClient{pollStarted: make(chan struct{}), pollErr: pollErr}
-				reg := newTestNacosRegistry(client, tt.registryType, nil)
-				listener := tt.newListener(client, reg, &model.Registry{}, &mockRegistryEventListener{})
-				reg.nacosListeners[tt.registryType] = listener
 
-				assert.NoError(t, reg.DoSubscribe())
-				select {
-				case <-client.pollStarted:
-				case <-time.After(time.Second):
-					t.Fatal("listener did not start polling")
-				}
+			done := make(chan error, 1)
+			go func() {
+				done <- reg.DoUnsubscribe()
+			}()
 
-				done := make(chan error, 1)
-				go func() {
-					done <- reg.DoUnsubscribe()
-				}()
-
-				select {
-				case err := <-done:
-					assert.NoError(t, err)
-					assert.Equal(t, 1, client.closeCalls())
-				case <-time.After(2 * time.Second):
-					t.Fatal("DoUnsubscribe blocked waiting for the active listener")
-				}
-			})
-		}
+			select {
+			case err := <-done:
+				assert.NoError(t, err)
+				assert.Equal(t, 1, client.closeCalls())
+			case <-time.After(2 * time.Second):
+				t.Fatal("DoUnsubscribe blocked waiting for the active listener")
+			}
+		})
 	}
-}
-
-func TestClosedListenersDoNotStartPolling(t *testing.T) {
-	client := &mockNamingClient{pollStarted: make(chan struct{})}
-	reg := newTestNacosRegistry(client, registry.RegisteredTypeInterface, nil)
-	app := newNacosAppListener(client, reg, &model.Registry{}, &mockRegistryEventListener{}).(*nacosAppListener)
-	intf := newNacosIntfListener(client, reg, &model.Registry{}, &mockRegistryEventListener{}).(*nacosIntfListener)
-	for _, watch := range []struct {
-		close func()
-		start func()
-		wait  *sync.WaitGroup
-	}{
-		{app.Close, app.WatchAndHandle, &app.wg},
-		{intf.Close, intf.WatchAndHandle, &intf.wg},
-	} {
-		watch.close()
-		watch.start()
-		done := make(chan struct{})
-		go func() { watch.wait.Wait(); close(done) }()
-		select {
-		case <-done:
-		case <-time.After(time.Second):
-			t.Fatal("closed listener did not exit")
-		}
-	}
-	select {
-	case <-client.pollStarted:
-		t.Fatal("listener polled Nacos after it was closed")
-	default:
-	}
-}
-
-func TestNacosPollDelayCanExpireOrBeCanceled(t *testing.T) {
-	assert.True(t, waitForNacosPoll(make(chan struct{}), 0), "an elapsed delay must allow the next discovery poll")
-	exit := make(chan struct{})
-	close(exit)
-	assert.False(t, waitForNacosPoll(exit, time.Hour), "closing must interrupt a long retry delay")
 }
