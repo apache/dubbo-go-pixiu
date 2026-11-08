@@ -108,6 +108,8 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 	sdc := lm.bootstrap.GetShutdownConfig()
 	timeout := sdc.GetTimeout()
 	if timeout <= 0 {
+		// A non-positive timeout disables signal-driven graceful shutdown.
+		// OS signal handling applies; neither ShutDown nor Close is invoked here.
 		return
 	}
 	signals := make(chan os.Signal, 1)
@@ -129,6 +131,8 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 	}()
 }
 
+// shutdownExitCode deliberately reports incomplete shutdown as a failure,
+// including after SIGTERM. See docs/user/start.md for deployment implications.
 func shutdownExitCode(shutdownErrors []error, timedOut bool) int {
 	if timedOut || len(shutdownErrors) > 0 {
 		return 1
@@ -150,8 +154,9 @@ func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Dura
 	shutdownFuncs := make([]shutdownFunc, 0, len(listeners))
 	for _, listener := range listeners {
 		shutdownFuncs = append(shutdownFuncs, func() error {
-			// Preserve the legacy plugin argument without sharing completion counts.
-			// shutdownListeners coordinates by return, not by this WaitGroup.
+			// Retain the argument for legacy plugins that call Done(). This group
+			// is never waited on; shutdownListeners uses only the method's return,
+			// including for plugins that return without calling Done().
 			var shutdownWG sync.WaitGroup
 			shutdownWG.Add(1)
 			return listener.ShutDown(&shutdownWG)

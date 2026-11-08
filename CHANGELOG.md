@@ -14,6 +14,12 @@
 
 ### Compatibility Notes
 
+* With graceful shutdown enabled, the gateway now exits with code `1` if any
+  listener reports a shutdown error or the overall shutdown timeout expires,
+  including after SIGTERM. Successful shutdown still exits with code `0`;
+  previously shutdown errors and timeouts also exited with code `0`. See the
+  [shutdown deployment notes](docs/user/start.md#graceful-shutdown-and-exit-status)
+  before upgrading orchestration or alerting rules.
 * Listener construction is now fail-closed: an invalid network or HTTP filter
   prevents a static listener from starting and causes an xDS update to be
   NACKed. Previously, invalid filters could be silently omitted.
