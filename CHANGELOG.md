@@ -24,6 +24,14 @@
 
 ### Compatibility Notes
 
+* The exported `dao.GuestDao.CheckLogin()` signature is now `CheckLogin() error`.
+  External implementations must update their method signatures, and callers must
+  handle the returned error without accepting the session. The default implementation
+  returns `dao.ErrSessionValidationNotImplemented`, identifiable with `errors.Is`,
+  to distinguish unavailable session validation from invalid credentials.
+* Unimplemented MQ `Apply` and legacy Triple `Apply`/`MapParams` operations return
+  errors wrapping `errors.ErrUnsupported`. Adapter initialization logs this category
+  at WARN; other initialization failures retain ERROR severity.
 * Listener construction is now fail-closed: an invalid network or HTTP filter
   prevents a static listener from starting and causes an xDS update to be
   NACKed. Previously, invalid filters could be silently omitted.

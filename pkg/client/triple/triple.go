@@ -19,6 +19,7 @@ package triple
 
 import (
 	"context"
+	stderr "errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -63,11 +64,11 @@ type Client struct {
 }
 
 func (tc *Client) Apply() error {
-	return errors.New("triple: Apply is deprecated and not implemented")
+	return errors.Wrap(stderr.ErrUnsupported, "triple: Apply is deprecated and not implemented")
 }
 
 func (tc *Client) MapParams(req *client.Request) (reqData any, err error) {
-	return nil, errors.New("triple: MapParams is deprecated and not implemented")
+	return nil, errors.Wrap(stderr.ErrUnsupported, "triple: MapParams is deprecated and not implemented")
 }
 
 // Close clear GenericServicePool.

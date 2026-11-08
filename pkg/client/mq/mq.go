@@ -20,6 +20,7 @@ package mq
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 	"sync"
@@ -83,7 +84,7 @@ type Client struct {
 }
 
 func (c Client) Apply() error {
-	return perrors.New("mq: Apply not implemented")
+	return perrors.Wrap(errors.ErrUnsupported, "mq: Apply not implemented")
 }
 
 func (c Client) Close() error {

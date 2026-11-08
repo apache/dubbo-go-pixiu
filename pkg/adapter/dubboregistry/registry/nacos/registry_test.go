@@ -18,6 +18,7 @@
 package nacos
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -201,10 +202,12 @@ func TestDoUnsubscribeStopsActiveListeners(t *testing.T) {
 type lifecycleNamingClient struct {
 	naming_client.INamingClient
 
-	mu           sync.Mutex
-	services     nacosModel.ServiceList
-	subscribed   []*vo.SubscribeParam
-	unsubscribed []*vo.SubscribeParam
+	mu             sync.Mutex
+	services       nacosModel.ServiceList
+	subscribed     []*vo.SubscribeParam
+	unsubscribed   []*vo.SubscribeParam
+	subscribeErr   error
+	unsubscribeErr error
 }
 
 func (m *lifecycleNamingClient) GetAllServicesInfo(vo.GetAllServiceInfoParam) (nacosModel.ServiceList, error) {
@@ -215,14 +218,14 @@ func (m *lifecycleNamingClient) Subscribe(param *vo.SubscribeParam) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.subscribed = append(m.subscribed, param)
-	return nil
+	return m.subscribeErr
 }
 
 func (m *lifecycleNamingClient) Unsubscribe(param *vo.SubscribeParam) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.unsubscribed = append(m.unsubscribed, param)
-	return nil
+	return m.unsubscribeErr
 }
 
 func (m *lifecycleNamingClient) subscriptionCounts() (int, int) {
@@ -303,4 +306,64 @@ func newLifecycleRegistry(registeredType registry.RegisteredType, listener regis
 	}
 	reg.BaseRegistry = baseRegistry.NewBaseRegistry(reg, &mockRegistryEventListener{}, registeredType)
 	return reg
+}
+
+// A failed subscription must be retried on the next discovery update. Removing
+// a service must release its listener even if Nacos rejects the unsubscribe.
+func TestDiscoverySubscriptionsRecoverAndRelease(t *testing.T) {
+	type discoveryListener interface {
+		updateServiceList([]string) error
+		Close()
+	}
+	for _, name := range []string{"application", "interface"} {
+		t.Run(name, func(t *testing.T) {
+			client := &lifecycleNamingClient{subscribeErr: errors.New("temporary subscription failure")}
+			var listener discoveryListener
+			var listenerExit func() <-chan struct{}
+			service := "orders-app"
+			if name == "application" {
+				app := newNacosAppListener(client, nil, &model.Registry{}, nil).(*nacosAppListener)
+				listener = app
+				listenerExit = func() <-chan struct{} { return app.appInfoMap[service].listener.exit }
+			} else {
+				intf := newNacosIntfListener(client, nil, &model.Registry{}, nil).(*nacosIntfListener)
+				listener = intf
+				service = "providers:org.example.OrderService:1.0.0:test-group"
+				listenerExit = func() <-chan struct{} {
+					return intf.serviceInfoMap["org.example.OrderService:1.0.0:test-group"].listener.exit
+				}
+			}
+			t.Cleanup(listener.Close)
+			require.NoError(t, listener.updateServiceList([]string{service}))
+			client.subscribeErr = nil
+			require.NoError(t, listener.updateServiceList([]string{service}))
+			require.Len(t, client.subscribed, 2, "discovery must retry a failed subscription")
+			require.NoError(t, listener.updateServiceList([]string{service}))
+			require.Len(t, client.subscribed, 2, "unchanged discovery must not subscribe twice")
+			exit := listenerExit()
+
+			client.unsubscribeErr = errors.New("Nacos is unavailable during cleanup")
+			require.NoError(t, listener.updateServiceList(nil))
+			require.Len(t, client.unsubscribed, 1)
+			require.Same(t, client.subscribed[1], client.unsubscribed[0])
+			select {
+			case <-exit:
+			default:
+				t.Fatal("removing a service must close its listener despite unsubscribe failure")
+			}
+
+			require.NoError(t, listener.updateServiceList([]string{service}))
+			require.Len(t, client.subscribed, 3, "a reappearing service needs a fresh subscription")
+			exit = listenerExit()
+			listener.Close()
+			listener.Close()
+			require.Len(t, client.unsubscribed, 2, "shutdown must release the remaining subscription once")
+			require.Same(t, client.subscribed[2], client.unsubscribed[1])
+			select {
+			case <-exit:
+			default:
+				t.Fatal("shutdown must close the remaining listener despite unsubscribe failure")
+			}
+		})
+	}
 }

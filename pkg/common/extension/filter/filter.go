@@ -155,7 +155,8 @@ var (
 	grpcFilterPluginRegistry    = map[string]GrpcFilterPlugin{}
 )
 
-// OnDecode empty implement
+// OnDecode returns an error because decoding is not implemented. On error, the
+// decoded value and consumed length are undefined and callers must ignore them.
 func (enf *EmptyNetworkFilter) OnDecode(data []byte) (any, int, error) {
 	return nil, 0, errors.New("EmptyNetworkFilter: OnDecode not implemented")
 }

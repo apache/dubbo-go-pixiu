@@ -18,6 +18,7 @@
 package server
 
 import (
+	"errors"
 	"strings"
 )
 
@@ -56,14 +57,14 @@ func (am *AdapterManager) initAdapters() {
 	var ads []adapter.Adapter
 
 	for _, f := range am.configs {
+		if len(f.Enabled) > 0 && !strings.EqualFold(f.Enabled, "true") {
+			logger.Warnf("the Adapter %s will stop starting, by config of Enabled : %s", f.Name, f.Enabled)
+			continue
+		}
+
 		hp, err := adapter.GetAdapterPlugin(f.Name)
 		if err != nil {
 			logger.Error("initAdapters get plugin error %s", err)
-		}
-
-		if len(f.Enabled) > 0 && !strings.EqualFold(f.Enabled, "true") {
-			logger.Warnf("the Adapter %s will stop starting, by config of Enabled : %s", f.Name, f.Enabled)
-			return
 		}
 
 		hf, err := hp.CreateAdapter(f)
@@ -78,7 +79,11 @@ func (am *AdapterManager) initAdapters() {
 
 		err = hf.Apply()
 		if err != nil {
-			logger.Errorf("initFilterIfNeed apply adapter error %s", err)
+			if errors.Is(err, errors.ErrUnsupported) {
+				logger.Warnf("initAdapters apply adapter %s: %s", f.Name, err)
+			} else {
+				logger.Errorf("initAdapters apply adapter %s: %s", f.Name, err)
+			}
 		}
 		ads = append(ads, hf)
 	}

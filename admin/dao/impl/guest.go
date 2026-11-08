@@ -87,5 +87,5 @@ func (d *GuestDao) Register(username, password string) error {
 }
 
 func (d *GuestDao) CheckLogin() error {
-	return errors.New("GuestDao.CheckLogin: session validation is not implemented")
+	return dao.ErrSessionValidationNotImplemented
 }

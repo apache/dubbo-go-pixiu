@@ -18,13 +18,21 @@
 package impl
 
 import (
+	"errors"
 	"strings"
 	"testing"
+)
+
+import (
+	"github.com/apache/dubbo-go-pixiu/admin/dao"
 )
 
 func TestGuestDao_CheckLogin(t *testing.T) {
 	d := &GuestDao{}
 	err := d.CheckLogin()
+	if !errors.Is(err, dao.ErrSessionValidationNotImplemented) {
+		t.Fatalf("expected identifiable unsupported session validation, got %v", err)
+	}
 	if err == nil || !strings.Contains(err.Error(), "session validation is not implemented") {
 		t.Fatalf("unimplemented session validation must return an error, got %v", err)
 	}

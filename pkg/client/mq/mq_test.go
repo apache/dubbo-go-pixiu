@@ -18,6 +18,7 @@
 package mq
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -28,7 +29,10 @@ func TestClient_Apply(t *testing.T) {
 	err := c.Apply()
 
 	if err == nil {
-		t.Error("Apply should return an error")
+		t.Fatal("Apply should return an error")
+	}
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Fatalf("expected unsupported operation, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "Apply not implemented") {
 		t.Errorf("Apply error should contain 'Apply not implemented', got %s", err.Error())
