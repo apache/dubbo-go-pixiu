@@ -95,6 +95,24 @@ func TestBuildOutboundMapsQueryHeaderBodyAndURI(t *testing.T) {
 	}, outbound.ParamTypes)
 }
 
+func TestBuildOutboundMapsDottedURIParameterName(t *testing.T) {
+	handler := &DubboHandler{}
+	api := newTestAPI(config.IntegrationRequest{
+		RequestType: cst.DubboRequest,
+		DubboBackendConfig: config.DubboBackendConfig{
+			Interface: "com.demo.UserService",
+			Method:    "GetUser",
+		},
+	}, "/users/:id.json")
+	api.MappingParams = []config.MappingParam{{Name: "uri.id.json", MapTo: "0"}}
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/users/42.json", nil)
+	require.NoError(t, err)
+	outbound, err := handler.BuildOutbound(req, api)
+	require.NoError(t, err)
+	assert.Equal(t, []any{"42.json"}, outbound.Arguments)
+}
+
 func TestBuildOutboundParameterTypesPriority(t *testing.T) {
 	handler := &DubboHandler{}
 

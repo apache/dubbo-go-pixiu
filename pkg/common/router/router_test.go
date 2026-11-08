@@ -65,6 +65,93 @@ func TestCreateRouterCoordinator(t *testing.T) {
 	coordinator.OnDeleteRouter(router)
 }
 
+func TestRoutePrefixAndHeaders(t *testing.T) {
+	router := &model.Router{
+		ID: "header-prefix",
+		Match: model.RouterMatch{
+			Methods: []string{"GET"},
+			Prefix:  "/user",
+			Headers: []model.HeaderMatcher{
+				{Name: "X-A", Values: []string{"t1", "t2"}},
+				{Name: "X-B", Values: []string{"t4", "t5"}},
+			},
+		},
+		Route: model.RouteAction{Cluster: "user-v1"},
+	}
+	rm := CreateRouterCoordinator(&model.RouteConfiguration{Routes: []*model.Router{router}})
+
+	tests := []struct {
+		name    string
+		path    string
+		headers map[string]string
+		want    string
+	}{
+		{name: "matching prefix", path: "/user", headers: map[string]string{"X-A": "t1", "X-B": "t4"}, want: "user-v1"},
+		{name: "matching child path", path: "/user/42", headers: map[string]string{"X-A": "t2", "X-B": "t5"}, want: "user-v1"},
+		{name: "missing header", path: "/user", headers: map[string]string{"X-A": "t1"}},
+		{name: "wrong header value", path: "/user", headers: map[string]string{"X-A": "wrong", "X-B": "t4"}},
+		{name: "prefix boundary", path: "/users", headers: map[string]string{"X-A": "t1", "X-B": "t4"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := stdHttp.NewRequest("GET", tc.path, nil)
+			assert.NoError(t, err)
+			for name, value := range tc.headers {
+				req.Header.Set(name, value)
+			}
+
+			act, err := rm.Route(&http.HttpContext{Request: req})
+			if tc.want == "" {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			if assert.NotNil(t, act) {
+				assert.Equal(t, tc.want, act.Cluster)
+			}
+		})
+	}
+	mustRouteByPathAndNameCluster(t, rm, "GET", "/user/42", "user-v1")
+}
+
+func TestRoutePrefixAndHeadersFallsBackToPathRoute(t *testing.T) {
+	headerRoute := &model.Router{
+		ID: "header-prefix",
+		Match: model.RouterMatch{
+			Methods: []string{"GET"},
+			Prefix:  "/user",
+			Headers: []model.HeaderMatcher{{Name: "X-Env", Values: []string{"canary"}}},
+		},
+		Route: model.RouteAction{Cluster: "canary"},
+	}
+	defaultRoute := &model.Router{
+		ID: "default-prefix",
+		Match: model.RouterMatch{
+			Methods: []string{"GET"},
+			Prefix:  "/user",
+		},
+		Route: model.RouteAction{Cluster: "default"},
+	}
+	rm := CreateRouterCoordinator(&model.RouteConfiguration{Routes: []*model.Router{headerRoute, defaultRoute}})
+
+	req, err := stdHttp.NewRequest("GET", "/user/42", nil)
+	assert.NoError(t, err)
+	act, err := rm.Route(&http.HttpContext{Request: req})
+	assert.NoError(t, err)
+	if assert.NotNil(t, act) {
+		assert.Equal(t, "default", act.Cluster)
+	}
+
+	req, err = stdHttp.NewRequest("GET", "/user/42", nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-Env", "canary")
+	act, err = rm.Route(&http.HttpContext{Request: req})
+	assert.NoError(t, err)
+	if assert.NotNil(t, act) {
+		assert.Equal(t, "canary", act.Cluster)
+	}
+}
+
 func TestRoute(t *testing.T) {
 	const (
 		Cluster1 = "test-cluster-1"
