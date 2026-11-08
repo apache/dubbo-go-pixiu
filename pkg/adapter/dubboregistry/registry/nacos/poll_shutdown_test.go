@@ -20,12 +20,15 @@ package nacos
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 import (
@@ -93,9 +96,51 @@ func TestClosedListenersDoNotStartPolling(t *testing.T) {
 	}
 }
 
-func TestNacosPollDelayCanExpireOrBeCanceled(t *testing.T) {
-	assert.True(t, waitForNacosPoll(make(chan struct{}), 0), "an elapsed delay must allow the next discovery poll")
-	exit := make(chan struct{})
-	close(exit)
-	assert.False(t, waitForNacosPoll(exit, time.Hour), "closing must interrupt a long retry delay")
+// A temporary discovery failure must resume polling after backoff, and the
+// listener must remain stoppable after recovery. Use lifecycle entry points so
+// the test also applies when the internal polling implementation changes.
+type recoveringNamingClient struct {
+	*mockNamingClient
+	calls     atomic.Int32
+	recovered chan struct{}
+}
+
+func (c *recoveringNamingClient) GetAllServicesInfo(vo.GetAllServiceInfoParam) (nacosModel.ServiceList, error) {
+	switch c.calls.Add(1) {
+	case 1:
+		return nacosModel.ServiceList{}, errors.New("temporary Nacos outage")
+	case 2:
+		close(c.recovered)
+	}
+	return nacosModel.ServiceList{}, nil
+}
+
+func TestListenersResumePollingAfterTemporaryFailure(t *testing.T) {
+	factories := map[string]func(naming_client.INamingClient) registry.Listener{
+		"interface": func(c naming_client.INamingClient) registry.Listener {
+			return newNacosIntfListener(c, nil, &model.Registry{}, nil)
+		},
+		"application": func(c naming_client.INamingClient) registry.Listener {
+			return newNacosAppListener(c, nil, &model.Registry{}, nil)
+		},
+	}
+	for name, newListener := range factories {
+		t.Run(name, func(t *testing.T) {
+			client := &recoveringNamingClient{mockNamingClient: &mockNamingClient{}, recovered: make(chan struct{})}
+			listener := newListener(client)
+			listener.WatchAndHandle()
+			select {
+			case <-client.recovered:
+			case <-time.After(10 * time.Second):
+				t.Fatal("listener did not resume discovery after a temporary failure")
+			}
+			done := make(chan struct{})
+			go func() { listener.Close(); close(done) }()
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("listener did not stop after recovery")
+			}
+		})
+	}
 }
