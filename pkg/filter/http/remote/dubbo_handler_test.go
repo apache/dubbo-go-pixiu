@@ -19,6 +19,8 @@ package remote
 
 import (
 	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -633,7 +635,7 @@ func TestBuildOutboundCarriesGenericMode(t *testing.T) {
 			DubboBackendConfig: config.DubboBackendConfig{
 				Interface: "com.demo.UserService",
 				Method:    "SayHello",
-				Generic:   generic,
+				Generic:   config.GenericMode(generic),
 			},
 			MappingParams: []config.MappingParam{
 				{Name: "requestBody.values", MapTo: "opt.values"},
@@ -646,7 +648,7 @@ func TestBuildOutboundCarriesGenericMode(t *testing.T) {
 		req, err := http.NewRequest(
 			http.MethodPost,
 			"http://example.com/users/42",
-			bytes.NewBufferString(`{"values":["tc"]}`),
+			bytes.NewBufferString(`{"values":{"name":"tc"}}`),
 		)
 		require.NoError(t, err)
 		return req
@@ -716,6 +718,27 @@ func TestBuildOutboundJSONTextGenericMode(t *testing.T) {
 		assert.Equal(t, []any{`{"name":"test"}`}, outbound.Arguments)
 	})
 
+	t.Run("integer above the float64 range keeps every digit", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":{"id":9007199254740993}}`), api)
+		require.NoError(t, err)
+		assert.Equal(t, []any{`{"id":9007199254740993}`}, outbound.Arguments)
+	})
+
+	t.Run("plain text value is rejected", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":"hello"}`), api)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is not valid JSON text")
+		assert.Nil(t, outbound)
+	})
+
 	t.Run("positional mapping keeps the mapped value", func(t *testing.T) {
 		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
 			{Name: "requestBody." + cst.DefaultBodyAll, MapTo: "0", MapType: "com.demo.HelloRequest"},
@@ -746,5 +769,56 @@ func TestBuildOutboundJSONTextGenericMode(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "exactly one parameter type")
 		assert.Nil(t, outbound)
+	})
+}
+
+func TestReadRequestBody(t *testing.T) {
+	handler := &DubboHandler{}
+
+	newRequest := func(t *testing.T, body string) *http.Request {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(body))
+		require.NoError(t, err)
+		return req
+	}
+
+	t.Run("JSON text mode keeps integers exact", func(t *testing.T) {
+		decoded, err := handler.readRequestBody(newRequest(t, `{"id":9007199254740993}`), cst.GenericModeProtobufJSON)
+		require.NoError(t, err)
+		assert.Equal(t, json.Number("9007199254740993"), decoded["id"])
+	})
+
+	t.Run("map mode decodes numbers as float64", func(t *testing.T) {
+		decoded, err := handler.readRequestBody(newRequest(t, `{"id":1}`), cst.GenericModeMap)
+		require.NoError(t, err)
+		assert.IsType(t, float64(0), decoded["id"])
+	})
+
+	t.Run("body stays readable", func(t *testing.T) {
+		req := newRequest(t, `{"name":"test"}`)
+		_, err := handler.readRequestBody(req, cst.GenericModeMap)
+		require.NoError(t, err)
+
+		raw, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"name":"test"}`, string(raw))
+	})
+
+	t.Run("empty body decodes to an empty object", func(t *testing.T) {
+		decoded, err := handler.readRequestBody(newRequest(t, " "), cst.GenericModeProtobufJSON)
+		require.NoError(t, err)
+		assert.Empty(t, decoded)
+	})
+
+	t.Run("a second document is rejected", func(t *testing.T) {
+		_, err := handler.readRequestBody(newRequest(t, `{"a":1} {"b":2}`), cst.GenericModeProtobufJSON)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "single JSON object")
+	})
+
+	t.Run("trailing content is rejected", func(t *testing.T) {
+		_, err := handler.readRequestBody(newRequest(t, `{"a":1} x`), cst.GenericModeProtobufJSON)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid character")
 	})
 }

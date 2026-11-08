@@ -132,6 +132,7 @@ Supported `mapTo` options:
 
 ```yaml
 - "true"        # default, map mode: values are sent as typed arguments and the result is a map
+- map           # alias of "true"; unquoted `generic: true` is accepted as well
 - gson          # the request is sent as JSON text and the result is JSON text
 - protobuf-json # the request is sent as protobuf JSON text and the result is protobuf JSON text
 - bean          # Java bean compatible mode
@@ -157,6 +158,8 @@ integrationRequest:
 ```
 
 A request body of `{"values":{"name":"test"}}` is sent as the single generic argument `{"name":"test"}`, and the JSON text the provider returns is written as the response body instead of a quoted string.
+
+In these two modes a mapped value of type string is taken as an already serialized JSON document and must be valid JSON text; a plain string such as a query parameter is rejected. Object values are serialized, and integers keep every digit because the request body is decoded with `json.Number`. `mapType` only names the request message in a positional mapping and takes no part in scalar conversion here.
 
 Provider requirements: over Triple the provider has to declare `serialization: hessian2` and expose the generic `$invoke` entry point. dubbo-go registers it for non-IDL services by default, and for IDL exported services since [apache/dubbo-go#3752](https://github.com/apache/dubbo-go/pull/3752).
 

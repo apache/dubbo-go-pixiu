@@ -95,26 +95,18 @@ func (h *DubboHandler) BuildOutbound(req *http.Request, api router.API) (*client
 }
 
 func (h *DubboHandler) newState(req *http.Request, api router.API) (*outboundBuildState, error) {
-	body := map[string]any{}
-	if req != nil && req.Body != nil {
-		rawBody, err := io.ReadAll(req.Body)
-		if err != nil {
-			return nil, err
-		}
-		// Put the body back because this handler only inspects it while building outbound args.
-		req.Body = io.NopCloser(bytes.NewReader(rawBody))
-		if len(bytes.TrimSpace(rawBody)) > 0 {
-			if err := json.Unmarshal(rawBody, &body); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	ir := api.IntegrationRequest
-	generic, err := clientdubbo.NormalizeGenericMode(ir.Generic)
+	generic, err := clientdubbo.NormalizeGenericMode(string(ir.Generic))
 	if err != nil {
 		return nil, err
 	}
+
+	// The mode decides how numbers are decoded, so it is resolved before the body.
+	body, err := h.readRequestBody(req, generic)
+	if err != nil {
+		return nil, err
+	}
+
 	return &outboundBuildState{
 		service:       ir.Interface,
 		method:        ir.Method,
@@ -125,6 +117,41 @@ func (h *DubboHandler) newState(req *http.Request, api router.API) (*outboundBui
 		generic:       generic,
 		body:          body,
 	}, nil
+}
+
+// readRequestBody decodes the request body and puts it back because this handler
+// only inspects it while building outbound arguments. JSON text modes keep
+// numbers as json.Number so that re-encoding the argument text stays exact for
+// integers above the float64 range.
+func (h *DubboHandler) readRequestBody(req *http.Request, generic string) (map[string]any, error) {
+	body := map[string]any{}
+	if req == nil || req.Body == nil {
+		return body, nil
+	}
+
+	rawBody, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	req.Body = io.NopCloser(bytes.NewReader(rawBody))
+	if len(bytes.TrimSpace(rawBody)) == 0 {
+		return body, nil
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(rawBody))
+	if clientdubbo.IsJSONTextGenericMode(generic) {
+		decoder.UseNumber()
+	}
+	if err := decoder.Decode(&body); err != nil {
+		return nil, err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			err = errors.New("request body must contain a single JSON object")
+		}
+		return nil, err
+	}
+	return body, nil
 }
 
 func (h *DubboHandler) resolveDeclaredProtocol(ir config.IntegrationRequest) string {
@@ -153,12 +180,11 @@ func (h *DubboHandler) applyMapping(state *outboundBuildState, req *http.Request
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 
-	// JSON text modes carry the request as text, so the declared type of a
-	// positional mapping describes the message instead of a scalar to convert.
-	var converted any
-	if clientdubbo.IsJSONTextGenericMode(state.generic) {
-		converted = value
-	} else {
+	// JSON text modes carry the request message as text, so a positional mapping
+	// declares the type of the message instead of a scalar to convert. mapType
+	// takes no part in scalar conversion in these modes.
+	converted := value
+	if !clientdubbo.IsJSONTextGenericMode(state.generic) {
 		mapped, mapErr := clientdubbo.MapTypes(mp.MapType, value)
 		if mapErr != nil {
 			return mapErr

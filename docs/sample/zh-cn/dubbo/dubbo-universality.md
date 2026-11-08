@@ -129,6 +129,7 @@ true
 
 ```yaml
 - "true"        # 默认，map 泛化：values 作为有类型的参数发送，结果以 map 返回
+- map           # "true" 的别名；不带引号的 `generic: true` 也可以
 - gson          # 请求以 JSON 文本发送，结果以 JSON 文本返回
 - protobuf-json # 请求以 protobuf JSON 文本发送，结果以 protobuf JSON 文本返回
 - bean          # Java bean 兼容方式
@@ -154,6 +155,8 @@ integrationRequest:
 ```
 
 请求体 `{"values":{"name":"test"}}` 会以 `{"name":"test"}` 作为唯一的泛化参数发送，provider 返回的 JSON 文本直接作为响应体写出，不会被包成带引号的字符串。
+
+这两种方式下，字符串类型的映射结果会被当作已经序列化好的 JSON 文档，因此必须是合法 JSON 文本；查询参数这类普通字符串会被拒绝。对象值会被序列化，并且请求体按 `json.Number` 解码，大整数不会丢位。`mapType` 在位置映射里只声明请求消息类型，不参与标量转换。
 
 provider 侧要求：Triple 场景下 provider 需要声明 `serialization: hessian2`，并提供泛化入口 `$invoke`。dubbo-go 的非 IDL 服务默认提供该入口，IDL 导出的服务在 [apache/dubbo-go#3752](https://github.com/apache/dubbo-go/pull/3752) 之后同样提供。
 

@@ -18,6 +18,7 @@
 package dubbo
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -39,6 +40,8 @@ func TestNormalizeGenericMode(t *testing.T) {
 	}{
 		{desc: "empty selects the map mode", mode: "", want: cst.GenericModeMap},
 		{desc: "map mode", mode: "true", want: cst.GenericModeMap},
+		{desc: "map alias", mode: "map", want: cst.GenericModeMap},
+		{desc: "map alias is trimmed and lowercased", mode: " MAP ", want: cst.GenericModeMap},
 		{desc: "gson mode", mode: "gson", want: cst.GenericModeGson},
 		{desc: "protobuf json mode", mode: "protobuf-json", want: cst.GenericModeProtobufJSON},
 		{desc: "bean mode", mode: "bean", want: cst.GenericModeBean},
@@ -90,7 +93,9 @@ func TestEncodeJSONTextArgument(t *testing.T) {
 	}{
 		{desc: "object becomes JSON text", value: map[string]any{"name": "test"}, want: `{"name":"test"}`},
 		{desc: "text passes through", value: `{"name":"test"}`, want: `{"name":"test"}`},
+		{desc: "JSON string text keeps its quotes", value: `"hello"`, want: `"hello"`},
 		{desc: "scalar becomes JSON text", value: 42, want: "42"},
+		{desc: "json number keeps every digit", value: json.Number("9007199254740993"), want: "9007199254740993"},
 		{desc: "nil becomes JSON null", value: nil, want: "null"},
 	}
 
@@ -103,9 +108,32 @@ func TestEncodeJSONTextArgument(t *testing.T) {
 	}
 }
 
+func TestEncodeJSONTextArgumentRejectsPlainText(t *testing.T) {
+	for _, value := range []string{"hello", `{"name":`} {
+		t.Run(value, func(t *testing.T) {
+			_, err := EncodeJSONTextArgument(value)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "is not valid JSON text")
+		})
+	}
+}
+
 func TestUnwrapJSONTextResult(t *testing.T) {
-	t.Run("JSON text becomes raw bytes", func(t *testing.T) {
+	t.Run("JSON object text becomes raw bytes", func(t *testing.T) {
 		assert.Equal(t, []byte(`{"name":"test"}`), UnwrapJSONTextResult(`{"name":"test"}`))
+	})
+
+	t.Run("JSON array text becomes raw bytes", func(t *testing.T) {
+		assert.Equal(t, []byte(`[1,2]`), UnwrapJSONTextResult(`[1,2]`))
+	})
+
+	t.Run("JSON string result keeps its quotes", func(t *testing.T) {
+		assert.Equal(t, []byte(`"hello"`), UnwrapJSONTextResult(`"hello"`))
+	})
+
+	t.Run("JSON number and null results become raw bytes", func(t *testing.T) {
+		assert.Equal(t, []byte("9007199254740993"), UnwrapJSONTextResult("9007199254740993"))
+		assert.Equal(t, []byte("null"), UnwrapJSONTextResult("null"))
 	})
 
 	t.Run("plain text stays a string", func(t *testing.T) {

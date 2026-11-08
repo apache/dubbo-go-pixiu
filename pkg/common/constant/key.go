@@ -119,8 +119,11 @@ const (
 // Generic invocation modes accepted by integrationRequest.generic.
 const (
 	// GenericModeMap is the default map based mode: values are sent as typed
-	// arguments and the provider returns a map.
+	// arguments and the provider returns a map. dubbo-go spells the mode "true".
 	GenericModeMap = "true"
+	// GenericModeMapAlias is the readable alias of GenericModeMap, so a
+	// configuration can write `generic: map` instead of `generic: "true"`.
+	GenericModeMapAlias = "map"
 	// GenericModeGson sends the request as JSON text and expects JSON text back.
 	GenericModeGson = "gson"
 	// GenericModeProtobufJSON sends the request as protobuf JSON text and

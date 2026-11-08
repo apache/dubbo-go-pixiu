@@ -70,5 +70,22 @@ func TestCreateAPIConfigDefaultsGenericMode(t *testing.T) {
 		nil,
 	)
 
-	assert.Equal(t, constant.GenericModeMap, api.Method.IntegrationRequest.Generic)
+	assert.Equal(t, config.GenericMode(constant.GenericModeMap), api.Method.IntegrationRequest.Generic)
+}
+
+func TestCreateAPIConfigKeepsConfiguredGenericMode(t *testing.T) {
+	api := CreateAPIConfig(
+		"/dubbo.io/org.apache.dubbo.sample.UserProvider",
+		"127.0.0.1:20000",
+		config.DubboBackendConfig{
+			ApplicationName: "dubbo.io",
+			Protocol:        "dubbo",
+			Interface:       "org.apache.dubbo.sample.UserProvider",
+			Generic:         config.GenericMode(constant.GenericModeProtobufJSON),
+		},
+		"GetUser",
+		nil,
+	)
+
+	assert.Equal(t, config.GenericMode(constant.GenericModeProtobufJSON), api.Method.IntegrationRequest.Generic)
 }

@@ -36,6 +36,7 @@ import (
 // request contract without telling the caller.
 var supportedGenericModes = []string{
 	cst.GenericModeMap,
+	cst.GenericModeMapAlias,
 	cst.GenericModeGson,
 	cst.GenericModeProtobufJSON,
 	cst.GenericModeBean,
@@ -43,19 +44,19 @@ var supportedGenericModes = []string{
 
 // NormalizeGenericMode canonicalizes the configured generic invocation mode.
 // An empty value selects the map mode, which is what dubbo-go applies when a
-// reference does not request a specific mode.
+// reference does not request a specific mode. The readable alias "map" resolves
+// to the "true" value understood by dubbo-go.
 func NormalizeGenericMode(mode string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(mode))
-	if normalized == "" {
+	switch normalized {
+	case "", cst.GenericModeMap, cst.GenericModeMapAlias:
 		return cst.GenericModeMap, nil
+	case cst.GenericModeGson, cst.GenericModeProtobufJSON, cst.GenericModeBean:
+		return normalized, nil
+	default:
+		return "", errors.Errorf("generic mode %q is not supported, expected one of %s",
+			mode, strings.Join(supportedGenericModes, ", "))
 	}
-	for _, supported := range supportedGenericModes {
-		if normalized == supported {
-			return normalized, nil
-		}
-	}
-	return "", errors.Errorf("generic mode %q is not supported, expected one of %s",
-		mode, strings.Join(supportedGenericModes, ", "))
 }
 
 // IsJSONTextGenericMode reports whether the mode carries the request as JSON
@@ -72,10 +73,16 @@ func IsJSONTextGenericMode(mode string) bool {
 }
 
 // EncodeJSONTextArgument renders one mapped value as the JSON text that a JSON
-// text mode sends. Values that are already text are passed through so a caller
-// can hand over the exact payload.
+// text mode sends. A string value is taken as an already serialized JSON
+// document and has to be valid JSON text, because the provider parses the text
+// as the request message; a plain string such as a query parameter is rejected
+// here instead of failing inside the provider. Values of any other type are
+// marshaled, which keeps numbers decoded as json.Number exact.
 func EncodeJSONTextArgument(value any) (string, error) {
 	if text, ok := value.(string); ok {
+		if !json.Valid([]byte(text)) {
+			return "", errors.Errorf("generic JSON argument is not valid JSON text: %q", text)
+		}
 		return text, nil
 	}
 	encoded, err := json.Marshal(value)
@@ -86,7 +93,10 @@ func EncodeJSONTextArgument(value any) (string, error) {
 }
 
 // UnwrapJSONTextResult turns the JSON text a JSON text mode returns into raw
-// bytes, so the HTTP layer writes it as a JSON body instead of a quoted string.
+// bytes, so the HTTP layer writes the provider's JSON document verbatim instead
+// of JSON encoding it again as a quoted string. JSON text modes serialize every
+// result as a JSON document, so a string result already carries its quotes
+// (`"hello"`); passing the text through as a string would quote it twice.
 // Values that are not valid JSON text stay untouched.
 func UnwrapJSONTextResult(value any) any {
 	text, ok := value.(string)
