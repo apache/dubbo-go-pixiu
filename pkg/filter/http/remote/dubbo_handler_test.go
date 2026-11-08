@@ -661,7 +661,20 @@ func TestBuildOutboundCarriesGenericMode(t *testing.T) {
 	})
 
 	t.Run("configured mode is passed through", func(t *testing.T) {
-		outbound, err := handler.BuildOutbound(newRequest(t), newGenericAPI(cst.GenericModeGson))
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: cst.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface:      "com.demo.UserService",
+				Method:         "SayHello",
+				Generic:        cst.GenericModeGson,
+				ParameterTypes: []string{"com.demo.HelloRequest"},
+			},
+			MappingParams: []config.MappingParam{
+				{Name: "requestBody.values", MapTo: "opt.values"},
+			},
+		}, "/users/:id")
+
+		outbound, err := handler.BuildOutbound(newRequest(t), api)
 		require.NoError(t, err)
 		assert.Equal(t, cst.GenericModeGson, outbound.Generic)
 	})
@@ -747,6 +760,28 @@ func TestBuildOutboundJSONTextGenericMode(t *testing.T) {
 		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"name":"test"}`), api)
 		require.NoError(t, err)
 		assert.Equal(t, []any{`{"name":"test"}`}, outbound.Arguments)
+	})
+
+	t.Run("positional mapping declares the request message", func(t *testing.T) {
+		api := newJSONTextAPI(nil, []config.MappingParam{
+			{Name: "requestBody." + cst.DefaultBodyAll, MapTo: "0", MapType: "com.demo.HelloRequest"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"name":"test"}`), api)
+		require.NoError(t, err)
+		assert.Equal(t, []any{`{"name":"test"}`}, outbound.Arguments)
+		assert.Equal(t, []string{"com.demo.HelloRequest"}, outbound.ParamTypes)
+	})
+
+	t.Run("missing declared type is rejected", func(t *testing.T) {
+		api := newJSONTextAPI(nil, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":{"name":"test"}}`), api)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "requires parameterTypes to name the request message")
+		assert.Nil(t, outbound)
 	})
 
 	t.Run("more than one argument is rejected", func(t *testing.T) {

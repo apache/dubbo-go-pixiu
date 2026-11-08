@@ -496,8 +496,9 @@ func (h *DubboHandler) coerceDeclaredArguments(state *outboundBuildState) error 
 
 // finalizeJSONTextArguments renders the mapped value as the single JSON text
 // argument that the gson and protobuf-json modes send, and keeps the declared
-// parameter types describing one message. The provider derives the argument
-// type from the method signature, so the declared type is informational here.
+// parameter types describing one message. The type comes from parameterTypes,
+// from opt.types, or from the mapType of a positional mapping; the text itself
+// never supplies it.
 func (h *DubboHandler) finalizeJSONTextArguments(state *outboundBuildState, ir config.IntegrationRequest) error {
 	if len(state.arguments) != 1 {
 		return errors.Errorf("generic mode %s requires exactly one argument, got %d", state.generic, len(state.arguments))
@@ -514,10 +515,15 @@ func (h *DubboHandler) finalizeJSONTextArguments(state *outboundBuildState, ir c
 		state.paramTypes = append([]string(nil), ir.ParameterTypes...)
 	case state.optTypes != nil:
 		state.paramTypes = append([]string(nil), state.optTypes...)
+	case state.hasPositional && len(state.paramTypes) == 1 && strings.TrimSpace(state.paramTypes[0]) != "":
+		state.paramTypes = []string{strings.TrimSpace(state.paramTypes[0])}
 	case strings.TrimSpace(ir.URL) != "":
 		return errors.New("direct generic invoke requires parameterTypes")
 	default:
-		state.paramTypes = clientdubbo.InferJavaClassNames(state.arguments)
+		// The declared type names the request message. A Java provider looks the
+		// method up by that name, and JSON text cannot tell it which one to use:
+		// inferring from the text can only produce java.lang.String.
+		return errors.Errorf("generic mode %s requires parameterTypes to name the request message", state.generic)
 	}
 
 	if len(state.paramTypes) != 1 {

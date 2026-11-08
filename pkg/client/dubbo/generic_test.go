@@ -44,7 +44,7 @@ func TestNormalizeGenericMode(t *testing.T) {
 		{desc: "map alias is trimmed and lowercased", mode: " MAP ", want: cst.GenericModeMap},
 		{desc: "gson mode", mode: "gson", want: cst.GenericModeGson},
 		{desc: "protobuf json mode", mode: "protobuf-json", want: cst.GenericModeProtobufJSON},
-		{desc: "bean mode", mode: "bean", want: cst.GenericModeBean},
+		{desc: "bean mode is rejected", mode: "bean", wantErr: true},
 		{desc: "value is trimmed and lowercased", mode: "  Protobuf-JSON ", want: cst.GenericModeProtobufJSON},
 		{desc: "legacy protobuf is rejected", mode: "protobuf", wantErr: true},
 		{desc: "unknown mode is rejected", mode: "unknown", wantErr: true},
@@ -73,7 +73,7 @@ func TestIsJSONTextGenericMode(t *testing.T) {
 		{desc: "map mode", mode: cst.GenericModeMap, want: false},
 		{desc: "gson mode", mode: cst.GenericModeGson, want: true},
 		{desc: "protobuf json mode", mode: cst.GenericModeProtobufJSON, want: true},
-		{desc: "bean mode", mode: cst.GenericModeBean, want: false},
+		{desc: "bean mode", mode: "bean", want: false},
 		{desc: "empty mode", mode: "", want: false},
 		{desc: "value is trimmed and lowercased", mode: " GSON ", want: true},
 	}

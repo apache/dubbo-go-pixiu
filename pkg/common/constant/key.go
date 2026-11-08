@@ -129,6 +129,4 @@ const (
 	// GenericModeProtobufJSON sends the request as protobuf JSON text and
 	// expects protobuf JSON text back.
 	GenericModeProtobufJSON = "protobuf-json"
-	// GenericModeBean is the Java bean compatible mode.
-	GenericModeBean = "bean"
 )

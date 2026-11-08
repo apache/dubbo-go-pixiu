@@ -33,13 +33,15 @@ import (
 // supportedGenericModes lists the generic invocation modes accepted in
 // integrationRequest.generic. Values outside this set are rejected instead of
 // falling back to the map mode, because a silent fallback would change the
-// request contract without telling the caller.
+// request contract without telling the caller. The bean mode is absent on
+// purpose: dubbo-go converts its arguments from a JavaBeanDescriptor, and
+// Pixiu has no way to build one, so accepting the name would only send the map
+// mode's argument list under a different label.
 var supportedGenericModes = []string{
 	cst.GenericModeMap,
 	cst.GenericModeMapAlias,
 	cst.GenericModeGson,
 	cst.GenericModeProtobufJSON,
-	cst.GenericModeBean,
 }
 
 // NormalizeGenericMode canonicalizes the configured generic invocation mode.
@@ -51,7 +53,7 @@ func NormalizeGenericMode(mode string) (string, error) {
 	switch normalized {
 	case "", cst.GenericModeMap, cst.GenericModeMapAlias:
 		return cst.GenericModeMap, nil
-	case cst.GenericModeGson, cst.GenericModeProtobufJSON, cst.GenericModeBean:
+	case cst.GenericModeGson, cst.GenericModeProtobufJSON:
 		return normalized, nil
 	default:
 		return "", errors.Errorf("generic mode %q is not supported, expected one of %s",

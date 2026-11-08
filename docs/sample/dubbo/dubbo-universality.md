@@ -135,12 +135,11 @@ Supported `mapTo` options:
 - map           # alias of "true"; unquoted `generic: true` is accepted as well
 - gson          # the request is sent as JSON text and the result is JSON text
 - protobuf-json # the request is sent as protobuf JSON text and the result is protobuf JSON text
-- bean          # Java bean compatible mode
 ```
 
 The map mode keeps the `opt.values` and `opt.types` contract above: `values` is the argument list and `types` holds the Java type name of each argument.
 
-The `gson` and `protobuf-json` modes send the whole request message as JSON text, so `values` must contain exactly one element and `parameterTypes` must declare exactly one type, which describes the request message itself:
+The `gson` and `protobuf-json` modes send the whole request message as JSON text, so the mapping must produce exactly one argument and exactly one declared type, which describes the request message itself:
 
 ```yaml
 integrationRequest:
@@ -159,7 +158,9 @@ integrationRequest:
 
 A request body of `{"values":{"name":"test"}}` is sent as the single generic argument `{"name":"test"}`, and the JSON text the provider returns is written as the response body instead of a quoted string.
 
-In these two modes a mapped value of type string is taken as an already serialized JSON document and must be valid JSON text; a plain string such as a query parameter is rejected. Object values are serialized, and integers keep every digit because the request body is decoded with `json.Number`. `mapType` only names the request message in a positional mapping and takes no part in scalar conversion here.
+A mapped value of type string must be valid JSON text and is written through byte for byte, because it is already a serialized document; a plain string such as a query parameter is rejected. A value of any other type is re-encoded with `json.Marshal`, which sorts object keys and compacts whitespace; integers keep every digit because the request body is decoded with `json.Number`.
+
+The declared type names the request message. `parameterTypes` is the usual place, `opt.types` works as well, and in a positional mapping `mapType` supplies it; `mapType` takes no part in scalar conversion here. Without any of the three the request is rejected, because the JSON text does not tell a Java provider which method signature to look up.
 
 Provider requirements: over Triple the provider has to declare `serialization: hessian2` and expose the generic `$invoke` entry point. dubbo-go registers it for non-IDL services by default, and for IDL exported services since [apache/dubbo-go#3752](https://github.com/apache/dubbo-go/pull/3752).
 

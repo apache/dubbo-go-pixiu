@@ -161,7 +161,7 @@ type DubboBackendConfig struct {
 	Serialization   string   `yaml:"serialization" json:"serialization,omitempty"`
 	Retries         string   `yaml:"retries" json:"retries,omitempty"`
 	// Generic selects the generic invocation mode: "true" or "map" (map mode,
-	// default), "gson", "protobuf-json" or "bean".
+	// default), "gson" or "protobuf-json".
 	Generic GenericMode `yaml:"generic" json:"generic,omitempty"`
 }
 
