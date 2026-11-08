@@ -474,12 +474,18 @@ func TestKafkaConsumerFacadeConcurrentSubscribeAndStop(t *testing.T) {
 }
 
 func TestKafkaConsumerFacadeHealthCheckLifecycle(t *testing.T) {
-	for _, blocked := range []bool{false, true} {
-		name := "unhealthy consumer cancels both workers"
-		if blocked {
-			name = "stop cancels in-flight health request"
-		}
-		t.Run(name, func(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		blocked    bool
+		healthy    bool
+		invalidURL bool
+	}{
+		{name: "unhealthy consumer cancels both workers"},
+		{name: "stop cancels in-flight health request", blocked: true},
+		{name: "healthy consumer keeps checking", healthy: true},
+		{name: "invalid health URL cancels both workers", invalidURL: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			ticks := make(chan time.Time, 1)
 			ticker := time.NewTicker(time.Hour)
 			ticker.C = ticks
@@ -489,8 +495,12 @@ func TestKafkaConsumerFacadeHealthCheckLifecycle(t *testing.T) {
 			requestStarted := make(chan struct{}, 5)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requestStarted <- struct{}{}
-				if blocked {
+				if tc.blocked {
 					<-r.Context().Done()
+					return
+				}
+				if tc.healthy {
+					w.WriteHeader(http.StatusOK)
 					return
 				}
 				w.WriteHeader(http.StatusServiceUnavailable)
@@ -500,7 +510,11 @@ func TestKafkaConsumerFacadeHealthCheckLifecycle(t *testing.T) {
 			fake.started = make(chan context.Context, 1)
 			// Cleanup must cancel any request before closing the HTTP server.
 			defer stopTestFacade(t, facade)
-			require.NoError(t, facade.Subscribe(context.Background(), WithTopic("topic"), WithCheckUrl(server.URL)))
+			endpoint := server.URL
+			if tc.invalidURL {
+				endpoint = "://invalid"
+			}
+			require.NoError(t, facade.Subscribe(context.Background(), WithTopic("topic"), WithCheckUrl(endpoint)))
 			var consumeCtx context.Context
 			select {
 			case consumeCtx = <-fake.started:
@@ -508,12 +522,25 @@ func TestKafkaConsumerFacadeHealthCheckLifecycle(t *testing.T) {
 				t.Fatal("Consume did not start")
 			}
 			ticks <- time.Now()
-			select {
-			case <-requestStarted:
-			case <-time.After(3 * time.Second):
-				t.Fatal("health check did not start")
+			if !tc.invalidURL {
+				select {
+				case <-requestStarted:
+				case <-time.After(3 * time.Second):
+					t.Fatal("health check did not start")
+				}
 			}
-			if blocked {
+			if tc.healthy {
+				// A second request proves the first healthy response completed
+				// and the worker continued checking instead of canceling Consume.
+				ticks <- time.Now()
+				select {
+				case <-requestStarted:
+				case <-time.After(3 * time.Second):
+					t.Fatal("healthy consumer was not checked again")
+				}
+				require.NoError(t, consumeCtx.Err())
+			}
+			if tc.blocked || tc.healthy {
 				stopTestFacade(t, facade)
 			}
 			select {
