@@ -34,6 +34,27 @@ A basic Nacos registration request includes the following key information:
 - **`Ip` & `Port`**: The network address where your service instance listens for traffic.
 - **`Metadata`**: A collection of key-value pairs, **which is crucial for configuring all gateway behaviors**.
 
+### Gateway shutdown
+
+Enable graceful shutdown in the gateway bootstrap to release discovery and
+configuration clients on SIGTERM or SIGINT:
+
+```yaml
+static_resources:
+  shutdown_config:
+    timeout: "60s"
+```
+
+The signal handler stops adapter-backed discovery clients and closes the remote
+configuration client before listeners drain. This prevents new configuration
+updates during shutdown. Cleanup runs once, including when another caller also
+requests it. The configured overall timeout remains active; an expired deadline
+can interrupt blocked cleanup.
+
+A missing shutdown configuration defaults to `0s`. A non-positive timeout disables
+this signal handler, so normal OS termination does not invoke these cleanup
+hooks. A forced kill also cannot guarantee cleanup.
+
 ### `metadata` Configuration Fields
 
 All gateway-specific configurations are passed through the `metadata` field of the Nacos instance. Below are all the supported `metadata` keys and their descriptions.

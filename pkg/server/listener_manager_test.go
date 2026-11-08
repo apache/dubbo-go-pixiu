@@ -20,22 +20,65 @@ package server
 import (
 	"errors"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
 	"testing"
 	"time"
 )
 
 import (
+	"github.com/agiledragon/gomonkey/v2"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/shutdown"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+func TestGracefulShutdownRunsCleanupBeforeListenersAndExit(t *testing.T) {
+	var signals chan<- os.Signal
+	events := make(chan string, 3)
+	exited := make(chan struct{})
+	patches := gomonkey.ApplyFunc(signal.Notify, func(c chan<- os.Signal, _ ...os.Signal) { signals = c })
+	defer patches.Reset()
+	patches.ApplyFunc(shutdown.RunHooks, func() { events <- "cleanup" })
+	patches.ApplyFunc(os.Exit, func(int) {
+		events <- "exit"
+		close(exited)
+	})
+	patches.ApplyMethod(&legacyListenerService{}, "ShutDown", func(_ *legacyListenerService, wg any) error {
+		events <- "listener"
+		wg.(*sync.WaitGroup).Done()
+		return nil
+	})
+	lm := &ListenerManager{
+		bootstrap: &model.Bootstrap{StaticResources: model.StaticResources{
+			ShutdownConfig: &model.ShutdownConfig{Timeout: "1h"},
+		}},
+		activeListenerService: map[string]*wrapListenerService{
+			"probe": {ListenerService: &legacyListenerService{}},
+		},
+		shutdownWG: &sync.WaitGroup{},
+	}
+	lm.gracefulShutdownInit()
+	require.NotNil(t, signals)
+	signals <- os.Interrupt
+	select {
+	case <-exited:
+	case <-time.After(3 * time.Second):
+		t.Fatal("signal handler did not finish")
+	}
+	require.Equal(t, "cleanup", <-events)
+	require.Equal(t, "listener", <-events)
+	require.Equal(t, "exit", <-events)
+}
 
 type transactionListenerService struct {
 	listener.BaseListenerService

@@ -174,8 +174,7 @@ func (c *closeCountingConfigClient) Close() {
 
 // TestDefaultConfigLoad_Close verifies the v2 close path is wired through the
 // Load interface: Close must forward to the underlying ConfigClient so the
-// Nacos v2 gRPC connection is released on shutdown. See AlexStocks' [P1]
-// review on PR #982.
+// Nacos v2 gRPC connection is released on shutdown.
 func TestDefaultConfigLoad_Close(t *testing.T) {
 	client := &closeCountingConfigClient{}
 	d := &DefaultConfigLoad{configClient: client}

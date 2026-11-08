@@ -34,6 +34,24 @@ NACOS_TEST_ADDRESS=127.0.0.1:8848 go test ./pkg/remote/nacos -run '^TestNacosV2I
 - **`Ip` & `Port`**: 您的服务实例监听流量的网络地址。
 - **`Metadata`**: 一个键值对集合，**这是配置所有网关行为的关键**。
 
+### 网关关闭
+
+在网关 bootstrap 中配置正数的优雅关闭超时，才能在 SIGTERM 或 SIGINT 时释放
+注册发现和配置中心客户端：
+
+```yaml
+static_resources:
+  shutdown_config:
+    timeout: "60s"
+```
+
+信号处理器会先停止 adapter 的注册发现客户端并关闭远程配置客户端，再排空
+listener，避免关闭期间继续发布配置。清理只执行一次，并发请求也会等待同一轮
+清理完成。配置的整体超时仍然生效，达到截止时间时可中断阻塞的清理。
+
+未配置关闭参数时默认使用 `0s`。非正数超时会禁用该信号处理器，此时正常的
+操作系统信号终止不会调用这些清理 hook；强制杀进程同样无法保证清理完成。
+
 ### `metadata` 配置字段
 
 所有网关的特定配置都通过 Nacos 实例的 `metadata` 字段进行传递。以下是所有支持的 `metadata` 键及其说明。

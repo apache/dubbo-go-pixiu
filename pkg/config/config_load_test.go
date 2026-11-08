@@ -170,7 +170,7 @@ func (c *closeRecorderLoad) Close() { c.closeCount++ }
 
 // TestConfigManager_Close verifies the v2 close path: Close must forward to
 // the underlying remote config loader so the Nacos v2 gRPC connection is
-// released on shutdown. See AlexStocks' [P1] review on PR #982.
+// released on shutdown.
 func TestConfigManager_Close(t *testing.T) {
 	t.Run("forwards to the loader", func(t *testing.T) {
 		recorder := &closeRecorderLoad{}
@@ -179,12 +179,19 @@ func TestConfigManager_Close(t *testing.T) {
 		assert.Equal(t, 0, recorder.closeCount, "loader must not be closed before Close")
 
 		m.Close()
+		m.Close()
+		assert.Nil(t, m.ViewRemoteConfig())
 
 		assert.Equal(t, 1, recorder.closeCount, "Close must forward to the underlying loader")
 	})
 
 	t.Run("no-op when no remote config center", func(t *testing.T) {
 		m := &ConfigManager{load: nil}
+		assert.NotPanics(t, func() { m.Close() })
+		assert.Nil(t, m.ViewRemoteConfig())
+	})
+	t.Run("nil manager", func(t *testing.T) {
+		var m *ConfigManager
 		assert.NotPanics(t, func() { m.Close() })
 	})
 }

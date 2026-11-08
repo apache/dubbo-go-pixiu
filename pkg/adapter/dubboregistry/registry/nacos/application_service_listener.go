@@ -207,9 +207,8 @@ func toNacosInstance(nmis nacosModel.Instance) dr.ServiceInstance {
 
 // group@@serviceName convert to serviceName
 func handleServiceName(serviceName string) string {
-	parts := strings.Split(serviceName, "@@")
-	if len(parts) > 1 {
-		return parts[1]
+	if _, name, ok := strings.Cut(serviceName, "@@"); ok {
+		return name
 	}
-	return ""
+	return serviceName
 }

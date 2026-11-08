@@ -194,6 +194,7 @@ type ConfigManager struct {
 	localConfig  *model.Bootstrap
 	remoteConfig *model.Bootstrap
 	load         configcenter.Load
+	closeOnce    sync.Once
 }
 
 func NewConfigManger() *ConfigManager {
@@ -279,15 +280,13 @@ func (m *ConfigManager) ViewRemoteConfig() *model.Bootstrap {
 }
 
 // Close releases the remote config-center client (e.g. the Nacos v2 gRPC
-// connection). It is intended for the gateway shutdown path and is a no-op
-// when no remote config center is configured. See AlexStocks' [P1] review on
-// PR #982: the migrated v2 clients must be closed to avoid leaking gRPC
-// connections and internal retry goroutines after shutdown.
+// connection and its internal retry goroutines). It is safe to call repeatedly
+// and when no remote config center is configured.
 func (m *ConfigManager) Close() {
 	if m == nil || m.load == nil {
 		return
 	}
-	m.load.Close()
+	m.closeOnce.Do(m.load.Close)
 }
 
 func (m *ConfigManager) check() error {

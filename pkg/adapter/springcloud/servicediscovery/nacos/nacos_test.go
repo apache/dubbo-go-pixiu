@@ -265,8 +265,7 @@ func (m *mockNamingClient) closeCalls() int {
 
 // TestUnsubscribeClosesClient locks in the v2 close path: Unsubscribe must
 // close the naming client in addition to unsubscribing, otherwise the gRPC
-// connection and internal retry goroutines outlive shutdown. See AlexStocks'
-// [P1] review on PR #982.
+// connection and internal retry goroutines outlive shutdown.
 func TestUnsubscribeClosesClient(t *testing.T) {
 	client := newMockNamingClient()
 	listener := &mockServiceEventListener{serviceNames: []string{"service-A"}}
