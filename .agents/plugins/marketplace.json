@@ -1,0 +1,22 @@
+{
+  "name": "dubbo-go-pixiu",
+  "interface": {
+    "displayName": "dubbo-go-pixiu"
+  },
+  "plugins": [
+    {
+      "name": "dubbo-go-pixiu",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/apache/dubbo-go-pixiu.git",
+        "path": "./.agents",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    }
+  ]
+}

@@ -114,11 +114,13 @@ docker run --name pixiu-gateway -p 8888:8888 -d \
 ## Pixiu Admin – Visual Control Plane
 
 Manage traffic, routing via `pixiu-admin`.
-Start instantly with Docker Compose:
+For a single-instance development deployment, start Docker Compose without a key:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
+
+When `DUBBOGO_PIXIU_JWT_SIGN_KEY` is empty, the admin generates a random key in memory for that process. It is never written to a file: restarting the backend invalidates its admin JWTs, and separate replicas cannot verify each other's tokens. For production or multiple replicas, configure the same unique random key of at least 32 bytes in every instance, for example through a secret manager. For Compose, you can put it in a private `.env` file (generate one with `openssl rand -hex 32`); do not commit that file. The former default `dubbo-go-pixiu` and short configured keys are rejected.
 
 👉 Access admin UI at: [http://localhost:8080](http://localhost:8080)
 
@@ -135,9 +137,6 @@ docker-compose up -d
 ## Community & Contribution
 
 We warmly welcome all forms of contributions\! Whether it's submitting an issue, proposing a new feature, or contributing code, your participation is vital to the project.
-
-* **Contribution Workflow:**
-  To submit a Pull Request, please submit it to the [dubbo-go-pixiu/dubbo-go-pixiu](https://github.com/dubbo-go-pixiu/dubbo-go-pixiu/) repository. Your code will undergo automated review and manual verification by project maintainers, and will be automatically synchronized to the Apache official repository upon approval.
 
 * **Join Our Community**:
 

@@ -32,6 +32,11 @@ const (
 	// Retry configuration constants
 	MaxRetryAttempts = 3
 	RetryDelayMs     = 500
+
+	// EmptyListTombstoneThreshold avoids deleting all dynamic publications on a
+	// single transient empty Nacos response while still allowing real full
+	// deletion to converge.
+	EmptyListTombstoneThreshold = 3
 )
 
 // McpController is the MCP server's configuration synchronizer in Nacos.
@@ -43,7 +48,8 @@ type McpController struct {
 	mu       sync.RWMutex
 
 	// Track the last known server count to detect suspicious empty lists
-	lastKnownServerCount int
+	lastKnownServerCount  int
+	consecutiveEmptyLists int
 }
 
 // NewMcpController creates a new MCP controller
@@ -103,20 +109,26 @@ func (c *McpController) reconcile() error {
 		break
 	}
 
-	// Empty list protection: if we previously had servers but now suddenly have none, skip cleanup
-	if len(servers) == 0 && c.lastKnownServerCount > 0 {
-		logger.Warnf("Detected empty server list, but previously had %d servers. Skipping cleanup to avoid false positives.",
-			c.lastKnownServerCount)
-		return nil
-	}
-
-	// Update known server count
+	c.mu.Lock()
 	if len(servers) > 0 {
 		c.lastKnownServerCount = len(servers)
+		c.consecutiveEmptyLists = 0
 	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if len(servers) == 0 && len(c.watched) > 0 {
+		c.consecutiveEmptyLists++
+		if c.consecutiveEmptyLists < EmptyListTombstoneThreshold {
+			emptyCount := c.consecutiveEmptyLists
+			watchedCount := len(c.watched)
+			c.mu.Unlock()
+			logger.Warnf("Detected empty server list %d/%d, but currently watching %d server(s). Deferring cleanup to avoid false positives.",
+				emptyCount, EmptyListTombstoneThreshold, watchedCount)
+			return nil
+		}
+		emptyCount := c.consecutiveEmptyLists
+		watchedCount := len(c.watched)
+		logger.Warnf("Detected empty server list %d/%d; treating as full deletion for %d watched server(s).",
+			emptyCount, EmptyListTombstoneThreshold, watchedCount)
+	}
 
 	// Determine services to watch
 	currentWatched := make(map[string]bool)
@@ -138,6 +150,7 @@ func (c *McpController) reconcile() error {
 	}
 
 	// Cancel watchers for servers that no longer exist
+	removedServers := make([]string, 0)
 	for serverId := range c.watched {
 		if !currentWatched[serverId] {
 			logger.Infof("Stopping watch for MCP server: %s", serverId)
@@ -148,7 +161,13 @@ func (c *McpController) reconcile() error {
 			}
 
 			delete(c.watched, serverId)
+			removedServers = append(removedServers, serverId)
 		}
+	}
+	c.mu.Unlock()
+
+	for _, serverId := range removedServers {
+		c.publishTombstone(serverId)
 	}
 
 	return nil
@@ -168,18 +187,32 @@ func (c *McpController) wrapListener(serverId string) McpServerListener {
 // Close closes the controller
 func (c *McpController) Close() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	serverIDs := make([]string, 0, len(c.watched))
+	for serverId := range c.watched {
+		serverIDs = append(serverIDs, serverId)
+	}
+	c.watched = make(map[string]bool)
+	c.consecutiveEmptyLists = 0
+	c.lastKnownServerCount = 0
+	c.mu.Unlock()
 
 	// Cancel all watchers
-	for serverId := range c.watched {
+	for _, serverId := range serverIDs {
 		err := c.client.CancelListenToServer(serverId)
 		if err != nil {
 			logger.Errorf("Failed to cancel listen for server %s: %v", serverId, err)
 		}
 	}
 
-	// Clear the watch list
-	c.watched = make(map[string]bool)
+	for _, serverId := range serverIDs {
+		c.publishTombstone(serverId)
+	}
 
 	return nil
+}
+
+func (c *McpController) publishTombstone(serverId string) {
+	if c.onChange != nil {
+		c.onChange(serverId, nil)
+	}
 }

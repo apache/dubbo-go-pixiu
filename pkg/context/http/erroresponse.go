@@ -61,6 +61,9 @@ var (
 	// 429 - Rate Limited
 	RateLimited = newErrorBuilder(http.StatusTooManyRequests, "Rate limited")
 
+	// 413 - Payload Too Large
+	PayloadTooLarge = newErrorBuilder(http.StatusRequestEntityTooLarge, "Payload too large")
+
 	// 500 - Internal Server Error
 	InternalError      = newErrorBuilder(http.StatusInternalServerError, "Internal server error")
 	ConfigurationError = newErrorBuilder(http.StatusInternalServerError, "Configuration error")

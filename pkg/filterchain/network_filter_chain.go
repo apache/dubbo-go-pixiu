@@ -104,7 +104,7 @@ func (fc *NetworkFilterChain) OnStreamRPC(stream model.RPCStream, info *model.RP
 func (fc *NetworkFilterChain) Close() error {
 	var firstErr error
 	for _, f := range fc.filtersArray {
-		if err := f.Close(); err != nil {
+		if err := closeNetworkFilter(f); err != nil {
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -114,33 +114,87 @@ func (fc *NetworkFilterChain) Close() error {
 	return firstErr
 }
 
-// CreateNetworkFilterChain create network filter chain
+func closeNetworkFilter(networkFilter filter.NetworkFilter) (err error) {
+	if networkFilter == nil {
+		return nil
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errors.Errorf("close network filter panicked: %v", recovered)
+		}
+	}()
+	return networkFilter.Close()
+}
+
+// CreateNetworkFilterChain preserves the original best-effort public API used
+// by out-of-tree listeners. xDS callers must use BuildNetworkFilterChain so a
+// broken filter rejects the complete resource instead of being skipped.
 func CreateNetworkFilterChain(config model.FilterChain) *NetworkFilterChain {
 	var filters []filter.NetworkFilter
-
 	for _, f := range config.Filters {
 		p, err := filter.GetNetworkFilterPlugin(f.Name)
 		if err != nil {
-			logger.Error("CreateNetworkFilterChain %s getNetworkFilterPlugin error %s", f.Name, err)
+			logger.Errorf("CreateNetworkFilterChain %s getNetworkFilterPlugin error %s", f.Name, err)
 			continue
 		}
-
-		config := p.Config()
-		if err := yaml.ParseConfig(config, f.Config); err != nil {
-			logger.Error("CreateNetworkFilterChain %s parse config error %s", f.Name, err)
+		filterConfig := p.Config()
+		if err := yaml.ParseConfig(filterConfig, f.Config); err != nil {
+			logger.Errorf("CreateNetworkFilterChain %s parse config error %s", f.Name, err)
 			continue
 		}
-
-		filter, err := p.CreateFilter(config)
+		networkFilter, err := p.CreateFilter(filterConfig)
 		if err != nil {
-			logger.Error("CreateNetworkFilterChain %s createFilter error %s", f.Name, err)
+			logger.Errorf("CreateNetworkFilterChain %s createFilter error %s", f.Name, err)
 			continue
 		}
-		filters = append(filters, filter)
+		filters = append(filters, networkFilter)
+	}
+	return &NetworkFilterChain{filtersArray: filters, config: config}
+}
+
+// BuildNetworkFilterChain creates a complete network filter chain. A caller
+// must not publish the chain unless every configured filter was constructed;
+// silently omitting a broken filter changes the listener's security and
+// routing semantics.
+func BuildNetworkFilterChain(config model.FilterChain) (_ *NetworkFilterChain, err error) {
+	var filters []filter.NetworkFilter
+	defer func() {
+		if err == nil {
+			return
+		}
+		for _, networkFilter := range filters {
+			if closeErr := closeNetworkFilter(networkFilter); closeErr != nil {
+				logger.Warnf("Failed to close rejected filter: %v", closeErr)
+			}
+		}
+	}()
+
+	for index, f := range config.Filters {
+		if f.Name == "" {
+			return nil, errors.Errorf("network filter %d has an empty name", index)
+		}
+		p, err := filter.GetNetworkFilterPlugin(f.Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get network filter plugin %q", f.Name)
+		}
+
+		filterConfig := p.Config()
+		if err := yaml.ParseConfig(filterConfig, f.Config); err != nil {
+			return nil, errors.Wrapf(err, "parse network filter %q config", f.Name)
+		}
+
+		networkFilter, err := p.CreateFilter(filterConfig)
+		if err != nil {
+			return nil, errors.Wrapf(err, "create network filter %q", f.Name)
+		}
+		if networkFilter == nil {
+			return nil, errors.Errorf("network filter plugin %q returned nil", f.Name)
+		}
+		filters = append(filters, networkFilter)
 	}
 
 	return &NetworkFilterChain{
 		filtersArray: filters,
 		config:       config,
-	}
+	}, nil
 }

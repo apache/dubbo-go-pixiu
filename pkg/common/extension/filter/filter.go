@@ -191,7 +191,7 @@ func (enf *EmptyNetworkFilter) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Re
 }
 
 func (enf *EmptyNetworkFilter) Close() error {
-	panic("Close is not implemented")
+	return nil
 }
 
 // Register registers filter plugin.

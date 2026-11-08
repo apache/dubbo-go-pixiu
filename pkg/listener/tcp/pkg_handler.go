@@ -21,6 +21,10 @@ import (
 	"github.com/apache/dubbo-getty"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/filterchain"
+)
+
 type PackageHandler struct {
 	ls *TcpListenerService
 }
@@ -30,9 +34,22 @@ func NewPackageHandler(ls *TcpListenerService) *PackageHandler {
 }
 
 func (h *PackageHandler) Read(ss getty.Session, data []byte) (any, int, error) {
-	return h.ls.FilterChain.OnDecode(data)
+	var result any
+	var length int
+	err := h.ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		var decodeErr error
+		result, length, decodeErr = fc.OnDecode(data)
+		return decodeErr
+	})
+	return result, length, err
 }
 
 func (h *PackageHandler) Write(ss getty.Session, p any) ([]byte, error) {
-	return h.ls.FilterChain.OnEncode(p)
+	var result []byte
+	err := h.ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		var encodeErr error
+		result, encodeErr = fc.OnEncode(p)
+		return encodeErr
+	})
+	return result, err
 }

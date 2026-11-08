@@ -38,6 +38,7 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
@@ -121,6 +122,12 @@ type Validator struct {
 	mu        sync.RWMutex
 	ctx       context.Context
 	cancel    context.CancelFunc
+}
+
+// ValidationResult is the project-owned output of token validation. Callers
+// outside this package must not depend on the concrete JWT implementation.
+type ValidationResult struct {
+	Claims map[string]any
 }
 
 // providerInfo contains the provider configuration and its JWKS loader
@@ -267,8 +274,8 @@ func (v *Validator) buildLoaderFromJWKS(jwks string) (JWKSLoader, error) {
 	}
 }
 
-// Validate validates a JWT token using the specified provider
-func (v *Validator) Validate(providerName, tokenString string) (jwt.Token, error) {
+// Validate validates a JWT token using the specified provider.
+func (v *Validator) Validate(providerName, tokenString string) (*ValidationResult, error) {
 	v.mu.RLock()
 	provider, exists := v.providers[providerName]
 	v.mu.RUnlock()
@@ -322,7 +329,22 @@ func (v *Validator) Validate(providerName, tokenString string) (jwt.Token, error
 		return nil, ValidationError{Code: code, Message: msg, Err: err}
 	}
 
-	return token, nil
+	return &ValidationResult{Claims: tokenClaims(token)}, nil
+}
+
+func tokenClaims(tok jwt.Token) map[string]any {
+	if tok == nil {
+		return nil
+	}
+	keys := tok.Keys()
+	claims := make(map[string]any, len(keys))
+	for _, k := range keys {
+		var value any
+		if err := tok.Get(k, &value); err == nil {
+			claims[k] = copyutil.CloneJSONLike(value)
+		}
+	}
+	return claims
 }
 
 // Provider returns the provider configuration by name

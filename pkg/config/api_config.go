@@ -324,37 +324,44 @@ func initBaseInfoFromString(conf *APIConfig, str string) error {
 
 func initAPIConfigMethodFromKvList(config *APIConfig, kList, vList []string) error {
 	for i := range kList {
+		resourceID, methodID, err := methodIDsFromConfigKey(kList[i])
+		if err != nil {
+			return err
+		}
 		v := vList[i]
 		method := &Method{}
-		err := yaml.UnmarshalYML([]byte(v), method)
+		err = yaml.UnmarshalYML([]byte(v), method)
 		if err != nil {
 			logger.Errorf("unmarshalYmlConfig error %s", err)
 			return err
 		}
+		method.ID = methodID
 
 		found := false
-		for r, resource := range config.Resources {
-			if method.ResourcePath != resource.Path {
+		for r := range config.Resources {
+			resource := &config.Resources[r]
+			if resource.ID != resourceID {
 				continue
 			}
 
+			updated := false
 			for j, old := range resource.Methods {
-				if old.HTTPVerb == method.HTTPVerb {
-					// modify one method
+				if old.ID == method.ID || old.HTTPVerb == method.HTTPVerb {
 					resource.Methods[j] = *method
-					found = true
+					updated = true
+					break
 				}
 			}
-			if !found {
+			if !updated {
 				resource.Methods = append(resource.Methods, *method)
-				config.Resources[r] = resource
-				found = true
 			}
+			found = true
+			break
 		}
 
 		// not found one resource, so need add empty resource first
 		if !found {
-			resource := &Resource{}
+			resource := &Resource{ID: resourceID}
 			resource.Methods = append(resource.Methods, *method)
 			resource.Path = method.ResourcePath
 			config.Resources = append(config.Resources, *resource)
@@ -365,13 +372,18 @@ func initAPIConfigMethodFromKvList(config *APIConfig, kList, vList []string) err
 
 func initAPIConfigServiceFromKvList(config *APIConfig, kList, vList []string) error {
 	for i := range kList {
+		resourceID, err := resourceIDFromConfigKey(kList[i])
+		if err != nil {
+			return err
+		}
 		v := vList[i]
 		resource := &Resource{}
-		err := yaml.UnmarshalYML([]byte(v), resource)
+		err = yaml.UnmarshalYML([]byte(v), resource)
 		if err != nil {
 			logger.Errorf("unmarshalYmlConfig error %s", err)
 			return err
 		}
+		resource.ID = resourceID
 
 		found := false
 		if config.Resources == nil {
@@ -379,7 +391,7 @@ func initAPIConfigServiceFromKvList(config *APIConfig, kList, vList []string) er
 		}
 
 		for i, old := range config.Resources {
-			if old.Path != resource.Path {
+			if old.ID != resource.ID {
 				continue
 			}
 			// replace old with new one except method list
@@ -464,22 +476,9 @@ func handleDeleteEvent(key, _ []byte) {
 
 	re = getExtractMethodRegexp()
 	if m := re.Match(key); m {
-		pathArray := strings.Split(keyStr, "/")
-		if len(pathArray) < 3 {
-			logger.Errorf("handleDeleteEvent key format error")
-			return
-		}
-		resourceIdStr := pathArray[len(pathArray)-3]
-		resourceId, err := strconv.Atoi(resourceIdStr)
+		resourceId, methodId, err := methodIDsFromConfigKey(keyStr)
 		if err != nil {
-			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
-			return
-		}
-
-		methodIdStr := pathArray[len(pathArray)-1]
-		methodId, err := strconv.Atoi(methodIdStr)
-		if err != nil {
-			logger.Errorf("handleDeleteEvent ID is not int error %s", err)
+			logger.Errorf("handleDeleteEvent invalid method key: %s", err)
 			return
 		}
 		deleteApiConfigMethod(resourceId, methodId)
@@ -492,25 +491,37 @@ func handlePutEvent(key, val []byte) {
 
 	re := getCheckResourceRegexp()
 	if m := re.Match(key); m {
+		resourceID, err := resourceIDFromConfigKey(string(key))
+		if err != nil {
+			logger.Errorf("handlePutEvent invalid resource key: %s", err)
+			return
+		}
 		res := &Resource{}
-		err := yaml.UnmarshalYML(val, res)
+		err = yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
 			return
 		}
+		res.ID = resourceID
 		mergeApiConfigResource(*res)
 		return
 	}
 
 	re = getExtractMethodRegexp()
 	if m := re.Match(key); m {
+		resourceID, methodID, err := methodIDsFromConfigKey(string(key))
+		if err != nil {
+			logger.Errorf("handlePutEvent invalid method key: %s", err)
+			return
+		}
 		res := &Method{}
-		err := yaml.UnmarshalYML(val, res)
+		err = yaml.UnmarshalYML(val, res)
 		if err != nil {
 			logger.Errorf("handlePutEvent UnmarshalYML error %s", err)
 			return
 		}
-		mergeApiConfigMethod(res.ResourcePath, *res)
+		res.ID = methodID
+		mergeApiConfigMethod(resourceID, *res)
 		return
 	}
 
@@ -554,7 +565,8 @@ func mergeBaseInfo(val []byte) {
 }
 
 func deleteApiConfigMethod(resourceId, methodId int) {
-	for _, resource := range apiConfig.Resources {
+	for resourceIndex := range apiConfig.Resources {
+		resource := &apiConfig.Resources[resourceIndex]
 		if resource.ID != resourceId {
 			continue
 		}
@@ -564,16 +576,16 @@ func deleteApiConfigMethod(resourceId, methodId int) {
 
 			if method.ID == methodId {
 				resource.Methods = append(resource.Methods[:i], resource.Methods[i+1:]...)
-				listener.MethodDelete(resource, method)
+				listener.MethodDelete(*resource, method)
 				return
 			}
 		}
 	}
 }
 
-func mergeApiConfigMethod(path string, val Method) {
+func mergeApiConfigMethod(resourceID int, val Method) {
 	for i, resource := range apiConfig.Resources {
-		if path != resource.Path {
+		if resourceID != resource.ID {
 			continue
 		}
 
@@ -590,7 +602,34 @@ func mergeApiConfigMethod(path string, val Method) {
 		resource.Methods = append(resource.Methods, val)
 		apiConfig.Resources[i] = resource
 		listener.MethodAdd(resource, val)
+		return
 	}
+}
+
+func resourceIDFromConfigKey(key string) (int, error) {
+	key = strings.TrimSuffix(key, "/")
+	segment := key[strings.LastIndex(key, "/")+1:]
+	id, err := strconv.Atoi(segment)
+	if err != nil {
+		return 0, perrors.Errorf("invalid resource id in key %q: %s", key, err)
+	}
+	return id, nil
+}
+
+func methodIDsFromConfigKey(key string) (int, int, error) {
+	parts := strings.Split(strings.TrimSuffix(key, "/"), "/")
+	if len(parts) < 3 {
+		return 0, 0, perrors.Errorf("invalid method key %q", key)
+	}
+	resourceID, err := strconv.Atoi(parts[len(parts)-3])
+	if err != nil {
+		return 0, 0, perrors.Errorf("invalid resource id in method key %q: %s", key, err)
+	}
+	methodID, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		return 0, 0, perrors.Errorf("invalid method id in key %q: %s", key, err)
+	}
+	return resourceID, methodID, nil
 }
 
 func getCheckBaseInfoRegexp() *regexp.Regexp {

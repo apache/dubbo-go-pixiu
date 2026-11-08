@@ -18,11 +18,14 @@
 package loadbalancer
 
 import (
+	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -49,6 +52,23 @@ type PickContext struct {
 	// Snapshot-aware balancers must treat endpoints as read-only and return
 	// the chosen endpoint without mutating or retaining it.
 	HealthyEndpoints []*model.Endpoint
+	// RoundRobinCursor is the runtime-owned atomic RR cursor. Snapshot-aware
+	// RoundRobin balancers should use this instead of Config.PrePickEndpointIndex.
+	RoundRobinCursor *atomic.Uint32
+	// HealthyByID resolves a healthy snapshot endpoint by ID in O(1) for the
+	// post-pick identity recheck. It is set by the snapshot-published pick path;
+	// when nil (e.g. a hand-built context in a test), the recheck falls back to
+	// scanning HealthyEndpoints. The returned endpoint is snapshot-owned and
+	// must not be mutated or retained.
+	HealthyByID HealthyEndpointByIDForPicker
+}
+
+// HealthyEndpointByIDForPicker is the O(1) healthy-by-ID accessor the request path
+// uses to recheck a balancer's pick without scanning the healthy slice. It is
+// satisfied by *cluster.EndpointSnapshot (HealthyEndpointByIDForPick); declaring
+// it here keeps loadbalancer free of a dependency on the cluster package.
+type HealthyEndpointByIDForPicker interface {
+	HealthyEndpointByIDForPick(endpointID string) *model.Endpoint
 }
 
 type LoadBalancer interface {
@@ -63,18 +83,48 @@ type SnapshotLoadBalancer interface {
 	HandlerWithSnapshot(c PickContext, policy model.LbPolicy) *model.Endpoint
 }
 
-// HealthyOnlySnapshotLoadBalancer marks snapshot-aware balancers that do not
-// need PickContext.AllEndpoints. Unmarked snapshot balancers keep receiving
-// the full snapshot for compatibility with custom implementations.
-type HealthyOnlySnapshotLoadBalancer interface {
-	UseHealthyEndpointsOnly() bool
+// snapshotOptInBalancer is the internal opt-in surface for trusted, in-tree
+// snapshot balancers. The method returns snapshotopt.Token, whose type lives in
+// an internal package, so only balancers under pkg/cluster/loadbalancer can
+// implement this interface. External plugins cannot name the return type and
+// therefore always fall through to the safe default (full snapshot, defensively
+// copied). This is the trust boundary described in issue #941.
+type snapshotOptInBalancer interface {
+	SnapshotOptIn() snapshotopt.Token
 }
 
-// ZeroCopySnapshotLoadBalancer marks trusted balancers that never mutate or
-// retain snapshot endpoints. Other snapshot balancers receive defensive
-// copies.
-type ZeroCopySnapshotLoadBalancer interface {
-	UseZeroCopySnapshot() bool
+// inTreeLoadBalancerPkg is the package prefix that scopes trusted balancers.
+const inTreeLoadBalancerPkg = "github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+
+// snapshotOptIn resolves a balancer's opt-in flags. Balancers that do not opt
+// in (including every external plugin, which cannot construct a Token) get the
+// zero value: no zero-copy, full snapshot.
+//
+// The internal return type already keeps out-of-tree code from declaring
+// SnapshotOptIn directly. The trust check additionally rejects external types
+// that gain the method via embedding an in-tree balancer (method promotion
+// would otherwise let them satisfy snapshotOptInBalancer).
+func snapshotOptIn(balancer LoadBalancer) snapshotopt.Token {
+	optIn, ok := balancer.(snapshotOptInBalancer)
+	if !ok || !isInTreeBalancer(balancer) {
+		return snapshotopt.Token{}
+	}
+	return optIn.SnapshotOptIn()
+}
+
+// isInTreeBalancer reports whether the balancer's concrete type is defined
+// under the in-tree load-balancer package tree. An external plugin that embeds
+// an in-tree balancer keeps its own package path here, so it is rejected.
+func isInTreeBalancer(balancer LoadBalancer) bool {
+	t := reflect.TypeOf(balancer)
+	for t != nil && t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t == nil {
+		return false
+	}
+	pkg := t.PkgPath()
+	return pkg == inTreeLoadBalancerPkg || strings.HasPrefix(pkg, inTreeLoadBalancerPkg+"/")
 }
 
 // LoadBalancerStrategy load balancer strategy mode
@@ -100,10 +150,10 @@ func PickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 }
 
 // NeedsAllEndpoints reports whether a snapshot-aware balancer should receive
-// PickContext.AllEndpoints on the request path.
+// PickContext.AllEndpoints on the request path. Only trusted in-tree balancers
+// can opt out (HealthyOnly); external plugins always receive the full snapshot.
 func NeedsAllEndpoints(balancer LoadBalancer) bool {
-	healthyOnly, ok := balancer.(HealthyOnlySnapshotLoadBalancer)
-	return !ok || !healthyOnly.UseHealthyEndpointsOnly()
+	return !snapshotOptIn(balancer).HealthyOnly
 }
 
 // ConsistentHashForHealthyEndpoints returns a consistent hash view that only
@@ -129,12 +179,11 @@ func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	}
 	if snapshotBalancer, ok := balancer.(SnapshotLoadBalancer); ok {
 		snapshotContext := context
-		zeroCopy, ok := balancer.(ZeroCopySnapshotLoadBalancer)
-		if !ok || !zeroCopy.UseZeroCopySnapshot() {
+		if !snapshotOptIn(balancer).ZeroCopy {
 			snapshotContext = defensiveSnapshotPickContext(context)
 		}
 		endpoint := snapshotBalancer.HandlerWithSnapshot(snapshotContext, policy)
-		return healthyEndpointFromSnapshot(endpoint, context.HealthyEndpoints)
+		return healthyEndpointFromSnapshot(endpoint, context)
 	}
 
 	// Legacy balancers only understand ClusterConfig. Serialize this
@@ -167,39 +216,94 @@ func pickEndpoint(balancer LoadBalancer, context PickContext, policy model.LbPol
 	legacyPickMu.Lock()
 	defer legacyPickMu.Unlock()
 
+	// Build the Config-level consistent hash lazily on the first legacy pick.
+	// prepareClusterConfig no longer rebuilds it eagerly; snapshot balancers
+	// never read it. Safe under legacyPickMu, which serializes this path.
+	//
+	// In-tree this branch is currently unreached: every bundled balancer
+	// implements HandlerWithSnapshot and is dispatched above. The actual win
+	// is dropping the eager rebuild from prepareClusterConfig; EnsureConsistentHash
+	// exists so an out-of-tree balancer that only implements the legacy Handler
+	// still observes a non-nil Config.ConsistentHash.Hash, preserving the old
+	// contract.
+	context.Config.EnsureConsistentHash()
+
 	allEndpoints := context.AllEndpoints
 	if allEndpoints == nil {
 		allEndpoints = context.HealthyEndpoints
 	}
 	config := *context.Config
 	config.Endpoints = model.CloneEndpoints(allEndpoints)
-	cursorBefore := atomic.LoadUint32(&context.Config.PrePickEndpointIndex)
+	var cursorBefore, cursorAfter uint32
+	if context.RoundRobinCursor != nil {
+		cursorBefore = context.RoundRobinCursor.Load()
+	} else {
+		cursorBefore = atomic.LoadUint32(&context.Config.PrePickEndpointIndex)
+	}
 	atomic.StoreUint32(&config.PrePickEndpointIndex, cursorBefore)
 	endpoint := balancer.Handler(&config, policy)
-	cursorAfter := atomic.LoadUint32(&config.PrePickEndpointIndex)
+	cursorAfter = atomic.LoadUint32(&config.PrePickEndpointIndex)
 	if cursorAfter != cursorBefore {
-		atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
+		if context.RoundRobinCursor != nil {
+			context.RoundRobinCursor.Add(cursorAfter - cursorBefore)
+		} else {
+			atomic.AddUint32(&context.Config.PrePickEndpointIndex, cursorAfter-cursorBefore)
+		}
 	}
-	return healthyEndpointFromSnapshot(endpoint, context.HealthyEndpoints)
+	return healthyEndpointFromSnapshot(endpoint, context)
 }
 
 func defensiveSnapshotPickContext(context PickContext) PickContext {
 	defensive := context
 	defensive.AllEndpoints = model.CloneEndpoints(context.AllEndpoints)
 	defensive.HealthyEndpoints = model.CloneEndpoints(context.HealthyEndpoints)
+	defensive.HealthyByID = nil
 	return defensive
 }
 
-func healthyEndpointFromSnapshot(endpoint *model.Endpoint, healthyEndpoints []*model.Endpoint) *model.Endpoint {
+// healthyEndpointFromSnapshot validates that the balancer's pick is still a
+// member of the snapshot's healthy set and returns a defensive clone of the
+// snapshot-owned endpoint (never the balancer's possibly-cloned return).
+//
+// Resolution order:
+//
+//  1. O(1) by-ID recheck: when the pick carries an ID and the context exposes
+//     the snapshot's healthy-by-ID index, resolve the single indexed candidate.
+//     If the indexed candidate is the exact balancer return, keep the zero-copy
+//     pointer fast path; otherwise apply sameEndpointIdentity to it. Every
+//     snapshot endpoint carries a unique non-empty ID, so for an ID-bearing pick
+//     this is exactly the candidate the scan below would have found — without
+//     the O(N) walk.
+//  2. Fallback scan: used when there is no ID index (e.g. a hand-built context)
+//     or the pick has no ID. Keeps the pointer-equality fast path for zero-copy
+//     balancers and the sameEndpointIdentity slow path (including the
+//     empty-ID / placeholder-address rules) unchanged.
+//
+// Returns nil when the pick is not present in the healthy set; the validation
+// is deliberate and must not be skipped by blindly cloning the balancer return.
+func healthyEndpointFromSnapshot(endpoint *model.Endpoint, context PickContext) *model.Endpoint {
 	if endpoint == nil {
 		return nil
 	}
-	for _, candidate := range healthyEndpoints {
+	if endpoint.ID != "" && context.HealthyByID != nil {
+		candidate := context.HealthyByID.HealthyEndpointByIDForPick(endpoint.ID)
+		if candidate == nil {
+			return nil
+		}
+		if candidate == endpoint {
+			return model.CloneEndpoint(candidate)
+		}
+		if sameEndpointIdentity(candidate, endpoint) {
+			return model.CloneEndpoint(candidate)
+		}
+		return nil
+	}
+	for _, candidate := range context.HealthyEndpoints {
 		if candidate == endpoint {
 			return model.CloneEndpoint(candidate)
 		}
 	}
-	for _, candidate := range healthyEndpoints {
+	for _, candidate := range context.HealthyEndpoints {
 		if sameEndpointIdentity(candidate, endpoint) {
 			return model.CloneEndpoint(candidate)
 		}

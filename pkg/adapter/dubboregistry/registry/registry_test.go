@@ -26,6 +26,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
+)
+
 func TestParseDubboStringPreservesSerialization(t *testing.T) {
 	backend, methods, location, err := ParseDubboString("tri://127.0.0.1:20001/org.apache.dubbogo.samples.api.Greeter?application=BDTService&interface=org.apache.dubbogo.samples.api.Greeter&methods=SayHello&serialization=hessian2")
 	require.NoError(t, err)
@@ -34,4 +38,20 @@ func TestParseDubboStringPreservesSerialization(t *testing.T) {
 	assert.Equal(t, "hessian2", backend.Serialization)
 	assert.Equal(t, []string{"SayHello"}, methods)
 	assert.Equal(t, "127.0.0.1:20001", location)
+}
+
+func TestCreateAPIConfigDefaultsGenericSerialization(t *testing.T) {
+	api := CreateAPIConfig(
+		"/dubbo.io/org.apache.dubbo.sample.UserProvider",
+		"127.0.0.1:20000",
+		config.DubboBackendConfig{
+			ApplicationName: "dubbo.io",
+			Protocol:        "dubbo",
+			Interface:       "org.apache.dubbo.sample.UserProvider",
+		},
+		"GetUser",
+		nil,
+	)
+
+	assert.Equal(t, "hessian2", api.Method.IntegrationRequest.Serialization)
 }

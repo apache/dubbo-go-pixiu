@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
@@ -49,21 +50,20 @@ func NewRingHash(config model.ConsistentHash, endpoints []*model.Endpoint) model
 		config.MaxVnodeNum = math.MinInt32
 	}
 
-	h := consistent.NewConsistentHash(ops...)
-	for _, endpoint := range endpoints {
-		h.Add(endpoint.GetHost())
+	// h := consistent.NewConsistentHash(ops...)
+	hosts := make([]string, len(endpoints))
+	for i, endpoint := range endpoints {
+		hosts[i] = endpoint.GetHost()
 	}
+	h := consistent.NewConsistentHash(ops...)
+	h.AddBatch(hosts)
 	return h
 }
 
 type RingHashing struct{}
 
-func (RingHashing) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (RingHashing) UseZeroCopySnapshot() bool {
-	return true
+func (RingHashing) SnapshotOptIn() snapshotopt.Token {
+	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
 }
 
 func (r RingHashing) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {

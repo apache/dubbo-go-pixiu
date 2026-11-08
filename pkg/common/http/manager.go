@@ -52,8 +52,25 @@ type HttpConnectionManager struct {
 	pool              sync.Pool
 }
 
-// CreateHttpConnectionManager create http connection manager
+// CreateHttpConnectionManager preserves the original public constructor.
+// Network-filter plugins use BuildHttpConnectionManager to reject invalid xDS.
 func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpConnectionManager {
+	hcm, err := buildHttpConnectionManager(hcmc, false)
+	if err != nil {
+		logger.Errorf("create HTTP connection manager: %v", err)
+		return nil
+	}
+	return hcm
+}
+
+func BuildHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) (*HttpConnectionManager, error) {
+	return buildHttpConnectionManager(hcmc, true)
+}
+
+func buildHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig, strict bool) (*HttpConnectionManager, error) {
+	if hcmc == nil {
+		return nil, errors.New("HTTP connection manager config is nil")
+	}
 	hcm := &HttpConnectionManager{config: hcmc}
 	hcm.pool.New = func() any {
 		return hcm.allocateContext()
@@ -72,8 +89,14 @@ func CreateHttpConnectionManager(hcmc *model.HttpConnectionManagerConfig) *HttpC
 
 	hcm.routerCoordinator = router2.CreateRouterCoordinator(&hcmc.RouteConfig)
 	hcm.filterManager = filter.NewFilterManager(hcmc.HTTPFilters)
-	hcm.filterManager.Load()
-	return hcm
+	if strict {
+		if err := hcm.filterManager.LoadChecked(); err != nil {
+			return nil, errors.Wrap(err, "load HTTP connection manager filters")
+		}
+	} else {
+		hcm.filterManager.Load()
+	}
+	return hcm, nil
 }
 
 func (hcm *HttpConnectionManager) allocateContext() *pch.HttpContext {
@@ -88,8 +111,15 @@ func (hcm *HttpConnectionManager) Handle(hc *pch.HttpContext) error {
 	if err != nil {
 		return err
 	}
-	hcm.handleHTTPRequest(hc)
-	return nil
+	return hcm.handleHTTPRequest(hc)
+}
+
+// Close releases resources held by the HTTP filter chain.
+func (hcm *HttpConnectionManager) Close() error {
+	if hcm.filterManager == nil {
+		return nil
+	}
+	return hcm.filterManager.Close()
 }
 
 func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp.Request) {
@@ -107,18 +137,25 @@ func (hcm *HttpConnectionManager) ServeHTTP(w stdHttp.ResponseWriter, r *stdHttp
 }
 
 // handleHTTPRequest handle http request
-func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
-	filterChain := hcm.filterManager.CreateFilterChain(c)
-
-	// recover any err when filterChain run
+func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) (resultErr error) {
+	// Recover panics from both filter construction and request processing.
 	defer func() {
 		if err := recover(); err != nil {
 			stack := debug.Stack()
 			logger.Warnf("[dubbo-go-pixiu] panic recovered: %+v\n%s", err, string(stack))
 			errResp := pch.InternalError.WithError(fmt.Errorf("panic recovered: %v", err))
 			c.SendLocalReply(errResp.Status, errResp.ToJSON())
+			resultErr = errResp
 		}
 	}()
+	filterChain, err := hcm.filterManager.CreateFilterChainChecked(c)
+	if err != nil {
+		errResp := pch.InternalError.WithError(err)
+		c.SendLocalReply(errResp.Status, errResp.ToJSON())
+		hcm.writeResponse(c)
+		return err
+	}
+	defer filterChain.Release()
 
 	// todo timeout
 	filterChain.OnDecode(c)
@@ -126,6 +163,7 @@ func (hcm *HttpConnectionManager) handleHTTPRequest(c *pch.HttpContext) {
 	// todo: stream resp has to set HTTP Server's WriteTimeout to 0, need to check it
 	filterChain.OnEncode(c)
 	hcm.writeResponse(c)
+	return nil
 }
 
 func (hcm *HttpConnectionManager) writeResponse(c *pch.HttpContext) {

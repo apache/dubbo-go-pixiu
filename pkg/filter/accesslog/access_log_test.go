@@ -21,6 +21,8 @@ import (
 	"bytes"
 	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -32,9 +34,19 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/client"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	filterapi "github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
+	contexthttp "github.com/apache/dubbo-go-pixiu/pkg/context/http"
 	"github.com/apache/dubbo-go-pixiu/pkg/context/mock"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
+
+var accessLogCostPattern = regexp.MustCompile(`cost time \[ ([0-9]+) \]`)
+
+type stoppingDecodeFilter struct{}
+
+func (stoppingDecodeFilter) Decode(*contexthttp.HttpContext) filterapi.FilterStatus {
+	return filterapi.Stop
+}
 
 func TestAccessLog_Write_to_file(t *testing.T) {
 	msg := "this is test msg"
@@ -76,4 +88,40 @@ func TestApply(t *testing.T) {
 		}
 	}
 	assert.FileExists(t, filePath, nil)
+}
+
+func TestEncodeWithoutDecodeReportsBoundedLatency(t *testing.T) {
+	logData := make(chan AccessLogData, 1)
+	factory := &FilterFactory{
+		conf: &AccessLogConfig{},
+		alw:  &AccessLogWriter{AccessLogDataChan: logData},
+	}
+	chain := filterapi.NewDefaultFilterChain()
+	chain.AppendDecodeFilters(stoppingDecodeFilter{})
+
+	request, err := http.NewRequest(http.MethodGet, "http://www.dubbogopixiu.com/blocked", nil)
+	assert.NoError(t, err)
+	ctx := mock.GetMockHTTPContext(request)
+	ctx.TargetResp = client.NewUnaryResponse([]byte("blocked"))
+
+	assert.NoError(t, factory.PrepareFilterChain(ctx, chain))
+	chain.OnDecode(ctx)
+	chain.OnEncode(ctx)
+
+	var entry AccessLogData
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+	select {
+	case entry = <-logData:
+	case <-timer.C:
+		t.Fatal("timed out waiting for access-log entry")
+	}
+
+	matches := accessLogCostPattern.FindStringSubmatch(entry.AccessLogMsg)
+	if assert.Len(t, matches, 2) {
+		latency, parseErr := strconv.ParseInt(matches[1], 10, 64)
+		if assert.NoError(t, parseErr) {
+			assert.Less(t, time.Duration(latency), time.Minute)
+		}
+	}
 }

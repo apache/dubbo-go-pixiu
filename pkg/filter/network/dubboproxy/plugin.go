@@ -18,6 +18,10 @@
 package dubboproxy
 
 import (
+	"fmt"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/extension/filter"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/util/stringutil"
@@ -45,10 +49,10 @@ func (p *Plugin) Kind() string {
 // CreateFilter create dubbo networkfilter
 func (p *Plugin) CreateFilter(config any) (filter.NetworkFilter, error) {
 	hcmc, ok := config.(*model.DubboProxyConnectionManagerConfig)
-	hcmc.Timeout = stringutil.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	if !ok {
-		panic("CreateFilter occur some exception for the type is not suitable one.")
+		return nil, fmt.Errorf("invalid config type: expected *model.DubboProxyConnectionManagerConfig, got %T", config)
 	}
+	hcmc.Timeout = stringutil.ResolveTimeStr2Time(hcmc.TimeoutStr, constant.DefaultReqTimeout)
 	return CreateDubboProxyConnectionManager(hcmc), nil
 }
 

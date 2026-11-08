@@ -18,6 +18,7 @@
 package http2
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -45,7 +46,7 @@ func init() {
 type (
 	// Http2ListenerService the facade of a listener
 	Http2ListenerService struct {
-		listener.BaseListenerService
+		*listener.BaseListenerService
 		listener        net.Listener
 		server          *http.Server
 		gShutdownConfig *listener.ListenerGracefulShutdownConfig
@@ -53,7 +54,7 @@ type (
 )
 
 type handleWrapper struct {
-	fc              *filterchain.NetworkFilterChain
+	ls              *Http2ListenerService
 	gShutdownConfig *listener.ListenerGracefulShutdownConfig
 }
 
@@ -71,23 +72,28 @@ func (h *h2cWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *handleWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.gShutdownConfig.AddActiveCount(1)
 	defer h.gShutdownConfig.AddActiveCount(-1)
-	if h.gShutdownConfig.RejectRequest {
+	if h.gShutdownConfig.RejectRequests() {
 		http.Error(w, "Pixiu is preparing to close, reject all new requests", http.StatusInternalServerError)
 		return
 	}
-	h.fc.ServeHTTP(w, r)
+	if err := h.ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		fc.ServeHTTP(w, r)
+		return nil
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+	}
 }
 
 func newHttp2ListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
+	fc, err := filterchain.BuildNetworkFilterChain(lc.FilterChain)
+	if err != nil {
+		return nil, err
+	}
 	return &Http2ListenerService{
-		BaseListenerService: listener.BaseListenerService{
-			Config:      lc,
-			FilterChain: fc,
-		},
-		listener:        nil,
-		server:          nil,
-		gShutdownConfig: &listener.ListenerGracefulShutdownConfig{},
+		BaseListenerService: listener.NewBaseListenerService(lc, fc),
+		listener:            nil,
+		server:              nil,
+		gShutdownConfig:     &listener.ListenerGracefulShutdownConfig{},
 	}, nil
 }
 
@@ -104,7 +110,7 @@ func (ls *Http2ListenerService) Start() error {
 	ls.listener = l
 
 	handlerWrapper := &handleWrapper{
-		fc:              ls.FilterChain,
+		ls:              ls,
 		gShutdownConfig: ls.gShutdownConfig,
 	}
 	h2s := &http2.Server{}
@@ -118,9 +124,10 @@ func (ls *Http2ListenerService) Start() error {
 		Handler: h,
 	}
 
+	server := ls.server
 	go func() {
-		if err := ls.server.Serve(ls.listener); err != nil {
-			if err == http.ErrServerClosed {
+		if err := server.Serve(l); err != nil {
+			if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
 				logger.Infof("Listener %s closed", ls.Config.Name)
 				return
 			}
@@ -131,7 +138,26 @@ func (ls *Http2ListenerService) Start() error {
 }
 
 func (ls *Http2ListenerService) Close() error {
-	return ls.server.Close()
+	closeErr := ls.StopAccepting()
+	if filterErr := ls.CloseFilterChain(); closeErr == nil {
+		closeErr = filterErr
+	}
+	return closeErr
+}
+
+// StopAccepting closes the socket while retaining the filter chain for a
+// same-port xDS protocol handoff or rollback.
+func (ls *Http2ListenerService) StopAccepting() error {
+	if ls.listener != nil {
+		_ = ls.listener.Close()
+	}
+	if ls.server == nil {
+		return nil
+	}
+	if err := ls.server.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		return err
+	}
+	return nil
 }
 
 func (ls *Http2ListenerService) ShutDown(wg any) error {
@@ -140,22 +166,15 @@ func (ls *Http2ListenerService) ShutDown(wg any) error {
 		return nil
 	}
 	// stop accept request
-	ls.gShutdownConfig.RejectRequest = true
+	ls.gShutdownConfig.SetRejectRequests(true)
 	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) && ls.gShutdownConfig.ActiveCount > 0 {
+	for time.Now().Before(deadline) && ls.gShutdownConfig.GetActiveCount() > 0 {
 		// sleep 100 ms and check it again
 		time.Sleep(100 * time.Millisecond)
-		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.ActiveCount)
+		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.GetActiveCount())
 	}
 	wg.(*sync.WaitGroup).Done()
 	ls.server.Close()
-	return nil
-}
-
-func (ls *Http2ListenerService) Refresh(c model.Listener) error {
-	// There is no need to lock here for now, as there is at most one NetworkFilter
-	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
-	ls.FilterChain = fc
 	return nil
 }
 

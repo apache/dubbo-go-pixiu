@@ -37,6 +37,7 @@ const (
 	HTTPDubboProxyFilter       = "dgp.filter.http.dubboproxy"
 	HTTPDirectDubboProxyFilter = "dgp.filter.http.directdubboproxy"
 	HTTPApiConfigFilter        = "dgp.filter.http.apiconfig"
+	HTTPOpenAPIFilter          = "dgp.filter.http.openapi"
 	HTTPTimeoutFilter          = "dgp.filter.http.timeout"
 	TracingFilter              = "dgp.filters.tracing"
 	HTTPWasmFilter             = "dgp.filter.http.webassembly"
@@ -79,6 +80,7 @@ const (
 	LogLevelKey      = "log-level"
 	LimitCpusKey     = "limit-cpus"
 	LogFormatKey     = "log-format"
+	ReloadPortKey    = "reload-port"
 )
 
 const (

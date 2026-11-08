@@ -51,9 +51,6 @@ linters:
         text: weak cryptographic primitive
       - linters:
           - staticcheck
-        text: 'SA1019:'
-      - linters:
-          - staticcheck
         text: 'QF1008:'
     paths:
       - test/testdata_etc

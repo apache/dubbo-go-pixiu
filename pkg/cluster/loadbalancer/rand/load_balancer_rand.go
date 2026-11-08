@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
@@ -32,12 +33,8 @@ func init() {
 
 type Rand struct{}
 
-func (Rand) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (Rand) UseZeroCopySnapshot() bool {
-	return true
+func (Rand) SnapshotOptIn() snapshotopt.Token {
+	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
 }
 
 // randIntn lets tests replace randomness with deterministic choices.

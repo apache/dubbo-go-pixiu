@@ -18,6 +18,10 @@
 package filter
 
 import (
+	"sync"
+)
+
+import (
 	"github.com/apache/dubbo-go-pixiu/pkg/context/http"
 )
 
@@ -30,12 +34,34 @@ type FilterChain interface {
 	OnEncode(ctx *http.HttpContext)
 }
 
+// LeasedFilterChain keeps its factories alive until the caller releases it.
+// Call Release after processing the request, including on error paths.
+type LeasedFilterChain interface {
+	FilterChain
+	Release()
+}
+
 type defaultFilterChain struct {
 	decodeFilters      []HttpDecodeFilter
 	decodeFiltersIndex int
 
 	encodeFilters      []HttpEncodeFilter
 	encodeFiltersIndex int
+	release            func()
+	releaseOnce        sync.Once
+}
+
+func (c *defaultFilterChain) setRelease(release func()) {
+	c.release = release
+}
+
+// Release releases resources leased by this request's filter chain.
+func (c *defaultFilterChain) Release() {
+	c.releaseOnce.Do(func() {
+		if c.release != nil {
+			c.release()
+		}
+	})
 }
 
 func NewDefaultFilterChain() FilterChain {

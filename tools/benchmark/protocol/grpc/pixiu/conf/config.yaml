@@ -24,7 +24,7 @@ static_resources:
       address:
         socket_address:
           address: "0.0.0.0"
-          port: 8881
+          port: 8882
       filter_chains:
           filters:
             - name: dgp.filter.httpconnectionmanager

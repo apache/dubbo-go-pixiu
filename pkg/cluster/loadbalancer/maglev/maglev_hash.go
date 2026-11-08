@@ -19,6 +19,7 @@ package maglev
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer"
+	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/internal/snapshotopt"
 	"github.com/apache/dubbo-go-pixiu/pkg/cluster/loadbalancer/ringhash"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -50,12 +51,8 @@ func NewMaglevHash(config model.ConsistentHash, endpoints []*model.Endpoint) mod
 
 type MaglevHash struct{}
 
-func (MaglevHash) UseHealthyEndpointsOnly() bool {
-	return true
-}
-
-func (MaglevHash) UseZeroCopySnapshot() bool {
-	return true
+func (MaglevHash) SnapshotOptIn() snapshotopt.Token {
+	return snapshotopt.Token{ZeroCopy: true, HealthyOnly: true}
 }
 
 func (m MaglevHash) Handler(c *model.ClusterConfig, policy model.LbPolicy) *model.Endpoint {

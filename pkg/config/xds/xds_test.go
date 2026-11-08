@@ -26,9 +26,9 @@ import (
 import (
 	"github.com/agiledragon/gomonkey/v2"
 
-	"github.com/golang/mock/gomock"
-
 	"github.com/stretchr/testify/require"
+
+	"go.uber.org/mock/gomock"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"

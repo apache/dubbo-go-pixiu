@@ -19,6 +19,7 @@ package apiclient
 
 import (
 	"reflect"
+	"sync"
 )
 
 import (
@@ -41,27 +42,59 @@ type (
 	}
 
 	DeltaResources struct {
-		NewResources    []*ProtoAny
-		RemovedResource []string
+		NewResources     []*ProtoAny
+		RemovedResources []string
+
+		applyResult chan error
+		complete    sync.Once
+		versions    map[string]string
 	}
 )
 
 func (p *ProtoAny) GetName() string {
+	if p == nil || p.typeConfig == nil {
+		return ""
+	}
 	return p.typeConfig.Name
 }
 
 func (p *ProtoAny) To(configModel PixiuDynamicConfigModel) error {
+	if p == nil {
+		return errors.New("resource is nil")
+	}
+	if configModel == nil {
+		return errors.New("target config model is nil")
+	}
 	if p.any != nil {
-		return p.any.UnmarshalTo(configModel)
+		return errors.Wrapf(p.any.UnmarshalTo(configModel), "can not convert to %v", reflect.TypeOf(configModel))
 	}
-
-	err := p.typeConfig.TypedConfig.UnmarshalTo(configModel)
-	if err != nil {
-		panic(err)
+	if p.typeConfig == nil || p.typeConfig.TypedConfig == nil {
+		return errors.New("typed extension config is nil")
 	}
-	return errors.Wrapf(err, "can not covert to %v", reflect.TypeOf(configModel))
+	return errors.Wrapf(p.typeConfig.TypedConfig.UnmarshalTo(configModel), "can not convert to %v", reflect.TypeOf(configModel))
 }
 
 func NewProtoAny(typeConfig *v3.TypedExtensionConfig) *ProtoAny {
 	return &ProtoAny{typeConfig: typeConfig}
+}
+
+func newDeltaResources() *DeltaResources {
+	return &DeltaResources{
+		NewResources:     make([]*ProtoAny, 0, 1),
+		RemovedResources: make([]string, 0, 1),
+		applyResult:      make(chan error, 1),
+		versions:         make(map[string]string, 1),
+	}
+}
+
+// Complete reports whether the response was applied successfully. Extension
+// config streams use the result to send an ACK or NACK to the control plane.
+// Other discovery clients may leave the completion channel unset.
+func (d *DeltaResources) Complete(err error) {
+	if d == nil || d.applyResult == nil {
+		return
+	}
+	d.complete.Do(func() {
+		d.applyResult <- err
+	})
 }

@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"bytes"
+	"container/list"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -77,8 +78,13 @@ func init() {
 }
 
 type (
-	// Plugin is the main plugin entrypoint.
-	Plugin struct{}
+	// Plugin is the main plugin entrypoint. It is registered once at init time
+	// and lives for the whole process, so it owns the cooldown store that must
+	// outlive individual filter factory reloads.
+	Plugin struct {
+		initOnce  sync.Once
+		cooldowns *cooldownStore
+	}
 
 	// FilterFactory creates filter instances.
 	FilterFactory struct {
@@ -122,20 +128,42 @@ type (
 	}
 
 	cooldownStore struct {
-		mu                    sync.Mutex
-		lastFailureByEndpoint map[cooldownKey]cooldownEntry
-		lastSweep             time.Time
+		mu sync.Mutex
+		// lastFailureByEndpoint indexes each tracked endpoint to its node in
+		// recencyOrder, so lookups stay O(1) and the node can be repositioned
+		// or removed without scanning.
+		lastFailureByEndpoint map[cooldownKey]*list.Element
+		// recencyOrder holds *cooldownEntry values ordered oldest-at-front,
+		// newest-at-back. Eviction pops the front in O(1); refreshing an entry
+		// moves its node to the back.
+		recencyOrder *list.List
+		lastSweep    time.Time
+		// nowFn is called inside the mutex so the recorded timestamp and the
+		// recency-list insertion order are always consistent, even under
+		// concurrent writes. Overridable in tests.
+		nowFn func() time.Time
 	}
 
 	cooldownEntry struct {
+		key         cooldownKey
 		lastFailure time.Time
 		ttl         time.Duration
 	}
 )
 
-// sharedCooldownStore keeps endpoint cooldowns process-wide so filter reloads
-// and multiple LLM proxy factories do not reset runtime failure state.
-var sharedCooldownStore = newCooldownStore()
+// newPlugin builds the plugin with its process-wide cooldown store, so every
+// filter factory the plugin creates shares one runtime failure state that
+// survives individual factory reloads.
+func newPlugin() *Plugin {
+	return &Plugin{cooldowns: newCooldownStore()}
+}
+
+func (p *Plugin) cooldownStore() *cooldownStore {
+	p.initOnce.Do(func() {
+		p.cooldowns = newCooldownStore()
+	})
+	return p.cooldowns
+}
 
 func getPreferredEndpointID(hc *contexthttp.HttpContext) string {
 	if hc == nil || hc.Params == nil {
@@ -157,9 +185,11 @@ func (p *Plugin) Kind() string {
 	return Kind
 }
 
-// CreateFilterFactory creates a new factory instance for this filter.
+// CreateFilterFactory creates a new factory instance for this filter. The
+// plugin-owned cooldown store is injected here so every factory and the
+// request executors it builds share one explicit store with no global fallback.
 func (p *Plugin) CreateFilterFactory() (filter.HttpFilterFactory, error) {
-	return &FilterFactory{cfg: &Config{}}, nil
+	return &FilterFactory{cfg: &Config{}, cooldowns: p.cooldownStore()}, nil
 }
 
 // Config returns the configuration struct for the factory.
@@ -194,7 +224,7 @@ func (factory *FilterFactory) PrepareFilterChain(_ *contexthttp.HttpContext, cha
 		scheme:         factory.cfg.Scheme,
 		strategy:       &Strategy{},
 		clusterManager: server.GetClusterManager(),
-		cooldowns:      factory.cooldownStore(),
+		cooldowns:      factory.cooldowns,
 	}
 	chain.AppendDecodeFilters(f)
 	return nil
@@ -417,7 +447,7 @@ func (s *Strategy) Execute(executor *RequestExecutor) (*http.Response, error) {
 }
 
 func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bool {
-	store := executor.cooldownStore()
+	store := executor.cooldowns
 	if store == nil || endpoint == nil {
 		return false
 	}
@@ -438,36 +468,18 @@ func (executor *RequestExecutor) endpointInCooldown(endpoint *model.Endpoint) bo
 }
 
 func (executor *RequestExecutor) markEndpointCooldown(endpoint *model.Endpoint) {
-	store := executor.cooldownStore()
+	store := executor.cooldowns
 	if store == nil || endpoint == nil {
 		return
 	}
-	store.markFailure(executor.clusterName, endpoint, time.Now())
-}
-
-func (executor *RequestExecutor) cooldownStore() *cooldownStore {
-	if executor == nil {
-		return nil
-	}
-	if executor.cooldowns != nil {
-		return executor.cooldowns
-	}
-	if executor.filter != nil && executor.filter.cooldowns != nil {
-		return executor.filter.cooldowns
-	}
-	return sharedCooldownStore
-}
-
-func (factory *FilterFactory) cooldownStore() *cooldownStore {
-	if factory == nil || factory.cooldowns == nil {
-		return sharedCooldownStore
-	}
-	return factory.cooldowns
+	store.markFailure(executor.clusterName, endpoint)
 }
 
 func newCooldownStore() *cooldownStore {
 	return &cooldownStore{
-		lastFailureByEndpoint: map[cooldownKey]cooldownEntry{},
+		lastFailureByEndpoint: map[cooldownKey]*list.Element{},
+		recencyOrder:          list.New(),
+		nowFn:                 time.Now,
 	}
 }
 
@@ -480,33 +492,41 @@ func (s *cooldownStore) lastFailureWithCurrentTTL(clusterName string, endpoint *
 	key := newCooldownKey(clusterName, endpoint)
 	now := time.Now()
 	s.sweepExpiredIfNeededLocked(now, key)
-	entry, ok := s.lastFailureByEndpoint[key]
+	element, ok := s.lastFailureByEndpoint[key]
 	if !ok {
 		return time.Time{}, 0, false
 	}
+	entry := element.Value.(*cooldownEntry)
 	currentTTL := endpointCooldownInterval(endpoint)
 	if entry.ttl != currentTTL {
 		entry.ttl = currentTTL
-		s.lastFailureByEndpoint[key] = entry
 	}
 	return entry.lastFailure, entry.ttl, true
 }
 
-func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint, lastFailure time.Time) {
+func (s *cooldownStore) markFailure(clusterName string, endpoint *model.Endpoint) {
 	if s == nil || endpoint == nil {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	lastFailure := s.nowFn()
 	key := newCooldownKey(clusterName, endpoint)
 	s.sweepExpiredIfNeededLocked(time.Now(), key)
-	if _, ok := s.lastFailureByEndpoint[key]; !ok {
-		s.evictOldestIfFullLocked(key)
+	ttl := endpointCooldownInterval(endpoint)
+	if element, ok := s.lastFailureByEndpoint[key]; ok {
+		entry := element.Value.(*cooldownEntry)
+		entry.lastFailure = lastFailure
+		entry.ttl = ttl
+		s.recencyOrder.MoveToBack(element)
+		return
 	}
-	s.lastFailureByEndpoint[key] = cooldownEntry{
+	s.evictOldestIfFullLocked()
+	s.lastFailureByEndpoint[key] = s.recencyOrder.PushBack(&cooldownEntry{
+		key:         key,
 		lastFailure: lastFailure,
-		ttl:         endpointCooldownInterval(endpoint),
-	}
+		ttl:         ttl,
+	})
 }
 
 func (s *cooldownStore) deleteLastFailureIfMatches(clusterName string, endpoint *model.Endpoint, expected time.Time) bool {
@@ -516,12 +536,19 @@ func (s *cooldownStore) deleteLastFailureIfMatches(clusterName string, endpoint 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := newCooldownKey(clusterName, endpoint)
-	current, ok := s.lastFailureByEndpoint[key]
-	if !ok || current.lastFailure != expected {
+	element, ok := s.lastFailureByEndpoint[key]
+	if !ok || element.Value.(*cooldownEntry).lastFailure != expected {
 		return false
 	}
-	delete(s.lastFailureByEndpoint, key)
+	s.removeLocked(key, element)
 	return true
+}
+
+// removeLocked drops one entry from both the map and the recency list,
+// keeping the two structures in sync. Callers must hold s.mu.
+func (s *cooldownStore) removeLocked(key cooldownKey, element *list.Element) {
+	delete(s.lastFailureByEndpoint, key)
+	s.recencyOrder.Remove(element)
 }
 
 func (s *cooldownStore) sweepExpiredIfNeededLocked(now time.Time, current cooldownKey) {
@@ -535,39 +562,28 @@ func (s *cooldownStore) sweepExpiredIfNeededLocked(now time.Time, current cooldo
 }
 
 func (s *cooldownStore) sweepExpiredExceptLocked(now time.Time, current cooldownKey) {
-	for key, entry := range s.lastFailureByEndpoint {
+	for key, element := range s.lastFailureByEndpoint {
 		if key == current {
 			continue
 		}
+		entry := element.Value.(*cooldownEntry)
 		if now.Sub(entry.lastFailure) >= entry.ttl {
-			delete(s.lastFailureByEndpoint, key)
+			s.removeLocked(key, element)
 		}
 	}
 }
 
-func (s *cooldownStore) evictOldestIfFullLocked(current cooldownKey) {
+// evictOldestIfFullLocked removes the least-recently-failed entry when the
+// store is at capacity, in O(1) via the front of the recency list.
+func (s *cooldownStore) evictOldestIfFullLocked() {
 	if len(s.lastFailureByEndpoint) < maxCooldownStoreEntries {
 		return
 	}
-
-	var (
-		oldestKey   cooldownKey
-		oldestEntry cooldownEntry
-		found       bool
-	)
-	for key, entry := range s.lastFailureByEndpoint {
-		if key == current {
-			continue
-		}
-		if !found || entry.lastFailure.Before(oldestEntry.lastFailure) {
-			oldestKey = key
-			oldestEntry = entry
-			found = true
-		}
+	oldest := s.recencyOrder.Front()
+	if oldest == nil {
+		return
 	}
-	if found {
-		delete(s.lastFailureByEndpoint, oldestKey)
-	}
+	s.removeLocked(oldest.Value.(*cooldownEntry).key, oldest)
 }
 
 func newCooldownKey(clusterName string, endpoint *model.Endpoint) cooldownKey {

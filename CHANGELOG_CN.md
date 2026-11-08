@@ -2,6 +2,33 @@
 
 ---
 
+## 未发布
+
+### Admin API
+
+* AdminRouteBinding 新增不可变发布历史和回滚接口。旧版 Resource/Method 删除接口
+  不再能删除已发布 AdminRouteBinding 所属的运行时记录；过期的路径修改和回滚会被
+  拒绝，避免覆盖并发编辑。
+* 旧版 Resource 创建现在会原子镜像发布和草稿记录。旧版 Method 更新接口仍兼容
+  YAML 请求体中的 ID；`methodId` 查询参数继续保持可选。
+
+### xDS
+
+* Admin 快照发布现在会保留 last-good 状态、报告监听可用性，并可靠处理
+  Delta ExtensionConfig 和标准 CDS/EDS 更新。
+* 标准 ADS 只管理 EDS 类型的 Cluster；其他 CDS discovery type 会记录并跳过，
+  不再导致整批 CDS 响应被 NACK。
+
+### 兼容性说明
+
+* Listener 构建改为 fail-closed：非法 Network/HTTP Filter 会阻止静态 Listener
+  启动，并使 xDS 更新被 NACK。旧行为可能静默跳过非法 Filter。
+* 已有出树 `ListenerService` 实现仍可编译，但要接收 xDS Listener 更新，必须额外
+  实现可选的事务刷新方法；否则系统保留 last-good Listener。
+* 自包含 xDS 验收测试使用嵌入式 etcd，因此模块依赖图新增
+  `go.etcd.io/etcd/server/v3 v3.5.7`。可通过 `PIXIU_E2E_ETCD_ENDPOINT`
+  选择外部临时 etcd。
+
 ## 1.1.0
 
 本版本在 AI Gateway 与大模型接入能力 方面实现了重要增强，引入了完整的 LLM Proxy、Token 计量、重试与降级机制，并支持 HTTP / SSE 流式通信。

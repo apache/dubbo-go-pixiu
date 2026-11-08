@@ -58,7 +58,7 @@ const (
 
 // GrpcListenerService implements the ListenerService interface for gRPC
 type GrpcListenerService struct {
-	listener.BaseListenerService
+	*listener.BaseListenerService
 	server          *grpc.Server
 	listener        net.Listener
 	grpcConfig      *model.GrpcConfig
@@ -69,15 +69,15 @@ type GrpcListenerService struct {
 // newGrpcListenerService creates a new gRPC listener service
 func newGrpcListenerService(lc *model.Listener, bs *model.Bootstrap) (listener.ListenerService, error) {
 	// Create network filter chain
-	fc := filterchain.CreateNetworkFilterChain(lc.FilterChain)
+	fc, err := filterchain.BuildNetworkFilterChain(lc.FilterChain)
+	if err != nil {
+		return nil, errors.Wrap(err, "create gRPC listener filter chain")
+	}
 
 	// Initialize service with base configuration
 	ls := &GrpcListenerService{
-		BaseListenerService: listener.BaseListenerService{
-			Config:      lc,
-			FilterChain: fc,
-		},
-		gShutdownConfig: &listener.ListenerGracefulShutdownConfig{},
+		BaseListenerService: listener.NewBaseListenerService(lc, fc),
+		gShutdownConfig:     &listener.ListenerGracefulShutdownConfig{},
 	}
 
 	// Parse gRPC specific configuration
@@ -142,16 +142,14 @@ func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream)
 	}
 
 	// Check if server is shutting down
-	if ls.gShutdownConfig.RejectRequest {
+	if ls.gShutdownConfig.RejectRequests() {
 		logger.Warnf("Rejecting gRPC stream request %s during shutdown", fullMethod)
 		return errors.New("server is shutting down")
 	}
 
 	// Track active request count
-	ls.gShutdownConfig.ActiveCount++
-	defer func() {
-		ls.gShutdownConfig.ActiveCount--
-	}()
+	ls.gShutdownConfig.AddActiveCount(1)
+	defer ls.gShutdownConfig.AddActiveCount(-1)
 
 	// Since we don't have StreamInfo here, we must rely on the filter chain to get it if needed.
 	// For a pure proxy, we just need to forward the stream.
@@ -168,7 +166,9 @@ func (ls *GrpcListenerService) proxyStreamHandler(srv any, ss grpc.ServerStream)
 	}
 
 	// Process stream through filter chain
-	err := ls.FilterChain.OnStreamRPC(stream, streamInfo)
+	err := ls.WithFilterChain(func(fc *filterchain.NetworkFilterChain) error {
+		return fc.OnStreamRPC(stream, streamInfo)
+	})
 
 	// Log request completion
 	duration := time.Since(start)
@@ -195,10 +195,8 @@ func (ls *GrpcListenerService) logConfiguration() {
 func (ls *GrpcListenerService) cleanup() {
 	ls.closeOnce.Do(func() {
 		logger.Info("Cleaning up gRPC listener resources...")
-		if ls.FilterChain != nil {
-			if err := ls.FilterChain.Close(); err != nil {
-				logger.Warnf("Error closing filter chain: %v", err)
-			}
+		if err := ls.CloseFilterChain(); err != nil {
+			logger.Warnf("Error closing filter chain: %v", err)
 		}
 	})
 }
@@ -230,7 +228,7 @@ func (ls *GrpcListenerService) ShutDown(wg any) error {
 	}
 
 	// Start graceful shutdown
-	ls.gShutdownConfig.RejectRequest = true
+	ls.gShutdownConfig.SetRejectRequests(true)
 	deadline := time.Now().Add(timeout)
 	logger.Infof("Graceful shutdown initiated with timeout: %v", timeout)
 
@@ -249,13 +247,13 @@ func (ls *GrpcListenerService) ShutDown(wg any) error {
 
 // waitForActiveRequests waits for active requests to complete until deadline
 func (ls *GrpcListenerService) waitForActiveRequests(deadline time.Time) {
-	for time.Now().Before(deadline) && ls.gShutdownConfig.ActiveCount > 0 {
+	for time.Now().Before(deadline) && ls.gShutdownConfig.GetActiveCount() > 0 {
 		time.Sleep(100 * time.Millisecond)
-		logger.Infof("waiting for active gRPC invocation count = %d", ls.gShutdownConfig.ActiveCount)
+		logger.Infof("waiting for active gRPC invocation count = %d", ls.gShutdownConfig.GetActiveCount())
 	}
 
-	if ls.gShutdownConfig.ActiveCount > 0 {
-		logger.Warnf("Shutdown timeout reached, forcing stop with %d active requests", ls.gShutdownConfig.ActiveCount)
+	if ls.gShutdownConfig.GetActiveCount() > 0 {
+		logger.Warnf("Shutdown timeout reached, forcing stop with %d active requests", ls.gShutdownConfig.GetActiveCount())
 	} else {
 		logger.Info("All active requests completed, proceeding with graceful shutdown")
 	}
@@ -282,13 +280,6 @@ func (ls *GrpcListenerService) gracefulStopServer() {
 		logger.Warn("Graceful stop timeout, forcing stop")
 		ls.server.Stop()
 	}
-}
-
-// Refresh updates the filter chain configuration
-func (ls *GrpcListenerService) Refresh(c model.Listener) error {
-	fc := filterchain.CreateNetworkFilterChain(c.FilterChain)
-	ls.FilterChain = fc
-	return nil
 }
 
 // buildGrpcServerOptions creates gRPC server options from config
