@@ -31,6 +31,7 @@ import (
 
 import (
 	config2 "github.com/apache/dubbo-go-pixiu/admin/config"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	"github.com/apache/dubbo-go-pixiu/admin/core"
 )
 
@@ -53,6 +54,9 @@ var (
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, err := auth.GetSignKey(); err != nil {
+				return err
+			}
 			_, err := config2.LoadAPIConfigFromFile(apiConfigPath)
 			if err != nil {
 				return fmt.Errorf("load admin config error: %w", err)

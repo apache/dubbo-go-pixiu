@@ -18,17 +18,33 @@
 package auth
 
 import (
+	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 	"time"
 )
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const testSignKey = "d89b63e84a41f593bb17c5c6c3ee76a1fd314ca89ee47e5d7af6b48b1a2d9c36"
+
+func testJWT(t *testing.T) *JWT {
+	t.Helper()
+	t.Setenv(jwtSignKeyEnv, testSignKey)
+	j, err := NewJWT()
+	require.NoError(t, err)
+	return j
+}
 
 func TestParseTokenRejectsUnexpectedSigningMethod(t *testing.T) {
 	claims := CustomClaims{
@@ -41,21 +57,168 @@ func TestParseTokenRejectsUnexpectedSigningMethod(t *testing.T) {
 	tokenString, err := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
 	require.NoError(t, err)
 
-	_, err = NewJWT().ParseToken(tokenString)
+	_, err = testJWT(t).ParseToken(tokenString)
 
 	assert.ErrorIs(t, err, TokenInvalid)
 }
 
 func TestGetSignKeyUsesEnvironmentOverride(t *testing.T) {
-	t.Setenv(jwtSignKeyEnv, "from-env")
+	t.Setenv(jwtSignKeyEnv, testSignKey)
 
-	assert.Equal(t, "from-env", GetSignKey())
+	key, err := GetSignKey()
+	require.NoError(t, err)
+	assert.Equal(t, testSignKey, key)
+}
+
+func TestEmptySigningKeyUsesProcessLocalRandomKey(t *testing.T) {
+	t.Setenv(jwtSignKeyEnv, "")
+	type result struct {
+		key string
+		err error
+	}
+	results := make(chan result, 16)
+	for i := 0; i < cap(results); i++ {
+		go func() {
+			key, err := GetSignKey()
+			results <- result{key: key, err: err}
+		}()
+	}
+	var key string
+	for i := 0; i < cap(results); i++ {
+		got := <-results
+		require.NoError(t, got.err)
+		if key == "" {
+			key = got.key
+		}
+		assert.Equal(t, key, got.key)
+	}
+	material, err := hex.DecodeString(key)
+	require.NoError(t, err)
+	assert.Len(t, material, minSignKeyLength)
+	assert.NotEqual(t, legacySignKey, key)
+
+	for _, blank := range []string{"", "   "} {
+		t.Setenv(jwtSignKeyEnv, blank)
+		got, err := GetSignKey()
+		require.NoError(t, err)
+		assert.Equal(t, key, got)
+	}
+	t.Setenv(jwtSignKeyEnv, "temporary")
+	require.NoError(t, os.Unsetenv(jwtSignKeyEnv))
+	j, err := NewJWT()
+	require.NoError(t, err)
+	assert.Equal(t, key, string(j.SigningKey))
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
+	token, err := j.CreateToken(claims)
+	require.NoError(t, err)
+	parsed, err := NewJWT()
+	require.NoError(t, err)
+	_, err = parsed.ParseToken(token)
+	require.NoError(t, err)
+	t.Setenv(jwtSignKeyEnv, testSignKey)
+	configuredKey, err := GetSignKey()
+	require.NoError(t, err)
+	assert.Equal(t, testSignKey, configuredKey)
+}
+
+func TestConfiguredUnsafeSigningKeyIsRejected(t *testing.T) {
+	for _, key := range []string{legacySignKey, "short-key"} {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv(jwtSignKeyEnv, key)
+			_, err := NewJWT()
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestJWTRejectsUnsafeSigningKey(t *testing.T) {
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
+	for _, key := range []string{"", legacySignKey, "short-key"} {
+		t.Run(key, func(t *testing.T) {
+			j := &JWT{SigningKey: []byte(key)}
+			_, err := j.CreateToken(claims)
+			require.ErrorContains(t, err, jwtSignKeyEnv)
+			token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(key))
+			require.NoError(t, err)
+			_, err = j.ParseToken(token)
+			require.ErrorIs(t, err, TokenInvalid)
+		})
+	}
+}
+
+func TestJWTAuthRejectsInvalidSigningKey(t *testing.T) {
+	t.Setenv(jwtSignKeyEnv, "short-key")
+	router := gin.New()
+	reached := false
+	router.GET("/protected", JWTAuth(), func(c *gin.Context) {
+		reached = true
+		c.Status(http.StatusNoContent)
+	})
+	request := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	request.Header.Set("token", "not-a-token")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	require.False(t, reached)
+	require.Equal(t, http.StatusInternalServerError, response.Code)
+	require.Contains(t, response.Body.String(), "authentication is not configured")
+	require.NotContains(t, response.Body.String(), jwtSignKeyEnv)
+}
+
+func TestLegacyDefaultTokenIsRejected(t *testing.T) {
+	j := testJWT(t)
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
+	oldToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(legacySignKey))
+	require.NoError(t, err)
+	_, err = j.ParseToken(oldToken)
+	assert.ErrorIs(t, err, TokenInvalid)
+}
+
+func TestParseTokenRequiresHS256(t *testing.T) {
+	j := testJWT(t)
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
+	for _, method := range []*jwt.SigningMethodHMAC{jwt.SigningMethodHS384, jwt.SigningMethodHS512} {
+		t.Run(method.Alg(), func(t *testing.T) {
+			token, err := jwt.NewWithClaims(method, claims).SignedString([]byte(testSignKey))
+			require.NoError(t, err)
+			_, err = j.ParseToken(token)
+			assert.ErrorIs(t, err, TokenInvalid)
+		})
+	}
+}
+
+func TestJWTAuthDoesNotAcceptLegacyDefaultToken(t *testing.T) {
+	j := testJWT(t)
+	router := gin.New()
+	reached := false
+	router.GET("/protected", JWTAuth(), func(c *gin.Context) { reached = true; c.Status(http.StatusNoContent) })
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(legacySignKey))
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("token", token)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+	assert.False(t, reached)
+
+	validToken, err := j.CreateToken(claims)
+	require.NoError(t, err)
+	validRequest := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	validRequest.Header.Set("token", validToken)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, validRequest)
+	assert.True(t, reached)
+	assert.Equal(t, http.StatusNoContent, response.Code)
 }
 
 // TestRefreshTokenReissuesExpiredToken verifies that an otherwise-valid token
 // past its ExpiresAt is refreshed into a new, usable token.
 func TestRefreshTokenReissuesExpiredToken(t *testing.T) {
-	j := NewJWT()
+	j := testJWT(t)
 	original := CustomClaims{
 		Username: "admin",
 		StandardClaims: jwt.StandardClaims{
@@ -84,7 +247,7 @@ func TestRefreshTokenReissuesExpiredToken(t *testing.T) {
 // a subsequent ParseToken of a valid token still works. This is the regression
 // for the P0 reported in PR #978.
 func TestRefreshTokenRejectsMalformedToken(t *testing.T) {
-	j := NewJWT()
+	j := testJWT(t)
 
 	_, err := j.RefreshToken("not-a-token")
 	assert.ErrorIs(t, err, TokenMalformed)
@@ -120,7 +283,7 @@ func TestRefreshTokenRejectsMalformedToken(t *testing.T) {
 // TestRefreshTokenRejectsBadSignature verifies that a token signed with a
 // different key is not refreshable.
 func TestRefreshTokenRejectsBadSignature(t *testing.T) {
-	j := NewJWT()
+	j := testJWT(t)
 	claims := CustomClaims{
 		Username: "admin",
 		StandardClaims: jwt.StandardClaims{
@@ -140,7 +303,7 @@ func TestRefreshTokenRejectsBadSignature(t *testing.T) {
 // concurrently to confirm there is no data race on a shared global clock and
 // that expiration checks stay correct. Run with -race.
 func TestConcurrentRefreshAndParse(t *testing.T) {
-	j := NewJWT()
+	j := testJWT(t)
 
 	valid := CustomClaims{
 		Username: "admin",

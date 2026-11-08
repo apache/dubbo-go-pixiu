@@ -288,11 +288,12 @@ func (h *DubboHandler) readURIValue(req *http.Request, api router.API, keys []st
 	}
 	values := router.GetURIParams(&api, *req.URL)
 	if values == nil {
-		return nil, errors.Errorf("URI parameter %s not found", keys[0])
+		return nil, errors.Errorf("URI parameter %s not found", strings.Join(keys, "."))
 	}
-	value := values.Get(keys[0])
+	name := strings.Join(keys, ".")
+	value := values.Get(name)
 	if value == "" {
-		return nil, errors.Errorf("URI parameter %s not found", keys[0])
+		return nil, errors.Errorf("URI parameter %s not found", name)
 	}
 	return value, nil
 }

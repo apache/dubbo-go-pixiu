@@ -105,11 +105,11 @@ func (rm *RouterCoordinator) RouteByPathAndName(path, method string) (*model.Rou
 	// Try the method-specific trie first; fall back to the wildcard ("*") trie
 	// so that routes declared with methods: ["*"] keep their "match any method"
 	// semantics under the per-method trie layout.
-	if act, err := matchInTrie(s.MethodTries[method], key); act != nil || err != nil {
+	if act, err := matchInTrie(s.MethodTries[method], key, nil); act != nil || err != nil {
 		return act, err
 	}
 	if method != "*" {
-		if act, err := matchInTrie(s.MethodTries["*"], key); act != nil || err != nil {
+		if act, err := matchInTrie(s.MethodTries["*"], key, nil); act != nil || err != nil {
 			return act, err
 		}
 	}
@@ -124,10 +124,7 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 
 	// header-only first
 	for _, hr := range s.HeaderOnly {
-		if !model.MethodAllowed(hr.Methods, req.Method) {
-			continue
-		}
-		if matchHeaders(hr.Headers, req) {
+		if model.MethodAllowed(hr.Methods, req.Method) && matchHeaders(hr.Headers, req) {
 			if len(hr.Action.Cluster) == 0 {
 				return nil, errors.New("action is nil. please check your configuration.")
 			}
@@ -138,11 +135,11 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 	key := stringutil.GetTrieKey(req.Method, req.URL.Path)
 	// Method-specific trie first, then fall back to the wildcard ("*") trie
 	// so routes declared with methods: ["*"] continue to match any method.
-	if act, err := matchInTrie(s.MethodTries[req.Method], key); act != nil || err != nil {
+	if act, err := matchInTrie(s.MethodTries[req.Method], key, req); act != nil || err != nil {
 		return act, err
 	}
 	if req.Method != "*" {
-		if act, err := matchInTrie(s.MethodTries["*"], key); act != nil || err != nil {
+		if act, err := matchInTrie(s.MethodTries["*"], key, req); act != nil || err != nil {
 			return act, err
 		}
 	}
@@ -155,19 +152,55 @@ func (rm *RouterCoordinator) route(req *stdHttp.Request) (*model.RouteAction, er
 //	(action, nil) -> match found, return immediately
 //	(nil, error)  -> match found but bizInfo has wrong type, do NOT fall back
 //	(nil, nil)    -> miss, caller may try the next trie
-func matchInTrie(t *trie.Trie, key string) (*model.RouteAction, error) {
+func matchInTrie(t *trie.Trie, key string, req *stdHttp.Request) (*model.RouteAction, error) {
 	if t == nil {
 		return nil, nil
 	}
-	node, _, ok := t.Match(key)
+	predicate := func(node *trie.Node) bool {
+		candidates, ok := node.GetBizInfo().(*model.RouteCandidates)
+		if !ok {
+			return true
+		}
+		_, matched := firstMatchingCandidate(candidates, req)
+		return matched
+	}
+	var node *trie.Node
+	var ok bool
+	if req == nil {
+		node, _, ok = t.Match(key)
+	} else {
+		node, _, ok = t.MatchWithPredicate(key, predicate)
+	}
 	if !ok || node == nil || node.GetBizInfo() == nil {
 		return nil, nil
 	}
-	act, ok := node.GetBizInfo().(model.RouteAction)
-	if !ok {
+	var act model.RouteAction
+	switch route := node.GetBizInfo().(type) {
+	case *model.RouteCandidates:
+		if candidate, matched := firstMatchingCandidate(route, req); matched {
+			return &candidate.Action, nil
+		}
+		return nil, nil
+	case model.RouteAction:
+		act = route
+	default:
 		return nil, errors.Errorf("route failed for %s, invalid route action type", key)
 	}
 	return &act, nil
+}
+
+func firstMatchingCandidate(candidates *model.RouteCandidates, req *stdHttp.Request) (model.RouteCandidate, bool) {
+	var matched model.RouteCandidate
+	found := false
+	candidates.ForEach(func(candidate model.RouteCandidate) bool {
+		if req == nil || matchHeaders(candidate.Headers, req) {
+			matched = candidate
+			found = true
+			return false
+		}
+		return true
+	})
+	return matched, found
 }
 
 // reset timer or publish directly

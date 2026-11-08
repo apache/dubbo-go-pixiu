@@ -18,8 +18,14 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -51,7 +57,12 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 		//log.Print("get token: ", token)
-		j := NewJWT()
+		j, err := NewJWT()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, config.WithError(errors.New("authentication is not configured")))
+			c.Abort()
+			return
+		}
 		// Parse the information contained in the token
 		claims, err := j.ParseToken(token)
 		if err != nil {
@@ -75,15 +86,21 @@ type JWT struct {
 	SigningKey []byte
 }
 
-const jwtSignKeyEnv = "DUBBOGO_PIXIU_JWT_SIGN_KEY"
+const (
+	jwtSignKeyEnv    = "DUBBOGO_PIXIU_JWT_SIGN_KEY"
+	legacySignKey    = "dubbo-go-pixiu"
+	minSignKeyLength = 32
+)
 
 // Constant
 var (
-	TokenExpired     error  = errors.New("Token is expired")
-	TokenNotValidYet error  = errors.New("Token is not valid yet")
-	TokenMalformed   error  = errors.New("This is not a token")
-	TokenInvalid     error  = errors.New("Couldn't handle this token")
-	SignKey          string = "dubbo-go-pixiu" // TODO: The signature information is set to be dynamically obtained
+	TokenExpired     error = errors.New("Token is expired")
+	TokenNotValidYet error = errors.New("Token is not valid yet")
+	TokenMalformed   error = errors.New("This is not a token")
+	TokenInvalid     error = errors.New("Couldn't handle this token")
+	ephemeralKeyOnce sync.Once
+	ephemeralSignKey string
+	ephemeralKeyErr  error
 )
 
 // Custom Claims
@@ -94,31 +111,59 @@ type CustomClaims struct {
 }
 
 // New jwt instance
-func NewJWT() *JWT {
-	return &JWT{
-		[]byte(GetSignKey()),
+func NewJWT() (*JWT, error) {
+	key, err := GetSignKey()
+	if err != nil {
+		return nil, err
 	}
+	return &JWT{SigningKey: []byte(key)}, nil
 }
 
-// get signKey
-func GetSignKey() string {
-	if key := os.Getenv(jwtSignKeyEnv); key != "" {
-		return key
+// GetSignKey uses a process-local random key when no key is configured.
+func GetSignKey() (string, error) {
+	key := os.Getenv(jwtSignKeyEnv)
+	if strings.TrimSpace(key) == "" {
+		ephemeralKeyOnce.Do(func() {
+			material := make([]byte, minSignKeyLength)
+			if _, err := rand.Read(material); err != nil {
+				ephemeralKeyErr = fmt.Errorf("generate admin JWT signing key: %w", err)
+				return
+			}
+			ephemeralSignKey = hex.EncodeToString(material)
+			log.Printf("%s is empty; using a process-local random key. Admin tokens will be invalid after restart; configure a shared key for multiple replicas", jwtSignKeyEnv)
+		})
+		return ephemeralSignKey, ephemeralKeyErr
 	}
-	return SignKey
+	if err := validateSignKey(key); err != nil {
+		return "", err
+	}
+	return key, nil
+}
+
+func validateSignKey(key string) error {
+	if strings.TrimSpace(key) == "" || key == legacySignKey || len(key) < minSignKeyLength {
+		return fmt.Errorf("set %s to a unique random key of at least %d bytes (the former default is not accepted)", jwtSignKeyEnv, minSignKeyLength)
+	}
+	return nil
 }
 
 // CreateToken Generate token (based on user basic information)
 // HS256 algorithm
 func (j *JWT) CreateToken(claims CustomClaims) (string, error) {
+	if err := validateSignKey(string(j.SigningKey)); err != nil {
+		return "", err
+	}
 	// Returns the structure pointer of the token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(j.SigningKey)
 }
 
 func (j *JWT) keyFunc(token *jwt.Token) (any, error) {
-	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+	if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 		return nil, TokenInvalid
+	}
+	if err := validateSignKey(string(j.SigningKey)); err != nil {
+		return nil, err
 	}
 	return j.SigningKey, nil
 }

@@ -30,6 +30,7 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"go.uber.org/zap"
 )
@@ -252,4 +253,21 @@ func TestViper_InvalidTypedValueReturnsError(t *testing.T) {
 
 	_, err := Viper(path)
 	assert.Error(t, err)
+}
+
+func TestRunServerRejectsUnsafeConfiguredJWTKeyBeforeInitialization(t *testing.T) {
+	originalVP, originalLOG := global.VP, global.LOG
+	t.Cleanup(func() {
+		global.VP, global.LOG = originalVP, originalLOG
+	})
+
+	for _, key := range []string{"dubbo-go-pixiu", "short-key"} {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", key)
+			err := RunServer("")
+			require.ErrorContains(t, err, "DUBBOGO_PIXIU_JWT_SIGN_KEY")
+			require.True(t, global.VP == originalVP, "configuration initialized before key validation")
+			require.True(t, global.LOG == originalLOG, "logger initialized before key validation")
+		})
+	}
 }

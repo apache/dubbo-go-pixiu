@@ -32,6 +32,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/admin/config"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	"github.com/apache/dubbo-go-pixiu/admin/global"
 	"github.com/apache/dubbo-go-pixiu/admin/initialize"
 	"github.com/apache/dubbo-go-pixiu/admin/logic/account"
@@ -59,6 +60,9 @@ type server interface {
 // other, and its error is returned so the CLI can surface a startup failure
 // instead of leaving the process false-healthy.
 func RunServer(configPath string) error {
+	if _, err := auth.GetSignKey(); err != nil {
+		return err
+	}
 	// load config
 	vp, err := Viper(configPath)
 	if err != nil {

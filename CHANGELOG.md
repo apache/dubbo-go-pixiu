@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+### Admin API
+
+* AdminRouteBinding now records immutable publish history and supports rollback
+  through new Admin API endpoints. Legacy Resource/Method deletes cannot remove
+  runtime records owned by a published AdminRouteBinding, and stale path updates
+  and rollbacks are rejected instead of overwriting concurrent edits.
+* Legacy Resource creation mirrors published and draft records atomically. The
+  legacy Method update API continues to accept an ID in its YAML body when the
+  optional `methodId` query parameter is omitted.
+
 ### xDS
 
 * Admin snapshot publication now preserves last-good state, reports listener
