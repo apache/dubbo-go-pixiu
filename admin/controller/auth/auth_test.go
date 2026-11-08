@@ -47,12 +47,8 @@ func testJWT(t *testing.T) *JWT {
 }
 
 func TestParseTokenRejectsUnexpectedSigningMethod(t *testing.T) {
-	claims := CustomClaims{
-		Username: "admin",
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	token := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
 	tokenString, err := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
 	require.NoError(t, err)
@@ -219,12 +215,8 @@ func TestJWTAuthDoesNotAcceptLegacyDefaultToken(t *testing.T) {
 // past its ExpiresAt is refreshed into a new, usable token.
 func TestRefreshTokenReissuesExpiredToken(t *testing.T) {
 	j := testJWT(t)
-	original := CustomClaims{
-		Username: "admin",
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(-time.Hour).Unix(),
-		},
-	}
+	original := CustomClaims{Username: "admin"}
+	original.ExpiresAt = time.Now().Add(-time.Hour).Unix()
 	expired, err := j.CreateToken(original)
 	require.NoError(t, err)
 
@@ -254,12 +246,8 @@ func TestRefreshTokenRejectsMalformedToken(t *testing.T) {
 
 	// After the failed refresh, a normal ParseToken must still enforce expiration
 	// correctly (i.e. the global clock was not frozen at Unix 0).
-	valid := CustomClaims{
-		Username: "admin",
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
+	valid := CustomClaims{Username: "admin"}
+	valid.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	validString, err := j.CreateToken(valid)
 	require.NoError(t, err)
 	if _, err := j.ParseToken(validString); err != nil {
@@ -267,12 +255,8 @@ func TestRefreshTokenRejectsMalformedToken(t *testing.T) {
 	}
 
 	// And an expired token must still be reported as expired, not accepted.
-	expired := CustomClaims{
-		Username: "admin",
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(-time.Hour).Unix(),
-		},
-	}
+	expired := CustomClaims{Username: "admin"}
+	expired.ExpiresAt = time.Now().Add(-time.Hour).Unix()
 	expiredString, err := j.CreateToken(expired)
 	require.NoError(t, err)
 	if _, err := j.ParseToken(expiredString); err != TokenExpired {
@@ -284,12 +268,8 @@ func TestRefreshTokenRejectsMalformedToken(t *testing.T) {
 // different key is not refreshable.
 func TestRefreshTokenRejectsBadSignature(t *testing.T) {
 	j := testJWT(t)
-	claims := CustomClaims{
-		Username: "admin",
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(-time.Hour).Unix(),
-		},
-	}
+	claims := CustomClaims{Username: "admin"}
+	claims.ExpiresAt = time.Now().Add(-time.Hour).Unix()
 	forged := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	forgedString, err := forged.SignedString([]byte("wrong-key"))
 	require.NoError(t, err)
@@ -305,21 +285,13 @@ func TestRefreshTokenRejectsBadSignature(t *testing.T) {
 func TestConcurrentRefreshAndParse(t *testing.T) {
 	j := testJWT(t)
 
-	valid := CustomClaims{
-		Username: "admin",
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
+	valid := CustomClaims{Username: "admin"}
+	valid.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	validString, err := j.CreateToken(valid)
 	require.NoError(t, err)
 
-	expired := CustomClaims{
-		Username: "admin",
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(-time.Hour).Unix(),
-		},
-	}
+	expired := CustomClaims{Username: "admin"}
+	expired.ExpiresAt = time.Now().Add(-time.Hour).Unix()
 	expiredString, err := j.CreateToken(expired)
 	require.NoError(t, err)
 

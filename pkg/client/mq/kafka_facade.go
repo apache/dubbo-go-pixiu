@@ -85,37 +85,52 @@ func newKafkaConsumerFacade(config KafkaConsumerConfig, consumerGroup string, fa
 
 	return &KafkaConsumerFacade{
 		consumerGroup:   client,
-		consumerManager: make(map[string]func()),
+		consumerManager: make(map[string]*consumerSubscription),
 		httpClient:      &http.Client{Timeout: 5 * time.Second},
 		done:            make(chan struct{}),
 	}, nil
 }
 
+type consumerSubscription struct {
+	cancel context.CancelFunc
+}
+
 type KafkaConsumerFacade struct {
 	consumerGroup   sarama.ConsumerGroup
-	consumerManager map[string]func()
-	mu              sync.RWMutex // protects consumerManager
+	consumerManager map[string]*consumerSubscription
+	mu              sync.RWMutex // protects subscriptions, stopped, and wg.Add
+	stopped         bool
 	httpClient      *http.Client
 	wg              sync.WaitGroup
 	done            chan struct{}
 	stopOnce        sync.Once
 }
 
+// Subscribe starts a subscription whose lifetime follows ctx. Repeating a
+// topic/group key cancels and replaces the previous subscription. A stopped
+// facade cannot be reused.
 func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) error {
 	cOpt := DefaultOptions()
 	cOpt.ApplyOpts(opts...)
-	// c is the cancellable child context shared by both the consume loop and
-	// the health-check goroutine. The cancel func is stored in consumerManager
-	// so either an explicit Stop() or an unhealthy-check can stop the consume
-	// loop, not just the health check.
-	c, cancel := context.WithCancel(ctx)
 	key := GetConsumerManagerKey(cOpt.TopicList, cOpt.ConsumerGroup)
 	f.mu.Lock()
-	f.consumerManager[key] = cancel
-	f.mu.Unlock()
+	if f.stopped {
+		f.mu.Unlock()
+		return perrors.New("kafka consumer facade is stopped")
+	}
+	// Replace the old subscription atomically. Each worker retains its entry's
+	// identity, so its eventual cleanup cannot remove a newer subscription.
+	c, cancel := context.WithCancel(ctx)
+	entry := &consumerSubscription{cancel: cancel}
+	if previous := f.consumerManager[key]; previous != nil {
+		previous.cancel()
+	}
+	f.consumerManager[key] = entry
+	// Stop takes the same lock before waiting, so Add cannot race with Wait.
 	f.wg.Add(2)
-	go f.consumeLoop(c, cOpt.TopicList, &consumerGroupHandler{cOpt.ConsumeUrl, f.httpClient}, key)
-	go f.checkConsumerIsAlive(c, key, cOpt.CheckUrl)
+	f.mu.Unlock()
+	go f.consumeLoop(c, cOpt.TopicList, &consumerGroupHandler{cOpt.ConsumeUrl, f.httpClient}, key, entry)
+	go f.checkConsumerIsAlive(c, key, cOpt.CheckUrl, entry)
 	return nil
 }
 
@@ -124,15 +139,15 @@ func (f *KafkaConsumerFacade) Subscribe(ctx context.Context, opts ...Option) err
 // the facade is stopping via f.done. It always decrements the WaitGroup on exit
 // and removes its consumerManager entry so Stop()'s wg.Wait() can return and no
 // stale cancel funcs are left behind.
-func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler, key string) {
+func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler, key string, entry *consumerSubscription) {
 	defer f.wg.Done()
-	defer f.removeConsumer(key)
+	defer f.removeConsumer(key, entry)
 
 	for {
 		// Consume blocks until the session ends (rebalance, ctx cancel, or
 		// Close). On a clean ctx cancellation we stop; otherwise we rejoin.
 		if err := f.consumerGroup.Consume(ctx, topics, handler); err != nil {
-			logger.Warn("failed to consume the msg from kafka, %s", err.Error())
+			logger.Warnf("failed to consume the msg from kafka, %s", err.Error())
 		}
 
 		select {
@@ -140,7 +155,7 @@ func (f *KafkaConsumerFacade) consumeLoop(ctx context.Context, topics []string, 
 			logger.Info("shutdown the consume loop")
 			return
 		case <-ctx.Done():
-			logger.Error("shutdown the consume loop due to %s", ctx.Err().Error())
+			logger.Infof("shutdown the consume loop due to %s", ctx.Err().Error())
 			return
 		default:
 			// session ended (e.g. rebalance) with an active context; rejoin
@@ -194,12 +209,12 @@ func (c *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	return nil
 }
 
-// removeConsumer cancels and deletes the consumerManager entry for key, if any.
-// It is a no-op when the entry has already been removed.
-func (f *KafkaConsumerFacade) removeConsumer(key string) {
+// removeConsumer cancels and deletes only the subscription owned by the caller.
+// A worker from a replaced subscription must not cancel or delete its successor.
+func (f *KafkaConsumerFacade) removeConsumer(key string, entry *consumerSubscription) {
 	f.mu.Lock()
-	if cancel, ok := f.consumerManager[key]; ok {
-		cancel()
+	if current, ok := f.consumerManager[key]; ok && current == entry {
+		entry.cancel()
 		delete(f.consumerManager, key)
 	}
 	f.mu.Unlock()
@@ -209,9 +224,9 @@ func (f *KafkaConsumerFacade) removeConsumer(key string) {
 // the consumer is deemed unhealthy it cancels the consume loop (via the shared
 // subscription context) and removes the manager entry. It also removes the
 // entry on either shutdown signal so no stale cancel funcs are left behind.
-func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key string, checkUrl string) {
+func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key string, checkUrl string, entry *consumerSubscription) {
 	defer f.wg.Done()
-	defer f.removeConsumer(key)
+	defer f.removeConsumer(key, entry)
 
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
@@ -225,22 +240,27 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 			lastCheck := 0
 			for i := 0; i < 5; i++ {
 				err := func() error {
-					req, err := http.NewRequest(http.MethodGet, checkUrl, bytes.NewReader([]byte{}))
-					if err == nil {
-						resp, err := f.httpClient.Do(req)
-						if err == nil {
-							defer resp.Body.Close()
-							lastCheck = resp.StatusCode
-							if resp.StatusCode != http.StatusOK {
-								return perrors.New("failed check consumer alive or not with status code " + strconv.Itoa(resp.StatusCode))
-							}
-							return nil
-						}
+					req, err := http.NewRequestWithContext(ctx, http.MethodGet, checkUrl, nil)
+					if err != nil {
+						return perrors.Wrap(err, "create consumer health request")
 					}
-					return perrors.New("failed to check consumer alive due to: " + err.Error())
+					resp, err := f.httpClient.Do(req)
+					if err != nil {
+						return perrors.Wrap(err, "check consumer health")
+					}
+					defer resp.Body.Close()
+					lastCheck = resp.StatusCode
+					if resp.StatusCode != http.StatusOK {
+						return perrors.New("failed check consumer alive or not with status code " + strconv.Itoa(resp.StatusCode))
+					}
+					return nil
 				}()
 				if err != nil {
-					time.Sleep(10 * time.Millisecond)
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(10 * time.Millisecond):
+					}
 				} else {
 					break
 				}
@@ -249,7 +269,7 @@ func (f *KafkaConsumerFacade) checkConsumerIsAlive(ctx context.Context, key stri
 			if lastCheck != http.StatusOK {
 				// Consumer is unhealthy: cancel the shared subscription context
 				// to stop the consume loop and drop the manager entry.
-				f.removeConsumer(key)
+				return
 			}
 		}
 	}
@@ -264,19 +284,23 @@ func (f *KafkaConsumerFacade) Stop() {
 		// Cancel any still-registered consumers before signaling shutdown so the
 		// consume loops can exit their Consume() calls promptly.
 		f.mu.Lock()
-		for key, cancel := range f.consumerManager {
-			cancel()
+		f.stopped = true
+		for key, entry := range f.consumerManager {
+			entry.cancel()
 			delete(f.consumerManager, key)
 		}
+		close(f.done)
 		f.mu.Unlock()
 
-		close(f.done)
+		// Close before waiting: sarama also uses its closed channel to release
+		// Consume during session setup/rejoin. Waiting first could prevent the
+		// very Close call needed to unblock it. Sarama's network timeouts bound
+		// its outstanding broker requests. Close and Wait both run only once.
+		if err := f.consumerGroup.Close(); err != nil {
+			logger.Warnf("failed to close kafka consumer group: %s", err.Error())
+		}
+		f.wg.Wait()
 	})
-	// Wait for the consume loop and health check of every subscription to exit.
-	f.wg.Wait()
-	if err := f.consumerGroup.Close(); err != nil {
-		logger.Warn("failed to close kafka consumer group: %s", err.Error())
-	}
 }
 
 func NewKafkaProviderFacade(config KafkaProducerConfig) (*KafkaProducerFacade, error) {

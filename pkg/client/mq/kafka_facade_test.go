@@ -19,13 +19,21 @@ package mq
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 import (
 	"github.com/IBM/sarama"
+
+	"github.com/agiledragon/gomonkey/v2"
+
+	"github.com/stretchr/testify/require"
 )
 
 // fakeConsumerGroup is a sarama.ConsumerGroup implementation that does not
@@ -36,6 +44,8 @@ type fakeConsumerGroup struct {
 	consumes int
 	closes   int
 	started  chan context.Context
+	consume  func(context.Context) error
+	onClose  func() error
 }
 
 func (f *fakeConsumerGroup) Consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
@@ -44,6 +54,9 @@ func (f *fakeConsumerGroup) Consume(ctx context.Context, topics []string, handle
 	f.mu.Unlock()
 	if f.started != nil {
 		f.started <- ctx
+	}
+	if f.consume != nil {
+		return f.consume(ctx)
 	}
 	<-ctx.Done()
 	return ctx.Err()
@@ -55,6 +68,9 @@ func (f *fakeConsumerGroup) Close() error {
 	f.mu.Lock()
 	f.closes++
 	f.mu.Unlock()
+	if f.onClose != nil {
+		return f.onClose()
+	}
 	return nil
 }
 
@@ -77,7 +93,22 @@ func newTestFacade(t *testing.T) (*KafkaConsumerFacade, *fakeConsumerGroup) {
 	if facade.consumerManager == nil {
 		t.Fatal("consumerManager should be initialized, not nil")
 	}
+	t.Cleanup(func() { stopTestFacade(t, facade) })
 	return facade, fake
+}
+
+func stopTestFacade(t *testing.T, facade *KafkaConsumerFacade) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		facade.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Stop did not finish within 3s")
+	}
 }
 
 // TestNewKafkaConsumerFacadeConstructorInitializesMap verifies that the
@@ -92,6 +123,32 @@ func TestNewKafkaConsumerFacadeConstructorInitializesMap(t *testing.T) {
 	if exists {
 		t.Fatal("consumerManager should start empty")
 	}
+}
+
+func TestNewKafkaConsumerFacadeProductionConstructor(t *testing.T) {
+	fake := &fakeConsumerGroup{}
+	patches := gomonkey.ApplyFunc(sarama.NewConsumerGroup, func(brokers []string, group string, config *sarama.Config) (sarama.ConsumerGroup, error) {
+		require.Equal(t, []string{"broker:9092"}, brokers)
+		require.Equal(t, "test-group", group)
+		require.Equal(t, "test-client", config.ClientID)
+		return fake, nil
+	})
+	defer patches.Reset()
+	config := KafkaConsumerConfig{Brokers: []string{"broker:9092"}, ClientID: "test-client", ProtocolVersion: "2.1.0"}
+	facade, err := NewKafkaConsumerFacade(config, "test-group")
+	require.NoError(t, err)
+	require.NotNil(t, facade.consumerManager)
+	stopTestFacade(t, facade)
+	config.ProtocolVersion = "invalid"
+	_, err = NewKafkaConsumerFacade(config, "test-group")
+	require.Error(t, err)
+
+	factoryErr := errors.New("consumer group creation failed")
+	facade, err = newKafkaConsumerFacade(config, "test-group", func(KafkaConsumerConfig, string) (sarama.ConsumerGroup, error) {
+		return nil, factoryErr
+	})
+	require.Nil(t, facade)
+	require.ErrorIs(t, err, factoryErr)
 }
 
 // TestKafkaConsumerFacadeConsumerManagerInitialized verifies that writing to
@@ -111,7 +168,7 @@ func TestKafkaConsumerFacadeConsumerManagerInitialized(t *testing.T) {
 		t.Fatalf("Subscribe failed: %v", err)
 	}
 	// Stop promptly so the test does not leak goroutines.
-	facade.Stop()
+	stopTestFacade(t, facade)
 }
 
 // TestKafkaConsumerFacadeStopReturns is the regression test for the P0 bug
@@ -160,7 +217,7 @@ func TestKafkaConsumerFacadeStopCancelsConsumeLoop(t *testing.T) {
 		t.Fatalf("Subscribe failed: %v", err)
 	}
 
-	facade.Stop()
+	stopTestFacade(t, facade)
 
 	fake.mu.Lock()
 	consumes := fake.consumes
@@ -197,7 +254,10 @@ func TestKafkaConsumerFacadeCancellationStopsWorkers(t *testing.T) {
 				cancel()
 			} else {
 				// This is the same cancellation path used by a failed health check.
-				facade.removeConsumer(key)
+				facade.mu.RLock()
+				entry := facade.consumerManager[key]
+				facade.mu.RUnlock()
+				facade.removeConsumer(key, entry)
 			}
 			select {
 			case <-consumeCtx.Done():
@@ -220,7 +280,7 @@ func TestKafkaConsumerFacadeCancellationStopsWorkers(t *testing.T) {
 			if remaining != 0 {
 				t.Fatalf("cancellation left %d stale consumers", remaining)
 			}
-			facade.Stop()
+			stopTestFacade(t, facade)
 		})
 	}
 }
@@ -237,7 +297,7 @@ func TestKafkaConsumerFacadeConcurrentAccess(t *testing.T) {
 	go func() {
 		for i := 0; i < 100; i++ {
 			facade.mu.Lock()
-			facade.consumerManager[GetConsumerManagerKey([]string{"topic"}, "group")] = func() {}
+			facade.consumerManager[GetConsumerManagerKey([]string{"topic"}, "group")] = &consumerSubscription{cancel: func() {}}
 			facade.mu.Unlock()
 		}
 		done <- struct{}{}
@@ -280,5 +340,192 @@ func TestGetConsumerManagerKey(t *testing.T) {
 
 	if key == GetConsumerManagerKey(topics, "other-group") {
 		t.Error("Different groups should produce different keys")
+	}
+}
+
+func TestKafkaConsumerFacadeReplacesSubscriptionSafely(t *testing.T) {
+	facade, fake := newTestFacade(t)
+	oldStarted := make(chan struct{})
+	newStarted := make(chan context.Context, 1)
+	oldCanceled := make(chan struct{})
+	releaseOld := make(chan struct{})
+	var calls atomic.Int32
+	fake.consume = func(ctx context.Context) error {
+		if calls.Add(1) == 1 {
+			close(oldStarted)
+			<-ctx.Done()
+			close(oldCanceled)
+			<-releaseOld
+		} else {
+			newStarted <- ctx
+			<-ctx.Done()
+		}
+		return ctx.Err()
+	}
+	// Release the old worker even if an assertion fails, before facade cleanup.
+	t.Cleanup(func() {
+		select {
+		case <-releaseOld:
+		default:
+			close(releaseOld)
+		}
+	})
+	opts := []Option{WithTopic("topic"), WithConsumerGroup("group")}
+	require.NoError(t, facade.Subscribe(context.Background(), opts...))
+	select {
+	case <-oldStarted:
+	case <-time.After(3 * time.Second):
+		t.Fatal("old subscription did not start")
+	}
+	key := GetConsumerManagerKey([]string{"topic"}, "group")
+	facade.mu.RLock()
+	oldEntry := facade.consumerManager[key]
+	facade.mu.RUnlock()
+	require.NoError(t, facade.Subscribe(context.Background(), opts...))
+	select {
+	case <-oldCanceled:
+	case <-time.After(3 * time.Second):
+		t.Fatal("replacement did not cancel the old subscription")
+	}
+	var newCtx context.Context
+	select {
+	case newCtx = <-newStarted:
+	case <-time.After(3 * time.Second):
+		t.Fatal("replacement did not start")
+	}
+	facade.mu.RLock()
+	entry := facade.consumerManager[key]
+	facade.mu.RUnlock()
+	require.NotNil(t, entry, "old health-check cleanup must not delete the replacement")
+	// Delayed consume-loop cleanup must also leave the replacement untouched.
+	facade.removeConsumer(key, oldEntry)
+	close(releaseOld)
+	facade.mu.RLock()
+	current := facade.consumerManager[key]
+	facade.mu.RUnlock()
+	require.Same(t, entry, current)
+	require.NoError(t, newCtx.Err())
+	stopTestFacade(t, facade)
+	require.ErrorIs(t, newCtx.Err(), context.Canceled)
+}
+
+func TestKafkaConsumerFacadeStopClosesBeforeWaiting(t *testing.T) {
+	facade, fake := newTestFacade(t)
+	started := make(chan struct{})
+	closed := make(chan struct{})
+	fake.consume = func(context.Context) error {
+		close(started)
+		<-closed // Deliberately ignores context cancellation; only Close releases it.
+		return sarama.ErrClosedConsumerGroup
+	}
+	fake.onClose = func() error {
+		close(closed)
+		return errors.New("close failed")
+	}
+	require.NoError(t, facade.Subscribe(context.Background(), WithTopic("topic")))
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Consume did not start")
+	}
+	stopTestFacade(t, facade)
+	stopTestFacade(t, facade)
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	require.Equal(t, 1, fake.closes, "even a failed Close must only run once")
+}
+
+func TestKafkaConsumerFacadeConcurrentSubscribeAndStop(t *testing.T) {
+	facade, fake := newTestFacade(t)
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		workers.Add(2)
+		go func() {
+			defer workers.Done()
+			<-start
+			// Either a successful registration or a stopped error is valid.
+			_ = facade.Subscribe(context.Background(), WithTopic("topic"))
+		}()
+		go func() {
+			defer workers.Done()
+			<-start
+			facade.Stop()
+		}()
+	}
+	close(start)
+	done := make(chan struct{})
+	go func() {
+		workers.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("concurrent Subscribe/Stop did not finish")
+	}
+	require.Error(t, facade.Subscribe(context.Background(), WithTopic("topic")))
+	facade.mu.RLock()
+	require.Empty(t, facade.consumerManager)
+	facade.mu.RUnlock()
+	fake.mu.Lock()
+	require.Equal(t, 1, fake.closes)
+	fake.mu.Unlock()
+}
+
+func TestKafkaConsumerFacadeHealthCheckLifecycle(t *testing.T) {
+	for _, blocked := range []bool{false, true} {
+		name := "unhealthy consumer cancels both workers"
+		if blocked {
+			name = "stop cancels in-flight health request"
+		}
+		t.Run(name, func(t *testing.T) {
+			ticks := make(chan time.Time, 1)
+			ticker := time.NewTicker(time.Hour)
+			ticker.C = ticks
+			defer ticker.Stop()
+			patches := gomonkey.ApplyFunc(time.NewTicker, func(time.Duration) *time.Ticker { return ticker })
+			defer patches.Reset()
+			requestStarted := make(chan struct{}, 5)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requestStarted <- struct{}{}
+				if blocked {
+					<-r.Context().Done()
+					return
+				}
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}))
+			defer server.Close()
+			facade, fake := newTestFacade(t)
+			fake.started = make(chan context.Context, 1)
+			// Cleanup must cancel any request before closing the HTTP server.
+			defer stopTestFacade(t, facade)
+			require.NoError(t, facade.Subscribe(context.Background(), WithTopic("topic"), WithCheckUrl(server.URL)))
+			var consumeCtx context.Context
+			select {
+			case consumeCtx = <-fake.started:
+			case <-time.After(3 * time.Second):
+				t.Fatal("Consume did not start")
+			}
+			ticks <- time.Now()
+			select {
+			case <-requestStarted:
+			case <-time.After(3 * time.Second):
+				t.Fatal("health check did not start")
+			}
+			if blocked {
+				stopTestFacade(t, facade)
+			}
+			select {
+			case <-consumeCtx.Done():
+			case <-time.After(3 * time.Second):
+				t.Fatal("health-check shutdown did not cancel Consume")
+			}
+			stopTestFacade(t, facade)
+			facade.mu.RLock()
+			remaining := len(facade.consumerManager)
+			facade.mu.RUnlock()
+			require.Zero(t, remaining, "health-check shutdown must remove the subscription")
+		})
 	}
 }
