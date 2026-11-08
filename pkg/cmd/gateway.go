@@ -22,6 +22,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -80,12 +81,26 @@ var (
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := deploy.start()
 			if err != nil {
-				return errors.Wrap(err, "failed to start gateway")
+				return gatewayStartError{err: err}
 			}
 			return nil
 		},
 	}
 )
+
+// gatewayStartError keeps joined startup errors on one CLI output line while
+// preserving every underlying error for errors.Is and errors.As.
+type gatewayStartError struct {
+	err error
+}
+
+func (e gatewayStartError) Error() string {
+	return "failed to start gateway: " + strings.NewReplacer("\r\n", "; ", "\n", "; ", "\r", "; ").Replace(e.err.Error())
+}
+
+func (e gatewayStartError) Unwrap() error {
+	return e.err
+}
 
 // init Init startCmd
 func init() {

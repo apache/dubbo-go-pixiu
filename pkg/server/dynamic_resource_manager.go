@@ -72,7 +72,8 @@ func createDynamicResourceManger(bs *model.Bootstrap) (DynamicResourceManager, e
 		logger.Warnf("skip xds client start: server or managers not initialized")
 		return m, nil
 	}
-	// todo graceful shutdown: the returned client is not retained, so Stop() is never called.
+	// TODO: Retain the client and call Stop() from a shared server shutdown path
+	// that also closes ConfigManager. Normal shutdown currently invokes neither.
 	if _, err := xds.StartXdsClient(srv.GetListenerManager(), srv.GetClusterManager(), m); err != nil {
 		return nil, err
 	}

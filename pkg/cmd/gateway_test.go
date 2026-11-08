@@ -19,6 +19,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -181,6 +182,27 @@ func TestStartGatewayCmdRunE(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStartGatewayCmdRunEJoinedErrors(t *testing.T) {
+	ldsErr := errors.New("create LDS api manager: connection refused")
+	cdsErr := errors.New("create CDS api manager: connection refused")
+	startErr := errors.Join(ldsErr, cdsErr)
+	originalDeployer := deploy
+	t.Cleanup(func() { deploy = originalDeployer })
+	deploy = &MockDeployer{startErr: startErr}
+
+	err := startGatewayCmd.RunE(startGatewayCmd, nil)
+	if !assert.Error(t, err) {
+		return
+	}
+	assert.Equal(t, "failed to start gateway: create LDS api manager: connection refused; create CDS api manager: connection refused", err.Error())
+	assert.Equal(t, err.Error(), fmt.Sprintf("%+v", err))
+	assert.ErrorIs(t, err, startErr)
+	assert.ErrorIs(t, err, ldsErr)
+	assert.ErrorIs(t, err, cdsErr)
+	var joined interface{ Unwrap() []error }
+	assert.ErrorAs(t, err, &joined)
 }
 
 func TestInitDefaultValue(t *testing.T) {

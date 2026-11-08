@@ -183,7 +183,11 @@ type Client interface {
 	Stop()
 }
 
-// StartXdsClient create XdsClient and run. only one xds client create at first(singleton)
+// StartXdsClient creates and starts the process-wide xDS singleton.
+// This is a process startup entry point; configuration reloads must use the
+// existing watches instead of calling it again. A startup failure is cached and
+// is not retried. Callers must treat the error as fatal and terminate the process;
+// recovery requires a process restart (for example, by the orchestrator).
 func StartXdsClient(listenerMg controls.ListenerManager, clusterMg controls.ClusterManager, drm controls.DynamicResourceManager) (Client, error) {
 	// A startup failure is terminal for this singleton. Xds.Start rolls back partial
 	// initialization, and subsequent calls return the cached startup error.
