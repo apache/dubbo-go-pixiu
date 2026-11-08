@@ -435,6 +435,30 @@ func TestKafkaConsumerFacadeStopClosesBeforeWaiting(t *testing.T) {
 	require.Equal(t, 1, fake.closes, "even a failed Close must only run once")
 }
 
+func TestKafkaConsumerFacadeRejoinsAfterRebalance(t *testing.T) {
+	facade, fake := newTestFacade(t)
+	fake.started = make(chan context.Context, 2)
+	var calls atomic.Int32
+	fake.consume = func(ctx context.Context) error {
+		if calls.Add(1) == 1 {
+			return nil // A completed session with an active context requires rejoining.
+		}
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	require.NoError(t, facade.Subscribe(context.Background(), WithTopic("topic")))
+	for i := 0; i < 2; i++ {
+		select {
+		case ctx := <-fake.started:
+			require.NoError(t, ctx.Err())
+		case <-time.After(3 * time.Second):
+			t.Fatal("consumer did not rejoin after rebalance")
+		}
+	}
+	stopTestFacade(t, facade)
+	require.Equal(t, int32(2), calls.Load())
+}
+
 func TestKafkaConsumerFacadeConcurrentSubscribeAndStop(t *testing.T) {
 	facade, fake := newTestFacade(t)
 	start := make(chan struct{})
