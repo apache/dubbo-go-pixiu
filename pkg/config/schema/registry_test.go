@@ -1,0 +1,65 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to you under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package schema
+
+import (
+	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestBuiltinRegistryContainsOnlyAdminRouteBinding(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	require.Len(t, registry.List(), 1)
+
+	objectSchema, ok := registry.Lookup(KindAdminRouteBinding)
+	require.True(t, ok)
+	assert.Equal(t, KindAdminRouteBinding, objectSchema.Kind)
+	assert.Contains(t, objectSchema.Fields, "entry")
+	assert.Contains(t, objectSchema.Fields, "backendRef")
+	assert.Contains(t, objectSchema.Fields, "serviceSelection")
+	assert.Contains(t, objectSchema.Fields, "invocation")
+	assert.Contains(t, objectSchema.Fields, "enabled")
+	assert.NotContains(t, objectSchema.Fields, "extensions")
+	assert.NotContains(t, objectSchema.Fields, "publish")
+	assert.Equal(t, []any{"registry"}, objectSchema.Fields["backendRef"].Properties["type"].Enum)
+}
+
+func TestDefaultRegistryIsSharedByProcess(t *testing.T) {
+	first, err := DefaultRegistry()
+	require.NoError(t, err)
+	second, err := DefaultRegistry()
+	require.NoError(t, err)
+	assert.Same(t, first, second)
+}
+
+func TestBuiltinRouteSchemaPublishesSupportedParameterTypes(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	objectSchema, ok := registry.Lookup(KindAdminRouteBinding)
+	require.True(t, ok)
+	paramType := objectSchema.Fields["invocation"].Properties["parameters"].Items.Properties["type"]
+	require.NotNil(t, paramType)
+	assert.Contains(t, paramType.Enum, "int")
+	assert.Contains(t, paramType.Enum, "java.lang.Integer")
+	assert.Len(t, paramType.Enum, len(supportedDubboParamTypes))
+}

@@ -181,7 +181,8 @@ func (l *appServiceListener) handle(url *dubboCommon.URL, action remoting.EventT
 func (l *appServiceListener) getURLs(nmis nacosModel.Instance) []*dubboCommon.URL {
 	instance := toNacosInstance(nmis)
 	metadata := instance.GetMetadata()
-	metadataInfo, err := servicediscovery.GetMetadataInfo(instance.GetServiceName(), instance, metadata[dubboConst.ExportedServicesRevisionPropertyName])
+	// No registry ID is configured here; retain the default metadata report lookup.
+	metadataInfo, err := servicediscovery.GetMetadataInfo(instance.GetServiceName(), instance, metadata[dubboConst.ExportedServicesRevisionPropertyName], "")
 	if err != nil {
 		logger.Errorf("get instance metadata info error %v", err.Error())
 		return nil
@@ -213,9 +214,8 @@ func toNacosInstance(nmis nacosModel.Instance) dr.ServiceInstance {
 
 // group@@serviceName convert to serviceName
 func handleServiceName(serviceName string) string {
-	parts := strings.Split(serviceName, "@@")
-	if len(parts) > 1 {
-		return parts[1]
+	if _, name, ok := strings.Cut(serviceName, "@@"); ok {
+		return name
 	}
-	return ""
+	return serviceName
 }

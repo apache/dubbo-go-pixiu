@@ -18,11 +18,14 @@
 package nacos
 
 import (
-	"strconv"
 	"testing"
 )
 
 import (
+	dubboCommon "dubbo.apache.org/dubbo-go/v3/common"
+
+	"github.com/agiledragon/gomonkey/v2"
+
 	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
 
 	"github.com/stretchr/testify/assert"
@@ -43,7 +46,7 @@ func TestHandleServiceName(t *testing.T) {
 		{
 			name:     "without separator",
 			input:    "user-service",
-			expected: "",
+			expected: "user-service",
 		},
 		{
 			name:     "empty string",
@@ -58,7 +61,7 @@ func TestHandleServiceName(t *testing.T) {
 		{
 			name:     "multiple separators",
 			input:    "A@@B@@C",
-			expected: "B", // strings.Split returns all parts, we take parts[1]
+			expected: "B@@C",
 		},
 	}
 
@@ -71,35 +74,29 @@ func TestHandleServiceName(t *testing.T) {
 }
 
 func TestAppServiceListenerCallback_InstanceMapHandling(t *testing.T) {
-	// Test that Callback updates instance map correctly
-	// We focus on the instance map update logic without triggering URL generation
-	listener := &appServiceListener{
-		client:          nil,
-		instanceMap:     make(map[string]nacosModel.Instance),
-		adapterListener: nil,
+	for _, tc := range []struct{ input, expected string }{
+		{"test-service", "test-service"},
+		{"DEFAULT_GROUP@@test-service", "test-service"},
+		{"GROUP@@service@@suffix", "service@@suffix"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			listener := newNacosAppSrvListener(nil, nil)
+			var names []string
+			// Intercept only the external metadata lookup; exercise the complete
+			// callback and verify the name forwarded for URL resolution.
+			patches := gomonkey.ApplyPrivateMethod(listener, "getURLs", func(_ *appServiceListener, instance nacosModel.Instance) []*dubboCommon.URL {
+				names = append(names, instance.ServiceName)
+				return nil
+			})
+			defer patches.Reset()
+			listener.Callback([]nacosModel.Instance{{
+				Ip: "192.168.1.1", Port: 8080, ServiceName: tc.input, Enable: true,
+			}}, nil)
+			assert.Equal(t, []string{tc.expected}, names)
+			assert.Equal(t, tc.expected, listener.instanceMap["192.168.1.1:8080"].ServiceName)
+			listener.Close()
+		})
 	}
-
-	// First callback - add instances
-	services1 := []nacosModel.Instance{
-		{
-			Ip:          "192.168.1.1",
-			Port:        8080,
-			ServiceName: "test-service",
-			Enable:      true,
-		},
-	}
-
-	// Manually update instanceMap to avoid getURLs call
-	// This tests the instance map handling logic
-	for _, svc := range services1 {
-		if !svc.Enable {
-			continue
-		}
-		host := svc.Ip + ":" + strconv.Itoa(int(svc.Port))
-		svc.ServiceName = handleServiceName(svc.ServiceName)
-		listener.instanceMap[host] = svc
-	}
-	assert.Equal(t, 1, len(listener.instanceMap))
 }
 
 func TestToNacosInstance(t *testing.T) {

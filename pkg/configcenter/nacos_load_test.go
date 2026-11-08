@@ -140,7 +140,7 @@ func (c *closeRecorderConfig) closeCalls() int {
 
 // TestNacosConfig_Close verifies the v2 close path: Close must delegate to the
 // SDK config client's CloseClient so the gRPC connection is released on
-// shutdown. See AlexStocks' [P1] review on PR #982.
+// shutdown.
 func TestNacosConfig_Close(t *testing.T) {
 	t.Run("closes the underlying client", func(t *testing.T) {
 		recorder := &closeRecorderConfig{}

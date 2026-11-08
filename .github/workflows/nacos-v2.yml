@@ -26,6 +26,24 @@ on:
       - 'go.sum'
       - 'pkg/remote/nacos/**'
       - 'pkg/adapter/**/nacos/**'
+      - 'pkg/configcenter/**'
+      - 'pkg/config/config_load*'
+      - 'pkg/cmd/gateway*'
+      - 'pkg/server/**'
+      - 'pkg/common/shutdown/**'
+      - '.github/workflows/nacos-v2.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+      - 'pkg/remote/nacos/**'
+      - 'pkg/adapter/**/nacos/**'
+      - 'pkg/configcenter/**'
+      - 'pkg/config/config_load*'
+      - 'pkg/cmd/gateway*'
+      - 'pkg/server/**'
+      - 'pkg/common/shutdown/**'
       - '.github/workflows/nacos-v2.yml'
   workflow_dispatch:
 
@@ -61,4 +79,8 @@ jobs:
       - name: Verify registration and discovery through Nacos v2 gRPC
         env:
           NACOS_TEST_ADDRESS: 127.0.0.1:8848
-        run: go test ./pkg/remote/nacos -run '^TestNacosV2Integration$' -race -count=1 -timeout=90s
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./pkg/remote/nacos -run '^TestNacosV2Integration$' -race -count=1 -timeout=90s -v | tee /tmp/nacos-v2.log
+          grep -q -- '^--- PASS: TestNacosV2Integration ' /tmp/nacos-v2.log

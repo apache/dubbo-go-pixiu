@@ -26,6 +26,9 @@ import (
 )
 
 import (
+	"github.com/agiledragon/gomonkey/v2"
+
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
@@ -566,7 +569,6 @@ func TestLifecycle(t *testing.T) {
 // TestDoUnsubscribeClosesClient locks in the v2 close path: DoUnsubscribe must
 // close the naming client (CloseClient) in addition to stopping the listener,
 // otherwise the gRPC connection and internal retry goroutines outlive shutdown.
-// See AlexStocks' [P1] review on PR #982.
 func TestDoUnsubscribeClosesClient(t *testing.T) {
 	client := newMockNacosClient()
 	adapterListener := newMockAdapterListener()
@@ -589,4 +591,20 @@ func TestDoUnsubscribeClosesClient(t *testing.T) {
 
 	assert.Equal(t, 1, client.closeClientCalls(),
 		"DoUnsubscribe must close the naming client to release the v2 gRPC connection")
+}
+
+func TestRegistryConstructorUsesV2NamingClient(t *testing.T) {
+	client := newMockNacosClient()
+	patches := gomonkey.ApplyFunc(clients.NewNamingClient, func(param vo.NacosClientParam) (naming_client.INamingClient, error) {
+		assert.Equal(t, uint64(8848), param.ServerConfigs[0].Port)
+		assert.Equal(t, "test-namespace", param.ClientConfig.NamespaceId)
+		return client, nil
+	})
+	defer patches.Reset()
+	reg, err := newNacosRegistry(model.Registry{Address: "127.0.0.1:8848", Namespace: "test-namespace"}, newMockAdapterListener())
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NoError(t, reg.(*NacosRegistry).DoUnsubscribe())
+	assert.Equal(t, 1, client.closeClientCalls())
 }

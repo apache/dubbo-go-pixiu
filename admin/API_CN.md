@@ -2,11 +2,9 @@
 
 [English](API.md) | **中文**
 
-本接口文档详细描述了 Pixiu 管理平台的后端 API 操作，包括获取、创建、修改、删除资源（Resource）、方法（Method）及插件组（PluginGroup）的接口。Pixiu
-平台提供了一整套 API 来帮助用户管理 API 网关的资源映射、插件配置以及请求处理。文档中的示例涵盖了常见的请求与响应格式，并介绍了如何使用
-Postman 进行接口测试。
+本接口文档详细描述 Pixiu 管理平台的后端 API 操作，包括 API 路由绑定（AdminRouteBinding）、插件组（PluginGroup）和 OPA 策略等接口。Pixiu 平台提供相关 API 来管理 API 网关路由映射、插件配置和请求处理。文档中的示例涵盖常见的请求与响应格式，并介绍如何使用 Postman 测试接口。
 
-无论是创建新资源、修改现有配置，还是管理插件组，本文档都提供了清晰的步骤和必要的 API 细节，方便开发者快速上手并进行集成。
+无论是创建新的 API 路由、修改现有配置，还是管理插件组，本文档都提供清晰的步骤和必要的 API 细节，方便开发者快速上手并进行集成。
 
 更多的 API 具体介绍请参考 [Swagger 文档](./doc/swagger.json)
 
@@ -60,240 +58,204 @@ name: pixiu
 description: pixiu111 sample
 ```
 
-## 二、Resource
+## 二、API 路由
 
-### 2.1 获取 Resource 列表
+API Router 配置使用 AdminRouteBinding 对象管理，并编译为 Pixiu 现有的 Resource/Method 运行时格式。旧 Resource/Method Admin CRUD 和发布接口仍保留，用于兼容旧客户端；旧运行时记录不会自动导入 AdminRouteBinding 草稿，需要迁移到新模型管理的路由应通过新接口重新创建。
+
+新模型将 HTTP 入口、后端引用、Dubbo 服务选择和调用策略分开描述。例如：
+
+```yaml
+kind: AdminRouteBinding
+metadata:
+  name: user-get
+spec:
+  entry:
+    protocol: http
+    path: /api/v1/users/:id
+    method: GET
+  backendRef:
+    type: registry
+  serviceSelection:
+    application: UserProvider
+    interface: com.example.user.UserService
+    group: stable
+    version: 1.0.0
+  invocation:
+    method: GetUser
+    timeout: 750ms
+    parameters:
+      - from: uri.id
+        to: 0
+        type: java.lang.String
+  enabled: true
+```
+
+`timeout` 必须是正数时长；路径中的每个 `:参数` 都必须且只能映射一次到对应的 `uri.参数`。当前 `backendRef.type` 固定为 `registry`，服务通过 Listener 的 `dgp.filter.http.dubboproxy` 中配置的注册中心集合发现；`serviceSelection.application` 和 `interface` 用于定位服务。旧 `target.cluster` 会迁移为 `integrationRequest.clusterName`，但不用于选择注册中心。运行时示例参见[Dubbo 注册中心配置](../docs/sample/dubbo/dubbo-registry.md)。PR #1046 生成的 `target`/`params` 对象会在读取和校验时迁移为当前模型，保存时写入新格式。
+
+### 2.1 获取 API 路由 Schema
 
 **请求**：
 
 ```http
-GET /config/api/resource/list HTTP/1.1
+GET /config/api/route/schema HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 2.2 获取 Resource 详情
+返回数据包含已注册的 Admin 对象 Schema，其中包括编辑器使用的 AdminRouteBinding Schema。
+
+### 2.2 获取 API 路由列表
 
 **请求**：
 
 ```http
-GET /config/api/resource/detail?resourceId=1 HTTP/1.1
+GET /config/api/route/list?scope=draft HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 2.3 创建 Resource
+scope=draft（默认值）查询草稿，scope=published 查询已发布路由。接口同时兼容旧的 unpublished 参数：1 表示草稿，0 表示已发布路由。草稿列表包含由后端计算的发布状态。
+
+### 2.3 获取 API 路由详情
 
 **请求**：
 
 ```http
-POST /config/api/resource/ HTTP/1.1
+GET /config/api/route/detail?name=<路由名>&scope=draft HTTP/1.1
 Host: 127.0.0.1:8080
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 cache-control: no-cache
 ```
 
-**表单数据**：
+name 是不可变的路由标识。查询已发布版本时将 scope 设为 published。
 
-```text
-Content-Disposition: form-data; name="content"
-path: '/api/v1/test-dubbo/friend2'
-type: restful
-description: user
-timeout: 100ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    resourcePath: '/api/v1/test-dubbo/friend2'
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
-```
-
-### 2.4 修改 Resource
+### 2.4 创建 API 路由草稿
 
 **请求**：
 
 ```http
-PUT /config/api/resource? HTTP/1.1
+POST /config/api/route HTTP/1.1
 Host: 127.0.0.1:8080
+Content-Type: application/json
 cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
-**表单数据**：
+请求体为 AdminRouteBinding JSON 对象。也可使用 {"object": <AdminRouteBinding>, "expectedRevision": <revision>} 包装对象，或通过表单字段 content 提交 YAML。
 
-```text
-Content-Disposition: form-data; name="content"
-id: 1
-path: '/api/v1/test-dubbo/friend'
-type: restful
-description: update
-timeout: 1000ms
-plugins:
-  pre:
-    pluginNames:
-      - rate limit
-      - access
-  post:
-    groupNames:
-      - group2
-methods:
-  - httpVerb: GET
-    onAir: true
-    timeout: 1000ms
-    inboundRequest:
-      requestType: http
-      queryStrings:
-        - name: name
-          required: true
-    integrationRequest:
-      requestType: http
-      host: 127.0.0.1:8889
-      path: /UserProvider/GetUserByName
-      mappingParams:
-        - name: queryStrings.name
-          mapTo: queryStrings.name
-      group: "test"
-      version: 1.0.0
-```
-
-### 2.5 删除 Resource
+### 2.5 修改 API 路由草稿
 
 **请求**：
 
 ```http
-DELETE /config/api/resource/?resourceId=2 HTTP/1.1
+PUT /config/api/route?name=<路由名> HTTP/1.1
 Host: 127.0.0.1:8080
+Content-Type: application/json
 cache-control: no-cache
 ```
 
-## 三、Method 相关
+请求体为更新后的 AdminRouteBinding 对象。name 查询参数必须与 metadata.name 一致且不可修改。expectedRevision 可放在包装后的 JSON 请求体、查询参数或 If-Match 请求头中，用于拒绝过期更新。
 
-### 3.1 查询某个 Resource 下的 Method 列表
+### 2.6 校验或预览 API 路由
 
 **请求**：
 
 ```http
-GET /config/api/resource/method/list?resourceId=1 HTTP/1.1
+POST /config/api/route/validate HTTP/1.1
+POST /config/api/route/preview HTTP/1.1
 Host: 127.0.0.1:8080
+Content-Type: application/json
 cache-control: no-cache
 ```
 
-### 3.2 查询 Method 详情
+两个接口都接收 AdminRouteBinding 对象，不会写入 etcd。校验接口返回包含 Schema 默认值的规范化对象；预览接口返回规范化对象以及生成的 Pixiu 旧格式 YAML。
+
+### 2.7 获取 API 路由状态或 Diff
 
 **请求**：
 
 ```http
-GET /config/api/resource/method/detail?resourceId=1&methodId=2 HTTP/1.1
+GET /config/api/route/status?name=<路由名> HTTP/1.1
+GET /config/api/route/diff?name=<路由名> HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 3.3 创建 Method
+状态接口返回单条路由的草稿和已发布状态；Diff 接口返回草稿与已发布对象之间的字段差异。
+
+### 2.8 查询已发布历史
 
 **请求**：
 
 ```http
-POST /config/api/resource/method/?resourceId=1 HTTP/1.1
+GET /config/api/route/history?name=<路由名> HTTP/1.1
 Host: 127.0.0.1:8080
-cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
-**表单数据**：
+每次成功发布或删除都会在与运行时配置相同的 etcd 事务中保存不可变快照。历史记录包含单调递增 revision、发布时间和对象；删除记录不含对象。revision 以十进制字符串返回，以便旧安装中较大的 revision 标记可以被客户端精确保留。
 
-```text
-Content-Disposition: form-data; name="content"
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 1000ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
+`GET /config/api/route/history/list` 返回所有路由的最近历史摘要，包括删除记录。Admin 页面通过它展示已从草稿和已发布列表中消失的路由，并允许恢复之前发布过的版本。
+历史记录不会自动清理，以保留旧版本回滚能力。
 
-### 3.4 修改 Method
+### 2.9 发布单条 API 路由
 
 **请求**：
 
 ```http
-PUT /config/api/resource/method/?resourceId=1 HTTP/1.1
+PUT /config/api/route/publish?name=<路由名>&expectedRevision=<revision> HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
-Content-Type: multipart/form-data; boundary=-WebKitFormBoundary7MA4YWxkTrZu0gW
 ```
 
-**表单数据**：
+发布前会校验路由，并通过一个 etcd 事务原子更新该路由的已发布 AdminRouteBinding 和生成的运行时配置。expectedRevision 为可选项，可用于拒绝过期草稿。系统不提供 API 路由全量发布接口。
 
-```text
-Content-Disposition: form-data; name="content"
-id: 2
-httpVerb: PUT
-resourcePath: '/api/v1/test-dubbo/friend'
-onAir: true
-timeout: 300ms
-inboundRequest:
-  requestType: http
-  queryStrings:
-    - name: name
-      required: true
-integrationRequest:
-  requestType: http
-  host: 127.0.0.1:8889
-  path: /UserProvider/GetUserByName
-  mappingParams:
-    - name: queryStrings.name
-      mapTo: queryStrings.name
-  group: "test"
-  version: 1.0.0
-```
+发布前还会检查旧运行时 Resource/Method 配置冲突。若 HTTP 方法和路径冲突，应先从旧运行时配置中移除对应路由。
 
-### 3.5 删除 Method
+### 2.10 回滚到已发布历史版本
 
 **请求**：
 
 ```http
-DELETE /config/api/resource/method/?resourceId=1&methodId=2 HTTP/1.1
+PUT /config/api/route/rollback?name=<路由名>&revision=<history-revision>&expectedRevision=<当前草稿版本> HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+回滚会将选定快照写入草稿，再通过正常的原子发布流程生效。若并发修改导致发布冲突，快照会保留为草稿，当前运行时配置不变。请求必须且只能提供一个并发前置条件：`expectedRevision` 传入当前草稿版本；当路由在草稿和已发布范围都不存在时，使用 `expectedAbsent=true`。仅历史记录页面的回滚使用后一种条件，例如：
+
+```http
+PUT /config/api/route/rollback?name=<路由名>&revision=<history-revision>&expectedAbsent=true HTTP/1.1
+Host: 127.0.0.1:8080
+```
+
+回滚到删除快照会删除该路由。
+
+### 2.11 删除单条 API 路由
+
+**请求**：
+
+```http
+DELETE /config/api/route?name=<路由名>&expectedRevision=<revision> HTTP/1.1
 Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-## 四、PluginGroup 和 Plugin 相关
+删除会通过一个 etcd 事务立即移除路由草稿和对应的已发布运行时配置。客户端发送请求前应先向用户确认删除。
+expectedRevision 为可选项；如果提供，可避免删除读取后已被其他请求修改的草稿。
 
-### 4.1 查看 PluginGroup 列表
+### 2.12 旧版 Resource/Method API 兼容
+
+旧 Admin 客户端仍可使用以下接口：
+
+- `/config/api/resource/list`、`/detail` 和 `/resource`（POST/PUT/DELETE）
+- `/config/api/resource/method/list`、`/detail` 和 `/resource/method`（POST/PUT/DELETE）
+- `/config/api/resource/publish` 和 `/config/api/resource/method/publish`
+
+这些接口继续读写旧 etcd key 和 YAML 结构。AdminRouteBinding 发布前会检查与旧运行时路由的冲突；替换冲突路由前，应先通过旧接口或旧配置清理对应路由。
+旧版 Method 更新接口的 `methodId` 查询参数为可选项；省略时保留 YAML 请求体中的 Method ID。通过旧接口创建已发布 Resource 时，运行时和草稿副本会在同一个事务中写入。旧版删除接口会拒绝删除已发布 AdminRouteBinding 所属的运行时 ID；路径更新若与其他 Resource/Method 写入竞争，会返回可重试冲突。
+
+旧接口为兼容性保留 HTTP 200 响应信封，并在 `code` 和 `data` 字段中返回结果。RouteBinding 接口也使用 HTTP 200，但可能在响应中返回结构化校验详情。
+
+## 三、PluginGroup 和 Plugin 相关
+
+### 3.1 查看 PluginGroup 列表
 
 **请求**：
 
@@ -303,7 +265,7 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 4.2 查看 PluginGroup 详情
+### 3.2 查看 PluginGroup 详情
 
 **请求**：
 
@@ -313,7 +275,7 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-### 4.3 创建 PluginGroup
+### 3.3 创建 PluginGroup
 
 **请求**：
 
@@ -340,7 +302,7 @@ plugins:
     externalLookupName: "ExternalPluginAccess"
 ```
 
-### 4.4 修改 PluginGroup
+### 3.4 修改 PluginGroup
 
 **请求**：
 
@@ -367,7 +329,7 @@ plugins:
     externalLookupName: "ExternalPluginAccess"
 ```
 
-### 4.5 删除 PluginGroup
+### 3.5 删除 PluginGroup
 
 **请求**：
 
@@ -377,11 +339,23 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-## 五、OPA 策略
+### 3.6 发布 PluginGroup
+
+**请求**：
+
+```http
+PUT /config/api/plugin_group/publish HTTP/1.1
+Host: 127.0.0.1:8080
+cache-control: no-cache
+```
+
+该旧接口将暂存空间中的 PluginGroup 配置发布到已发布空间，与 API 路由发布相互独立。
+
+## 四、OPA 策略
 
 OPA 策略接口会代理请求到 OPA 服务端。未提供 `server_url` 或 `policy_id` 时，会使用默认值（`http://opa:8181` 和 `pixiu-authz`）。
 
-### 5.1 获取 OPA 策略
+### 4.1 获取 OPA 策略
 
 **请求**：
 
@@ -408,7 +382,7 @@ cache-control: no-cache
 
 若策略不存在，`data` 返回空字符串。
 
-### 5.2 新增或更新 OPA 策略
+### 4.2 新增或更新 OPA 策略
 
 **请求**：
 
@@ -436,7 +410,7 @@ default allow := false
 * `server_url`
 * `bearer_token`
 
-### 5.3 删除 OPA 策略
+### 4.3 删除 OPA 策略
 
 **请求**：
 
@@ -452,12 +426,11 @@ cache-control: no-cache
 * `server_url`: OPA 服务地址（可选）
 * `bearer_token`: OPA Bearer Token（可选）
 
-## 六、xDS 诊断
+## 五、xDS 诊断
 
-### 6.1 获取 xDS 发布状态
+### 5.1 获取 xDS 发布状态
 
-该接口需要 Admin JWT，返回 xDS 监听状态、最近一次成功发布的快照版本、资源数量、
-发布时间、最近一次监听或候选配置错误，以及各条 xDS 资源链路的明确支持状态。
+**请求**：
 
 ```http
 GET /config/api/xds/status HTTP/1.1
@@ -465,8 +438,9 @@ Host: 127.0.0.1:8080
 token: <admin-jwt>
 ```
 
-`ready` 只有在 xDS 端口已监听且至少一个快照成功发布时为 true；`degraded`
-表示监听启动或新候选配置失败。
+该认证接口返回 xDS 监听状态、最近一次成功发布的快照版本、资源数量、发布时间、最近一次监听或候选配置错误，以及各条 xDS 资源链路的支持状态。
+
+ready 只有在 xDS 端口已监听且至少一个快照成功发布时为 true；degraded 表示监听启动或新候选配置失败。
 
 **返回**：
 

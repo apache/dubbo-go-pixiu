@@ -48,6 +48,7 @@ type mockNamingClient struct {
 	closeClientCnt int
 	pollStarted    chan struct{}
 	pollOnce       sync.Once
+	pollErr        error
 }
 
 func (m *mockNamingClient) GetAllServicesInfo(vo.GetAllServiceInfoParam) (nacosModel.ServiceList, error) {
@@ -56,7 +57,7 @@ func (m *mockNamingClient) GetAllServicesInfo(vo.GetAllServiceInfoParam) (nacosM
 			close(m.pollStarted)
 		}
 	})
-	return nacosModel.ServiceList{}, nil
+	return nacosModel.ServiceList{}, m.pollErr
 }
 
 func (m *mockNamingClient) CloseClient() {
@@ -100,7 +101,6 @@ func newTestNacosRegistry(client naming_client.INamingClient, rt registry.Regist
 // TestDoUnsubscribeClosesClient locks in the v2 close path: DoUnsubscribe must
 // close the naming client (CloseClient) in addition to stopping the listener,
 // otherwise the gRPC connection and internal retry goroutines outlive shutdown.
-// See AlexStocks' [P1] review on PR #982.
 func TestDoUnsubscribeClosesClient(t *testing.T) {
 	client := &mockNamingClient{}
 	listener := &closeTrackingListener{}

@@ -23,6 +23,8 @@ import (
 )
 
 import (
+	"github.com/agiledragon/gomonkey/v2"
+
 	"github.com/spf13/cobra"
 
 	"github.com/stretchr/testify/assert"
@@ -31,7 +33,11 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/shutdown"
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
+	"github.com/apache/dubbo-go-pixiu/pkg/server"
 )
 
 // MockDeployer for testing
@@ -78,6 +84,23 @@ func TestDefaultDeployerStop(t *testing.T) {
 	d := &DefaultDeployer{}
 	err := d.stop()
 	assert.NoError(t, err)
+}
+
+func TestDefaultDeployerRegistersSignalCleanup(t *testing.T) {
+	var hook func()
+	closed := 0
+	patches := gomonkey.ApplyFunc(shutdown.RegisterHook, func(fn func()) { hook = fn })
+	defer patches.Reset()
+	patches.ApplyFunc(server.Start, func(*model.Bootstrap) {})
+	patches.ApplyMethod(&config.ConfigManager{}, "Close", func(*config.ConfigManager) { closed++ })
+	d := &DefaultDeployer{configManger: config.NewConfigManger()}
+	assert.NoError(t, d.start())
+	if assert.NotNil(t, hook, "blocking start must register cleanup before entering the server") {
+		hook()
+	}
+	assert.Equal(t, 1, closed)
+	assert.NoError(t, d.stop())
+	assert.Equal(t, 2, closed, "startup-failure cleanup must still delegate to the manager")
 }
 
 func TestStartGatewayCmdPreRunE(t *testing.T) {
@@ -160,6 +183,15 @@ func TestStartGatewayCmdRunE(t *testing.T) {
 				stopErr: errors.New("stop failed"),
 			},
 			expectedError:     "failed to stop gateway",
+			expectedStopCalls: 1,
+		},
+		{
+			name: "start and stop both fail",
+			deployer: &MockDeployer{
+				startErr: errors.New("start failed"),
+				stopErr:  errors.New("stop failed"),
+			},
+			expectedError:     "failed to start gateway",
 			expectedStopCalls: 1,
 		},
 	}
