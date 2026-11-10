@@ -22,6 +22,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -85,7 +86,7 @@ var (
 				if stopErr != nil {
 					logger.Errorf("failed to stop gateway after start error: %s", stopErr.Error())
 				}
-				return errors.Wrap(startErr, "failed to start gateway")
+				return gatewayStartError{err: startErr}
 			}
 			if stopErr != nil {
 				return errors.Wrap(stopErr, "failed to stop gateway")
@@ -94,6 +95,20 @@ var (
 		},
 	}
 )
+
+// gatewayStartError keeps joined startup errors on one CLI output line while
+// preserving every underlying error for errors.Is and errors.As.
+type gatewayStartError struct {
+	err error
+}
+
+func (e gatewayStartError) Error() string {
+	return "failed to start gateway: " + strings.NewReplacer("\r\n", "; ", "\n", "; ", "\r", "; ").Replace(e.err.Error())
+}
+
+func (e gatewayStartError) Unwrap() error {
+	return e.err
+}
 
 // init Init startCmd
 func init() {
@@ -146,8 +161,7 @@ func (d *DefaultDeployer) start() error {
 	// start blocks for the process lifetime; signal handling must close the
 	// config client explicitly because os.Exit skips RunE cleanup and defers.
 	shutdown.RegisterHook(d.configManger.Close)
-	server.Start(d.bootstrap)
-	return nil
+	return server.Start(d.bootstrap)
 }
 
 func (d *DefaultDeployer) stop() error {
