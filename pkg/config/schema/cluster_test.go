@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
+	"github.com/apache/dubbo-go-pixiu/pkg/model"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -43,6 +44,11 @@ func TestAdminClusterSchemaAndCompile(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "Static", definition.Fields["type"].Default)
 	require.Equal(t, []any{"Static", "StrictDNS", "LogicalDns", "EDS", "OriginalDst"}, definition.Fields["type"].Enum)
+	runtimeTypes := make([]any, 0, len(model.DiscoveryTypeValue))
+	for discoveryType := range model.DiscoveryTypeValue {
+		runtimeTypes = append(runtimeTypes, discoveryType)
+	}
+	require.ElementsMatch(t, runtimeTypes, definition.Fields["type"].Enum)
 	require.Equal(t, float64(1), *definition.Fields["endpoint"].Properties["port"].Minimum)
 	require.Equal(t, float64(65535), *definition.Fields["endpoint"].Properties["port"].Maximum)
 	*definition.Fields["endpoint"].Properties["port"].Maximum = 10
@@ -112,7 +118,7 @@ func TestAdminClusterValidationPaths(t *testing.T) {
 	var issues ValidationErrors
 	require.ErrorAs(t, err, &issues)
 	require.NotEmpty(t, findIssueMessage(issues, "spec.endpoint.port", "type"))
-	for _, discoveryType := range adminClusterTypes {
+	for discoveryType := range model.DiscoveryTypeValue {
 		object := validAdminCluster()
 		object.Spec["type"] = discoveryType
 		compiled, err := CompileAdminCluster(registry, object)
