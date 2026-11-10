@@ -239,7 +239,10 @@ export function AccountPage({ language }: { language: Language }) {
                   </span>
                 </div>
               </div>
-              <form className="account-form account-registration-form" onSubmit={submitRegistration}>
+              <form
+                className="account-form account-registration-form"
+                onSubmit={submitRegistration}
+              >
                 <label>
                   {english ? 'Username' : '用户名'}
                   <input
@@ -334,7 +337,9 @@ export function AccountPage({ language }: { language: Language }) {
                   onChange={(event) => setConfirmPassword(event.target.value)}
                 />
               </label>
-              {feedback && <div className={`account-feedback ${feedback.kind}`}>{feedback.text}</div>}
+              {feedback && (
+                <div className={`account-feedback ${feedback.kind}`}>{feedback.text}</div>
+              )}
               <button className="primary account-submit" disabled={saving}>
                 {saving
                   ? english
