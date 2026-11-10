@@ -22,9 +22,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
+)
 
-	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
+import (
 	"gopkg.in/yaml.v3"
+)
+
+import (
+	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
 )
 
 // The enum matches the discovery types accepted by the current runtime.

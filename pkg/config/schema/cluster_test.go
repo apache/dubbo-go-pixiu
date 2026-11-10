@@ -20,11 +20,17 @@ package schema
 import (
 	"errors"
 	"testing"
+)
 
+import (
+	"github.com/stretchr/testify/require"
+
+	"gopkg.in/yaml.v3"
+)
+
+import (
 	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
 func validAdminCluster() AdminObject {
