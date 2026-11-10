@@ -113,6 +113,34 @@ jobs:
           files: ./coverage.txt
           flags: unittests
 
+  admin-build:
+    name: Admin Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Download Go modules
+        run: sh .github/scripts/download-go-modules.sh
+
+      - name: Build Admin backend
+        run: go build -o /tmp/pixiu-admin ./cmd/admin
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/web/package-lock.json
+
+      - name: Build Admin frontend
+        working-directory: admin/web
+        run: |
+          npm ci
+          npm run build
+
   integration-test:
     needs: unit-test
     name: Integration Test
