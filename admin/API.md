@@ -18,6 +18,21 @@ More detailed API descriptions can be found in the [Swagger documentation](./doc
 
 * **data**: Typically, data will be in YAML format.
 
+## Account APIs
+
+Account APIs use the JWT returned at login in the `token` request header. `POST /register` is available only to administrators and creates another administrator account. Usernames must contain 1–255 characters; passwords must contain 8–128 characters.
+
+```http
+POST /register HTTP/1.1
+Host: 127.0.0.1:8081
+Content-Type: application/x-www-form-urlencoded
+token: <JWT returned at login>
+
+username=operator&password=change-me-123
+```
+
+On a new installation, the backend initializes `admin` / `pixiuadmin` if the `admin` account does not exist. Change the default password from the Admin v2 Account page after signing in.
+
 ## I. Basic Information
 
 ### 1.1 Get Basic Information

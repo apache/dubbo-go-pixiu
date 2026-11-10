@@ -33,12 +33,14 @@ import {
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
+  UserRound,
 } from 'lucide-react'
 import '../styles.css'
 import { Providers } from './providers'
 import { clusterApi } from '../services/cluster-api'
 import { listenerApi } from '../services/listener-api'
 import { profileApi } from '../services/profile-api'
+import { readSession } from '../services/session'
 import { routeBindingApi } from '../services/route-binding-api'
 import {
   BaseInfoPage,
@@ -49,6 +51,7 @@ import {
   RateLimitPage,
   ResourcePage,
 } from '../features/config/ConfigPages'
+import { AccountPage } from '../features/profile/AccountPage'
 
 const nav = [
   ['Overview', LayoutDashboard],
@@ -67,12 +70,13 @@ const zhMap: Record<string, string> = {
   'Plugin groups': '插件组',
   'Rate limiting': '限流',
   'OPA policies': 'OPA 策略',
+  Account: '个人中心',
   Settings: '设置',
   'Docs & support': '文档与支持',
   'All systems operational': '系统运行正常',
   'New API route': '新建 API 路由',
 }
-type Section = (typeof nav)[number][0] | 'Settings'
+type Section = (typeof nav)[number][0] | 'Settings' | 'Account'
 
 export function App() {
   return (
@@ -86,6 +90,7 @@ function AppContent() {
   const [section, setSection] = useState<Section>('Overview')
   const [dark, setDark] = useState(true)
   const [language, setLanguage] = useState<'zh' | 'en'>('zh')
+  const username = readSession()?.username || 'admin'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('pixiu_sidebar_collapsed') === '1',
   )
@@ -162,6 +167,8 @@ function AppContent() {
         <RateLimitPage locale={locale} />
       ) : section === 'Settings' ? (
         <BaseInfoPage locale={locale} />
+      ) : section === 'Account' ? (
+        <AccountPage language={language} />
       ) : (
         <OpaPage locale={locale} />
       ),
@@ -196,6 +203,15 @@ function AppContent() {
         </nav>
         <div className="sidebar-bottom">
           <button
+            className={section === 'Account' ? 'nav-item active' : 'nav-item'}
+            onClick={() => setSection('Account')}
+            title={sidebarCollapsed ? tx('Account') : undefined}
+            aria-label={tx('Account')}
+          >
+            <UserRound size={17} />
+            <span>{tx('Account')}</span>
+          </button>
+          <button
             className={section === 'Settings' ? 'nav-item active' : 'nav-item'}
             onClick={() => setSection('Settings')}
             title={sidebarCollapsed ? tx('Settings') : undefined}
@@ -224,9 +240,9 @@ function AppContent() {
             }
             aria-label={language === 'zh' ? '点击退出登录' : 'Click to log out'}
           >
-            <div className="avatar">A</div>
+            <div className="avatar">{username.charAt(0).toUpperCase()}</div>
             <div>
-              <b>admin</b>
+              <b>{username}</b>
               <span>{language === 'zh' ? '点击退出登录' : 'Click to log out'}</span>
             </div>
           </button>
@@ -270,7 +286,7 @@ function AppContent() {
             <button className="icon-btn" title="Support">
               <LifeBuoy size={17} />
             </button>
-            <div className="avatar small">A</div>
+            <div className="avatar small">{username.charAt(0).toUpperCase()}</div>
           </div>
         </header>
         <div className="content">{content}</div>

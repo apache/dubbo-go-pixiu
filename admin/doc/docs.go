@@ -864,14 +864,25 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
+                "description": "Create an administrator account. The request requires a valid JWT belonging to an administrator.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Register"
                 ],
-                "summary": "user registration",
+                "summary": "register an administrator account",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "JWT token",
+                        "name": "token",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "username",
@@ -899,7 +910,7 @@ const docTemplate = `{
         },
         "/user/checkIsAdmin": {
             "post": {
-                "description": "to determine whether the current user is an administrator, the header must include the username.",
+                "description": "determine whether the user identified by the validated JWT is an administrator.",
                 "produces": [
                     "application/json"
                 ],
@@ -919,7 +930,7 @@ const docTemplate = `{
         },
         "/user/getInfo": {
             "post": {
-                "description": "return the current user's detailed information. The header must include the username.",
+                "description": "return information for the user identified by the validated JWT.",
                 "produces": [
                     "application/json"
                 ],
@@ -939,7 +950,7 @@ const docTemplate = `{
         },
         "/user/getUserRole": {
             "post": {
-                "description": "return the current user's role information. The header must include the username.",
+                "description": "return role information for the user identified by the validated JWT.",
                 "produces": [
                     "application/json"
                 ],
@@ -979,7 +990,7 @@ const docTemplate = `{
         },
         "/user/password/edit": {
             "post": {
-                "description": "to modify the current user's password, the username must be included in the header.",
+                "description": "modify the password for the user identified by the validated JWT.",
                 "consumes": [
                     "application/x-www-form-urlencoded"
                 ],

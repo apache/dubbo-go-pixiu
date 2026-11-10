@@ -20,6 +20,7 @@ package account
 import (
 	"github.com/apache/dubbo-go-pixiu/admin/dao"
 	impl2 "github.com/apache/dubbo-go-pixiu/admin/dao/impl"
+	"github.com/apache/dubbo-go-pixiu/admin/utils"
 )
 
 // Lazy initialization
@@ -40,6 +41,10 @@ func InitUserDao() {
 
 func Login(username string, password string) (bool, int) {
 	return guestDao.Login(username, password)
+}
+
+func EnsureDefaultAdmin() error {
+	return guestDao.EnsureDefaultAdmin("admin", utils.Md5("pixiuadmin"))
 }
 
 func Register(username, password string) error {

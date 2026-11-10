@@ -10,8 +10,8 @@ npm run dev
 ```
 
 - 开发服务器：`http://localhost:8088`
-- Vite 将 `/login`、`/register`、`/user`、`/config`、`/swagger` 代理到 Admin 后端（默认 `http://127.0.0.1:8081`）。可通过 `VITE_BACKEND_URL` 覆盖后端地址，例如 Docker Compose 中的 `http://backend:8081`。
-- 后端无 CORS 中间件，跨域开发必须走该代理；`/login` 与 `/register` 的 GET 请求由前端路由接管，POST 才转发后端。
+- Vite 将 `/login`、`/user`、`/config`、`/swagger` 代理到 Admin 后端（默认 `http://127.0.0.1:8081`）。可通过 `VITE_BACKEND_URL` 覆盖后端地址，例如 Docker Compose 中的 `http://backend:8081`。
+- 后端无 CORS 中间件，跨域开发必须走该代理；`/login` 的 GET 请求由前端路由接管，POST 才转发后端。默认账号为 `admin` / `pixiuadmin`，登录后可在个人中心修改密码；只有管理员能在个人中心注册新的管理员账号。
 
 ## 构建
 

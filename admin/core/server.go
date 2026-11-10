@@ -60,6 +60,9 @@ func RunServer() error {
 
 	account.InitUserDao()
 	account.InitGuestDao()
+	if err := account.EnsureDefaultAdmin(); err != nil {
+		global.LOG.Fatal("failed to initialize default Admin account", zap.Error(err))
+	}
 
 	router := initialize.Routers()
 

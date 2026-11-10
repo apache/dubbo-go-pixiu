@@ -23,9 +23,7 @@ import (
 
 import (
 	"github.com/pkg/errors"
-)
 
-import (
 	"github.com/apache/dubbo-go-pixiu/admin/dao"
 	"github.com/apache/dubbo-go-pixiu/admin/dao/database"
 )
@@ -57,33 +55,43 @@ func (d *GuestDao) Login(username, password string) (bool, int) {
 	return true, id
 }
 
-func (d *GuestDao) Register(username, password string) error {
-
-	if username == "" {
-		return errors.New("void username")
-	}
-
-	db := d.db
-	var id int
-	err := db.QueryRow("SELECT id FROM pixiu_user WHERE username = ?", username).Scan(&id)
-	if err == nil {
-		return errors.New("User already exists, please login")
-	}
-	//now := time.Now().Format("2006-01-02 15:04:05")
-	stmt, err := db.Prepare("INSERT INTO pixiu_user (username,password) VALUES (?,?)")
-	if err != nil {
-		return errors.New("Illegal SQL statement!")
-	}
-	defer stmt.Close()
-	_, err = stmt.Exec(username, password)
-	if err != nil {
-		return errors.New("Failed to create data!")
-	}
-	// TODO Set transactions and dynamically set user roles
-	_ = db.QueryRow("SELECT id FROM pixiu_user WHERE username = ?", username).Scan(&id)
-	stmt, _ = db.Prepare("INSERT INTO pixiu_user_role(user_id, role_id) VALUE (?, ?)")
-	_, _ = stmt.Exec(id, 1)
+func (d *GuestDao) EnsureDefaultAdmin(username, password string) error {
+	_, err := d.db.Exec(`
+		INSERT INTO pixiu_user (username, password, role)
+		SELECT ?, ?, 1 FROM DUAL
+		WHERE NOT EXISTS (SELECT 1 FROM pixiu_user WHERE username = ?)
+	`, username, password, username)
 	return err
+}
+
+func (d *GuestDao) Register(username, password string) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var userID int64
+	err = tx.QueryRow("SELECT id FROM pixiu_user WHERE username = ? LIMIT 1", username).Scan(&userID)
+	if err == nil {
+		return errors.New("user already exists")
+	}
+	if !errors.Is(err, SQL.ErrNoRows) {
+		return err
+	}
+
+	result, err := tx.Exec("INSERT INTO pixiu_user (username, password, role) VALUES (?, ?, 1)", username, password)
+	if err != nil {
+		return errors.New("failed to create user")
+	}
+	userID, err = result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec("INSERT INTO pixiu_user_role (user_id, role_id) VALUES (?, 1)", userID); err != nil {
+		return errors.New("failed to assign administrator role")
+	}
+	return tx.Commit()
 }
 
 func (d *GuestDao) CheckLogin() {

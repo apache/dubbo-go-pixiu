@@ -21,10 +21,12 @@ package dao
 type GuestDao interface {
 	// Login login
 	Login(username, password string) (bool, int)
+	// EnsureDefaultAdmin creates the bootstrap account when it does not exist.
+	EnsureDefaultAdmin(username, password string) error
+	// Register creates an administrator account.
+	Register(username, password string) error
 	// CheckLogin check login
 	CheckLogin()
-	// Register register
-	Register(username, password string) error
 }
 
 // UserDao
