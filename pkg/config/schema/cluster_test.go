@@ -45,6 +45,10 @@ func TestAdminClusterSchemaAndCompile(t *testing.T) {
 	require.Equal(t, []any{"Static", "StrictDNS", "LogicalDns", "EDS", "OriginalDst"}, definition.Fields["type"].Enum)
 	require.Equal(t, float64(1), *definition.Fields["endpoint"].Properties["port"].Minimum)
 	require.Equal(t, float64(65535), *definition.Fields["endpoint"].Properties["port"].Maximum)
+	*definition.Fields["endpoint"].Properties["port"].Maximum = 10
+	unchanged, ok := registry.Lookup(KindAdminCluster)
+	require.True(t, ok)
+	require.Equal(t, float64(65535), *unchanged.Fields["endpoint"].Properties["port"].Maximum)
 
 	input := validAdminCluster()
 	compiled, err := CompileAdminCluster(registry, input)
@@ -89,7 +93,7 @@ func TestAdminClusterValidationPaths(t *testing.T) {
 			_, err := CompileAdminCluster(registry, object)
 			var issues ValidationErrors
 			require.True(t, errors.As(err, &issues), "expected field-level validation error: %v", err)
-			require.Contains(t, issues, ValidationIssue{Path: tc.path, Code: tc.code, Message: findIssueMessage(issues, tc.path, tc.code)})
+			require.NotEmpty(t, findIssueMessage(issues, tc.path, tc.code), "expected a nonempty message at %s (%s): %+v", tc.path, tc.code, issues)
 		})
 	}
 	for _, port := range []int{1, 65535} {
@@ -98,6 +102,16 @@ func TestAdminClusterValidationPaths(t *testing.T) {
 		_, err := CompileAdminCluster(registry, object)
 		require.NoError(t, err)
 	}
+	object := validAdminCluster()
+	object.Spec["endpoint"].(map[string]any)["port"] = float64(20880) // JSON requests decode into float64.
+	compiled, err := CompileAdminCluster(registry, object)
+	require.NoError(t, err)
+	require.Equal(t, 20880, compiled.Cluster.Port)
+	object.Spec["endpoint"].(map[string]any)["port"] = 20880.5
+	_, err = CompileAdminCluster(registry, object)
+	var issues ValidationErrors
+	require.ErrorAs(t, err, &issues)
+	require.NotEmpty(t, findIssueMessage(issues, "spec.endpoint.port", "type"))
 	for _, discoveryType := range adminClusterTypes {
 		object := validAdminCluster()
 		object.Spec["type"] = discoveryType
@@ -141,4 +155,33 @@ func TestAdminClusterLegacyYAMLCompatibility(t *testing.T) {
 	require.ErrorContains(t, err, "unexpected")
 	_, _, err = DecodeLegacyClusterYAML([]byte("name: one\n---\nname: two\n"))
 	require.ErrorContains(t, err, "one document")
+	_, _, err = DecodeLegacyClusterYAML([]byte("name: one\n---\nname: ["))
+	require.ErrorContains(t, err, "decode legacy Cluster YAML")
+}
+
+func TestAdminClusterYAMLUnknownFieldIsReported(t *testing.T) {
+	object, err := DecodeAdminObjectYAML([]byte("kind: AdminCluster\nmetadata:\n  name: backend\nspec:\n  type: Static\n  endpoint:\n    address: 127.0.0.1\n    port: 20880\n  id: 9\n"))
+	require.NoError(t, err)
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	_, err = CompileAdminCluster(registry, object)
+	var issues ValidationErrors
+	require.ErrorAs(t, err, &issues)
+	require.NotEmpty(t, findIssueMessage(issues, "spec.id", "unknown"))
+}
+
+func TestAdminClusterSchemaRejectsInvertedPortRange(t *testing.T) {
+	definition := adminClusterSchema()
+	*definition.Fields["endpoint"].Properties["port"].Minimum = 65536
+	err := NewRegistry().Register(definition)
+	require.ErrorContains(t, err, "minimum exceeds maximum")
+}
+
+func TestCompileAdminClusterRejectsInvalidCall(t *testing.T) {
+	_, err := CompileAdminCluster(nil, validAdminCluster())
+	require.ErrorContains(t, err, "registry is nil")
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	_, err = CompileAdminCluster(registry, validRouteBindingObject())
+	require.ErrorContains(t, err, `cannot compile kind "AdminRouteBinding"`)
 }
