@@ -21,6 +21,10 @@
 
 ### 兼容性说明
 
+* 启用优雅关闭时，只要任一 Listener 关闭报错或整体关闭超时，网关现在都会以
+  `1` 退出，收到 SIGTERM 后也适用。成功关闭仍以 `0` 退出；此前关闭报错和超时
+  也以 `0` 退出。升级前请根据[关闭部署说明](docs/user/start.md#graceful-shutdown-and-exit-status)
+  检查编排及告警规则。
 * Listener 构建改为 fail-closed：非法 Network/HTTP Filter 会阻止静态 Listener
   启动，并使 xDS 更新被 NACK。旧行为可能静默跳过非法 Filter。
 * 已有出树 `ListenerService` 实现仍可编译，但要接收 xDS Listener 更新，必须额外

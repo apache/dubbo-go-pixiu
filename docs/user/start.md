@@ -61,3 +61,45 @@ curl -X POST 'localhost:8881/api/v1/test-dubbo/user' -d '{"id":"0003","code":3,"
 ```
 ./start.sh clean body
 ```
+
+## Graceful shutdown and exit status
+
+Enable signal-driven graceful shutdown with a positive timeout in the gateway
+bootstrap configuration:
+
+```yaml
+static_resources:
+  shutdown_config:
+    timeout: "60s"
+```
+
+On SIGTERM or SIGINT, Pixiu starts all listener shutdowns concurrently and waits
+for their return values, bounded by this overall timeout. There is no shorter,
+fixed per-listener deadline.
+
+| Shutdown result | Process exit code |
+| --- | --- |
+| Every listener returns without error within the timeout | `0` |
+| Any listener returns an error | `1` |
+| The overall timeout expires | `1` |
+
+**Upgrade note:** shutdown errors and timeouts previously exited with code `0`.
+The nonzero status is intentional: receiving SIGTERM does not make an incomplete
+shutdown successful. Kubernetes or systemd may record a failed termination, and
+restart or alerting rules that depend on exit status may react to it. Review
+those rules before upgrading.
+
+If shutdown exits with code `1`, inspect the gateway logs before the termination
+for `Shutdown Error:`, `Shutdown completed with`, and `Shutdown timed out after`.
+Check listener cleanup failures and whether active requests can finish within
+the configured timeout. Allow more time than Pixiu's timeout in Kubernetes
+`terminationGracePeriodSeconds` or systemd `TimeoutStopSec`, including time spent
+in any termination hooks. An external forced kill can prevent Pixiu from
+finishing cleanup or reporting its own exit status.
+
+A timeout of `0s` (the default when `shutdown_config` is omitted), or a negative
+timeout, **disables** Pixiu's graceful shutdown signal handler. OS signal behavior
+then applies; the manager does not invoke listener `ShutDown()` or `Close()` on
+termination, and the exit-code table above does not apply. Zero does not mean
+"close immediately and run cleanup". Use a positive timeout when cleanup is
+required.

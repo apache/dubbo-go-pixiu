@@ -161,6 +161,7 @@ func (ls *Http2ListenerService) StopAccepting() error {
 }
 
 func (ls *Http2ListenerService) ShutDown(wg any) error {
+	defer wg.(*sync.WaitGroup).Done()
 	timeout := config.GetBootstrap().GetShutdownConfig().GetTimeout()
 	if timeout <= 0 {
 		return nil
@@ -173,7 +174,6 @@ func (ls *Http2ListenerService) ShutDown(wg any) error {
 		time.Sleep(100 * time.Millisecond)
 		logger.Infof("waiting for active invocation count = %d", ls.gShutdownConfig.GetActiveCount())
 	}
-	wg.(*sync.WaitGroup).Done()
 	ls.server.Close()
 	return nil
 }
