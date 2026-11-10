@@ -51,15 +51,20 @@ type Server struct {
 	traceDriverManager    *tracing.TraceDriverManager
 }
 
-func (s *Server) initialize(bs *model.Bootstrap) {
+func (s *Server) initialize(bs *model.Bootstrap) error {
 	s.clusterManager = CreateDefaultClusterManager(bs)
 	s.routerManager = CreateDefaultRouterManager(s, bs)
 	s.apiConfigManager = CreateDefaultApiConfigManager(s, bs)
 	s.adapterManager = CreateDefaultAdapterManager(s, bs)
 	shutdown.RegisterHook(s.adapterManager.Stop)
 	s.listenerManager = CreateDefaultListenerManager(bs)
-	s.dynamicResourceManger = createDynamicResourceManger(bs)
+	drm, err := createDynamicResourceManger(bs)
+	if err != nil {
+		return err
+	}
+	s.dynamicResourceManger = drm
 	s.traceDriverManager = tracing.CreateDefaultTraceDriverManager(bs)
+	return nil
 }
 
 func (s *Server) GetClusterManager() *ClusterManager {
@@ -123,7 +128,7 @@ func NewServer() *Server {
 	return &Server{}
 }
 
-func Start(bs *model.Bootstrap) {
+func Start(bs *model.Bootstrap) error {
 	logger.Infof("[dubbo-go-pixiu] start by config : %+v", bs)
 	// global variable
 	server = NewServer()
@@ -136,11 +141,14 @@ func Start(bs *model.Bootstrap) {
 	// clusters with no health transitions.
 	registerOtelMetricMeter(bs.Metric)
 
-	server.initialize(bs)
+	if err := server.initialize(bs); err != nil {
+		return err
+	}
 	server.Start()
 	// Block forever; the process exits on OS signals (default behavior),
 	// or via ListenerManager.gracefulShutdownInit when graceful shutdown is enabled.
 	blockForever()
+	return nil
 }
 
 func GetServer() *Server {

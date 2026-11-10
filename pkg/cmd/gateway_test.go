@@ -19,6 +19,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -87,20 +88,34 @@ func TestDefaultDeployerStop(t *testing.T) {
 }
 
 func TestDefaultDeployerRegistersSignalCleanup(t *testing.T) {
-	var hook func()
-	closed := 0
-	patches := gomonkey.ApplyFunc(shutdown.RegisterHook, func(fn func()) { hook = fn })
-	defer patches.Reset()
-	patches.ApplyFunc(server.Start, func(*model.Bootstrap) {})
-	patches.ApplyMethod(&config.ConfigManager{}, "Close", func(*config.ConfigManager) { closed++ })
-	d := &DefaultDeployer{configManger: config.NewConfigManger()}
-	assert.NoError(t, d.start())
-	if assert.NotNil(t, hook, "blocking start must register cleanup before entering the server") {
-		hook()
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{name: "successful start"},
+		{name: "failed start", err: errors.New("xDS startup failed")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var hook func()
+			closed := 0
+			patches := gomonkey.ApplyFunc(shutdown.RegisterHook, func(fn func()) { hook = fn })
+			defer patches.Reset()
+			patches.ApplyFunc(server.Start, func(*model.Bootstrap) error {
+				assert.NotNil(t, hook, "cleanup must be registered before entering the server")
+				return tt.err
+			})
+			patches.ApplyMethod(&config.ConfigManager{}, "Close", func(*config.ConfigManager) { closed++ })
+
+			d := &DefaultDeployer{configManger: config.NewConfigManger()}
+			assert.ErrorIs(t, d.start(), tt.err)
+			if hook != nil {
+				hook()
+			}
+			assert.Equal(t, 1, closed)
+			assert.NoError(t, d.stop())
+			assert.Equal(t, 2, closed, "startup-failure cleanup must still delegate to the manager")
+		})
 	}
-	assert.Equal(t, 1, closed)
-	assert.NoError(t, d.stop())
-	assert.Equal(t, 2, closed, "startup-failure cleanup must still delegate to the manager")
 }
 
 func TestStartGatewayCmdPreRunE(t *testing.T) {
@@ -226,6 +241,27 @@ func TestStartGatewayCmdRunE(t *testing.T) {
 			assert.Equal(t, tt.expectedStopCalls, tt.deployer.stopCalls)
 		})
 	}
+}
+
+func TestStartGatewayCmdRunEJoinedErrors(t *testing.T) {
+	ldsErr := errors.New("create LDS api manager: connection refused")
+	cdsErr := errors.New("create CDS api manager: connection refused")
+	startErr := errors.Join(ldsErr, cdsErr)
+	originalDeployer := deploy
+	t.Cleanup(func() { deploy = originalDeployer })
+	deploy = &MockDeployer{startErr: startErr}
+
+	err := startGatewayCmd.RunE(startGatewayCmd, nil)
+	if !assert.Error(t, err) {
+		return
+	}
+	assert.Equal(t, "failed to start gateway: create LDS api manager: connection refused; create CDS api manager: connection refused", err.Error())
+	assert.Equal(t, err.Error(), fmt.Sprintf("%+v", err))
+	assert.ErrorIs(t, err, startErr)
+	assert.ErrorIs(t, err, ldsErr)
+	assert.ErrorIs(t, err, cdsErr)
+	var joined interface{ Unwrap() []error }
+	assert.ErrorAs(t, err, &joined)
 }
 
 func TestInitDefaultValue(t *testing.T) {
