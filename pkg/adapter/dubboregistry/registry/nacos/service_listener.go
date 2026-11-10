@@ -30,8 +30,8 @@ import (
 	_ "dubbo.apache.org/dubbo-go/v3/registry/nacos"
 	"dubbo.apache.org/dubbo-go/v3/remoting"
 
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosModel "github.com/nacos-group/nacos-sdk-go/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosModel "github.com/nacos-group/nacos-sdk-go/v2/model"
 )
 
 import (
@@ -49,13 +49,18 @@ type serviceListener struct {
 	cacheLock   sync.Mutex
 
 	exit            chan struct{}
+	closeOnce       sync.Once
 	wg              sync.WaitGroup
 	adapterListener common2.RegistryEventListener
+	watchOnce       sync.Once
 }
 
 // WatchAndHandle todo WatchAndHandle is useless for service listener
 func (z *serviceListener) WatchAndHandle() {
-	panic("implement me")
+	// WatchAndHandle is not used by service listener; subscription uses Callback instead.
+	z.watchOnce.Do(func() {
+		logger.Warnf("serviceListener: WatchAndHandle not implemented")
+	})
 }
 
 // newNacosSrvListener creates a new zk service listener
@@ -69,7 +74,7 @@ func newNacosSrvListener(url *dubboCommon.URL, client naming_client.INamingClien
 	}
 }
 
-func (z *serviceListener) Callback(services []nacosModel.SubscribeService, err error) {
+func (z *serviceListener) Callback(services []nacosModel.Instance, err error) {
 	if err != nil {
 		logger.Errorf("nacos subscribe callback error:%s", err.Error())
 		return
@@ -88,7 +93,7 @@ func (z *serviceListener) Callback(services []nacosModel.SubscribeService, err e
 			continue
 		}
 		host := services[i].Ip + ":" + strconv.Itoa(int(services[i].Port))
-		instance := generateInstance(services[i])
+		instance := services[i]
 		newInstanceMap[host] = instance
 		if old, ok := z.instanceMap[host]; !ok {
 			// instance does not exist in cache, add it to cache
@@ -173,8 +178,10 @@ func (z *serviceListener) NotifyAll(e []*dubboRegistry.ServiceEvent, f func()) {
 
 // Close closes this listener
 func (zkl *serviceListener) Close() {
-	close(zkl.exit)
-	zkl.wg.Wait()
+	zkl.closeOnce.Do(func() {
+		close(zkl.exit)
+		zkl.wg.Wait()
+	})
 }
 
 func generateURL(instance nacosModel.Instance) *dubboCommon.URL {
@@ -207,18 +214,4 @@ func generateURL(instance nacosModel.Instance) *dubboCommon.URL {
 		dubboCommon.WithParams(urlMap),
 		dubboCommon.WithPath(path),
 	)
-}
-
-func generateInstance(ss nacosModel.SubscribeService) nacosModel.Instance {
-	return nacosModel.Instance{
-		InstanceId:  ss.InstanceId,
-		Ip:          ss.Ip,
-		Port:        ss.Port,
-		ServiceName: ss.ServiceName,
-		Valid:       ss.Valid,
-		Enable:      ss.Enable,
-		Weight:      ss.Weight,
-		Metadata:    ss.Metadata,
-		ClusterName: ss.ClusterName,
-	}
 }

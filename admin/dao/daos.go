@@ -17,12 +17,21 @@
 
 package dao
 
+import (
+	"errors"
+)
+
+// ErrSessionValidationNotImplemented means session validation is unavailable,
+// rather than that the supplied credentials are invalid. Callers can use errors.Is.
+var ErrSessionValidationNotImplemented = errors.New("GuestDao.CheckLogin: session validation is not implemented")
+
 // GuestDao
 type GuestDao interface {
 	// Login login
 	Login(username, password string) (bool, int)
-	// CheckLogin check login
-	CheckLogin()
+	// CheckLogin validates the current session. Callers must handle errors,
+	// including ErrSessionValidationNotImplemented, without accepting the session.
+	CheckLogin() error
 	// Register register
 	Register(username, password string) error
 }

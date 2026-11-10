@@ -21,6 +21,13 @@
 
 ### 兼容性说明
 
+* 导出的 `dao.GuestDao.CheckLogin()` 签名改为 `CheckLogin() error`。外部实现需要
+  更新方法签名，调用方必须处理返回错误，不能在校验失败时放行会话。默认实现返回
+  `dao.ErrSessionValidationNotImplemented`，可通过 `errors.Is` 区分会话校验
+  尚未实现与凭证无效。
+* MQ 的 `Apply` 和旧 Triple 的 `Apply`/`MapParams` 未实现操作返回包装了
+  `errors.ErrUnsupported` 的错误。适配器初始化对此类错误记录 WARN，其他初始化
+  故障仍记录 ERROR。
 * Listener 构建改为 fail-closed：非法 Network/HTTP Filter 会阻止静态 Listener
   启动，并使 xDS 更新被 NACK。旧行为可能静默跳过非法 Filter。
 * 已有出树 `ListenerService` 实现仍可编译，但要接收 xDS Listener 更新，必须额外

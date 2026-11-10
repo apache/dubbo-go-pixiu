@@ -34,6 +34,7 @@ import (
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	pxruntime "github.com/apache/dubbo-go-pixiu/pkg/common/runtime"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/shutdown"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/hotreload"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
@@ -79,9 +80,16 @@ var (
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := deploy.start()
-			if err != nil {
-				return gatewayStartError{err: err}
+			startErr := deploy.start()
+			stopErr := deploy.stop()
+			if startErr != nil {
+				if stopErr != nil {
+					logger.Errorf("failed to stop gateway after start error: %s", stopErr.Error())
+				}
+				return gatewayStartError{err: startErr}
+			}
+			if stopErr != nil {
+				return errors.Wrap(stopErr, "failed to stop gateway")
 			}
 			return nil
 		},
@@ -150,12 +158,17 @@ func (d *DefaultDeployer) initialize() error {
 }
 
 func (d *DefaultDeployer) start() error {
+	// start blocks for the process lifetime; signal handling must close the
+	// config client explicitly because os.Exit skips RunE cleanup and defers.
+	shutdown.RegisterHook(d.configManger.Close)
 	return server.Start(d.bootstrap)
 }
 
 func (d *DefaultDeployer) stop() error {
-	// TODO implement me
-	return errors.New("stop not implemented")
+	if d.configManger != nil {
+		d.configManger.Close()
+	}
+	return nil
 }
 
 // initDefaultValue If not set both in args and env, set default values

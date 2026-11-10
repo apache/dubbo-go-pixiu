@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/constant"
+	"github.com/apache/dubbo-go-pixiu/pkg/common/shutdown"
 	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -55,6 +56,7 @@ func (s *Server) initialize(bs *model.Bootstrap) error {
 	s.routerManager = CreateDefaultRouterManager(s, bs)
 	s.apiConfigManager = CreateDefaultApiConfigManager(s, bs)
 	s.adapterManager = CreateDefaultAdapterManager(s, bs)
+	shutdown.RegisterHook(s.adapterManager.Stop)
 	s.listenerManager = CreateDefaultListenerManager(bs)
 	drm, err := createDynamicResourceManger(bs)
 	if err != nil {
