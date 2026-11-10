@@ -74,7 +74,12 @@ func GetRouteBindingSchema(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, adminconfig.WithRet(registry.List()))
+	routeSchema, ok := registry.Lookup(schema.KindAdminRouteBinding)
+	if !ok {
+		writeRouteBindingError(c, fmt.Errorf("%w: %s", schema.ErrSchemaNotFound, schema.KindAdminRouteBinding))
+		return
+	}
+	c.JSON(http.StatusOK, adminconfig.WithRet([]schema.ObjectSchema{routeSchema}))
 }
 
 // GetRouteBindingList returns high-level route bindings from the draft or

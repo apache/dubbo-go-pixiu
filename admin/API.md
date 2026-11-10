@@ -72,7 +72,7 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-The response data contains the registered Admin object schemas, including the AdminRouteBinding schema used by the editor.
+The response data is an array containing only the AdminRouteBinding schema used by the editor.
 
 The current route model keeps the backend reference, service selection, and
 invocation policy separate. A registry-backed draft has this shape:

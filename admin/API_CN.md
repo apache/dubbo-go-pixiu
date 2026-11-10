@@ -102,7 +102,7 @@ Host: 127.0.0.1:8080
 cache-control: no-cache
 ```
 
-返回数据包含已注册的 Admin 对象 Schema，其中包括编辑器使用的 AdminRouteBinding Schema。
+返回数据是仅包含编辑器所用 AdminRouteBinding Schema 的数组。
 
 ### 2.2 获取 API 路由列表
 
