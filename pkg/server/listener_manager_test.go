@@ -42,6 +42,34 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
 
+func TestGracefulShutdownDisabledDoesNotRegisterSignalsOrRunCleanup(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		config *model.ShutdownConfig
+	}{
+		{name: "default"},
+		{name: "zero", config: &model.ShutdownConfig{Timeout: "0s"}},
+		{name: "negative", config: &model.ShutdownConfig{Timeout: "-1s"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			patches := gomonkey.ApplyFunc(signal.Notify, func(chan<- os.Signal, ...os.Signal) {
+				t.Fatal("disabled graceful shutdown must not register signal handling")
+			})
+			defer patches.Reset()
+			patches.ApplyFunc(shutdown.RunHooks, func() {
+				t.Fatal("disabled graceful shutdown must not run cleanup hooks")
+			})
+
+			lm := &ListenerManager{
+				bootstrap: &model.Bootstrap{StaticResources: model.StaticResources{
+					ShutdownConfig: tt.config,
+				}},
+			}
+			lm.gracefulShutdownInit()
+		})
+	}
+}
+
 func TestGracefulShutdownRunsCleanupBeforeListenersAndExit(t *testing.T) {
 	var signals chan<- os.Signal
 	events := make(chan string, 3)
