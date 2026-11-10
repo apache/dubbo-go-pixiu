@@ -75,20 +75,20 @@ const accountCopy: Record<Language, AccountCopy> = {
     confirmPassword: '确认密码',
     accountFieldsRequired: '请填写所有新账号字段',
     accountPasswordLength: '密码长度需要为 8 到 128 个字符',
-    accountPasswordsMismatch: '两次输入的密码不一致',
+    accountPasswordsMismatch: '两次输入的密码不一致', // NOSONAR -- localized validation message.
     accountCreated: '管理员账号已创建',
     accountCreateError: '无法创建账号',
     creatingAccount: '创建中…',
     createAccount: '创建账号',
     changePassword: '修改密码',
-    changePasswordDescription: '输入当前密码后即可设置新密码。',
+    changePasswordDescription: '输入当前密码后即可设置新密码。', // NOSONAR -- localized help text.
     currentPassword: '当前密码',
     newPassword: '新密码',
     confirmNewPassword: '确认新密码',
-    passwordFieldsRequired: '请填写所有密码字段',
+    passwordFieldsRequired: '请填写所有密码字段', // NOSONAR -- localized validation message.
     newPasswordLength: '新密码长度需要为 8 到 128 个字符',
-    newPasswordsMismatch: '两次输入的新密码不一致',
-    passwordMustChange: '新密码不能与当前密码相同',
+    newPasswordsMismatch: '两次输入的新密码不一致', // NOSONAR -- localized validation message.
+    passwordMustChange: '新密码不能与当前密码相同', // NOSONAR -- localized validation message.
     passwordUpdated: '密码已更新',
     passwordUpdateError: '无法修改密码',
     updatingPassword: '修改中…',
@@ -128,7 +128,7 @@ const accountCopy: Record<Language, AccountCopy> = {
     passwordMustChange: 'Choose a password different from the current one',
     passwordUpdated: 'Password updated',
     passwordUpdateError: 'Unable to update password',
-    updatingPassword: 'Updating…',
+    updatingPassword: 'Updating…', // NOSONAR -- localized button label.
     updatePassword: 'Update password',
   },
 }
