@@ -50,6 +50,7 @@ type FieldSchema struct {
 	Enum                 []any                   `json:"enum,omitempty" yaml:"enum,omitempty"`
 	Pattern              string                  `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 	Minimum              *float64                `json:"minimum,omitempty" yaml:"minimum,omitempty"`
+	Maximum              *float64                `json:"maximum,omitempty" yaml:"maximum,omitempty"`
 	Properties           map[string]*FieldSchema `json:"properties,omitempty" yaml:"properties,omitempty"`
 	Items                *FieldSchema            `json:"items,omitempty" yaml:"items,omitempty"`
 	AdditionalProperties *FieldSchema            `json:"additionalProperties,omitempty" yaml:"additionalProperties,omitempty"`
@@ -89,6 +90,10 @@ func (s *FieldSchema) clone() *FieldSchema {
 	if s.Minimum != nil {
 		minimum := *s.Minimum
 		cloned.Minimum = &minimum
+	}
+	if s.Maximum != nil {
+		maximum := *s.Maximum
+		cloned.Maximum = &maximum
 	}
 	return &cloned
 }

@@ -46,12 +46,21 @@ func TestGetRouteBindingSchema(t *testing.T) {
 	if result.Code != adminconfig.OK {
 		t.Fatalf("response code: want %s, got %s", adminconfig.OK, result.Code)
 	}
-	if len(result.Data) != 1 || result.Data[0].Kind != schema.KindAdminRouteBinding {
+	if len(result.Data) != 2 {
 		t.Fatalf("schema response: %+v", result.Data)
 	}
-	paramType := result.Data[0].Fields["invocation"].Properties["parameters"].Items.Properties["type"]
+	var routeSchema *schema.ObjectSchema
+	for i := range result.Data {
+		if result.Data[i].Kind == schema.KindAdminRouteBinding {
+			routeSchema = &result.Data[i]
+		}
+	}
+	if routeSchema == nil {
+		t.Fatalf("route binding schema missing: %+v", result.Data)
+	}
+	paramType := routeSchema.Fields["invocation"].Properties["parameters"].Items.Properties["type"]
 	if paramType == nil || len(paramType.Enum) == 0 {
-		t.Fatalf("parameter type enum missing from schema response: %+v", result.Data[0].Fields["invocation"])
+		t.Fatalf("parameter type enum missing from schema response: %+v", routeSchema.Fields["invocation"])
 	}
 }
 
