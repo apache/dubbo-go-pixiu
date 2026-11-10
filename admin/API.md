@@ -33,6 +33,8 @@ username=operator&password=change-me-123
 
 On a new installation, the backend initializes `admin` / `pixiuadmin` if the `admin` account does not exist. Change the default password from the Admin v2 Account page after signing in.
 
+At startup, the backend adds a unique username index to existing `pixiu_user` tables when needed. If duplicate usernames already exist, startup stops and leaves the data unchanged; resolve those duplicates manually before restarting.
+
 ## I. Basic Information
 
 ### 1.1 Get Basic Information

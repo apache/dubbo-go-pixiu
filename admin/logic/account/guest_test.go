@@ -31,6 +31,7 @@ type bootstrapGuestDao struct {
 }
 
 func (d *bootstrapGuestDao) Login(string, string) (bool, int) { return false, 0 }
+func (d *bootstrapGuestDao) EnsureUsernameUniqueIndex() error { return nil }
 func (d *bootstrapGuestDao) EnsureDefaultAdmin(username, password string) error {
 	d.username, d.password = username, password
 	return nil

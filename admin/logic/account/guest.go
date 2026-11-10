@@ -43,6 +43,10 @@ func Login(username string, password string) (bool, int) {
 	return guestDao.Login(username, password)
 }
 
+func EnsureUsernameUniqueIndex() error {
+	return guestDao.EnsureUsernameUniqueIndex()
+}
+
 func EnsureDefaultAdmin() error {
 	return guestDao.EnsureDefaultAdmin("admin", utils.Md5("pixiuadmin"))
 }

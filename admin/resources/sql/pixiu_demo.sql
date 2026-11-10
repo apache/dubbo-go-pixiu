@@ -32,7 +32,8 @@ CREATE TABLE `pixiu_user` (
                               `role` INT(5) NOT NULL DEFAULT 1,
                               `enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'delete or not',
                               `date_created` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
-                              `date_updated` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update time'
+                              `date_updated` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update time',
+                              UNIQUE KEY `uniq_pixiu_user_username` (`username`)
 );
 
 -- ----------------------------
