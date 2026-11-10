@@ -19,25 +19,154 @@ import React, { useEffect, useState } from 'react'
 import { profileApi, type UserInfo } from '../../services/profile-api'
 
 type Language = 'zh' | 'en'
+type Feedback = Readonly<{ kind: 'error' | 'success'; text: string }>
+type AccountCopy = Readonly<{
+  eyebrow: string
+  title: string
+  description: string
+  accountInformation: string
+  signedInUser: string
+  username: string
+  role: string
+  administrator: string
+  user: string
+  loadError: string
+  registerAdministrator: string
+  registerDescription: string
+  password: string
+  confirmPassword: string
+  accountFieldsRequired: string
+  accountPasswordLength: string
+  accountPasswordsMismatch: string
+  accountCreated: string
+  accountCreateError: string
+  creatingAccount: string
+  createAccount: string
+  changePassword: string
+  changePasswordDescription: string
+  currentPassword: string
+  newPassword: string
+  confirmNewPassword: string
+  passwordFieldsRequired: string
+  newPasswordLength: string
+  newPasswordsMismatch: string
+  passwordMustChange: string
+  passwordUpdated: string
+  passwordUpdateError: string
+  updatingPassword: string
+  updatePassword: string
+}>
 
-export function AccountPage({ language }: { language: Language }) {
-  const english = language === 'en'
+const accountCopy: Record<Language, AccountCopy> = {
+  zh: {
+    eyebrow: 'ACCOUNT CENTER',
+    title: '个人中心',
+    description: '查看账号信息并修改登录密码。',
+    accountInformation: '账号信息',
+    signedInUser: '当前登录账号',
+    username: '用户名',
+    role: '角色',
+    administrator: '管理员',
+    user: '用户',
+    loadError: '无法加载账号信息',
+    registerAdministrator: '注册管理员账号',
+    registerDescription: '仅管理员可以创建账号；新账号也将获得管理员角色。',
+    password: '密码',
+    confirmPassword: '确认密码',
+    accountFieldsRequired: '请填写所有新账号字段',
+    accountPasswordLength: '密码长度需要为 8 到 128 个字符',
+    accountPasswordsMismatch: '两次输入的密码不一致',
+    accountCreated: '管理员账号已创建',
+    accountCreateError: '无法创建账号',
+    creatingAccount: '创建中…',
+    createAccount: '创建账号',
+    changePassword: '修改密码',
+    changePasswordDescription: '输入当前密码后即可设置新密码。',
+    currentPassword: '当前密码',
+    newPassword: '新密码',
+    confirmNewPassword: '确认新密码',
+    passwordFieldsRequired: '请填写所有密码字段',
+    newPasswordLength: '新密码长度需要为 8 到 128 个字符',
+    newPasswordsMismatch: '两次输入的新密码不一致',
+    passwordMustChange: '新密码不能与当前密码相同',
+    passwordUpdated: '密码已更新',
+    passwordUpdateError: '无法修改密码',
+    updatingPassword: '修改中…',
+    updatePassword: '更新密码',
+  },
+  en: {
+    eyebrow: 'ACCOUNT',
+    title: 'Account',
+    description: 'View your account and update your password.',
+    accountInformation: 'Account information',
+    signedInUser: 'Signed-in user',
+    username: 'Username',
+    role: 'Role',
+    administrator: 'Administrator',
+    user: 'User',
+    loadError: 'Unable to load account information',
+    registerAdministrator: 'Register administrator',
+    registerDescription:
+      'Only administrators can create accounts. New accounts also receive the administrator role.',
+    password: 'Password',
+    confirmPassword: 'Confirm password',
+    accountFieldsRequired: 'Complete all account fields',
+    accountPasswordLength: 'Use a password between 8 and 128 characters',
+    accountPasswordsMismatch: 'The passwords do not match',
+    accountCreated: 'Administrator account created',
+    accountCreateError: 'Unable to create account',
+    creatingAccount: 'Creating…',
+    createAccount: 'Create account',
+    changePassword: 'Change password',
+    changePasswordDescription: 'Enter your current password to save a new one.',
+    currentPassword: 'Current password',
+    newPassword: 'New password',
+    confirmNewPassword: 'Confirm new password',
+    passwordFieldsRequired: 'Complete all password fields',
+    newPasswordLength: 'Use a new password between 8 and 128 characters',
+    newPasswordsMismatch: 'The new passwords do not match',
+    passwordMustChange: 'Choose a password different from the current one',
+    passwordUpdated: 'Password updated',
+    passwordUpdateError: 'Unable to update password',
+    updatingPassword: 'Updating…',
+    updatePassword: 'Update password',
+  },
+}
+
+type AccountPageProps = Readonly<{ language: Language }>
+
+export function AccountPage({ language }: AccountPageProps) {
+  const copy = accountCopy[language]
+  const { user, loadError, loading } = useAccountSession(language)
+  const gridClassName = user?.role === 1 ? 'account-grid account-grid-admin' : 'account-grid'
+
+  return (
+    <div className="account-page">
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
+          <p className="muted">{copy.description}</p>
+        </div>
+      </div>
+
+      <div className={gridClassName}>
+        <div className="account-column account-overview-column">
+          <AccountInfoCard copy={copy} user={user} loadError={loadError} loading={loading} />
+          {user?.role === 1 && <RegistrationForm copy={copy} />}
+        </div>
+        <div className="account-column account-password-column">
+          <PasswordForm copy={copy} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function useAccountSession(language: Language) {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
-  const [oldPassword, setOldPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [newUsername, setNewUsername] = useState('')
-  const [newAccountPassword, setNewAccountPassword] = useState('')
-  const [confirmAccountPassword, setConfirmAccountPassword] = useState('')
-  const [registrationFeedback, setRegistrationFeedback] = useState<{
-    kind: 'error' | 'success'
-    text: string
-  } | null>(null)
-  const [registering, setRegistering] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -47,14 +176,7 @@ export function AccountPage({ language }: { language: Language }) {
         if (active) setUser(info)
       })
       .catch((error: unknown) => {
-        if (active)
-          setLoadError(
-            error instanceof Error
-              ? error.message
-              : english
-                ? 'Unable to load account information'
-                : '无法加载账号信息',
-          )
+        if (active) setLoadError(errorMessage(error, accountCopy[language].loadError))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -62,297 +184,238 @@ export function AccountPage({ language }: { language: Language }) {
     return () => {
       active = false
     }
-  }, [english])
+  }, [language])
 
-  const submit = (event: React.FormEvent) => {
+  return { user, loadError, loading }
+}
+
+type AccountInfoCardProps = Readonly<{
+  copy: AccountCopy
+  user: UserInfo | null
+  loadError: string
+  loading: boolean
+}>
+
+function AccountInfoCard({ copy, user, loadError, loading }: AccountInfoCardProps) {
+  const roleLabel = user?.role === 1 ? copy.administrator : copy.user
+
+  return (
+    <section className="panel account-card account-info-card">
+      <div className="panel-head">
+        <div>
+          <h2>{copy.accountInformation}</h2>
+          <span>{copy.signedInUser}</span>
+        </div>
+      </div>
+      {loading && <div className="loading-skeleton" />}
+      {!loading && loadError && <div className="account-feedback error">{loadError}</div>}
+      {!loading && !loadError && (
+        <dl className="account-details">
+          <div>
+            <dt>{copy.username}</dt>
+            <dd>{user?.username || '—'}</dd>
+          </div>
+          <div>
+            <dt>{copy.role}</dt>
+            <dd>{roleLabel}</dd>
+          </div>
+        </dl>
+      )}
+    </section>
+  )
+}
+
+type AccountFormProps = Readonly<{ copy: AccountCopy }>
+
+function RegistrationForm({ copy }: AccountFormProps) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [registering, setRegistering] = useState(false)
+
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     setFeedback(null)
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      setFeedback({
-        kind: 'error',
-        text: english ? 'Complete all password fields' : '请填写所有密码字段',
-      })
-      return
-    }
-    const newPasswordLength = Array.from(newPassword).length
-    if (newPasswordLength < 8 || newPasswordLength > 128) {
-      setFeedback({
-        kind: 'error',
-        text: english
-          ? 'Use a new password between 8 and 128 characters'
-          : '新密码长度需要为 8 到 128 个字符',
-      })
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      setFeedback({
-        kind: 'error',
-        text: english ? 'The new passwords do not match' : '两次输入的新密码不一致',
-      })
-      return
-    }
-    if (newPassword === oldPassword) {
-      setFeedback({
-        kind: 'error',
-        text: english
-          ? 'Choose a password different from the current one'
-          : '新密码不能与当前密码相同',
-      })
-      return
-    }
-
-    setSaving(true)
-    profileApi
-      .password({ oldPassword, newPassword })
-      .then(() => {
-        setOldPassword('')
-        setNewPassword('')
-        setConfirmPassword('')
-        setFeedback({ kind: 'success', text: english ? 'Password updated' : '密码已更新' })
-      })
-      .catch((error: unknown) =>
-        setFeedback({
-          kind: 'error',
-          text:
-            error instanceof Error
-              ? error.message
-              : english
-                ? 'Unable to update password'
-                : '无法修改密码',
-        }),
-      )
-      .finally(() => setSaving(false))
-  }
-
-  const submitRegistration = (event: React.FormEvent) => {
-    event.preventDefault()
-    setRegistrationFeedback(null)
-    if (!newUsername.trim() || !newAccountPassword || !confirmAccountPassword) {
-      setRegistrationFeedback({
-        kind: 'error',
-        text: english ? 'Complete all account fields' : '请填写所有新账号字段',
-      })
-      return
-    }
-    const passwordLength = Array.from(newAccountPassword).length
-    if (passwordLength < 8 || passwordLength > 128) {
-      setRegistrationFeedback({
-        kind: 'error',
-        text: english
-          ? 'Use a password between 8 and 128 characters'
-          : '密码长度需要为 8 到 128 个字符',
-      })
-      return
-    }
-    if (newAccountPassword !== confirmAccountPassword) {
-      setRegistrationFeedback({
-        kind: 'error',
-        text: english ? 'The passwords do not match' : '两次输入的密码不一致',
-      })
+    const validationMessage = validateRegistration(username, password, confirmation, copy)
+    if (validationMessage) {
+      setFeedback({ kind: 'error', text: validationMessage })
       return
     }
 
     setRegistering(true)
-    profileApi
-      .register({ username: newUsername.trim(), password: newAccountPassword })
-      .then(() => {
-        setNewUsername('')
-        setNewAccountPassword('')
-        setConfirmAccountPassword('')
-        setRegistrationFeedback({
-          kind: 'success',
-          text: english ? 'Administrator account created' : '管理员账号已创建',
-        })
-      })
-      .catch((error: unknown) =>
-        setRegistrationFeedback({
-          kind: 'error',
-          text:
-            error instanceof Error
-              ? error.message
-              : english
-                ? 'Unable to create account'
-                : '无法创建账号',
-        }),
-      )
-      .finally(() => setRegistering(false))
+    try {
+      await profileApi.register({ username: username.trim(), password })
+      setUsername('')
+      setPassword('')
+      setConfirmation('')
+      setFeedback({ kind: 'success', text: copy.accountCreated })
+    } catch (error: unknown) {
+      setFeedback({ kind: 'error', text: errorMessage(error, copy.accountCreateError) })
+    } finally {
+      setRegistering(false)
+    }
   }
 
   return (
-    <div className="account-page">
-      <div className="page-head">
+    <section className="panel account-card account-registration-card">
+      <div className="panel-head">
         <div>
-          <p className="eyebrow">{english ? 'ACCOUNT' : 'ACCOUNT CENTER'}</p>
-          <h1>{english ? 'Account' : '个人中心'}</h1>
-          <p className="muted">
-            {english
-              ? 'View your account and update your password.'
-              : '查看账号信息并修改登录密码。'}
-          </p>
+          <h2>{copy.registerAdministrator}</h2>
+          <span>{copy.registerDescription}</span>
         </div>
       </div>
-
-      <div className={`account-grid${user?.role === 1 ? ' account-grid-admin' : ''}`}>
-        <div className="account-column account-overview-column">
-          <section className="panel account-card account-info-card">
-            <div className="panel-head">
-              <div>
-                <h2>{english ? 'Account information' : '账号信息'}</h2>
-                <span>{english ? 'Signed-in user' : '当前登录账号'}</span>
-              </div>
-            </div>
-            {loading ? (
-              <div className="loading-skeleton" />
-            ) : loadError ? (
-              <div className="account-feedback error">{loadError}</div>
-            ) : (
-              <dl className="account-details">
-                <div>
-                  <dt>{english ? 'Username' : '用户名'}</dt>
-                  <dd>{user?.username || '—'}</dd>
-                </div>
-                <div>
-                  <dt>{english ? 'Role' : '角色'}</dt>
-                  <dd>
-                    {user?.role === 1
-                      ? english
-                        ? 'Administrator'
-                        : '管理员'
-                      : english
-                        ? 'User'
-                        : '用户'}
-                  </dd>
-                </div>
-              </dl>
-            )}
-          </section>
-
-          {user?.role === 1 && (
-            <section className="panel account-card account-registration-card">
-              <div className="panel-head">
-                <div>
-                  <h2>{english ? 'Register administrator' : '注册管理员账号'}</h2>
-                  <span>
-                    {english
-                      ? 'Only administrators can create accounts. New accounts also receive the administrator role.'
-                      : '仅管理员可以创建账号；新账号也将获得管理员角色。'}
-                  </span>
-                </div>
-              </div>
-              <form
-                className="account-form account-registration-form"
-                onSubmit={submitRegistration}
-              >
-                <label>
-                  {english ? 'Username' : '用户名'}
-                  <input
-                    autoComplete="username"
-                    maxLength={255}
-                    value={newUsername}
-                    onChange={(event) => setNewUsername(event.target.value)}
-                  />
-                </label>
-                <label>
-                  {english ? 'Password' : '密码'}
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    value={newAccountPassword}
-                    onChange={(event) => setNewAccountPassword(event.target.value)}
-                  />
-                </label>
-                <label>
-                  {english ? 'Confirm password' : '确认密码'}
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    value={confirmAccountPassword}
-                    onChange={(event) => setConfirmAccountPassword(event.target.value)}
-                  />
-                </label>
-                {registrationFeedback && (
-                  <div className={`account-feedback ${registrationFeedback.kind}`}>
-                    {registrationFeedback.text}
-                  </div>
-                )}
-                <button className="primary account-submit" disabled={registering}>
-                  {registering
-                    ? english
-                      ? 'Creating…'
-                      : '创建中…'
-                    : english
-                      ? 'Create account'
-                      : '创建账号'}
-                </button>
-              </form>
-            </section>
-          )}
-        </div>
-
-        <div className="account-column account-password-column">
-          <section className="panel account-card account-password-card">
-            <div className="panel-head">
-              <div>
-                <h2>{english ? 'Change password' : '修改密码'}</h2>
-                <span>
-                  {english
-                    ? 'Enter your current password to save a new one.'
-                    : '输入当前密码后即可设置新密码。'}
-                </span>
-              </div>
-            </div>
-            <form className="account-form" onSubmit={submit}>
-              <label>
-                {english ? 'Current password' : '当前密码'}
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={oldPassword}
-                  onChange={(event) => setOldPassword(event.target.value)}
-                />
-              </label>
-              <label>
-                {english ? 'New password' : '新密码'}
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={8}
-                  maxLength={128}
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                />
-              </label>
-              <label>
-                {english ? 'Confirm new password' : '确认新密码'}
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={8}
-                  maxLength={128}
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                />
-              </label>
-              {feedback && (
-                <div className={`account-feedback ${feedback.kind}`}>{feedback.text}</div>
-              )}
-              <button className="primary account-submit" disabled={saving}>
-                {saving
-                  ? english
-                    ? 'Updating…'
-                    : '修改中…'
-                  : english
-                    ? 'Update password'
-                    : '更新密码'}
-              </button>
-            </form>
-          </section>
-        </div>
-      </div>
-    </div>
+      <form className="account-form account-registration-form" onSubmit={submit}>
+        <label>
+          {copy.username}
+          <input
+            autoComplete="username"
+            maxLength={255}
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+        </label>
+        <label>
+          {copy.password}
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
+        <label>
+          {copy.confirmPassword}
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+          />
+        </label>
+        {feedback && <div className={`account-feedback ${feedback.kind}`}>{feedback.text}</div>}
+        <button type="submit" className="primary account-submit" disabled={registering}>
+          {registering ? copy.creatingAccount : copy.createAccount}
+        </button>
+      </form>
+    </section>
   )
+}
+
+function validateRegistration(
+  username: string,
+  password: string,
+  confirmation: string,
+  copy: AccountCopy,
+) {
+  if (!username.trim() || !password || !confirmation) return copy.accountFieldsRequired
+  if (!isValidPasswordLength(password)) return copy.accountPasswordLength
+  if (password !== confirmation) return copy.accountPasswordsMismatch
+  return ''
+}
+
+function PasswordForm({ copy }: AccountFormProps) {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setFeedback(null)
+    const validationMessage = validatePasswordChange(currentPassword, password, confirmation, copy)
+    if (validationMessage) {
+      setFeedback({ kind: 'error', text: validationMessage })
+      return
+    }
+
+    setSaving(true)
+    try {
+      await profileApi.password({ oldPassword: currentPassword, newPassword: password })
+      setCurrentPassword('')
+      setPassword('')
+      setConfirmation('')
+      setFeedback({ kind: 'success', text: copy.passwordUpdated })
+    } catch (error: unknown) {
+      setFeedback({ kind: 'error', text: errorMessage(error, copy.passwordUpdateError) })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="panel account-card account-password-card">
+      <div className="panel-head">
+        <div>
+          <h2>{copy.changePassword}</h2>
+          <span>{copy.changePasswordDescription}</span>
+        </div>
+      </div>
+      <form className="account-form" onSubmit={submit}>
+        <label>
+          {copy.currentPassword}
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+          />
+        </label>
+        <label>
+          {copy.newPassword}
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
+        <label>
+          {copy.confirmNewPassword}
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+          />
+        </label>
+        {feedback && <div className={`account-feedback ${feedback.kind}`}>{feedback.text}</div>}
+        <button type="submit" className="primary account-submit" disabled={saving}>
+          {saving ? copy.updatingPassword : copy.updatePassword}
+        </button>
+      </form>
+    </section>
+  )
+}
+
+function validatePasswordChange(
+  currentPassword: string,
+  password: string,
+  confirmation: string,
+  copy: AccountCopy,
+) {
+  if (!currentPassword || !password || !confirmation) return copy.passwordFieldsRequired
+  if (!isValidPasswordLength(password)) return copy.newPasswordLength
+  if (password !== confirmation) return copy.newPasswordsMismatch
+  if (password === currentPassword) return copy.passwordMustChange
+  return ''
+}
+
+function isValidPasswordLength(password: string) {
+  const length = Array.from(password).length
+  return length >= 8 && length <= 128
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message
+  return fallback
 }

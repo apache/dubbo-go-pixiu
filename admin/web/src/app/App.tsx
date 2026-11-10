@@ -146,34 +146,30 @@ function AppContent() {
     setSidebarCollapsed(next)
     setSidebarMotion(next ? 'collapsing' : 'expanding')
   }
-  const content = useMemo(
-    () =>
-      section === 'Overview' ? (
+  const content = useMemo(() => {
+    if (section === 'Overview') {
+      return (
         <Overview
           language={language}
           tx={tx}
           counts={counts}
           onRoutes={() => setSection('API routes')}
         />
-      ) : section === 'API routes' ? (
-        <ResourcePage locale={locale} onCountChange={updateResourceCount} />
-      ) : section === 'Clusters' ? (
-        <ClusterConfigPage locale={locale} />
-      ) : section === 'Listeners' ? (
-        <ListenerConfigPage locale={locale} />
-      ) : section === 'Plugin groups' ? (
-        <PluginGroupConfigPage locale={locale} />
-      ) : section === 'Rate limiting' ? (
-        <RateLimitPage locale={locale} />
-      ) : section === 'Settings' ? (
-        <BaseInfoPage locale={locale} />
-      ) : section === 'Account' ? (
-        <AccountPage language={language} />
-      ) : (
-        <OpaPage locale={locale} />
-      ),
-    [section, language, locale, counts, updateResourceCount],
-  )
+      )
+    }
+
+    const sectionPages: Record<Exclude<Section, 'Overview'>, React.ReactNode> = {
+      'API routes': <ResourcePage locale={locale} onCountChange={updateResourceCount} />,
+      Clusters: <ClusterConfigPage locale={locale} />,
+      Listeners: <ListenerConfigPage locale={locale} />,
+      'Plugin groups': <PluginGroupConfigPage locale={locale} />,
+      'Rate limiting': <RateLimitPage locale={locale} />,
+      Settings: <BaseInfoPage locale={locale} />,
+      Account: <AccountPage language={language} />,
+      'OPA policies': <OpaPage locale={locale} />,
+    }
+    return sectionPages[section]
+  }, [section, language, locale, counts, updateResourceCount])
   return (
     <div
       className={`${dark ? 'app dark' : 'app'}${sidebarCollapsed ? ' sidebar-collapsed' : ''}${sidebarMotion !== 'idle' ? ` sidebar-${sidebarMotion}` : ''}`}
