@@ -113,8 +113,30 @@ jobs:
           files: ./coverage.txt
           flags: unittests
 
+  admin_changes:
+    name: Detect Admin changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      admin: ${{ steps.filter.outputs.admin }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            admin:
+              - 'admin/**'
+              - 'cmd/admin/**'
+              - 'go.mod'
+              - 'go.sum'
+
   admin-build:
     name: Admin Build
+    needs: admin_changes
+    if: needs.admin_changes.outputs.admin == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
