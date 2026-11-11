@@ -245,6 +245,10 @@ func ValidateRouteBinding(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
+	if object.Kind != schema.KindAdminRouteBinding {
+		writeRouteBindingError(c, schema.ValidationErrors{{Path: "kind", Code: "invalid", Message: fmt.Sprintf("route binding kind must be %q", schema.KindAdminRouteBinding)}})
+		return
+	}
 	registry, err := schema.NewBuiltinRegistry()
 	if err != nil {
 		writeRouteBindingError(c, err)

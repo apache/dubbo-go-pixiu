@@ -171,6 +171,24 @@ func TestAdminClusterLegacyYAMLCompatibility(t *testing.T) {
 	require.ErrorContains(t, err, "decode legacy Cluster YAML")
 }
 
+func TestAdminClusterLegacyYAMLTrimsDiscoveryType(t *testing.T) {
+	registry, err := NewBuiltinRegistry()
+	require.NoError(t, err)
+	input := []byte("name: backend\ntype: ' Static '\naddress: 127.0.0.1\nport: 20880\nid: 17\n")
+	object, id, err := DecodeLegacyClusterYAML(input)
+	require.NoError(t, err)
+	require.Equal(t, 17, id)
+	require.Equal(t, "Static", object.Spec["type"])
+	compiled, err := CompileAdminCluster(registry, object)
+	require.NoError(t, err)
+	require.Equal(t, "Static", compiled.RuntimeCluster(id).Type)
+	preview, err := compiled.PreviewYAML()
+	require.NoError(t, err)
+	previewObject, _, err := DecodeLegacyClusterYAML(preview)
+	require.NoError(t, err)
+	require.Equal(t, object, previewObject)
+}
+
 func TestAdminClusterYAMLUnknownFieldIsReported(t *testing.T) {
 	object, err := DecodeAdminObjectYAML([]byte("kind: AdminCluster\nmetadata:\n  name: backend\nspec:\n  type: Static\n  endpoint:\n    address: 127.0.0.1\n    port: 20880\n  id: 9\n"))
 	require.NoError(t, err)

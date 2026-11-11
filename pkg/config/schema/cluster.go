@@ -89,7 +89,7 @@ func AdminClusterFromLegacy(cluster legacyconfig.Cluster) AdminObject {
 		Kind:     KindAdminCluster,
 		Metadata: ObjectMetadata{Name: cluster.Name},
 		Spec: map[string]any{
-			"type": cluster.Type,
+			"type": strings.TrimSpace(cluster.Type),
 			"endpoint": map[string]any{
 				"address": cluster.Address,
 				"port":    cluster.Port,

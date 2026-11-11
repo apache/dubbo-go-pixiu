@@ -301,6 +301,9 @@ func (s *RouteBindingStore) Get(ctx context.Context, name string, unpublished bo
 // It is useful to the controller's validate and preview endpoints and does
 // not require an etcd write.
 func (s *RouteBindingStore) Normalize(object schema.AdminObject) (schema.AdminObject, error) {
+	if object.Kind != schema.KindAdminRouteBinding {
+		return object, schema.ValidationErrors{{Path: "kind", Code: "invalid", Message: fmt.Sprintf("route binding kind must be %q", schema.KindAdminRouteBinding)}}
+	}
 	normalized, err := s.registry.Normalize(object)
 	if err != nil {
 		return normalized, err
