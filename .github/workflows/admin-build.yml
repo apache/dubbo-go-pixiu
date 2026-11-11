@@ -1,0 +1,71 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+name: Admin CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    paths:
+      - 'admin/**'
+      - 'cmd/admin/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/admin-build.yml'
+  pull_request:
+    paths:
+      - 'admin/**'
+      - 'cmd/admin/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/admin-build.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  admin-build:
+    name: Admin Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Download Go modules
+        run: sh .github/scripts/download-go-modules.sh
+
+      - name: Build Admin backend
+        run: go build -o /tmp/pixiu-admin ./cmd/admin
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/web/package-lock.json
+
+      - name: Build Admin frontend
+        working-directory: admin/web
+        run: |
+          npm ci --ignore-scripts
+          npm run build
