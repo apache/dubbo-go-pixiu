@@ -58,7 +58,7 @@ jobs:
       - name: Build Admin backend
         run: go build -o /tmp/pixiu-admin ./cmd/admin
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
