@@ -88,12 +88,13 @@ func mapIItoMapSI(in any) any {
 	outMap := make(map[string]any, len(inMap))
 
 	for k, v := range inMap {
-		if v == nil {
-			continue
-		}
 		s := fmt.Sprint(k)
 		if s == "class" {
 			// ignore the "class" field
+			continue
+		}
+		if v == nil {
+			outMap[s] = nil
 			continue
 		}
 		vt := reflect.TypeOf(v)
