@@ -33,8 +33,7 @@ var supportedDubboParamTypes = []string{
 	"java.lang.Float", "java.lang.Double", "java.lang.Boolean", "java.lang.Byte", "java.lang.Object", "java.util.Date",
 }
 
-// RegisterBuiltinSchemas installs only the Admin-facing route binding. Legacy
-// Resource and Method are compiler outputs rather than form objects.
+// RegisterBuiltinSchemas installs the Admin-facing configuration objects.
 func RegisterBuiltinSchemas(registry *Registry) error {
 	if registry == nil {
 		return fmt.Errorf("admin object schema registry is nil")
@@ -42,7 +41,13 @@ func RegisterBuiltinSchemas(registry *Registry) error {
 	if err := registry.Register(adminRouteBindingSchema()); err != nil {
 		return err
 	}
-	return registry.RegisterValidator(KindAdminRouteBinding, validateAdminRouteBinding)
+	if err := registry.RegisterValidator(KindAdminRouteBinding, validateAdminRouteBinding); err != nil {
+		return err
+	}
+	if err := registry.Register(adminClusterSchema()); err != nil {
+		return err
+	}
+	return registry.RegisterValidator(KindAdminCluster, validateAdminCluster)
 }
 
 func adminRouteBindingSchema() ObjectSchema {

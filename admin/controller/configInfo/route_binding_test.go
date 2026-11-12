@@ -129,6 +129,19 @@ func TestValidateRouteBindingReturnsFieldIssues(t *testing.T) {
 	}
 }
 
+func TestValidateRouteBindingRejectsCluster(t *testing.T) {
+	body := []byte(`{"kind":"AdminCluster","metadata":{"name":"backend"},"spec":{"type":"Static","endpoint":{"address":"127.0.0.1","port":20880}}}`)
+	response := invokeRouteBindingHandler(t, http.MethodPost, body, ValidateRouteBinding)
+	var result struct {
+		Code string                    `json:"code"`
+		Data routeBindingErrorResponse `json:"data"`
+	}
+	decodeRouteBindingResponse(t, response, &result)
+	if result.Code != adminconfig.ERR || len(result.Data.Issues) != 1 || result.Data.Issues[0].Path != "kind" {
+		t.Fatalf("wrong-kind validation response: %+v", result)
+	}
+}
+
 func TestPreviewRouteBindingReturnsLegacyYAML(t *testing.T) {
 	body := []byte(`{
   "kind": "AdminRouteBinding",

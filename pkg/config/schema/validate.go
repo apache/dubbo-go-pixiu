@@ -184,6 +184,9 @@ func validateIntegerValue(path string, value any, field *FieldSchema) []Validati
 	if field.Minimum != nil && number < *field.Minimum {
 		return []ValidationIssue{issue(path, "minimum", fmt.Sprintf("must be at least %v", *field.Minimum))}
 	}
+	if field.Maximum != nil && number > *field.Maximum {
+		return []ValidationIssue{issue(path, "maximum", fmt.Sprintf("must be at most %v", *field.Maximum))}
+	}
 	return validateEnumValue(path, value, field)
 }
 
@@ -326,6 +329,9 @@ func validateFieldDefinition(path string, field *FieldSchema) error {
 		if _, err := regexp.Compile(field.Pattern); err != nil {
 			return fmt.Errorf("schema field %s pattern: %w", path, err)
 		}
+	}
+	if field.Minimum != nil && field.Maximum != nil && *field.Minimum > *field.Maximum {
+		return fmt.Errorf("schema field %s minimum exceeds maximum", path)
 	}
 	return nil
 }
