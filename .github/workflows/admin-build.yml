@@ -64,8 +64,10 @@ jobs:
           cache: npm
           cache-dependency-path: admin/web/package-lock.json
 
-      - name: Build Admin frontend
+      - name: Check and build Admin frontend
         working-directory: admin/web
         run: |
           npm ci --ignore-scripts
+          npm run typecheck
+          npm test
           npm run build
