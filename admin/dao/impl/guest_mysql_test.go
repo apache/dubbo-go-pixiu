@@ -104,6 +104,131 @@ func TestEnsureUsernameUniqueIndexLeavesExistingDuplicatesUntouched(t *testing.T
 	}
 }
 
+func TestEnsureDefaultAdminSeedsRoleAndAssociation(t *testing.T) {
+	db := newGuestMySQLTestDB(t)
+	createGuestTestTables(t, db)
+	dao := &GuestDao{db: db}
+	if err := dao.EnsureUsernameUniqueIndex(); err != nil {
+		t.Fatalf("EnsureUsernameUniqueIndex() error = %v", err)
+	}
+
+	if err := dao.EnsureDefaultAdmin("admin", "initial-hash"); err != nil {
+		t.Fatalf("EnsureDefaultAdmin() error = %v", err)
+	}
+	if err := dao.EnsureDefaultAdmin("admin", "replacement-hash"); err != nil {
+		t.Fatalf("EnsureDefaultAdmin() second call error = %v", err)
+	}
+
+	var userID int64
+	var password string
+	var role int
+	if err := db.QueryRow("SELECT id, password, role FROM pixiu_user WHERE username = ?", "admin").Scan(&userID, &password, &role); err != nil {
+		t.Fatal(err)
+	}
+	if password != "initial-hash" || role != 1 {
+		t.Fatalf("default admin = (password %q, role %d), want (initial-hash, 1)", password, role)
+	}
+
+	var roleName, description string
+	if err := db.QueryRow("SELECT role_name, description FROM pixiu_role WHERE id = 1").Scan(&roleName, &description); err != nil {
+		t.Fatal(err)
+	}
+	if roleName != "admin" || description != "Administrator" {
+		t.Fatalf("admin role = (%q, %q), want (admin, Administrator)", roleName, description)
+	}
+
+	var associationCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM pixiu_user_role WHERE user_id = ? AND role_id = 1", userID).Scan(&associationCount); err != nil {
+		t.Fatal(err)
+	}
+	if associationCount != 1 {
+		t.Fatalf("admin role associations = %d, want 1", associationCount)
+	}
+
+	found, result, err := (&UserDao{db: db}).GetUserRole("admin")
+	if err != nil {
+		t.Fatalf("GetUserRole() error = %v", err)
+	}
+	if !found {
+		t.Fatal("GetUserRole() found = false, want true")
+	}
+	adminRole, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("GetUserRole() result has type %T, want map[string]any", result)
+	}
+	if adminRole["role"] != "admin" || adminRole["description"] != "Administrator" {
+		t.Fatalf("GetUserRole() = %#v, want admin role", adminRole)
+	}
+}
+
+func TestEnsureDefaultAdminPreservesExistingNonAdminAccount(t *testing.T) {
+	db := newGuestMySQLTestDB(t)
+	createGuestTestTables(t, db)
+	dao := &GuestDao{db: db}
+	if err := dao.EnsureUsernameUniqueIndex(); err != nil {
+		t.Fatalf("EnsureUsernameUniqueIndex() error = %v", err)
+	}
+	if _, err := db.Exec("INSERT INTO pixiu_user (username, password, role) VALUES (?, ?, 0)", "admin", "existing-hash"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := dao.EnsureDefaultAdmin("admin", "default-hash"); err != nil {
+		t.Fatalf("EnsureDefaultAdmin() error = %v", err)
+	}
+
+	var password string
+	var role int
+	if err := db.QueryRow("SELECT password, role FROM pixiu_user WHERE username = ?", "admin").Scan(&password, &role); err != nil {
+		t.Fatal(err)
+	}
+	if password != "existing-hash" || role != 0 {
+		t.Fatalf("existing account = (password %q, role %d), want (existing-hash, 0)", password, role)
+	}
+
+	var associationCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM pixiu_user_role").Scan(&associationCount); err != nil {
+		t.Fatal(err)
+	}
+	if associationCount != 0 {
+		t.Fatalf("non-admin account role associations = %d, want 0", associationCount)
+	}
+}
+
+func TestGetUserRoleUsesRequestedUsername(t *testing.T) {
+	db := newGuestMySQLTestDB(t)
+	createGuestTestTables(t, db)
+	if _, err := db.Exec(`
+		INSERT INTO pixiu_role (id, role_name, description)
+		VALUES (1, 'admin', 'Administrator'), (2, 'reader', 'Read only')
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO pixiu_user (id, username, password, role)
+		VALUES (1, 'admin', 'admin-hash', 1), (2, 'reader', 'reader-hash', 0)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("INSERT INTO pixiu_user_role (user_id, role_id) VALUES (1, 1), (2, 2)"); err != nil {
+		t.Fatal(err)
+	}
+
+	found, result, err := (&UserDao{db: db}).GetUserRole("reader")
+	if err != nil {
+		t.Fatalf("GetUserRole() error = %v", err)
+	}
+	if !found {
+		t.Fatal("GetUserRole() found = false, want true")
+	}
+	role, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("GetUserRole() result has type %T, want map[string]any", result)
+	}
+	if role["role"] != "reader" || role["description"] != "Read only" {
+		t.Fatalf("GetUserRole() = %#v, want reader role", role)
+	}
+}
+
 func newGuestMySQLTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	dsn := os.Getenv("PIXIU_TEST_MYSQL_DSN")
@@ -170,5 +295,14 @@ func createGuestTestTables(t *testing.T, db *sql.DB) {
 		) ENGINE=InnoDB
 	`); err != nil {
 		t.Fatalf("create pixiu_user_role test table: %v", err)
+	}
+	if _, err := db.Exec(`
+		CREATE TABLE pixiu_role (
+			id INT NOT NULL PRIMARY KEY,
+			role_name VARCHAR(255) NOT NULL,
+			description VARCHAR(255) NOT NULL
+		) ENGINE=InnoDB
+	`); err != nil {
+		t.Fatalf("create pixiu_role test table: %v", err)
 	}
 }

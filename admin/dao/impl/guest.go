@@ -119,12 +119,43 @@ func findDuplicateUsername(db *SQL.DB) (string, error) {
 }
 
 func (d *GuestDao) EnsureDefaultAdmin(username, password string) error {
-	_, err := d.db.Exec(`
-		INSERT INTO pixiu_user (username, password, role)
-		SELECT ?, ?, 1 FROM DUAL
-		WHERE NOT EXISTS (SELECT 1 FROM pixiu_user WHERE username = ?)
-	`, username, password, username)
-	return err
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
+		INSERT IGNORE INTO pixiu_role (id, role_name, description)
+		VALUES (1, 'admin', 'Administrator')
+	`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`
+		INSERT IGNORE INTO pixiu_user (username, password, role)
+		VALUES (?, ?, 1)
+	`, username, password); err != nil {
+		return err
+	}
+
+	var userID int64
+	var role int
+	if err := tx.QueryRow("SELECT id, role FROM pixiu_user WHERE username = ? FOR UPDATE", username).Scan(&userID, &role); err != nil {
+		return err
+	}
+	if role == 1 {
+		if _, err := tx.Exec(`
+			INSERT INTO pixiu_user_role (user_id, role_id)
+			SELECT ?, 1 FROM DUAL
+			WHERE NOT EXISTS (
+				SELECT 1 FROM pixiu_user_role WHERE user_id = ? AND role_id = 1
+			)
+		`, userID, userID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (d *GuestDao) Register(username, password string) error {
