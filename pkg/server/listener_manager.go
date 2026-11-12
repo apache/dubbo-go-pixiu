@@ -117,10 +117,14 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 		sig := <-signals
 		logger.Infof("get signal %s, dubbo-go-pixiu will start shutdown.", sig)
 
-		time.AfterFunc(timeout, func() {
+		timer := time.AfterFunc(timeout, func() {
 			logger.Warn("Shutdown gracefully timeout, listeners will shutdown immediately. ")
 			os.Exit(0)
 		})
+
+		// Stop discovery/config watches before draining, so they cannot publish
+		// new resources during shutdown. The timer still bounds the whole path.
+		shutdown.RunHooks()
 
 		for _, listener := range lm.activeListenerService {
 			lm.shutdownWG.Add(1)
@@ -140,6 +144,7 @@ func (lm *ListenerManager) gracefulShutdownInit() {
 				debug.WriteHeapDump(os.Stdout.Fd())
 			}
 		}
+		timer.Stop()
 		os.Exit(0)
 	}()
 }
