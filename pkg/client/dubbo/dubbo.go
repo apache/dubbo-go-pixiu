@@ -137,6 +137,7 @@ type resolvedReferSpec struct {
 	RegistryIDs            []string
 	EffectiveProtocol      string
 	EffectiveSerialization string
+	EffectiveGeneric       string
 	UseNacosWarmup         bool
 	ConsumerDefaults       resolvedConsumerDefaults
 }
@@ -154,6 +155,7 @@ type genericServiceKey struct {
 	Group             string   `json:"group"`
 	EffectiveProtocol string   `json:"effective_protocol"`
 	Serialization     string   `json:"serialization"`
+	Generic           string   `json:"generic"`
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -255,7 +257,12 @@ func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, err
 		return nil, errors.New("dubbo outbound request is nil")
 	}
 
-	spec := dc.resolveFromOutbound(req)
+	genericMode, err := NormalizeGenericMode(req.Generic)
+	if err != nil {
+		return nil, err
+	}
+
+	spec := dc.resolveFromOutbound(req, genericMode)
 	types, vals, err := dc.preparePayload(req)
 	if err != nil {
 		return nil, err
@@ -309,13 +316,17 @@ func spanValues(vals []hessian.Object) []byte {
 	return finalValues
 }
 
-func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest) resolvedReferSpec {
+// resolveFromOutbound turns an outbound request into the reference spec. The
+// generic mode is passed in already normalized so that every reference created
+// from the same configuration carries the same mode.
+func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest, genericMode string) resolvedReferSpec {
 	spec := resolvedReferSpec{
 		Interface:              req.Service,
 		Group:                  req.Group,
 		Version:                req.Version,
 		EffectiveProtocol:      req.Protocol,
 		EffectiveSerialization: req.Serialization,
+		EffectiveGeneric:       genericMode,
 		ConsumerDefaults:       dc.consumerDefaults,
 	}
 	if spec.ConsumerDefaults.Cluster == "" && spec.ConsumerDefaults.RequestTimeout == 0 {
@@ -500,6 +511,7 @@ func (spec resolvedReferSpec) genericServiceKey() genericServiceKey {
 		Group:             spec.Group,
 		EffectiveProtocol: spec.EffectiveProtocol,
 		Serialization:     spec.EffectiveSerialization,
+		Generic:           spec.EffectiveGeneric,
 	}
 }
 
@@ -565,6 +577,11 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 		return nil, errors.New("dubbo refer mode invalid: effective protocol is required")
 	}
 
+	genericMode, err := NormalizeGenericMode(spec.EffectiveGeneric)
+	if err != nil {
+		return nil, err
+	}
+
 	defaults := spec.ConsumerDefaults
 	opts := make([]dclient.ReferenceOption, 0, 16)
 
@@ -602,7 +619,7 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 	}
 	opts = append(opts, dclient.WithRequestTimeout(timeout))
 
-	opts = append(opts, dclient.WithGeneric())
+	opts = append(opts, dclient.WithGenericType(genericMode))
 
 	return opts, nil
 }

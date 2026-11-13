@@ -19,6 +19,8 @@ package remote
 
 import (
 	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -639,5 +641,237 @@ func TestNormalizeOptValues(t *testing.T) {
 		values, err := handler.normalizeOptValues(7)
 		require.NoError(t, err)
 		assert.Equal(t, []any{7}, values)
+	})
+}
+
+func TestBuildOutboundCarriesGenericMode(t *testing.T) {
+	handler := &DubboHandler{}
+
+	newGenericAPI := func(generic string) router.API {
+		return newTestAPI(config.IntegrationRequest{
+			RequestType: cst.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface: "com.demo.UserService",
+				Method:    "SayHello",
+				Generic:   config.GenericMode(generic),
+			},
+			MappingParams: []config.MappingParam{
+				{Name: "requestBody.values", MapTo: "opt.values"},
+			},
+		}, "/users/:id")
+	}
+
+	newRequest := func(t *testing.T) *http.Request {
+		t.Helper()
+		req, err := http.NewRequest(
+			http.MethodPost,
+			"http://example.com/users/42",
+			bytes.NewBufferString(`{"values":{"name":"tc"}}`),
+		)
+		require.NoError(t, err)
+		return req
+	}
+
+	t.Run("empty mode uses the map mode", func(t *testing.T) {
+		outbound, err := handler.BuildOutbound(newRequest(t), newGenericAPI(""))
+		require.NoError(t, err)
+		assert.Equal(t, cst.GenericModeMap, outbound.Generic)
+	})
+
+	t.Run("configured mode is passed through", func(t *testing.T) {
+		api := newTestAPI(config.IntegrationRequest{
+			RequestType: cst.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface:      "com.demo.UserService",
+				Method:         "SayHello",
+				Generic:        cst.GenericModeGson,
+				ParameterTypes: []string{"com.demo.HelloRequest"},
+			},
+			MappingParams: []config.MappingParam{
+				{Name: "requestBody.values", MapTo: "opt.values"},
+			},
+		}, "/users/:id")
+
+		outbound, err := handler.BuildOutbound(newRequest(t), api)
+		require.NoError(t, err)
+		assert.Equal(t, cst.GenericModeGson, outbound.Generic)
+	})
+
+	t.Run("unsupported mode is rejected", func(t *testing.T) {
+		outbound, err := handler.BuildOutbound(newRequest(t), newGenericAPI("protobuf"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not supported")
+		assert.Nil(t, outbound)
+	})
+}
+
+func TestBuildOutboundJSONTextGenericMode(t *testing.T) {
+	handler := &DubboHandler{}
+
+	newJSONTextAPI := func(parameterTypes []string, mappingParams []config.MappingParam) router.API {
+		return newTestAPI(config.IntegrationRequest{
+			RequestType: cst.DubboRequest,
+			DubboBackendConfig: config.DubboBackendConfig{
+				Interface:      "com.demo.Greeter",
+				Method:         "SayHello",
+				Generic:        cst.GenericModeProtobufJSON,
+				ParameterTypes: parameterTypes,
+			},
+			MappingParams: mappingParams,
+		}, "/users/:id")
+	}
+
+	newRequestBody := func(t *testing.T, body string) *http.Request {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(body))
+		require.NoError(t, err)
+		return req
+	}
+
+	t.Run("object value becomes one JSON text argument", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":{"name":"test"}}`), api)
+		require.NoError(t, err)
+		assert.Equal(t, []any{`{"name":"test"}`}, outbound.Arguments)
+		assert.Equal(t, []string{"com.demo.HelloRequest"}, outbound.ParamTypes)
+	})
+
+	t.Run("text value is passed through", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":"{\"name\":\"test\"}"}`), api)
+		require.NoError(t, err)
+		assert.Equal(t, []any{`{"name":"test"}`}, outbound.Arguments)
+	})
+
+	t.Run("integer above the float64 range keeps every digit", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":{"id":9007199254740993}}`), api)
+		require.NoError(t, err)
+		assert.Equal(t, []any{`{"id":9007199254740993}`}, outbound.Arguments)
+	})
+
+	t.Run("plain text value is rejected", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":"hello"}`), api)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is not valid JSON text")
+		assert.Nil(t, outbound)
+	})
+
+	t.Run("positional mapping keeps the mapped value", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody." + cst.DefaultBodyAll, MapTo: "0", MapType: "com.demo.HelloRequest"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"name":"test"}`), api)
+		require.NoError(t, err)
+		assert.Equal(t, []any{`{"name":"test"}`}, outbound.Arguments)
+	})
+
+	t.Run("positional mapping declares the request message", func(t *testing.T) {
+		api := newJSONTextAPI(nil, []config.MappingParam{
+			{Name: "requestBody." + cst.DefaultBodyAll, MapTo: "0", MapType: "com.demo.HelloRequest"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"name":"test"}`), api)
+		require.NoError(t, err)
+		assert.Equal(t, []any{`{"name":"test"}`}, outbound.Arguments)
+		assert.Equal(t, []string{"com.demo.HelloRequest"}, outbound.ParamTypes)
+	})
+
+	t.Run("missing declared type is rejected", func(t *testing.T) {
+		api := newJSONTextAPI(nil, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":{"name":"test"}}`), api)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "requires parameterTypes to name the request message")
+		assert.Nil(t, outbound)
+	})
+
+	t.Run("more than one argument is rejected", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest"}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":["a","b"]}`), api)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one argument")
+		assert.Nil(t, outbound)
+	})
+
+	t.Run("more than one parameter type is rejected", func(t *testing.T) {
+		api := newJSONTextAPI([]string{"com.demo.HelloRequest", cst.JavaLangStringClassName}, []config.MappingParam{
+			{Name: "requestBody.values", MapTo: "opt.values"},
+		})
+
+		outbound, err := handler.BuildOutbound(newRequestBody(t, `{"values":{"name":"test"}}`), api)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one parameter type")
+		assert.Nil(t, outbound)
+	})
+}
+
+func TestReadRequestBody(t *testing.T) {
+	handler := &DubboHandler{}
+
+	newRequest := func(t *testing.T, body string) *http.Request {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/users/42", bytes.NewBufferString(body))
+		require.NoError(t, err)
+		return req
+	}
+
+	t.Run("JSON text mode keeps integers exact", func(t *testing.T) {
+		decoded, err := handler.readRequestBody(newRequest(t, `{"id":9007199254740993}`), cst.GenericModeProtobufJSON)
+		require.NoError(t, err)
+		assert.Equal(t, json.Number("9007199254740993"), decoded["id"])
+	})
+
+	t.Run("map mode decodes numbers as float64", func(t *testing.T) {
+		decoded, err := handler.readRequestBody(newRequest(t, `{"id":1}`), cst.GenericModeMap)
+		require.NoError(t, err)
+		assert.IsType(t, float64(0), decoded["id"])
+	})
+
+	t.Run("body stays readable", func(t *testing.T) {
+		req := newRequest(t, `{"name":"test"}`)
+		_, err := handler.readRequestBody(req, cst.GenericModeMap)
+		require.NoError(t, err)
+
+		raw, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"name":"test"}`, string(raw))
+	})
+
+	t.Run("empty body decodes to an empty object", func(t *testing.T) {
+		decoded, err := handler.readRequestBody(newRequest(t, " "), cst.GenericModeProtobufJSON)
+		require.NoError(t, err)
+		assert.Empty(t, decoded)
+	})
+
+	t.Run("a second document is rejected", func(t *testing.T) {
+		_, err := handler.readRequestBody(newRequest(t, `{"a":1} {"b":2}`), cst.GenericModeProtobufJSON)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "single JSON object")
+	})
+
+	t.Run("trailing content is rejected", func(t *testing.T) {
+		_, err := handler.readRequestBody(newRequest(t, `{"a":1} x`), cst.GenericModeProtobufJSON)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid character")
 	})
 }

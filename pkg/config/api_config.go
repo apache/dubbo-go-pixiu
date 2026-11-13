@@ -18,6 +18,7 @@
 package config
 
 import (
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,9 +32,12 @@ import (
 	perrors "github.com/pkg/errors"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
+
+	goyaml "gopkg.in/yaml.v3"
 )
 
 import (
+	cst "github.com/apache/dubbo-go-pixiu/pkg/common/constant"
 	"github.com/apache/dubbo-go-pixiu/pkg/common/yaml"
 	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
@@ -156,6 +160,49 @@ type DubboBackendConfig struct {
 	ParameterTypes  []string `yaml:"parameterTypes" json:"parameterTypes,omitempty"`
 	Serialization   string   `yaml:"serialization" json:"serialization,omitempty"`
 	Retries         string   `yaml:"retries" json:"retries,omitempty"`
+	// Generic selects the generic invocation mode: "true" or "map" (map mode,
+	// default), "gson" or "protobuf-json".
+	Generic GenericMode `yaml:"generic" json:"generic,omitempty"`
+}
+
+// GenericMode is the generic invocation mode of a Dubbo backend. It accepts the
+// mode names, and the YAML or JSON boolean true, because dubbo-go spells the map
+// mode "true" and an unquoted `generic: true` arrives as a boolean.
+type GenericMode string
+
+func (m *GenericMode) set(raw any) error {
+	switch value := raw.(type) {
+	case nil:
+		*m = ""
+	case bool:
+		if !value {
+			return perrors.New("generic: false does not select a mode, use \"true\" or \"map\" for the map mode")
+		}
+		*m = GenericMode(cst.GenericModeMap)
+	case string:
+		*m = GenericMode(value)
+	default:
+		return perrors.Errorf("generic: unsupported value %v, expected a mode name", raw)
+	}
+	return nil
+}
+
+// UnmarshalYAML decodes a mode name or the boolean true.
+func (m *GenericMode) UnmarshalYAML(value *goyaml.Node) error {
+	var raw any
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+	return m.set(raw)
+}
+
+// UnmarshalJSON decodes a mode name or the boolean true.
+func (m *GenericMode) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	return m.set(raw)
 }
 
 // HTTPBackendConfig defines the basic dubbo backend config

@@ -103,3 +103,65 @@ resources:
 	require.Len(t, ir.ParameterTypes, 0)
 	require.Equal(t, "hessian2", ir.Serialization)
 }
+
+func TestAPIConfigDecodesGenericMode(t *testing.T) {
+	newConfig := func(t *testing.T, generic string) config.DubboBackendConfig {
+		t.Helper()
+		raw := []byte(`
+name: pixiu
+resources:
+  - path: /ping
+    type: restful
+    methods:
+      - httpVerb: POST
+        enable: true
+        inboundRequest:
+          requestType: http
+        integrationRequest:
+          requestType: dubbo
+          url: dubbo://127.0.0.1:20880
+          protocol: dubbo
+          interface: demo.PingService
+          method: Ping
+          generic: ` + generic + `
+`)
+		var cfg config.APIConfig
+		err := yaml.UnmarshalYML(raw, &cfg)
+		require.NoError(t, err)
+		return cfg.Resources[0].Methods[0].IntegrationRequest.DubboBackendConfig
+	}
+
+	t.Run("boolean true selects the map mode", func(t *testing.T) {
+		assert.Equal(t, config.GenericMode("true"), newConfig(t, "true").Generic)
+	})
+
+	t.Run("map alias is kept", func(t *testing.T) {
+		assert.Equal(t, config.GenericMode("map"), newConfig(t, "map").Generic)
+	})
+
+	t.Run("mode name is kept", func(t *testing.T) {
+		assert.Equal(t, config.GenericMode("gson"), newConfig(t, "gson").Generic)
+	})
+
+	t.Run("boolean false is rejected", func(t *testing.T) {
+		raw := []byte(`
+name: pixiu
+resources:
+  - path: /ping
+    type: restful
+    methods:
+      - httpVerb: POST
+        enable: true
+        integrationRequest:
+          requestType: dubbo
+          protocol: dubbo
+          interface: demo.PingService
+          method: Ping
+          generic: false
+`)
+		var cfg config.APIConfig
+		err := yaml.UnmarshalYML(raw, &cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not select a mode")
+	})
+}
