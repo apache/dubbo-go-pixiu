@@ -18,9 +18,13 @@
  */
 
 import { request } from './http'
+export type UserInfo = { userId: number; username: string; role: number }
+
 export const profileApi = {
-  session: () => request<unknown>('/user/getInfo', { method: 'POST' }),
+  session: () => request<UserInfo>('/user/getInfo', { method: 'POST' }),
   logout: () => request<void>('/user/logout', { method: 'POST' }),
+  register: (data: Record<string, string>) =>
+    request<string>('/register', { method: 'POST', body: new URLSearchParams(data) }),
   password: (data: Record<string, string>) =>
     request<void>('/user/password/edit', { method: 'POST', body: new URLSearchParams(data) }),
 }

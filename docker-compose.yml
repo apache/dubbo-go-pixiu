@@ -61,6 +61,12 @@ services:
       - "3306:3306"
     volumes:
       - ./admin/resources/sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     networks:
       - app_network
 
@@ -110,7 +116,10 @@ services:
     networks:
       - app_network
     depends_on:
-      - etcd  # Ensure etcd is ready before starting the backend
+      etcd:
+        condition: service_started
+      mysql_pixiu:
+        condition: service_healthy
 
   # frontend（Web）
   frontend:

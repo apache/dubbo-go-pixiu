@@ -205,6 +205,21 @@ func doReq(t *testing.T, r *gin.Engine, req *http.Request) *httptest.ResponseRec
 
 // ----- tests ----------------------------------------------------------------
 
+func TestRegisterRouteRequiresJWT(t *testing.T) {
+	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "b6d79187f31f3a59a2734e8c9a89001383349f65c8ad2a9d1f32e570bd84965e")
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() { gin.SetMode(gin.DebugMode) })
+	router := Routers()
+
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader("username=created&password=password123"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := doReq(t, router, req)
+
+	if !strings.Contains(w.Body.String(), "Request does not carry token") {
+		t.Fatalf("unauthenticated registration should be rejected before reaching the handler, got %s", w.Body.String())
+	}
+}
+
 // 1. JWT middleware actually gates /config/api/opa/policy.
 func TestOPARoutes_NoTokenRejected(t *testing.T) {
 	m := newMockOPA(t)

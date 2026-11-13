@@ -22,6 +22,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"unicode/utf8"
 )
 
 import (
@@ -69,7 +70,7 @@ func Logout(c *gin.Context) {
 
 // @Tags Account
 // @Summary modify account password
-// @Description to modify the current user's password, the username must be included in the header.
+// @Description modify the password for the user identified by the validated JWT.
 // @Accept application/x-www-form-urlencoded
 // @Produce application/json
 // @Param oldPassword formData string true "old password"
@@ -82,25 +83,20 @@ func EditPassword(c *gin.Context) {
 
 	oldPassword := c.PostForm("oldPassword")
 	newPassword := c.PostForm("newPassword")
-
-	//if flag, _ := regexp.MatchString("^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,20}$", oldPassword); !flag {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"status": -1,
-	//		"msg":    "illegal oldPassword",
-	//		"data":   nil,
-	//	})
-	//	return
-	//}
-	//
-	//if flag, _ := regexp.MatchString("^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,20}$", newPassword); !flag {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"status": -1,
-	//		"msg":    "illegal newPassword",
-	//		"data":   nil,
-	//	})
-	//	return
-	//}
-	username := c.Request.Header.Get("username")
+	newPasswordLength := utf8.RuneCountInString(newPassword)
+	if oldPassword == "" || newPassword == "" {
+		c.JSON(http.StatusOK, config.WithError(errors.New("old and new passwords are required")))
+		return
+	}
+	if newPasswordLength < 8 || newPasswordLength > 128 {
+		c.JSON(http.StatusOK, config.WithError(errors.New("new password must be between 8 and 128 characters")))
+		return
+	}
+	if oldPassword == newPassword {
+		c.JSON(http.StatusOK, config.WithError(errors.New("new password must differ from the old password")))
+		return
+	}
+	username := auth.CurrentUsername(c)
 	flag, err := account.EditPassword(oldPassword, newPassword, username)
 	if !flag {
 		c.JSON(http.StatusOK, config.WithError(err))
@@ -113,14 +109,14 @@ func EditPassword(c *gin.Context) {
 
 // @Tags Account
 // @Summary get user information
-// @Description return the current user's detailed information. The header must include the username.
+// @Description return information for the user identified by the validated JWT.
 // @Produce application/json
 // @Success 200 {object} string
 // @Failure 200 {object} string
 // @Router /user/getInfo [post]
 // GetUserInfo get user information
 func GetUserInfo(c *gin.Context) {
-	username := c.Request.Header.Get("username")
+	username := auth.CurrentUsername(c)
 	flag, userInfo, err := account.GetUserInfo(username)
 	if !flag {
 		c.JSON(http.StatusOK, config.WithError(err))
@@ -131,14 +127,14 @@ func GetUserInfo(c *gin.Context) {
 
 // @Tags Account
 // @Summary get user role
-// @Description return the current user's role information. The header must include the username.
+// @Description return role information for the user identified by the validated JWT.
 // @Produce application/json
 // @Success 200 {object} string
 // @Failure 200 {object} string
 // @Router /user/getUserRole [post]
 // GetUserRole get user role
 func GetUserRole(c *gin.Context) {
-	username := c.Request.Header.Get("username")
+	username := auth.CurrentUsername(c)
 	flag, result, err := account.GetUserRole(username)
 	if !flag {
 		c.JSON(http.StatusOK, config.WithError(err))
@@ -149,14 +145,14 @@ func GetUserRole(c *gin.Context) {
 
 // @Tags Account
 // @Summary determine whether you are an administrator
-// @Description to determine whether the current user is an administrator, the header must include the username.
+// @Description determine whether the user identified by the validated JWT is an administrator.
 // @Produce application/json
 // @Success 200 {object} string
 // @Failure 200 {object} string
 // @Router /user/checkIsAdmin [post]
 // CheckUserIsAdmin determine whether you are an administrator
 func CheckUserIsAdmin(c *gin.Context) {
-	username := c.Request.Header.Get("username")
+	username := auth.CurrentUsername(c)
 	flag, err := account.CheckUserIsAdmin(username)
 	if !flag {
 		c.JSON(http.StatusOK, config.WithError(err))

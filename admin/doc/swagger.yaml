@@ -559,7 +559,16 @@ paths:
       - XDS
   /register:
     post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Create an administrator account. The request requires a valid
+        JWT belonging to an administrator.
       parameters:
+      - description: JWT token
+        in: header
+        name: token
+        required: true
+        type: string
       - description: username
         in: formData
         name: username
@@ -577,13 +586,12 @@ paths:
           description: '{"code":"","data":""}'
           schema:
             type: string
-      summary: user registration
+      summary: register an administrator account
       tags:
       - Register
   /user/checkIsAdmin:
     post:
-      description: to determine whether the current user is an administrator, the
-        header must include the username.
+      description: determine whether the user identified by the validated JWT is an administrator.
       produces:
       - application/json
       responses:
@@ -596,8 +604,7 @@ paths:
       - Account
   /user/getInfo:
     post:
-      description: return the current user's detailed information. The header must
-        include the username.
+      description: return information for the user identified by the validated JWT.
       produces:
       - application/json
       responses:
@@ -610,8 +617,7 @@ paths:
       - Account
   /user/getUserRole:
     post:
-      description: return the current user's role information. The header must include
-        the username.
+      description: return role information for the user identified by the validated JWT.
       produces:
       - application/json
       responses:
@@ -639,8 +645,7 @@ paths:
     post:
       consumes:
       - application/x-www-form-urlencoded
-      description: to modify the current user's password, the username must be included
-        in the header.
+      description: modify the password for the user identified by the validated JWT.
       parameters:
       - description: old password
         in: formData

@@ -42,7 +42,6 @@ func Routers() *gin.Engine {
 
 	// Guest router
 	router.POST("/login", account.Login)
-	router.POST("/register", account.Register)
 
 	// auth router
 	taR := router.Group("/", auth.JWTAuth())
@@ -50,6 +49,7 @@ func Routers() *gin.Engine {
 	// The following router needs to check the token
 	{
 		// user router
+		taR.POST("/register", account.Register)
 		taR.POST("/user/logout", account.Logout)
 		taR.POST("/user/password/edit", account.EditPassword)
 		taR.POST("/user/getInfo", account.GetUserInfo)
