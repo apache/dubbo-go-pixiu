@@ -19,6 +19,7 @@ package proxyrewrite
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -62,4 +63,101 @@ func TestConfigUpdate(t *testing.T) {
 	chain.OnDecode(ctx)
 
 	assert.Equal(t, ctx.GetUrl(), "/query")
+}
+
+func TestApplyURIRegex(t *testing.T) {
+	tests := []struct {
+		name      string
+		regex     []string
+		wantError bool
+	}{
+		{name: "missing regex", wantError: true},
+		{name: "missing replacement", regex: []string{"^/"}, wantError: true},
+		{name: "too many entries", regex: []string{"^/", "/", "/extra"}, wantError: true},
+		{name: "unclosed character class", regex: []string{"[", "/"}, wantError: true},
+		{name: "unclosed group", regex: []string{"(", "/"}, wantError: true},
+		{name: "invalid range", regex: []string{"[z-a]", "/"}, wantError: true},
+		{name: "invalid repetition", regex: []string{"*", "/"}, wantError: true},
+		{name: "trailing escape", regex: []string{`\`, "/"}, wantError: true},
+		{name: "empty expression", regex: []string{"", "/"}},
+		{name: "capture replacement", regex: []string{"^/([^/]*)/(.*)$", "/$2"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			factory := &FilterFactory{cfg: &Config{UriRegex: tt.regex}}
+			err := factory.Apply()
+			if (err != nil) != tt.wantError {
+				t.Fatalf("Apply() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestApplyKeepsCompiledRegex(t *testing.T) {
+	factory := &FilterFactory{cfg: &Config{UriRegex: []string{"^/([^/]*)/(.*)$", "/$2"}}}
+	if err := factory.Apply(); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if factory.uriRegex == nil {
+		t.Fatal("Apply() did not keep the compiled regex")
+	}
+
+	request, _ := http.NewRequest("Get", "/user-service/query", nil)
+	ctx := mock.GetMockHTTPContext(request)
+	chain := filter.NewDefaultFilterChain()
+	if err := factory.PrepareFilterChain(ctx, chain); err != nil {
+		t.Fatalf("PrepareFilterChain() error = %v", err)
+	}
+	if factory.uriRegex == nil {
+		t.Fatal("PrepareFilterChain() replaced the compiled regex with nil")
+	}
+}
+
+func TestApplyErrorNamesThePattern(t *testing.T) {
+	factory := &FilterFactory{cfg: &Config{UriRegex: []string{"[", "/"}}}
+	err := factory.Apply()
+	if err == nil {
+		t.Fatal("Apply() accepted an invalid regex")
+	}
+	if !strings.Contains(err.Error(), `invalid uri_regex "["`) {
+		t.Fatalf("Apply() error = %q, want it to name the pattern", err)
+	}
+}
+
+func TestPrepareFilterChainDoesNotPanicWithoutApply(t *testing.T) {
+	factory := &FilterFactory{cfg: &Config{UriRegex: []string{"[", "/"}}}
+	request, _ := http.NewRequest("Get", "/user-service/query", nil)
+	ctx := mock.GetMockHTTPContext(request)
+	chain := filter.NewDefaultFilterChain()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("PrepareFilterChain() panicked: %v", r)
+		}
+	}()
+	if err := factory.PrepareFilterChain(ctx, chain); err == nil {
+		t.Fatal("PrepareFilterChain() accepted an invalid regex")
+	}
+}
+
+func TestPrepareFilterChainReusesCompiledRegex(t *testing.T) {
+	factory := &FilterFactory{cfg: &Config{UriRegex: []string{"^/([^/]*)/(.*)$", "/$2"}}}
+	if err := factory.Apply(); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	chain := filter.NewDefaultFilterChain()
+
+	first, _ := http.NewRequest("Get", "/user-service/query", nil)
+	if err := factory.PrepareFilterChain(mock.GetMockHTTPContext(first), chain); err != nil {
+		t.Fatalf("PrepareFilterChain() error = %v", err)
+	}
+	compiled := factory.uriRegex
+
+	second, _ := http.NewRequest("Get", "/user-service/other", nil)
+	if err := factory.PrepareFilterChain(mock.GetMockHTTPContext(second), filter.NewDefaultFilterChain()); err != nil {
+		t.Fatalf("PrepareFilterChain() error = %v", err)
+	}
+	if factory.uriRegex != compiled {
+		t.Fatal("PrepareFilterChain() recompiled the regex instead of reusing it")
+	}
 }
