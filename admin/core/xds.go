@@ -19,6 +19,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -56,6 +57,7 @@ var (
 const (
 	grpcKeepaliveTime        = 30 * time.Second
 	grpcKeepaliveTimeout     = 5 * time.Second
+	grpcShutdownTimeout      = 5 * time.Second
 	grpcKeepaliveMinTime     = 30 * time.Second
 	grpcMaxConcurrentStreams = 1000000
 	configWatchRetryDelay    = time.Second
@@ -73,8 +75,8 @@ func registerServer(grpcServer *grpc.Server, server envoyServer.Server) {
 	extensionpb.RegisterExtensionConfigDiscoveryServiceServer(grpcServer, server)
 }
 
-// StartxDsServer RunXDSServerWithCache starts an xDS server at the gi.ven port.
-func StartxDsServer() error {
+// StartxDsServer starts the xDS server and stops it when ctx is canceled.
+func StartxDsServer(ctx context.Context) error {
 	xdsConfig := adminconfig.Bootstrap.GetXDSConfig()
 	adminxds.DefaultStatusStore.Reset(xdsConfig.NodeID)
 
@@ -86,7 +88,7 @@ func StartxDsServer() error {
 	defer lis.Close()
 	adminxds.DefaultStatusStore.RecordListening()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Create a snapshot cache.
@@ -104,15 +106,15 @@ func StartxDsServer() error {
 
 	// Run the xDS server
 	srv := envoyServer.NewServer(ctx, snapshotCache, nil)
-	if err := runXDSServer(srv, lis); err != nil {
+	if err := runXDSServer(ctx, srv, lis); err != nil {
 		adminxds.DefaultStatusStore.RecordListenError(err)
 		return err
 	}
 	return nil
 }
 
-// runXDSServer serves xDS on an already-bound listener.
-func runXDSServer(srv envoyServer.Server, lis net.Listener) error {
+// runXDSServer serves xDS on an already-bound listener until ctx is canceled.
+func runXDSServer(ctx context.Context, srv envoyServer.Server, lis net.Listener) error {
 	// gRPC golang library sets a very small upper bound for the number gRPC/h2
 	// streams over a single TCP connection. If a proxy multiplexes requests over
 	// a single connection to the management server, then it might lead to
@@ -132,12 +134,37 @@ func runXDSServer(srv envoyServer.Server, lis net.Listener) error {
 	grpcServer := grpc.NewServer(grpcOptions...)
 
 	registerServer(grpcServer, srv)
-
 	logger.Infof("management server listening on %s", lis.Addr())
-	if err := grpcServer.Serve(lis); err != nil {
-		return err
+
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- grpcServer.Serve(lis)
+	}()
+
+	var err error
+	select {
+	case err = <-serveErr:
+	case <-ctx.Done():
+		stopped := make(chan struct{})
+		go func() {
+			grpcServer.GracefulStop()
+			close(stopped)
+		}()
+		timer := time.NewTimer(grpcShutdownTimeout)
+		defer timer.Stop()
+		select {
+		case <-stopped:
+		case <-timer.C:
+			// Long-lived xDS streams must not block shutdown indefinitely.
+			grpcServer.Stop()
+		}
+		err = <-serveErr
 	}
-	return nil
+	// Cancellation can stop the server before the Serve goroutine starts.
+	if errors.Is(err, grpc.ErrServerStopped) {
+		return nil
+	}
+	return err
 }
 
 type snapshotPublisher interface {
