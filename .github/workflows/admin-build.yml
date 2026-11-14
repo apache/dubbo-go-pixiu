@@ -26,6 +26,7 @@ on:
     paths:
       - 'admin/**'
       - 'cmd/admin/**'
+      - 'docker-compose.yml'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/admin-build.yml'
@@ -33,6 +34,7 @@ on:
     paths:
       - 'admin/**'
       - 'cmd/admin/**'
+      - 'docker-compose.yml'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/admin-build.yml'
@@ -58,16 +60,10 @@ jobs:
       - name: Build Admin backend
         run: go build -o /tmp/pixiu-admin ./cmd/admin
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: admin/web/package-lock.json
+      - name: Validate Docker Compose configuration
+        run: docker compose config --quiet
 
-      - name: Check and build Admin frontend
-        working-directory: admin/web
-        run: |
-          npm ci --ignore-scripts
-          npm run typecheck
-          npm test
-          npm run build
+      - name: Check and build Admin frontend in Compose
+        run: >-
+          docker compose run --rm --no-deps frontend
+          sh -c 'npm ci --ignore-scripts && npm run typecheck && npm test && npm run build'
