@@ -89,7 +89,6 @@ func StartxDsServer(ctx context.Context) error {
 	adminxds.DefaultStatusStore.RecordListening()
 
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	// Create a snapshot cache.
 	snapshotCache = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
@@ -101,8 +100,18 @@ func StartxDsServer(ctx context.Context) error {
 	)
 
 	// Establishing the watch before rebuilding closes the startup gap: writes
-	// that race with the full read remain queued on the watch channel.
-	go watchConfigAndReload(ctx, publisher)
+	// that race with the full read remain queued on the watch channel. Keep the
+	// watcher within this server's lifecycle so the etcd client stays alive
+	// until any in-flight snapshot build has finished.
+	watcherDone := make(chan struct{})
+	go func() {
+		defer close(watcherDone)
+		watchConfigAndReload(ctx, publisher)
+	}()
+	defer func() {
+		cancel()
+		<-watcherDone
+	}()
 
 	// Run the xDS server
 	srv := envoyServer.NewServer(ctx, snapshotCache, nil)
