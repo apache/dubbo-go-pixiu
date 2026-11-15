@@ -174,6 +174,10 @@ func (f *Filter) Decode(ctx *http.HttpContext) filter.FilterStatus {
 }
 
 func (f *Filter) trafficHeader(c *ClusterWrapper, ctx *http.HttpContext) bool {
+	// A cluster without canary-by-header is only selected by weight.
+	if c.header == "" {
+		return false
+	}
 	return spiltHeader(ctx.Request, c.header)
 }
 
