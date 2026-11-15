@@ -89,6 +89,7 @@ func StartxDsServer(ctx context.Context) error {
 	adminxds.DefaultStatusStore.RecordListening()
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Create a snapshot cache.
 	snapshotCache = cache.NewSnapshotCache(false, cache.IDHash{}, logger.GetLogger())
