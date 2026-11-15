@@ -180,6 +180,12 @@ func (f *Filter) callDubbo(c *contexthttp.HttpContext, api router.API) filter.Fi
 
 	logger.Debugf("[dubbo-go-pixiu] client call resp: %v", resp)
 
+	// gson and protobuf-json answer with JSON text; hand it to the HTTP layer as
+	// a JSON body instead of a quoted string.
+	if dubbo.IsJSONTextGenericMode(outbound.Generic) {
+		resp = dubbo.UnwrapJSONTextResult(resp)
+	}
+
 	c.SourceResp = resp
 	return filter.Continue
 }

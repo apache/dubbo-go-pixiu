@@ -51,6 +51,7 @@ type outboundBuildState struct {
 	address       string
 	protocol      string
 	serialization string
+	generic       string
 	arguments     []any
 	paramTypes    []string
 	optValues     []any
@@ -87,28 +88,25 @@ func (h *DubboHandler) BuildOutbound(req *http.Request, api router.API) (*client
 		Address:       state.address,
 		Protocol:      state.protocol,
 		Serialization: state.serialization,
+		Generic:       state.generic,
 		Arguments:     append([]any(nil), state.arguments...),
 		ParamTypes:    append([]string(nil), state.paramTypes...),
 	}, nil
 }
 
 func (h *DubboHandler) newState(req *http.Request, api router.API) (*outboundBuildState, error) {
-	body := map[string]any{}
-	if req != nil && req.Body != nil {
-		rawBody, err := io.ReadAll(req.Body)
-		if err != nil {
-			return nil, err
-		}
-		// Put the body back because this handler only inspects it while building outbound args.
-		req.Body = io.NopCloser(bytes.NewReader(rawBody))
-		if len(bytes.TrimSpace(rawBody)) > 0 {
-			if err := json.Unmarshal(rawBody, &body); err != nil {
-				return nil, err
-			}
-		}
+	ir := api.IntegrationRequest
+	generic, err := clientdubbo.NormalizeGenericMode(string(ir.Generic))
+	if err != nil {
+		return nil, err
 	}
 
-	ir := api.IntegrationRequest
+	// The mode decides how numbers are decoded, so it is resolved before the body.
+	body, err := h.readRequestBody(req, generic)
+	if err != nil {
+		return nil, err
+	}
+
 	return &outboundBuildState{
 		service:       ir.Interface,
 		method:        ir.Method,
@@ -116,8 +114,44 @@ func (h *DubboHandler) newState(req *http.Request, api router.API) (*outboundBui
 		version:       ir.Version,
 		protocol:      h.resolveDeclaredProtocol(ir),
 		serialization: strings.TrimSpace(ir.Serialization),
+		generic:       generic,
 		body:          body,
 	}, nil
+}
+
+// readRequestBody decodes the request body and puts it back because this handler
+// only inspects it while building outbound arguments. JSON text modes keep
+// numbers as json.Number so that re-encoding the argument text stays exact for
+// integers above the float64 range.
+func (h *DubboHandler) readRequestBody(req *http.Request, generic string) (map[string]any, error) {
+	body := map[string]any{}
+	if req == nil || req.Body == nil {
+		return body, nil
+	}
+
+	rawBody, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	req.Body = io.NopCloser(bytes.NewReader(rawBody))
+	if len(bytes.TrimSpace(rawBody)) == 0 {
+		return body, nil
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(rawBody))
+	if clientdubbo.IsJSONTextGenericMode(generic) {
+		decoder.UseNumber()
+	}
+	if err := decoder.Decode(&body); err != nil {
+		return nil, err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			err = errors.New("request body must contain a single JSON object")
+		}
+		return nil, err
+	}
+	return body, nil
 }
 
 func (h *DubboHandler) resolveDeclaredProtocol(ir config.IntegrationRequest) string {
@@ -146,9 +180,16 @@ func (h *DubboHandler) applyMapping(state *outboundBuildState, req *http.Request
 		return errors.Errorf("Parameter mapping %v incorrect", mp)
 	}
 
-	converted, err := clientdubbo.MapTypes(mp.MapType, value)
-	if err != nil {
-		return err
+	// JSON text modes carry the request message as text, so a positional mapping
+	// declares the type of the message instead of a scalar to convert. mapType
+	// takes no part in scalar conversion in these modes.
+	converted := value
+	if !clientdubbo.IsJSONTextGenericMode(state.generic) {
+		mapped, mapErr := clientdubbo.MapTypes(mp.MapType, value)
+		if mapErr != nil {
+			return mapErr
+		}
+		converted = mapped
 	}
 
 	if pos >= len(state.arguments) {
@@ -400,6 +441,12 @@ func (h *DubboHandler) finalizeArgumentsAndTypes(state *outboundBuildState, ir c
 		state.arguments = append([]any(nil), state.optValues...)
 	}
 
+	// gson and protobuf-json hand the request message to the provider as text,
+	// so they take one argument instead of a list of typed arguments.
+	if clientdubbo.IsJSONTextGenericMode(state.generic) {
+		return h.finalizeJSONTextArguments(state, ir)
+	}
+
 	// Generic invoke requires values and Java parameter types to stay aligned.
 	if ir.ParameterTypes != nil {
 		state.paramTypes = append([]string(nil), ir.ParameterTypes...)
@@ -445,5 +492,43 @@ func (h *DubboHandler) coerceDeclaredArguments(state *outboundBuildState) error 
 		values[i] = mapped
 	}
 	state.arguments = values
+	return nil
+}
+
+// finalizeJSONTextArguments renders the mapped value as the single JSON text
+// argument that the gson and protobuf-json modes send, and keeps the declared
+// parameter types describing one message. The type comes from parameterTypes,
+// from opt.types, or from the mapType of a positional mapping; the text itself
+// never supplies it.
+func (h *DubboHandler) finalizeJSONTextArguments(state *outboundBuildState, ir config.IntegrationRequest) error {
+	if len(state.arguments) != 1 {
+		return errors.Errorf("generic mode %s requires exactly one argument, got %d", state.generic, len(state.arguments))
+	}
+
+	payload, err := clientdubbo.EncodeJSONTextArgument(state.arguments[0])
+	if err != nil {
+		return err
+	}
+	state.arguments = []any{payload}
+
+	switch {
+	case ir.ParameterTypes != nil:
+		state.paramTypes = append([]string(nil), ir.ParameterTypes...)
+	case state.optTypes != nil:
+		state.paramTypes = append([]string(nil), state.optTypes...)
+	case state.hasPositional && len(state.paramTypes) == 1 && strings.TrimSpace(state.paramTypes[0]) != "":
+		state.paramTypes = []string{strings.TrimSpace(state.paramTypes[0])}
+	case strings.TrimSpace(ir.URL) != "":
+		return errors.New("direct generic invoke requires parameterTypes")
+	default:
+		// The declared type names the request message. A Java provider looks the
+		// method up by that name, and JSON text cannot tell it which one to use:
+		// inferring from the text can only produce java.lang.String.
+		return errors.Errorf("generic mode %s requires parameterTypes to name the request message", state.generic)
+	}
+
+	if len(state.paramTypes) != 1 {
+		return errors.Errorf("generic mode %s requires exactly one parameter type, got %d", state.generic, len(state.paramTypes))
+	}
 	return nil
 }
