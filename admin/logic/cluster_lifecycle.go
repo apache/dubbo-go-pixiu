@@ -28,11 +28,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
 
+import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"gopkg.in/yaml.v3"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"gopkg.in/yaml.v3"
+)
+
+import (
 	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema"
 )

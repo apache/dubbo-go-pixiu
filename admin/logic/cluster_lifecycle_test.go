@@ -21,10 +21,15 @@ import (
 	"context"
 	"errors"
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 
+	"gopkg.in/yaml.v3"
+)
+
+import (
 	legacyconfig "github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/config/schema"
 )
