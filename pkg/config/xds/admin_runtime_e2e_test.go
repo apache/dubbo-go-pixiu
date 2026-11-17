@@ -607,7 +607,10 @@ methods:
 	router.ServeHTTP(createResponse, createDraft)
 	var created struct {
 		Code string `json:"code"`
-		Data struct { ID string `json:"id"`; Revision int64 `json:"revision"` } `json:"data"`
+		Data struct {
+			ID       string `json:"id"`
+			Revision int64  `json:"revision"`
+		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(createResponse.Body.Bytes(), &created))
 	require.Equal(t, adminconfig.OK, created.Code)
@@ -622,7 +625,9 @@ methods:
 	require.NoError(t, err)
 	foundPublished := false
 	for _, kv := range clusterKeys.Kvs {
-		if strings.Contains(string(kv.Value), "draft-runtime-e2e") { foundPublished = true }
+		if strings.Contains(string(kv.Value), "draft-runtime-e2e") {
+			foundPublished = true
+		}
 	}
 	require.True(t, foundPublished, "draft Cluster did not reach the runtime etcd namespace")
 }
