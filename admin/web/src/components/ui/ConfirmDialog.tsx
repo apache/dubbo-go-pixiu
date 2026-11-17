@@ -17,29 +17,69 @@
  * under the License.
  */
 
+import { useEffect, useId, useRef } from 'react'
+
 export function ConfirmDialog({
   open,
   title = '确认操作',
+  description = '此操作无法撤销，请确认继续。',
+  confirmLabel = '确认',
+  cancelLabel = '取消',
   onConfirm,
   onCancel,
 }: {
   open: boolean
   title?: string
+  description?: string
+  confirmLabel?: string
+  cancelLabel?: string
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const titleId = useId()
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const onCancelRef = useRef(onCancel)
+  onCancelRef.current = onCancel
+  useEffect(() => {
+    if (!open) return
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    cancelRef.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCancelRef.current()
+      }
+      if (event.key === 'Tab' && event.shiftKey && document.activeElement === cancelRef.current) {
+        event.preventDefault()
+        confirmRef.current?.focus()
+      } else if (
+        event.key === 'Tab' &&
+        !event.shiftKey &&
+        document.activeElement === confirmRef.current
+      ) {
+        event.preventDefault()
+        cancelRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      previous?.focus()
+    }
+  }, [open])
   if (!open) return null
   return (
     <div className="drawer-backdrop">
-      <div className="confirm-dialog">
-        <h3>{title}</h3>
-        <p>此操作无法撤销，请确认继续。</p>
+      <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <h3 id={titleId}>{title}</h3>
+        <p>{description}</p>
         <div>
-          <button className="secondary" onClick={onCancel}>
-            取消
+          <button ref={cancelRef} className="secondary" onClick={onCancel}>
+            {cancelLabel}
           </button>
-          <button className="primary" onClick={onConfirm}>
-            确认
+          <button ref={confirmRef} className="primary" onClick={onConfirm}>
+            {confirmLabel}
           </button>
         </div>
       </div>

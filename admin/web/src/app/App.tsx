@@ -40,6 +40,7 @@ import { clusterApi } from '../services/cluster-api'
 import { listenerApi } from '../services/listener-api'
 import { profileApi } from '../services/profile-api'
 import { routeBindingApi } from '../services/route-binding-api'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import {
   BaseInfoPage,
   ClusterConfigPage,
@@ -84,6 +85,8 @@ export function App() {
 
 function AppContent() {
   const [section, setSection] = useState<Section>('Overview')
+  const [clusterDirty, setClusterDirty] = useState(false)
+  const [pendingDestination, setPendingDestination] = useState<Section | 'logout' | null>(null)
   const [dark, setDark] = useState(true)
   const [language, setLanguage] = useState<'zh' | 'en'>('zh')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -129,6 +132,14 @@ function AppContent() {
     localStorage.removeItem('pixiu_session')
     window.location.assign('/login')
   }
+  const requestDestination = (destination: Section | 'logout') => {
+    if (section === 'Clusters' && clusterDirty && destination !== section) {
+      setPendingDestination(destination)
+      return
+    }
+    if (destination === 'logout') void logout()
+    else setSection(destination)
+  }
   const sidebarToggleLabel = sidebarCollapsed
     ? language === 'zh'
       ? '展开侧边栏'
@@ -148,12 +159,12 @@ function AppContent() {
           language={language}
           tx={tx}
           counts={counts}
-          onRoutes={() => setSection('API routes')}
+          onRoutes={() => requestDestination('API routes')}
         />
       ) : section === 'API routes' ? (
         <ResourcePage locale={locale} onCountChange={updateResourceCount} />
       ) : section === 'Clusters' ? (
-        <ClusterConfigPage locale={locale} />
+        <ClusterConfigPage locale={locale} onDirtyChange={setClusterDirty} />
       ) : section === 'Listeners' ? (
         <ListenerConfigPage locale={locale} />
       ) : section === 'Plugin groups' ? (
@@ -165,7 +176,7 @@ function AppContent() {
       ) : (
         <OpaPage locale={locale} />
       ),
-    [section, language, locale, counts, updateResourceCount],
+    [section, language, locale, counts, updateResourceCount, clusterDirty],
   )
   return (
     <div
@@ -183,7 +194,7 @@ function AppContent() {
           {nav.map(([label, Icon]) => (
             <button
               className={section === label ? 'nav-item active' : 'nav-item'}
-              onClick={() => setSection(label)}
+              onClick={() => requestDestination(label)}
               key={label}
               title={sidebarCollapsed ? tx(label) : undefined}
               aria-label={tx(label)}
@@ -197,7 +208,7 @@ function AppContent() {
         <div className="sidebar-bottom">
           <button
             className={section === 'Settings' ? 'nav-item active' : 'nav-item'}
-            onClick={() => setSection('Settings')}
+            onClick={() => requestDestination('Settings')}
             title={sidebarCollapsed ? tx('Settings') : undefined}
             aria-label={tx('Settings')}
           >
@@ -214,7 +225,7 @@ function AppContent() {
           </button>
           <button
             className="user user-action"
-            onClick={() => void logout()}
+            onClick={() => requestDestination('logout')}
             title={
               sidebarCollapsed
                 ? language === 'zh'
@@ -275,6 +286,27 @@ function AppContent() {
         </header>
         <div className="content">{content}</div>
       </main>
+      <ConfirmDialog
+        open={pendingDestination !== null}
+        title={
+          language === 'zh' ? '放弃集群草稿的未保存改动？' : 'Discard unsaved Cluster changes?'
+        }
+        description={
+          language === 'zh'
+            ? '离开后，这些改动不会保留。'
+            : 'These changes will be lost when you leave.'
+        }
+        confirmLabel={language === 'zh' ? '放弃并离开' : 'Discard and leave'}
+        cancelLabel={language === 'zh' ? '继续编辑' : 'Keep editing'}
+        onCancel={() => setPendingDestination(null)}
+        onConfirm={() => {
+          const destination = pendingDestination
+          setPendingDestination(null)
+          setClusterDirty(false)
+          if (destination === 'logout') void logout()
+          else if (destination) setSection(destination)
+        }}
+      />
     </div>
   )
 }

@@ -32,6 +32,7 @@ import {
   X,
 } from 'lucide-react'
 import { clusterApi } from '../../services/cluster-api'
+import { ClusterLifecyclePage } from '../clusters/ClusterLifecyclePage'
 import { listenerApi } from '../../services/listener-api'
 import { pluginGroupApi } from '../../services/plugin-group-api'
 import { rateLimitApi } from '../../services/rate-limit-api'
@@ -554,8 +555,14 @@ function ConfigListPage({ kind, locale }: { kind: Kind; locale: Locale }) {
   )
 }
 
-export function ClusterConfigPage({ locale }: { locale: Locale }) {
-  return <ConfigListPage kind="cluster" locale={locale} />
+export function ClusterConfigPage({
+  locale,
+  onDirtyChange,
+}: {
+  locale: Locale
+  onDirtyChange?: (dirty: boolean) => void
+}) {
+  return <ClusterLifecyclePage locale={locale} onDirtyChange={onDirtyChange} />
 }
 export function ListenerConfigPage({ locale }: { locale: Locale }) {
   return <ConfigListPage kind="listener" locale={locale} />

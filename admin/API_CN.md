@@ -466,3 +466,28 @@ ready 只有在 xDS 端口已监听且至少一个快照成功发布时为 true�
   }
 }
 ```
+
+## Cluster 草稿与预览
+
+旧 `/config/api/cluster` CRUD 接口的请求、响应格式保持不变。新草稿使用独立的随机 ID，故可保存 `metadata.name` 为空或字段不完整的对象。`sourceId` 通过服务端已有的 runtime Cluster key 关联已发布配置，不属于可编辑的 AdminCluster 对象。
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/config/api/cluster/schema` | 返回只包含 AdminCluster 的 Schema 数组 |
+| POST | `/config/api/cluster/draft` | 从 AdminCluster JSON/YAML 创建草稿，允许业务校验失败 |
+| POST | `/config/api/cluster/draft?sourceId=17` | 从 runtime Cluster 17 建立草稿；请求体为空 |
+| PUT | `/config/api/cluster/draft?id=<draftId>&expectedRevision=<revision>` | 按 etcd revision 条件更新草稿 |
+| GET | `/config/api/cluster/draft/detail?id=<draftId>` | 读取草稿 |
+| GET | `/config/api/cluster/draft/list` | 列出草稿 |
+| POST | `/config/api/cluster/validate` | 严格校验对象，不保存 |
+| POST | `/config/api/cluster/preview` | 严格校验并预览不含 runtime ID 的旧 Cluster YAML |
+| GET | `/config/api/cluster/status?id=<draftId>` | 查看草稿、已发布 revision 和脏状态 |
+| GET | `/config/api/cluster/diff?id=<draftId>` | 比较草稿与关联的 runtime Cluster |
+| PUT | `/config/api/cluster/publish?id=<draftId>&expectedRevision=<revision>` | 校验后在一次 etcd 事务中发布到现有 runtime Cluster 键 |
+| GET | `/config/api/cluster/history?id=<draftId>` | 按时间顺序列出不可变的已发布版本 |
+| PUT | `/config/api/cluster/rollback?id=<draftId>&revision=<historyRevision>&expectedRevision=<draftRevision>` | 按草稿 revision 校验后恢复并发布历史版本 |
+| DELETE | `/config/api/cluster/draft?id=<draftId>&expectedRevision=<revision>` | 只删除草稿，保留已发布 Cluster |
+
+更新时必须提供正数 `expectedRevision`，也可通过 `If-Match` 或 JSON 包装对象 `{ "object": <AdminCluster>, "expectedRevision": 7 }` 传递。并发冲突返回 `10003`；校验失败返回 `10002`，字段路径位于 `data.issues`。保存、校验、预览、状态、diff 和历史查询不会写 runtime 键；发布和回滚在一次 etcd 事务中更新 runtime、草稿来源、历史和并发标记。已发布 Listener 引用的 Cluster 不允许改名或删除；旧 Cluster/Listener CRUD 也使用同一并发标记。旧接口直接修改后，先前建立的草稿会变为过期；需要删除该草稿，并从当前 runtime Cluster 重新建立草稿后再发布。旧 CRUD 写入不追加生命周期历史。etcd 发布成功后仍需等待 xDS 传播至网关。
+
+发布历史按稳定的 runtime Cluster ID 存储。删除草稿不会删除历史，从同一个已发布 Cluster 重新建立草稿后仍可查询和回滚旧版本。`validate` 和 `preview` 会检查 runtime 名称是否重复；编辑现有 Cluster 时可通过可选的 `id=<draftId>` 参数，让服务端识别它自己的名称。发布事务会再次检查唯一性。
