@@ -232,6 +232,9 @@ func consumeConfigWatch(ctx context.Context, ch clientv3.WatchChan, publisher sn
 	pending := false
 	publish := func() {
 		if err := publisher.Publish(ctx); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			pending = true
 			logger.Errorf("reload xDS snapshot failed: %+v", err)
 		} else {
