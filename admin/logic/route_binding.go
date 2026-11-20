@@ -1246,12 +1246,12 @@ func diffRouteBindingObjects(before, after schema.AdminObject, beforeExists, aft
 	beforeValues := make(map[string]any)
 	afterValues := make(map[string]any)
 	if beforeExists {
-		if err := flattenRouteBindingValue("", before, beforeValues); err != nil {
+		if err := flattenAdminObjectValue("", before, beforeValues); err != nil {
 			return nil, err
 		}
 	}
 	if afterExists {
-		if err := flattenRouteBindingValue("", after, afterValues); err != nil {
+		if err := flattenAdminObjectValue("", after, afterValues); err != nil {
 			return nil, err
 		}
 	}
@@ -1283,16 +1283,17 @@ func diffRouteBindingObjects(before, after schema.AdminObject, beforeExists, aft
 	return changes, nil
 }
 
-func flattenRouteBindingValue(path string, value any, result map[string]any) error {
+// flattenAdminObjectValue is shared by route and Cluster field diffs.
+func flattenAdminObjectValue(path string, value any, result map[string]any) error {
 	switch typed := value.(type) {
 	case schema.AdminObject:
-		return flattenRouteBindingValue(path, map[string]any{
+		return flattenAdminObjectValue(path, map[string]any{
 			"kind":     typed.Kind,
 			"metadata": typed.Metadata,
 			"spec":     typed.Spec,
 		}, result)
 	case schema.ObjectMetadata:
-		return flattenRouteBindingValue(path, map[string]any{"name": typed.Name}, result)
+		return flattenAdminObjectValue(path, map[string]any{"name": typed.Name}, result)
 	case map[string]any:
 		if len(typed) == 0 {
 			result[path] = typed
@@ -1308,7 +1309,7 @@ func flattenRouteBindingValue(path string, value any, result map[string]any) err
 			if path != "" {
 				childPath = path + "." + key
 			}
-			if err := flattenRouteBindingValue(childPath, typed[key], result); err != nil {
+			if err := flattenAdminObjectValue(childPath, typed[key], result); err != nil {
 				return err
 			}
 		}
@@ -1320,7 +1321,7 @@ func flattenRouteBindingValue(path string, value any, result map[string]any) err
 		}
 		for index, item := range typed {
 			childPath := fmt.Sprintf("%s[%d]", path, index)
-			if err := flattenRouteBindingValue(childPath, item, result); err != nil {
+			if err := flattenAdminObjectValue(childPath, item, result); err != nil {
 				return err
 			}
 		}

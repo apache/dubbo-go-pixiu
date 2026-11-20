@@ -592,6 +592,44 @@ methods:
 	}
 	require.Equal(t, resourceRevision, methodOnlyResourceRevision, "Method-only publish should not rewrite the Resource key")
 	require.Greater(t, methodOnlyMethodRevision, methodRevision, "Method-only publish should update the Method key")
+
+	// The new Cluster editor publishes through its draft API into the same
+	// runtime key that the xDS watcher and running Pixiu ClusterManager use.
+	clusterDraftBody, err := json.Marshal(map[string]any{
+		"kind": "AdminCluster", "metadata": map[string]any{"name": "draft-runtime-e2e"},
+		"spec": map[string]any{"type": "Static", "endpoint": map[string]any{"address": upstreamOneHost, "port": upstreamOnePort}},
+	})
+	require.NoError(t, err)
+	createDraft := httptest.NewRequest(http.MethodPost, "/config/api/cluster/draft", strings.NewReader(string(clusterDraftBody)))
+	createDraft.Header.Set("Content-Type", "application/json")
+	createDraft.Header.Set("token", token)
+	createResponse := httptest.NewRecorder()
+	router.ServeHTTP(createResponse, createDraft)
+	var created struct {
+		Code string `json:"code"`
+		Data struct {
+			ID       string `json:"id"`
+			Revision int64  `json:"revision"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(createResponse.Body.Bytes(), &created))
+	require.Equal(t, adminconfig.OK, created.Code)
+	require.NotEmpty(t, created.Data.ID)
+	runtimeE2EAdminRequest(t, router, token, http.MethodPut,
+		fmt.Sprintf("/config/api/cluster/publish?id=%s&expectedRevision=%d", created.Data.ID, created.Data.Revision))
+	require.Eventually(t, func() bool {
+		endpoint := clusterManager.PickEndpoint("draft-runtime-e2e", nil)
+		return endpoint != nil && endpoint.Address.Port == upstreamOnePort
+	}, 10*time.Second, 25*time.Millisecond)
+	clusterKeys, err := legacyClient.Get(ctx, etcdPath+"/clusters/", clientv3.WithPrefix())
+	require.NoError(t, err)
+	foundPublished := false
+	for _, kv := range clusterKeys.Kvs {
+		if strings.Contains(string(kv.Value), "draft-runtime-e2e") {
+			foundPublished = true
+		}
+	}
+	require.True(t, foundPublished, "draft Cluster did not reach the runtime etcd namespace")
 }
 
 func runtimeE2EEtcdEndpoint(t *testing.T) string {

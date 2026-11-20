@@ -497,3 +497,47 @@ indicates that listener startup or a newer snapshot candidate failed.
   }
 }
 ```
+
+## Cluster drafts and preview
+
+The legacy `/config/api/cluster` CRUD endpoints keep their existing request and
+response formats. The draft endpoints use a separate, opaque draft ID, so a
+draft may have an empty `metadata.name`. `sourceId` links a draft to an existing
+runtime Cluster by its server-owned numeric key; it is not an editable field in
+the AdminCluster object.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/config/api/cluster/schema` | Return an array containing only the AdminCluster schema |
+| POST | `/config/api/cluster/draft` | Create a draft from an AdminCluster JSON/YAML object, including an incomplete one |
+| POST | `/config/api/cluster/draft?sourceId=17` | Seed a draft from runtime Cluster 17; no request body |
+| PUT | `/config/api/cluster/draft?id=<draftId>&expectedRevision=<revision>` | Replace a draft if its etcd revision still matches |
+| GET | `/config/api/cluster/draft/detail?id=<draftId>` | Read one draft |
+| GET | `/config/api/cluster/draft/list` | List drafts |
+| POST | `/config/api/cluster/validate` | Strictly validate an AdminCluster object without saving |
+| POST | `/config/api/cluster/preview` | Validate and return flat legacy Cluster YAML without a runtime ID |
+| GET | `/config/api/cluster/status?id=<draftId>` | Read draft and linked runtime revisions and dirty state |
+| GET | `/config/api/cluster/diff?id=<draftId>` | Compare draft fields with its linked runtime Cluster |
+| PUT | `/config/api/cluster/publish?id=<draftId>&expectedRevision=<revision>` | Atomically publish the validated draft to the existing runtime Cluster key |
+| GET | `/config/api/cluster/history?id=<draftId>` | List immutable published revisions for the draft's runtime Cluster, oldest first |
+| PUT | `/config/api/cluster/rollback?id=<draftId>&revision=<historyRevision>&expectedRevision=<draftRevision>` | Restore and publish a historical object if the current draft revision matches |
+| DELETE | `/config/api/cluster/draft?id=<draftId>&expectedRevision=<revision>` | Remove only the draft; leave the published runtime Cluster intact |
+
+The update revision is required and may also be passed in `If-Match` or in a
+JSON wrapper `{ "object": <AdminCluster>, "expectedRevision": 7 }`. Conflicts
+return code `10003`; validation failures return code `10002` with field paths
+in `data.issues`. A new draft has no published side until it is explicitly
+linked or published. Save, validate, preview, status, diff, and history never
+write runtime keys. Publish and rollback update the runtime key, draft source
+identity, history entry, and concurrency marker in one etcd transaction. A
+published Cluster cannot be renamed or deleted while a published Listener
+references its old name. The legacy Cluster and Listener CRUD endpoints use
+the same mutation guard, so they cannot race past this protection. A direct
+legacy edit makes a previously seeded draft stale; delete that draft and seed a
+new one from the current runtime Cluster before publishing. Direct legacy CRUD
+writes do not append to lifecycle history. History is keyed by the stable
+runtime Cluster ID: deleting a draft keeps its history, and a new draft seeded
+from the same runtime Cluster can query and roll back those revisions. Preview
+and validate check runtime name availability; an optional `id=<draftId>` lets
+an existing Cluster keep its own name. Publish checks uniqueness again in its
+transaction. Runtime application still follows xDS propagation.

@@ -1150,10 +1150,15 @@ td:first-child small {
 }
 .confirm-dialog {
   background: #fff;
+  border: 0;
   border-radius: 10px;
   padding: 24px;
-  min-width: 320px;
+  width: min(400px, calc(100vw - 32px));
+  max-width: none;
   box-shadow: 0 20px 60px #0003;
+}
+.confirm-dialog::backdrop {
+  background: #08101188;
 }
 .dark .confirm-dialog {
   background: #182022;
@@ -1271,6 +1276,208 @@ td:first-child small {
 }
 .page-resource {
   max-width: 1100px;
+}
+.cluster-lifecycle {
+  max-width: 1160px;
+}
+.cluster-editor-heading,
+.cluster-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+.cluster-editor-heading {
+  margin-bottom: 24px;
+}
+.cluster-editor-heading h1 {
+  margin: 4px 0 8px;
+}
+.cluster-editor-id {
+  color: #758487;
+  font:
+    11px 'Space Mono',
+    monospace;
+}
+.cluster-actions,
+.cluster-danger-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.cluster-danger-actions {
+  margin: 20px 0;
+}
+.cluster-danger-actions .link-btn {
+  color: #a8424b;
+}
+.cluster-notice {
+  padding: 12px 15px;
+  margin: 0 0 16px;
+  border: 1px solid #a5dbca;
+  border-radius: 7px;
+  background: #ecf8f3;
+  color: #255d4d;
+  font-size: 13px;
+}
+.cluster-notice.error {
+  border-color: #e8b9bc;
+  background: #fff2f2;
+  color: #9b353b;
+}
+.cluster-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 24px;
+  padding: 24px;
+}
+.cluster-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.cluster-field label,
+.cluster-yaml-panel label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.cluster-field input,
+.cluster-field select {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #d8e1e1;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 12px;
+  color: #273334;
+  font: inherit;
+  font-size: 13px;
+}
+.cluster-field input:focus-visible,
+.cluster-field select:focus-visible,
+.cluster-yaml-panel textarea:focus-visible,
+.cluster-lifecycle button:focus-visible {
+  outline: 2px solid #32a996;
+  outline-offset: 2px;
+}
+.cluster-field [aria-invalid='true'],
+.cluster-yaml-panel [aria-invalid='true'] {
+  border-color: #c15e63;
+}
+.cluster-field small {
+  min-height: 16px;
+  color: #7d898a;
+  font-size: 11px;
+}
+.cluster-yaml-panel {
+  padding: 24px;
+}
+.cluster-yaml-panel p {
+  margin: 8px 0 14px;
+}
+.cluster-yaml-panel textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: none;
+  border: 1px solid #d8e1e1;
+  border-radius: 6px;
+  padding: 16px;
+  background: #fff;
+  color: #273334;
+  font:
+    12px/1.65 'Space Mono',
+    monospace;
+}
+.cluster-inspector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.cluster-inspector .panel,
+.cluster-history {
+  padding: 20px;
+}
+.cluster-inspector h2,
+.cluster-history h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+.cluster-inspector pre {
+  margin: 0;
+  overflow: auto;
+  padding: 14px;
+  background: #f2f6f5;
+  border-radius: 6px;
+  font:
+    11px/1.6 'Space Mono',
+    monospace;
+}
+.cluster-diff,
+.cluster-history ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.cluster-diff li,
+.cluster-history li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid #e6eceb;
+  font-size: 12px;
+}
+.cluster-diff li span {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.cluster-history {
+  margin-top: 16px;
+}
+.cluster-table-scroll {
+  overflow-x: auto;
+}
+.cluster-list table {
+  width: 100%;
+  min-width: 650px;
+}
+.dark .cluster-form input,
+.dark .cluster-form select,
+.dark .cluster-yaml-panel textarea {
+  background: #192123;
+  border-color: #3b494b;
+  color: #edf5f3;
+}
+.dark .cluster-inspector pre {
+  background: #1d2829;
+}
+.dark .cluster-notice {
+  background: #17352d;
+  border-color: #347665;
+  color: #d8f9ea;
+}
+.dark .cluster-notice.error {
+  background: #382024;
+  border-color: #8a4851;
+  color: #ffdce0;
+}
+@media (max-width: 800px) {
+  .cluster-editor-heading,
+  .cluster-section-head {
+    flex-direction: column;
+  }
+  .cluster-actions {
+    justify-content: flex-start;
+  }
+  .cluster-form,
+  .cluster-inspector {
+    grid-template-columns: 1fr;
+  }
 }
 .route-prototype,
 .data-prototype {
