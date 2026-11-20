@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 import (
@@ -57,7 +58,7 @@ func (c *recordingSnapshotCache) SetSnapshot(_ context.Context, node string, sna
 
 type snapshotBuildFunc func(version string) (*SnapshotBuildResult, error)
 
-func (f snapshotBuildFunc) Build(version string) (*SnapshotBuildResult, error) {
+func (f snapshotBuildFunc) BuildWithContext(_ context.Context, version string) (*SnapshotBuildResult, error) {
 	return f(version)
 }
 
@@ -124,6 +125,60 @@ func TestSnapshotPublisherBuildFailureDoesNotTouchCache(t *testing.T) {
 	}
 	if got := status.Snapshot(); !strings.Contains(got.LastError, "invalid resource") {
 		t.Fatalf("build failure was not recorded: %+v", got)
+	}
+}
+
+type blockingContextResourceLoader struct {
+	started chan struct{}
+}
+
+func (l *blockingContextResourceLoader) LoadListeners() ([]config.Listener, error) {
+	return nil, errors.New("context-aware loader was bypassed")
+}
+
+func (l *blockingContextResourceLoader) LoadClusters() ([]config.Cluster, error) {
+	return nil, errors.New("context-aware loader was bypassed")
+}
+
+func (l *blockingContextResourceLoader) LoadListenersWithContext(ctx context.Context) ([]config.Listener, error) {
+	close(l.started)
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (l *blockingContextResourceLoader) LoadClustersWithContext(context.Context) ([]config.Cluster, error) {
+	return nil, errors.New("cluster load should not run after listener cancellation")
+}
+
+func TestSnapshotPublisherCancelsInFlightResourceLoad(t *testing.T) {
+	loader := &blockingContextResourceLoader{started: make(chan struct{})}
+	status := NewStatusStore("node-a")
+	cacheWriter := &recordingSnapshotCache{}
+	publisher := newSnapshotPublisher("node-a", NewSnapshotBuilder(loader), cacheWriter, status, 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- publisher.Publish(ctx) }()
+
+	select {
+	case <-loader.started:
+	case <-time.After(time.Second):
+		t.Fatal("snapshot resource load did not start")
+	}
+	cancel()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("publish error: want context.Canceled, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("snapshot publish did not stop after cancellation")
+	}
+	if len(cacheWriter.versions) != 0 {
+		t.Fatalf("canceled build reached snapshot cache: %v", cacheWriter.versions)
+	}
+	if got := status.Snapshot(); got.LastError != "" {
+		t.Fatalf("expected shutdown cancellation not to be recorded as a build failure: %+v", got)
 	}
 }
 

@@ -30,7 +30,7 @@ import (
 )
 
 type snapshotBuild interface {
-	Build(version string) (*SnapshotBuildResult, error)
+	BuildWithContext(ctx context.Context, version string) (*SnapshotBuildResult, error)
 }
 
 type snapshotCacheWriter interface {
@@ -80,8 +80,11 @@ func (p *SnapshotPublisher) Publish(ctx context.Context) error {
 
 	nextVersion := p.lastVersion + 1
 	version := strconv.FormatUint(nextVersion, 10)
-	result, err := p.builder.Build(version)
+	result, err := p.builder.BuildWithContext(ctx, version)
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return p.recordError(fmt.Errorf("build xDS snapshot version %s: %w", version, err))
 	}
 	if result == nil || result.Snapshot == nil {
@@ -90,7 +93,13 @@ func (p *SnapshotPublisher) Publish(ctx context.Context) error {
 	if result.Version != version {
 		return p.recordError(fmt.Errorf("build xDS snapshot version %s: builder returned version %q", version, result.Version))
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := p.cache.SetSnapshot(ctx, p.nodeID, result.Snapshot); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return p.recordError(fmt.Errorf("publish xDS snapshot version %s for node %q: %w", version, p.nodeID, err))
 	}
 

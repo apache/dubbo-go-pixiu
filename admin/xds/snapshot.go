@@ -18,6 +18,7 @@
 package xds
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -50,6 +51,11 @@ type ResourceLoader interface {
 	LoadClusters() ([]config.Cluster, error)
 }
 
+type contextResourceLoader interface {
+	LoadListenersWithContext(context.Context) ([]config.Listener, error)
+	LoadClustersWithContext(context.Context) ([]config.Cluster, error)
+}
+
 // LogicResourceLoader reads the published listener and cluster configuration
 // through the existing Admin logic layer.
 type LogicResourceLoader struct{}
@@ -61,11 +67,25 @@ func (LogicResourceLoader) LoadListeners() ([]config.Listener, error) {
 	return logic.BizGetListeners()
 }
 
+func (LogicResourceLoader) LoadListenersWithContext(ctx context.Context) ([]config.Listener, error) {
+	if adminconfig.Client == nil {
+		return nil, fmt.Errorf("admin etcd client is not initialized")
+	}
+	return logic.BizGetListenersWithContext(ctx)
+}
+
 func (LogicResourceLoader) LoadClusters() ([]config.Cluster, error) {
 	if adminconfig.Client == nil {
 		return nil, fmt.Errorf("admin etcd client is not initialized")
 	}
 	return logic.BizGetClusters()
+}
+
+func (LogicResourceLoader) LoadClustersWithContext(ctx context.Context) ([]config.Cluster, error) {
+	if adminconfig.Client == nil {
+		return nil, fmt.Errorf("admin etcd client is not initialized")
+	}
+	return logic.BizGetClustersWithContext(ctx)
 }
 
 // SnapshotBuildResult carries the validated snapshot and the metadata needed
@@ -88,20 +108,35 @@ func NewSnapshotBuilder(loader ResourceLoader) *SnapshotBuilder {
 // Build loads, converts, packs, and validates a candidate snapshot. It does
 // not mutate the SnapshotCache, version state, or last-good diagnostics.
 func (b *SnapshotBuilder) Build(version string) (*SnapshotBuildResult, error) {
+	return b.BuildWithContext(context.Background(), version)
+}
+
+// BuildWithContext passes the caller's context to loaders that support
+// cancellation and stops before validation when that context is canceled.
+func (b *SnapshotBuilder) BuildWithContext(ctx context.Context, version string) (*SnapshotBuildResult, error) {
 	if b == nil || b.loader == nil {
 		return nil, fmt.Errorf("xDS snapshot resource loader is not configured")
 	}
 	if version == "" {
 		return nil, fmt.Errorf("xDS snapshot version is empty")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("build xDS snapshot: %w", err)
+	}
 
-	listeners, err := b.loader.LoadListeners()
+	listeners, err := loadListeners(ctx, b.loader)
 	if err != nil {
 		return nil, fmt.Errorf("load listeners: %w", err)
 	}
-	clusters, err := b.loader.LoadClusters()
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("build xDS snapshot: %w", err)
+	}
+	clusters, err := loadClusters(ctx, b.loader)
 	if err != nil {
 		return nil, fmt.Errorf("load clusters: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("build xDS snapshot: %w", err)
 	}
 	if err := validateListeners(listeners); err != nil {
 		return nil, fmt.Errorf("validate listeners: %w", err)
@@ -150,6 +185,20 @@ func (b *SnapshotBuilder) Build(version string) (*SnapshotBuildResult, error) {
 		ListenerCount: len(listenerConfig.Listeners),
 		ClusterCount:  len(clusterConfig.Clusters),
 	}, nil
+}
+
+func loadListeners(ctx context.Context, loader ResourceLoader) ([]config.Listener, error) {
+	if loaderWithContext, ok := loader.(contextResourceLoader); ok {
+		return loaderWithContext.LoadListenersWithContext(ctx)
+	}
+	return loader.LoadListeners()
+}
+
+func loadClusters(ctx context.Context, loader ResourceLoader) ([]config.Cluster, error) {
+	if loaderWithContext, ok := loader.(contextResourceLoader); ok {
+		return loaderWithContext.LoadClustersWithContext(ctx)
+	}
+	return loader.LoadClusters()
 }
 
 func validateListeners(listeners []config.Listener) error {
