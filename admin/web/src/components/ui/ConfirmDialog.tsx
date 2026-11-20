@@ -27,7 +27,7 @@ export function ConfirmDialog({
   cancelLabel = '取消',
   onConfirm,
   onCancel,
-}: {
+}: Readonly<{
   open: boolean
   title?: string
   description?: string
@@ -35,54 +35,45 @@ export function ConfirmDialog({
   cancelLabel?: string
   onConfirm: () => void
   onCancel: () => void
-}) {
+}>) {
   const titleId = useId()
+  const descriptionId = useId()
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
-  const confirmRef = useRef<HTMLButtonElement>(null)
   const onCancelRef = useRef(onCancel)
   onCancelRef.current = onCancel
   useEffect(() => {
-    if (!open) return
+    const dialog = dialogRef.current
+    if (!open || !dialog) return
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialog.showModal()
     cancelRef.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancelRef.current()
-      }
-      if (event.key === 'Tab' && event.shiftKey && document.activeElement === cancelRef.current) {
-        event.preventDefault()
-        confirmRef.current?.focus()
-      } else if (
-        event.key === 'Tab' &&
-        !event.shiftKey &&
-        document.activeElement === confirmRef.current
-      ) {
-        event.preventDefault()
-        cancelRef.current?.focus()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('keydown', onKeyDown)
+      dialog.close()
       previous?.focus()
     }
   }, [open])
-  if (!open) return null
   return (
-    <div className="drawer-backdrop">
-      <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <h3 id={titleId}>{title}</h3>
-        <p>{description}</p>
-        <div>
-          <button ref={cancelRef} className="secondary" onClick={onCancel}>
-            {cancelLabel}
-          </button>
-          <button ref={confirmRef} className="primary" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
+    <dialog
+      ref={dialogRef}
+      className="confirm-dialog"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onCancel={(event) => {
+        event.preventDefault()
+        onCancelRef.current()
+      }}
+    >
+      <h3 id={titleId}>{title}</h3>
+      <p id={descriptionId}>{description}</p>
+      <div>
+        <button ref={cancelRef} type="button" className="secondary" onClick={onCancel}>
+          {cancelLabel}
+        </button>
+        <button type="button" className="primary" onClick={onConfirm}>
+          {confirmLabel}
+        </button>
       </div>
-    </div>
+    </dialog>
   )
 }

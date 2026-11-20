@@ -1150,10 +1150,15 @@ td:first-child small {
 }
 .confirm-dialog {
   background: #fff;
+  border: 0;
   border-radius: 10px;
   padding: 24px;
-  min-width: 320px;
+  width: min(400px, calc(100vw - 32px));
+  max-width: none;
   box-shadow: 0 20px 60px #0003;
+}
+.confirm-dialog::backdrop {
+  background: #08101188;
 }
 .dark .confirm-dialog {
   background: #182022;

@@ -43,6 +43,26 @@ import {
 
 type EditorState = { draft: ClusterDraft | null; object: AdminClusterObject; dirty: boolean }
 type ConfirmAction = { kind: 'back' | 'draft' | 'runtime' | 'rollback'; revision?: number }
+type ClusterPageProps = Readonly<{
+  locale: Locale
+  onDirtyChange?: (dirty: boolean) => void
+}>
+
+function fieldDefinition(
+  schema: ClusterSchema | null,
+  path: string,
+): ClusterFieldSchema | undefined {
+  switch (path) {
+    case 'spec.type':
+      return schema?.fields.type
+    case 'spec.endpoint.address':
+      return schema?.fields.endpoint?.properties?.address
+    case 'spec.endpoint.port':
+      return schema?.fields.endpoint?.properties?.port
+    default:
+      return undefined
+  }
+}
 
 function displayError(error: unknown) {
   return error instanceof Error ? error.message : String(error)
@@ -53,13 +73,7 @@ function clusterID(value: JsonObject) {
   return Number.isInteger(id) && id > 0 ? id : 0
 }
 
-export function ClusterLifecyclePage({
-  locale,
-  onDirtyChange,
-}: {
-  locale: Locale
-  onDirtyChange?: (dirty: boolean) => void
-}) {
+export function ClusterLifecyclePage({ locale, onDirtyChange }: ClusterPageProps) {
   const en = locale === 'en-US'
   const label = (zh: string, english: string) => (en ? english : zh)
   const [runtime, setRuntime] = useState<JsonObject[]>([])
@@ -88,7 +102,6 @@ export function ClusterLifecyclePage({
     if (!hasUnsavedChanges) return
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
-      event.returnValue = ''
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
@@ -293,14 +306,7 @@ export function ClusterLifecyclePage({
     kind: 'text' | 'number' | 'select' = 'text',
   ) => {
     if (!editor) return null
-    const definition: ClusterFieldSchema | undefined =
-      path === 'spec.type'
-        ? schema?.fields.type
-        : path === 'spec.endpoint.address'
-          ? schema?.fields.endpoint?.properties?.address
-          : path === 'spec.endpoint.port'
-            ? schema?.fields.endpoint?.properties?.port
-            : undefined
+    const definition = fieldDefinition(schema, path)
     const error = issues.find((issue) => issue.path === path)?.message
     const id = `cluster-${path.replace(/\./g, '-')}`
     const value = clusterFieldValue(editor.object, path)
@@ -352,372 +358,398 @@ export function ClusterLifecyclePage({
     )
   }
 
-  return (
-    <div className="page-resource cluster-lifecycle">
-      {editor ? (
-        <div className="cluster-editor">
-          <div className="route-editor-backbar">
-            <button type="button" className="route-editor-back" onClick={back}>
-              {label('← 返回集群', '← Back to clusters')}
-            </button>
-            <span className="cluster-editor-id">
-              {editor.draft
-                ? `${label('草稿', 'Draft')} ${editor.draft.id.slice(0, 8)}`
-                : label('新草稿', 'New draft')}
+  const renderDiff = () => {
+    if (editor?.dirty) {
+      return (
+        <p className="muted">
+          {label('保存草稿后刷新差异。', 'Save the draft to refresh the diff.')}
+        </p>
+      )
+    }
+    if (!diff?.changes.length) {
+      return <p className="muted">{label('暂无差异', 'No changes')}</p>
+    }
+    return (
+      <ul className="cluster-diff">
+        {diff.changes.map((change) => (
+          <li key={change.path}>
+            <code>{change.path}</code>
+            <span>
+              {String(change.before ?? '∅')} → {String(change.after ?? '∅')}
             </span>
-          </div>
-          <div className="cluster-editor-heading">
-            <div>
-              <p className="eyebrow">CLUSTER CONFIGURATION</p>
-              <h1>{editor.object.metadata.name || label('未命名集群', 'Unnamed cluster')}</h1>
-              <p className="muted">
-                {status?.publishedExists
-                  ? label('已发布 · 可继续编辑草稿', 'Published · draft can be edited')
-                  : label('草稿尚未发布', 'Draft is not published')}
-                {editor.dirty ? ` · ${label('有未保存改动', 'Unsaved changes')}` : ''}
-              </p>
-            </div>
-            <div className="cluster-actions">
-              <button
-                type="button"
-                className="secondary"
-                disabled={Boolean(busy)}
-                onClick={validate}
-              >
-                {label('校验', 'Validate')}
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={Boolean(busy)}
-                onClick={showPreview}
-              >
-                {label('预览', 'Preview')}
-              </button>
-              <button type="button" className="secondary" disabled={Boolean(busy)} onClick={save}>
-                {busy === 'save' ? label('保存中…', 'Saving…') : label('保存草稿', 'Save draft')}
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={Boolean(busy) || !editor.draft || editor.dirty || Boolean(yamlError)}
-                onClick={publish}
-              >
-                {busy === 'publish' ? label('发布中…', 'Publishing…') : label('发布', 'Publish')}
-              </button>
-            </div>
-          </div>
-          {notice && (
-            <div
-              className={`cluster-notice ${noticeError ? 'error' : ''}`}
-              role={noticeError ? 'alert' : 'status'}
-            >
-              {notice}
-            </div>
-          )}
-          <div
-            className="route-editor-tabs"
-            role="tablist"
-            aria-label={label('编辑模式', 'Edit mode')}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  const renderEditorHeader = (current: EditorState) => (
+    <>
+      <div className="route-editor-backbar">
+        <button type="button" className="route-editor-back" onClick={back}>
+          {label('← 返回集群', '← Back to clusters')}
+        </button>
+        <span className="cluster-editor-id">
+          {current.draft
+            ? `${label('草稿', 'Draft')} ${current.draft.id.slice(0, 8)}`
+            : label('新草稿', 'New draft')}
+        </span>
+      </div>
+      <div className="cluster-editor-heading">
+        <div>
+          <p className="eyebrow">CLUSTER CONFIGURATION</p>
+          <h1>{current.object.metadata.name || label('未命名集群', 'Unnamed cluster')}</h1>
+          <p className="muted">
+            {status?.publishedExists
+              ? label('已发布 · 可继续编辑草稿', 'Published · draft can be edited')
+              : label('草稿尚未发布', 'Draft is not published')}
+            {current.dirty ? ` · ${label('有未保存改动', 'Unsaved changes')}` : ''}
+          </p>
+        </div>
+        <div className="cluster-actions">
+          <button type="button" className="secondary" disabled={Boolean(busy)} onClick={validate}>
+            {label('校验', 'Validate')}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={Boolean(busy)}
+            onClick={showPreview}
           >
+            {label('预览', 'Preview')}
+          </button>
+          <button type="button" className="secondary" disabled={Boolean(busy)} onClick={save}>
+            {busy === 'save' ? label('保存中…', 'Saving…') : label('保存草稿', 'Save draft')}
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={Boolean(busy) || !current.draft || current.dirty || Boolean(yamlError)}
+            onClick={publish}
+          >
+            {busy === 'publish' ? label('发布中…', 'Publishing…') : label('发布', 'Publish')}
+          </button>
+        </div>
+      </div>
+      {notice && (
+        <div
+          className={`cluster-notice ${noticeError ? 'error' : ''}`}
+          role={noticeError ? 'alert' : 'status'}
+        >
+          {notice}
+        </div>
+      )}
+    </>
+  )
+
+  const renderEditorFooter = (current: EditorState) => (
+    <>
+      {current.draft && (
+        <section className="panel cluster-history">
+          <div className="cluster-section-head">
+            <h2>{label('发布历史', 'Published history')}</h2>
             <button
-              role="tab"
-              aria-selected={mode === 'form'}
-              className={mode === 'form' ? 'active' : ''}
-              onClick={() => {
-                if (!yamlError) setMode('form')
-              }}
+              type="button"
+              className="secondary"
+              disabled={Boolean(busy)}
+              onClick={() =>
+                void run('refresh', async () => {
+                  if (current.draft) await refreshEditor(current.draft)
+                })
+              }
             >
-              {label('结构化表单', 'Form')}
-            </button>
-            <button
-              role="tab"
-              aria-selected={mode === 'yaml'}
-              className={mode === 'yaml' ? 'active' : ''}
-              onClick={() => {
-                if (mode === 'form') setYamlText(stringifyClusterYaml(editor.object))
-                setMode('yaml')
-              }}
-            >
-              {label('高级 YAML', 'Advanced YAML')}
+              {label('刷新', 'Refresh')}
             </button>
           </div>
-          {mode === 'form' ? (
-            <form
-              className="panel cluster-form"
-              noValidate
-              onSubmit={(event) => {
-                event.preventDefault()
-                save()
-              }}
-            >
-              {field(
-                'metadata.name',
-                label('集群名称', 'Cluster name'),
-                label('例如 user-provider', 'For example user-provider'),
-              )}
-              {field(
-                'spec.type',
-                label('发现类型', 'Discovery type'),
-                label('选择运行时支持的类型', 'Choose a supported discovery type'),
-                'select',
-              )}
-              {field('spec.endpoint.address', label('端点地址', 'Endpoint address'), '127.0.0.1')}
-              {field('spec.endpoint.port', label('端点端口', 'Endpoint port'), '20880', 'number')}
-            </form>
+          {history.length ? (
+            <ul>
+              {history.map((entry) => (
+                <li key={entry.revision}>
+                  <span>
+                    <strong>#{entry.revision}</strong> ·{' '}
+                    {new Date(entry.publishedAt).toLocaleString(locale)} ·{' '}
+                    {entry.object.metadata.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    disabled={Boolean(busy) || current.dirty}
+                    onClick={() => setConfirm({ kind: 'rollback', revision: entry.revision })}
+                  >
+                    {label('恢复并发布', 'Restore and publish')}
+                  </button>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div className="panel cluster-yaml-panel">
-              <label htmlFor="cluster-yaml">
-                {label('旧版 Cluster YAML', 'Legacy Cluster YAML')}
-              </label>
-              <p className="muted">
-                {label(
-                  '运行时 ID 由系统管理；可粘贴旧版 YAML。',
-                  'Runtime ID is managed by Pixiu; you can paste legacy YAML.',
-                )}
-              </p>
-              <textarea
-                id="cluster-yaml"
-                className="resize-none"
-                spellCheck={false}
-                value={yamlText}
-                onChange={(event) => changeYaml(event.target.value)}
-                aria-invalid={Boolean(yamlError)}
-                aria-describedby={yamlError ? 'cluster-yaml-error' : undefined}
-              />
-              {yamlError && (
-                <p id="cluster-yaml-error" className="route-field-error" role="alert">
-                  {yamlError}
-                </p>
-              )}
-            </div>
+            <p className="muted">{label('还没有发布历史。', 'No published revisions yet.')}</p>
           )}
-          <div className="cluster-inspector">
-            <section className="panel">
-              <h2>{label('运行时预览', 'Runtime preview')}</h2>
-              {preview ? (
-                <pre>{preview}</pre>
-              ) : (
-                <p className="muted">
-                  {label(
-                    '点击预览生成即将发布的 YAML。',
-                    'Preview the YAML that will be published.',
-                  )}
-                </p>
-              )}
-            </section>
-            <section className="panel">
-              <h2>{label('草稿与已发布差异', 'Draft and published diff')}</h2>
-              {editor.dirty ? (
-                <p className="muted">
-                  {label('保存草稿后刷新差异。', 'Save the draft to refresh the diff.')}
-                </p>
-              ) : diff?.changes.length ? (
-                <ul className="cluster-diff">
-                  {diff.changes.map((change) => (
-                    <li key={change.path}>
-                      <code>{change.path}</code>
-                      <span>
-                        {String(change.before ?? '∅')} → {String(change.after ?? '∅')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="muted">{label('暂无差异', 'No changes')}</p>
-              )}
-            </section>
-          </div>
-          {editor.draft && (
-            <section className="panel cluster-history">
-              <div className="cluster-section-head">
-                <h2>{label('发布历史', 'Published history')}</h2>
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={Boolean(busy)}
-                  onClick={() =>
-                    void run('refresh', async () => {
-                      if (editor.draft) await refreshEditor(editor.draft)
-                    })
-                  }
-                >
-                  {label('刷新', 'Refresh')}
-                </button>
-              </div>
-              {history.length ? (
-                <ul>
-                  {history.map((entry) => (
-                    <li key={entry.revision}>
-                      <span>
-                        <strong>#{entry.revision}</strong> ·{' '}
-                        {new Date(entry.publishedAt).toLocaleString(locale)} ·{' '}
-                        {entry.object.metadata.name}
-                      </span>
-                      <button
-                        type="button"
-                        className="link-btn"
-                        disabled={Boolean(busy) || editor.dirty}
-                        onClick={() => setConfirm({ kind: 'rollback', revision: entry.revision })}
-                      >
-                        {label('恢复并发布', 'Restore and publish')}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="muted">{label('还没有发布历史。', 'No published revisions yet.')}</p>
-              )}
-            </section>
-          )}
-          {editor.draft && (
-            <div className="cluster-danger-actions">
-              <button
-                type="button"
-                className="link-btn"
-                disabled={Boolean(busy)}
-                onClick={() => setConfirm({ kind: 'draft' })}
-              >
-                {label('删除草稿', 'Delete draft')}
-              </button>
-              {status?.publishedExists && (
-                <button
-                  type="button"
-                  className="link-btn"
-                  disabled={Boolean(busy)}
-                  onClick={() => setConfirm({ kind: 'runtime' })}
-                >
-                  {label('删除已发布集群', 'Delete published cluster')}
-                </button>
-              )}
-            </div>
+        </section>
+      )}
+      {current.draft && (
+        <div className="cluster-danger-actions">
+          <button
+            type="button"
+            className="link-btn"
+            disabled={Boolean(busy)}
+            onClick={() => setConfirm({ kind: 'draft' })}
+          >
+            {label('删除草稿', 'Delete draft')}
+          </button>
+          {status?.publishedExists && (
+            <button
+              type="button"
+              className="link-btn"
+              disabled={Boolean(busy)}
+              onClick={() => setConfirm({ kind: 'runtime' })}
+            >
+              {label('删除已发布集群', 'Delete published cluster')}
+            </button>
           )}
         </div>
-      ) : (
-        <>
-          <div className="placeholder-head">
-            <div>
-              <p className="eyebrow">CLUSTER CONFIGURATION</p>
-              <h1>{label('集群', 'Clusters')}</h1>
-              <p className="muted">
-                {label(
-                  '编辑草稿，预览配置，再发布到网关。',
-                  'Edit drafts, preview configuration, then publish to the gateway.',
-                )}
+      )}
+    </>
+  )
+
+  const renderEditor = () => {
+    if (!editor) return null
+    return (
+      <div className="cluster-editor">
+        {renderEditorHeader(editor)}
+        <div
+          className="route-editor-tabs"
+          role="tablist"
+          aria-label={label('编辑模式', 'Edit mode')}
+        >
+          <button
+            role="tab"
+            aria-selected={mode === 'form'}
+            className={mode === 'form' ? 'active' : ''}
+            onClick={() => {
+              if (!yamlError) setMode('form')
+            }}
+          >
+            {label('结构化表单', 'Form')}
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === 'yaml'}
+            className={mode === 'yaml' ? 'active' : ''}
+            onClick={() => {
+              if (mode === 'form') setYamlText(stringifyClusterYaml(editor.object))
+              setMode('yaml')
+            }}
+          >
+            {label('高级 YAML', 'Advanced YAML')}
+          </button>
+        </div>
+        {mode === 'form' ? (
+          <form
+            className="panel cluster-form"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault()
+              save()
+            }}
+          >
+            {field(
+              'metadata.name',
+              label('集群名称', 'Cluster name'),
+              label('例如 user-provider', 'For example user-provider'),
+            )}
+            {field(
+              'spec.type',
+              label('发现类型', 'Discovery type'),
+              label('选择运行时支持的类型', 'Choose a supported discovery type'),
+              'select',
+            )}
+            {field('spec.endpoint.address', label('端点地址', 'Endpoint address'), '127.0.0.1')}
+            {field('spec.endpoint.port', label('端点端口', 'Endpoint port'), '20880', 'number')}
+          </form>
+        ) : (
+          <div className="panel cluster-yaml-panel">
+            <label htmlFor="cluster-yaml">
+              {label('旧版 Cluster YAML', 'Legacy Cluster YAML')}
+            </label>
+            <p className="muted">
+              {label(
+                '运行时 ID 由系统管理；可粘贴旧版 YAML。',
+                'Runtime ID is managed by Pixiu; you can paste legacy YAML.',
+              )}
+            </p>
+            <textarea
+              id="cluster-yaml"
+              className="resize-none"
+              spellCheck={false}
+              value={yamlText}
+              onChange={(event) => changeYaml(event.target.value)}
+              aria-invalid={Boolean(yamlError)}
+              aria-describedby={yamlError ? 'cluster-yaml-error' : undefined}
+            />
+            {yamlError && (
+              <p id="cluster-yaml-error" className="route-field-error" role="alert">
+                {yamlError}
               </p>
-            </div>
-            <button
-              className="primary"
-              onClick={() => openEditor(null, emptyCluster(schema?.fields.type?.default))}
-              disabled={loading || !schema}
-            >
-              {label('新建草稿', 'New draft')}
-            </button>
-          </div>
-          <div className="panel route-panel cluster-list">
-            {loading ? (
-              <div className="loading-skeleton" />
-            ) : pageError ? (
-              <div className="empty" role="alert">
-                {pageError}
-                <button className="secondary" onClick={() => void load()}>
-                  {label('重试', 'Retry')}
-                </button>
-              </div>
-            ) : !drafts.length && !unlinkedRuntime.length ? (
-              <div className="empty">
-                {label(
-                  '暂无集群。创建草稿开始配置。',
-                  'No clusters yet. Create a draft to get started.',
-                )}
-              </div>
-            ) : (
-              <div className="cluster-table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{label('名称', 'Name')}</th>
-                      <th>{label('类型', 'Type')}</th>
-                      <th>{label('端点', 'Endpoint')}</th>
-                      <th>{label('状态', 'Status')}</th>
-                      <th>{label('操作', 'Actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {drafts.map((draft) => (
-                      <tr key={draft.id}>
-                        <td>
-                          <b>
-                            {draft.object.metadata.name || label('未命名草稿', 'Unnamed draft')}
-                          </b>
-                        </td>
-                        <td>{draft.object.spec.type || '—'}</td>
-                        <td>
-                          {draft.object.spec.endpoint?.address || '—'}:
-                          {draft.object.spec.endpoint?.port || '—'}
-                        </td>
-                        <td>
-                          {draft.sourceId && publishedIDs.has(draft.sourceId)
-                            ? label('已发布 / 草稿', 'Published / draft')
-                            : draft.sourceId
-                              ? label('已删除 / 草稿', 'Published missing / draft')
-                              : label('草稿', 'Draft')}
-                        </td>
-                        <td>
-                          <button
-                            className="link-btn"
-                            disabled={Boolean(busy)}
-                            onClick={() =>
-                              void run('open', async () => {
-                                openEditor(draft, draft.object)
-                                await refreshEditor(draft)
-                              })
-                            }
-                          >
-                            {label('编辑', 'Edit')}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {unlinkedRuntime.map((item) => (
-                      <tr key={`runtime-${clusterID(item)}`}>
-                        <td>
-                          <b>{String(item.name || label('未命名集群', 'Unnamed cluster'))}</b>
-                        </td>
-                        <td>{String(item.type || '—')}</td>
-                        <td>
-                          {String(item.address || '—')}:{String(item.port || '—')}
-                        </td>
-                        <td>{label('已发布', 'Published')}</td>
-                        <td>
-                          <button
-                            className="link-btn"
-                            disabled={Boolean(busy)}
-                            onClick={() => openPublished(item)}
-                          >
-                            {label('编辑', 'Edit')}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             )}
           </div>
-        </>
-      )}
+        )}
+        <div className="cluster-inspector">
+          <section className="panel">
+            <h2>{label('运行时预览', 'Runtime preview')}</h2>
+            {preview ? (
+              <pre>{preview}</pre>
+            ) : (
+              <p className="muted">
+                {label('点击预览生成即将发布的 YAML。', 'Preview the YAML that will be published.')}
+              </p>
+            )}
+          </section>
+          <section className="panel">
+            <h2>{label('草稿与已发布差异', 'Draft and published diff')}</h2>
+            {renderDiff()}
+          </section>
+        </div>
+        {renderEditorFooter(editor)}
+      </div>
+    )
+  }
+
+  const draftStatus = (draft: ClusterDraft) => {
+    if (!draft.sourceId) return label('草稿', 'Draft')
+    if (publishedIDs.has(draft.sourceId)) return label('已发布 / 草稿', 'Published / draft')
+    return label('已删除 / 草稿', 'Published missing / draft')
+  }
+
+  const renderListContent = () => {
+    if (loading) return <div className="loading-skeleton" />
+    if (pageError) {
+      return (
+        <div className="empty" role="alert">
+          {pageError}
+          <button className="secondary" onClick={() => void load()}>
+            {label('重试', 'Retry')}
+          </button>
+        </div>
+      )
+    }
+    if (!drafts.length && !unlinkedRuntime.length) {
+      return (
+        <div className="empty">
+          {label('暂无集群。创建草稿开始配置。', 'No clusters yet. Create a draft to get started.')}
+        </div>
+      )
+    }
+    return (
+      <div className="cluster-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>{label('名称', 'Name')}</th>
+              <th>{label('类型', 'Type')}</th>
+              <th>{label('端点', 'Endpoint')}</th>
+              <th>{label('状态', 'Status')}</th>
+              <th>{label('操作', 'Actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {drafts.map((draft) => (
+              <tr key={draft.id}>
+                <td>
+                  <b>{draft.object.metadata.name || label('未命名草稿', 'Unnamed draft')}</b>
+                </td>
+                <td>{draft.object.spec.type || '—'}</td>
+                <td>
+                  {draft.object.spec.endpoint?.address || '—'}:
+                  {draft.object.spec.endpoint?.port || '—'}
+                </td>
+                <td>{draftStatus(draft)}</td>
+                <td>
+                  <button
+                    className="link-btn"
+                    disabled={Boolean(busy)}
+                    onClick={() =>
+                      void run('open', async () => {
+                        openEditor(draft, draft.object)
+                        await refreshEditor(draft)
+                      })
+                    }
+                  >
+                    {label('编辑', 'Edit')}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {unlinkedRuntime.map((item) => (
+              <tr key={`runtime-${clusterID(item)}`}>
+                <td>
+                  <b>{String(item.name || label('未命名集群', 'Unnamed cluster'))}</b>
+                </td>
+                <td>{String(item.type || '—')}</td>
+                <td>
+                  {String(item.address || '—')}:{String(item.port || '—')}
+                </td>
+                <td>{label('已发布', 'Published')}</td>
+                <td>
+                  <button
+                    className="link-btn"
+                    disabled={Boolean(busy)}
+                    onClick={() => openPublished(item)}
+                  >
+                    {label('编辑', 'Edit')}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  const renderList = () => (
+    <>
+      <div className="placeholder-head">
+        <div>
+          <p className="eyebrow">CLUSTER CONFIGURATION</p>
+          <h1>{label('集群', 'Clusters')}</h1>
+          <p className="muted">
+            {label(
+              '编辑草稿，预览配置，再发布到网关。',
+              'Edit drafts, preview configuration, then publish to the gateway.',
+            )}
+          </p>
+        </div>
+        <button
+          className="primary"
+          onClick={() => openEditor(null, emptyCluster(schema?.fields.type?.default))}
+          disabled={loading || !schema}
+        >
+          {label('新建草稿', 'New draft')}
+        </button>
+      </div>
+      <div className="panel route-panel cluster-list">{renderListContent()}</div>
+    </>
+  )
+
+  const confirmationTitle = () => {
+    switch (confirm?.kind) {
+      case 'back':
+        return label('放弃未保存改动？', 'Discard unsaved changes?')
+      case 'rollback':
+        return label('恢复并发布此版本？', 'Restore and publish this revision?')
+      case 'runtime':
+        return label('删除已发布集群？', 'Delete published cluster?')
+      default:
+        return label('删除草稿？', 'Delete draft?')
+    }
+  }
+
+  return (
+    <div className="page-resource cluster-lifecycle">
+      {editor ? renderEditor() : renderList()}
       <ConfirmDialog
         open={Boolean(confirm)}
-        title={
-          confirm?.kind === 'back'
-            ? label('放弃未保存改动？', 'Discard unsaved changes?')
-            : confirm?.kind === 'rollback'
-              ? label('恢复并发布此版本？', 'Restore and publish this revision?')
-              : confirm?.kind === 'runtime'
-                ? label('删除已发布集群？', 'Delete published cluster?')
-                : label('删除草稿？', 'Delete draft?')
-        }
+        title={confirmationTitle()}
         description={
           confirm?.kind === 'draft'
             ? label('已发布配置会保留。', 'Published configuration will remain.')

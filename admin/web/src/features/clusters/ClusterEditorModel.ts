@@ -30,7 +30,7 @@ export function emptyCluster(type = 'Static'): AdminClusterObject {
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${label} must be a mapping`)
+    throw new TypeError(`${label} must be a mapping`)
   }
   return value as Record<string, unknown>
 }

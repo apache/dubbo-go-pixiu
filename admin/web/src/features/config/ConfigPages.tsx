@@ -558,10 +558,10 @@ function ConfigListPage({ kind, locale }: { kind: Kind; locale: Locale }) {
 export function ClusterConfigPage({
   locale,
   onDirtyChange,
-}: {
+}: Readonly<{
   locale: Locale
   onDirtyChange?: (dirty: boolean) => void
-}) {
+}>) {
   return <ClusterLifecyclePage locale={locale} onDirtyChange={onDirtyChange} />
 }
 export function ListenerConfigPage({ locale }: { locale: Locale }) {

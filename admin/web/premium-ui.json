@@ -1,9 +1,0 @@
-{
-  "profile": "product-admin",
-  "sourceRoots": ["src/features/clusters", "src/components/ui"],
-  "locale": "zh-CN",
-  "canonicalMap": "UX-CONTRACT.md",
-  "ownership": {
-    "Select/Listbox": "native"
-  }
-}
