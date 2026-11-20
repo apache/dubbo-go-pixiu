@@ -42,7 +42,7 @@ function onlyKeys(value: Record<string, unknown>, allowed: string[], label: stri
 
 function text(value: unknown, label: string) {
   if (value === undefined || value === null) return ''
-  if (typeof value !== 'string') throw new Error(`${label} must be text`)
+  if (typeof value !== 'string') throw new TypeError(`${label} must be text`)
   return value
 }
 
