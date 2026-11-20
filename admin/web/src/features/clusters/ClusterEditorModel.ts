@@ -49,7 +49,7 @@ function text(value: unknown, label: string) {
 function port(value: unknown) {
   if (value === undefined || value === null) return ''
   if (typeof value !== 'number' && typeof value !== 'string') {
-    throw new Error('port must be a number or text')
+    throw new TypeError('port must be a number or text')
   }
   return value
 }
