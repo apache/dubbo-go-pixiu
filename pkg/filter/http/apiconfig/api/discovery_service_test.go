@@ -183,3 +183,21 @@ func TestLoadAPIFromMethods(t *testing.T) {
 	assert.Equal(t, rsp.URLPattern, "/mock")
 	assert.True(t, strings.Contains(err.Error(), "path: /mock, Method: PUT, error: Method PUT with address /mock already exists in path /mock"))
 }
+
+func TestResourceDeleteKeepsAnotherMethodAtSamePath(t *testing.T) {
+	service := NewLocalMemoryAPIDiscoveryService()
+	get := config.Resource{ID: 1, Path: "/users", Methods: []config.Method{{ID: 1, HTTPVerb: "GET"}}}
+	post := config.Resource{ID: 2, Path: "/users", Methods: []config.Method{{ID: 2, HTTPVerb: "POST"}}}
+	if !service.ResourceAdd(get) || !service.ResourceAdd(post) {
+		t.Fatal("could not add both HTTP methods")
+	}
+	if !service.ResourceDelete(get) {
+		t.Fatal("could not delete GET resource")
+	}
+	if _, found := service.router.MatchAPI("/users", "GET"); found {
+		t.Fatal("GET route remains after its resource was deleted")
+	}
+	if _, found := service.router.MatchAPI("/users", "POST"); !found {
+		t.Fatal("POST route was removed with GET resource")
+	}
+}

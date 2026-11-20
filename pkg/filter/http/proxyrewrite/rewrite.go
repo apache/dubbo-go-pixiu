@@ -47,7 +47,8 @@ type (
 
 	// FilterFactory is http filter instance
 	FilterFactory struct {
-		cfg *Config
+		cfg      *Config
+		uriRegex *regexp.Regexp
 	}
 	//Filter
 	Filter struct {
@@ -79,6 +80,13 @@ func (factory *FilterFactory) Apply() error {
 	if len(factory.cfg.UriRegex) != 2 {
 		return errors.Errorf("UriRegex len must == 2, %v", factory.cfg.UriRegex)
 	}
+	// Compile once here and keep the result: PrepareFilterChain runs per
+	// request, so recompiling there would add a regex compile to every call.
+	compiled, err := regexp.Compile(factory.cfg.UriRegex[0])
+	if err != nil {
+		return errors.Wrapf(err, "invalid uri_regex %q", factory.cfg.UriRegex[0])
+	}
+	factory.uriRegex = compiled
 	return nil
 }
 
@@ -89,7 +97,18 @@ func (factory *FilterFactory) PrepareFilterChain(ctx *contexthttp.HttpContext, c
 	for k, v := range cfg.Headers {
 		headers[k] = v
 	}
-	f := &Filter{uriRegex: regexp.MustCompile(cfg.UriRegex[0]), replace: cfg.UriRegex[1], Headers: headers}
+	uriRegex := factory.uriRegex
+	if uriRegex == nil {
+		// Apply() normally populates this. Direct factory construction bypasses
+		// it, so compile locally instead of panicking with MustCompile; the
+		// factory stays immutable so concurrent requests cannot race on it.
+		compiled, err := regexp.Compile(cfg.UriRegex[0])
+		if err != nil {
+			return errors.Wrapf(err, "invalid uri_regex %q", cfg.UriRegex[0])
+		}
+		uriRegex = compiled
+	}
+	f := &Filter{uriRegex: uriRegex, replace: cfg.UriRegex[1], Headers: headers}
 
 	chain.AppendDecodeFilters(f)
 	return nil

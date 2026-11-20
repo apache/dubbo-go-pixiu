@@ -194,6 +194,7 @@ type ConfigManager struct {
 	localConfig  *model.Bootstrap
 	remoteConfig *model.Bootstrap
 	load         configcenter.Load
+	closeOnce    sync.Once
 }
 
 func NewConfigManger() *ConfigManager {
@@ -276,6 +277,16 @@ func (m *ConfigManager) ViewRemoteConfig() *model.Bootstrap {
 	}
 
 	return m.load.ViewRemoteConfig()
+}
+
+// Close releases the remote config-center client (e.g. the Nacos v2 gRPC
+// connection and its internal retry goroutines). It is safe to call repeatedly
+// and when no remote config center is configured.
+func (m *ConfigManager) Close() {
+	if m == nil || m.load == nil {
+		return
+	}
+	m.closeOnce.Do(m.load.Close)
 }
 
 func (m *ConfigManager) check() error {

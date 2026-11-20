@@ -1,3 +1,10 @@
+definitions:
+  github_com_apache_dubbo-go-pixiu_admin_config.RetData:
+    properties:
+      code:
+        type: string
+      data: {}
+    type: object
 info:
   contact: {}
 paths:
@@ -57,20 +64,6 @@ paths:
       summary: modify pixiu base info such as name,desc
       tags:
       - Config
-  /config/api/xds/status:
-    get:
-      description: Returns xDS listener availability, last-good snapshot metadata,
-        latest errors, readiness, and resource support matrix.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: object
-      summary: get Admin xDS publication status
-      tags:
-      - XDS
   /config/api/cluster:
     delete:
       description: delete cluster according to cluster ID
@@ -257,310 +250,8 @@ paths:
       summary: get all Listener list
       tags:
       - Config
-  /config/api/plugin_group/publish:
-    put:
-      description: publish the PluginGroup from the unpublished space to the published
-        space.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: batch Release PluginGroup Config
-      tags:
-      - Config
-  /config/api/resource:
-    delete:
-      description: delete resources by ID. When unpublished is 1, this indicates deleting
-        configurations for unpublished spaces (requires checking published spaces).
-      parameters:
-      - description: resource ID
-        in: query
-        name: resourceId
-        required: true
-        type: integer
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: delete resource
-      tags:
-      - Config
-    post:
-      consumes:
-      - application/x-www-form-urlencoded
-      description: create a resource by passing the Resource's YAML via the form's
-        content field (simultaneously writing to the staging area and production area).
-      parameters:
-      - description: Resource YAML
-        in: formData
-        name: content
-        required: true
-        type: string
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: create resource
-      tags:
-      - Config
-    put:
-      consumes:
-      - application/x-www-form-urlencoded
-      description: modify resource content, where content is the YAML of the Resource.
-        Use resourceId to specify the resource to be modified.
-      parameters:
-      - description: resource ID
-        in: query
-        name: resourceId
-        type: integer
-      - description: Resource YAML
-        in: formData
-        name: content
-        required: true
-        type: string
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: modify resource
-      tags:
-      - Config
-  /config/api/resource/detail:
-    get:
-      description: get resource details according to resource ID and return the YAML
-      parameters:
-      - description: ResourceID
-        in: query
-        name: resourceId
-        required: true
-        type: integer
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: YAML content
-          schema:
-            type: string
-      summary: get resource detail with yml
-      tags:
-      - Config
-  /config/api/resource/list:
-    get:
-      description: Retrieve the list of resources. Use the unpublished parameter to
-        control whether to include unpublished or published resources.
-      parameters:
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: JSON array
-          schema:
-            type: string
-      summary: get all resource list
-      tags:
-      - Config
-  /config/api/resource/method:
-    delete:
-      description: Deleting a method under a resource, where `unpublished` equals
-        1 indicates removing the configuration for unpublished spaces (requires checking
-        published spaces).
-      parameters:
-      - description: ResourceID
-        in: query
-        name: resourceId
-        required: true
-        type: integer
-      - description: MethodID
-        in: query
-        name: methodId
-        required: true
-        type: integer
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: delete method
-      tags:
-      - Config
-    post:
-      consumes:
-      - application/x-www-form-urlencoded
-      description: create a method under the specified resource, where content is
-        the YAML for Method.
-      parameters:
-      - description: ResourceID
-        in: query
-        name: resourceId
-        required: true
-        type: integer
-      - description: Method YAML
-        in: formData
-        name: content
-        required: true
-        type: string
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: create method
-      tags:
-      - Config
-    put:
-      consumes:
-      - application/x-www-form-urlencoded
-      description: Modify the specified method, where content is the YAML for Method.
-      parameters:
-      - description: ResourceID
-        in: query
-        name: resourceId
-        required: true
-        type: integer
-      - description: MethodID
-        in: query
-        name: methodId
-        type: integer
-      - description: Method YAML
-        in: formData
-        name: content
-        required: true
-        type: string
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: modify method
-      tags:
-      - Config
-  /config/api/resource/method/detail:
-    get:
-      description: get method details based on resourceId and methodId, returning
-        YAML.
-      parameters:
-      - description: resource ID
-        in: query
-        name: resourceId
-        required: true
-        type: integer
-      - description: method ID
-        in: query
-        name: methodId
-        required: true
-        type: integer
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: YAML content
-          schema:
-            type: string
-      summary: get method detail with yml
-      tags:
-      - Config
-  /config/api/resource/method/list:
-    get:
-      description: get the list of methods under the specified resource
-      parameters:
-      - description: resource ID
-        in: query
-        name: resourceId
-        required: true
-        type: integer
-      - description: '1: unpublished; 0 or empty: published'
-        in: formData
-        name: unpublished
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: JSON array
-          schema:
-            type: string
-      summary: get all method list below one resource
-      tags:
-      - Config
-  /config/api/resource/method/publish:
-    put:
-      description: 'TODO: unimplemented'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: batch Release Method Config
-      tags:
-      - Config
   /config/api/opa/policy:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: get OPA policy (server mode)
-      tags:
-      - Config
+    delete:
       parameters:
       - description: OPA server url
         in: query
@@ -574,6 +265,40 @@ paths:
         in: query
         name: bearer_token
         type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: delete OPA policy (server mode)
+      tags:
+      - Config
+    get:
+      parameters:
+      - description: OPA server url
+        in: query
+        name: server_url
+        type: string
+      - description: Policy ID
+        in: query
+        name: policy_id
+        type: string
+      - description: Bearer token
+        in: query
+        name: bearer_token
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get OPA policy (server mode)
+      tags:
+      - Config
     put:
       consumes:
       - application/x-www-form-urlencoded
@@ -605,33 +330,10 @@ paths:
       summary: upload OPA policy (server mode)
       tags:
       - Config
-    delete:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-      summary: delete OPA policy (server mode)
-      tags:
-      - Config
-      parameters:
-      - description: OPA server url
-        in: query
-        name: server_url
-        type: string
-      - description: Policy ID
-        in: query
-        name: policy_id
-        type: string
-      - description: Bearer token
-        in: query
-        name: bearer_token
-        type: string
-  /config/api/resource/publish:
+  /config/api/plugin_group/publish:
     put:
-      description: publish resources from unpublished spaces to published spaces
+      description: publish the PluginGroup from the unpublished space to the published
+        space.
       produces:
       - application/json
       responses:
@@ -639,9 +341,222 @@ paths:
           description: OK
           schema:
             type: string
-      summary: publish all configuration information
+      summary: batch Release PluginGroup Config
       tags:
       - Config
+  /config/api/route:
+    delete:
+      parameters:
+      - description: Route binding name
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: Draft key mod revision
+        in: query
+        name: expectedRevision
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: delete and publish one API route binding
+      tags:
+      - Config
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: create API route binding draft
+      tags:
+      - Config
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Original route binding name
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: modify API route binding draft
+      tags:
+      - Config
+  /config/api/route/detail:
+    get:
+      parameters:
+      - description: Route binding name
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: draft or published
+        in: query
+        name: scope
+        type: string
+      - description: 1 for draft, 0 for published
+        in: query
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get API route binding detail
+      tags:
+      - Config
+  /config/api/route/diff:
+    get:
+      parameters:
+      - description: Route binding name
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get API route binding diff
+      tags:
+      - Config
+  /config/api/route/list:
+    get:
+      parameters:
+      - description: draft or published
+        in: query
+        name: scope
+        type: string
+      - description: 1 for draft, 0 for published
+        in: query
+        name: unpublished
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get API route binding list
+      tags:
+      - Config
+  /config/api/route/preview:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: preview API route binding
+      tags:
+      - Config
+  /config/api/route/publish:
+    put:
+      parameters:
+      - description: Route binding name
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: Draft route key mod revision
+        in: query
+        name: expectedRevision
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: atomically publish one API route binding
+      tags:
+      - Config
+  /config/api/route/schema:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get API route binding schema
+      tags:
+      - Config
+  /config/api/route/status:
+    get:
+      parameters:
+      - description: Route binding name
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: get API route binding status
+      tags:
+      - Config
+  /config/api/route/validate:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: validate API route binding
+      tags:
+      - Config
+  /config/api/xds/status:
+    get:
+      description: Returns xDS listener availability, last-good snapshot metadata,
+        latest errors, readiness, and resource support matrix.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_apache_dubbo-go-pixiu_admin_config.RetData'
+      summary: get Admin xDS publication status
+      tags:
+      - XDS
   /register:
     post:
       parameters:

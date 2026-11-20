@@ -144,6 +144,23 @@ func shutdownExitCode(shutdownErrors []error, timedOut bool) int {
 // It returns a slice of errors from failed shutdowns and a boolean indicating timeout.
 // This function is extracted from gracefulShutdownInit for testability.
 func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Duration) ([]error, bool) {
+	deadline := time.Now().Add(timeout)
+	// Stop resource producers before taking the listener snapshot. Hooks and
+	// listener draining share the same overall shutdown budget.
+	hooksDone := make(chan struct{})
+	go func() {
+		shutdown.RunHooks()
+		close(hooksDone)
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-hooksDone:
+	case <-timer.C:
+		logger.Warnf("Shutdown timed out after %s while running cleanup hooks", timeout)
+		return nil, true
+	}
+
 	lm.rwLock.RLock()
 	listeners := make([]*wrapListenerService, 0, len(lm.activeListenerService))
 	for _, listener := range lm.activeListenerService {
@@ -163,7 +180,7 @@ func (lm *ListenerManager) handleShutdownSignal(sig os.Signal, timeout time.Dura
 		})
 	}
 
-	shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, timeout)
+	shutdownErrors, timedOut := shutdownListeners(shutdownFuncs, time.Until(deadline))
 
 	if shouldDumpHeap(sig) {
 		debug.WriteHeapDump(os.Stdout.Fd())

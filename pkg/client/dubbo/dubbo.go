@@ -103,6 +103,31 @@ type resolvedConsumerDefaults struct {
 	RequestTimeout time.Duration
 }
 
+// lazyTextMapCarrier avoids allocating a map on the no-attachment fast path.
+// A propagator allocates its backing map only if it actually injects a value.
+type lazyTextMapCarrier struct {
+	values map[string]string
+}
+
+func (c *lazyTextMapCarrier) Get(key string) string {
+	return c.values[key]
+}
+
+func (c *lazyTextMapCarrier) Set(key, value string) {
+	if c.values == nil {
+		c.values = make(map[string]string)
+	}
+	c.values[key] = value
+}
+
+func (c *lazyTextMapCarrier) Keys() []string {
+	keys := make([]string, 0, len(c.values))
+	for key := range c.values {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 type resolvedReferSpec struct {
 	Mode                   string
 	Interface              string
@@ -112,6 +137,7 @@ type resolvedReferSpec struct {
 	RegistryIDs            []string
 	EffectiveProtocol      string
 	EffectiveSerialization string
+	EffectiveGeneric       string
 	UseNacosWarmup         bool
 	ConsumerDefaults       resolvedConsumerDefaults
 }
@@ -129,6 +155,7 @@ type genericServiceKey struct {
 	Group             string   `json:"group"`
 	EffectiveProtocol string   `json:"effective_protocol"`
 	Serialization     string   `json:"serialization"`
+	Generic           string   `json:"generic"`
 }
 
 // SingletonDubboClient singleton dubbo clent
@@ -230,7 +257,12 @@ func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, err
 		return nil, errors.New("dubbo outbound request is nil")
 	}
 
-	spec := dc.resolveFromOutbound(req)
+	genericMode, err := NormalizeGenericMode(req.Generic)
+	if err != nil {
+		return nil, err
+	}
+
+	spec := dc.resolveFromOutbound(req, genericMode)
 	types, vals, err := dc.preparePayload(req)
 	if err != nil {
 		return nil, err
@@ -284,13 +316,17 @@ func spanValues(vals []hessian.Object) []byte {
 	return finalValues
 }
 
-func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest) resolvedReferSpec {
+// resolveFromOutbound turns an outbound request into the reference spec. The
+// generic mode is passed in already normalized so that every reference created
+// from the same configuration carries the same mode.
+func (dc *Client) resolveFromOutbound(req *DubboOutboundRequest, genericMode string) resolvedReferSpec {
 	spec := resolvedReferSpec{
 		Interface:              req.Service,
 		Group:                  req.Group,
 		Version:                req.Version,
 		EffectiveProtocol:      req.Protocol,
 		EffectiveSerialization: req.Serialization,
+		EffectiveGeneric:       genericMode,
 		ConsumerDefaults:       dc.consumerDefaults,
 	}
 	if spec.ConsumerDefaults.Cluster == "" && spec.ConsumerDefaults.RequestTimeout == 0 {
@@ -368,14 +404,22 @@ func (dc *Client) preparePayload(req *DubboOutboundRequest) ([]string, []hessian
 }
 
 func withAttachments(ctx context.Context, outbound map[string]any) context.Context {
-	// The internal tracing switch does not describe the caller's context. Keep
-	// the fast path only when there is no outbound state and no externally
-	// supplied span context that the global propagator must inject.
+	// The internal tracing switch does not describe the caller's context. A
+	// propagator may inject baggage even when there is no valid SpanContext, so
+	// the fast path must inspect its output instead of the context's span alone.
 	if !tracingEnabled.Load() &&
 		len(outbound) == 0 &&
-		ctx.Value(constant.AttachmentKey) == nil &&
-		!trace.SpanContextFromContext(ctx).IsValid() {
-		return ctx
+		ctx.Value(constant.AttachmentKey) == nil {
+		carrier := lazyTextMapCarrier{}
+		otel.GetTextMapPropagator().Inject(ctx, &carrier)
+		if len(carrier.values) == 0 {
+			return ctx
+		}
+		attachments := make(map[string]any, len(carrier.values))
+		for key, val := range carrier.values {
+			attachments[key] = val
+		}
+		return context.WithValue(ctx, constant.AttachmentKey, attachments)
 	}
 	attachments := make(map[string]any, len(outbound))
 	if attaRaw := ctx.Value(constant.AttachmentKey); attaRaw != nil {
@@ -467,6 +511,7 @@ func (spec resolvedReferSpec) genericServiceKey() genericServiceKey {
 		Group:             spec.Group,
 		EffectiveProtocol: spec.EffectiveProtocol,
 		Serialization:     spec.EffectiveSerialization,
+		Generic:           spec.EffectiveGeneric,
 	}
 }
 
@@ -532,6 +577,11 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 		return nil, errors.New("dubbo refer mode invalid: effective protocol is required")
 	}
 
+	genericMode, err := NormalizeGenericMode(spec.EffectiveGeneric)
+	if err != nil {
+		return nil, err
+	}
+
 	defaults := spec.ConsumerDefaults
 	opts := make([]dclient.ReferenceOption, 0, 16)
 
@@ -569,7 +619,7 @@ func (dc *Client) buildReferenceOptions(spec resolvedReferSpec) ([]dclient.Refer
 	}
 	opts = append(opts, dclient.WithRequestTimeout(timeout))
 
-	opts = append(opts, dclient.WithGeneric())
+	opts = append(opts, dclient.WithGenericType(genericMode))
 
 	return opts, nil
 }

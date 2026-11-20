@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### Admin API
+
+* AdminRouteBinding 新增不可变发布历史和回滚接口。旧版 Resource/Method 删除接口
+  不再能删除已发布 AdminRouteBinding 所属的运行时记录；过期的路径修改和回滚会被
+  拒绝，避免覆盖并发编辑。
+* 旧版 Resource 创建现在会原子镜像发布和草稿记录。旧版 Method 更新接口仍兼容
+  YAML 请求体中的 ID；`methodId` 查询参数继续保持可选。
+
 ### xDS
 
 * Admin 快照发布现在会保留 last-good 状态、报告监听可用性，并可靠处理

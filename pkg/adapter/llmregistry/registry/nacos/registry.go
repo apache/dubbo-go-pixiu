@@ -18,10 +18,10 @@
 package nacos
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	nacosConstant "github.com/nacos-group/nacos-sdk-go/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	nacosConstant "github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 import (
@@ -49,7 +49,14 @@ func (n *NacosRegistry) DoSubscribe() error {
 }
 
 func (n *NacosRegistry) DoUnsubscribe() error {
+	// Stop the background listener first: it unsubscribes all services and
+	// waits for the watch goroutine to exit so no callback races the close.
 	n.nacosListener.Close()
+	// v2 clients hold a gRPC connection and internal retry goroutines that
+	// survive Unsubscribe; CloseClient() shuts them down (see MCP adapter,
+	// pkg/adapter/mcpserver/registry/nacos/client.go). Without it, Stop/Apply
+	// leaks the connection and goroutines after graceful shutdown.
+	n.client.CloseClient()
 	return nil
 }
 
@@ -84,6 +91,14 @@ func newNacosRegistry(regConfig model.Registry, adapterListener common.RegistryE
 		return nil, err
 	}
 
+	return newNacosRegistryWithClient(regConfig, client, adapterListener)
+}
+
+// newNacosRegistryWithClient assembles a NacosRegistry around an existing
+// naming client. It is split out from newNacosRegistry so tests can inject a
+// mock client and assert on its lifecycle (e.g. that CloseClient is invoked
+// on unsubscribe).
+func newNacosRegistryWithClient(regConfig model.Registry, client naming_client.INamingClient, adapterListener common.RegistryEventListener) (*NacosRegistry, error) {
 	nacosRegistry := &NacosRegistry{
 		client: client,
 	}

@@ -51,9 +51,8 @@ import (
 //	       → logic.BizPut/Get/Delete... → real HTTP call to OPA server
 //
 // We stand up an httptest server as the OPA backend, point
-// adminconfig.Bootstrap.OPA.ServerURL at it, and sign JWTs with the
-// SAME hardcoded SignKey ("dubbo-go-pixiu") the middleware reads from
-// admin/controller/auth/auth.go:83.
+// adminconfig.Bootstrap.OPA.ServerURL at it, and configure a test-only
+// signing key for JWTs accepted by the middleware.
 // ----- helpers ---------------------------------------------------------------
 type recordedRequest struct {
 	method string
@@ -145,10 +144,10 @@ func (m *mockOPA) records() []recordedRequest {
 	return out
 }
 
-// signToken signs a JWT with the same hardcoded key the middleware uses,
-// so the resulting token passes JWTAuth without any DB lookup.
+// signToken uses the configured test key so the token passes JWTAuth.
 func signToken(t *testing.T) string {
 	t.Helper()
+	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "b6d79187f31f3a59a2734e8c9a89001383349f65c8ad2a9d1f32e570bd84965e")
 	claims := auth.CustomClaims{
 		Username: "e2e",
 		StandardClaims: jwt.StandardClaims{
@@ -157,7 +156,11 @@ func signToken(t *testing.T) string {
 		},
 	}
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	s, err := tok.SignedString([]byte(auth.GetSignKey()))
+	key, err := auth.GetSignKey()
+	if err != nil {
+		t.Fatalf("get signing key: %v", err)
+	}
+	s, err := tok.SignedString([]byte(key))
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}

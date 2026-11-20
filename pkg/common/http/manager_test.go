@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -211,6 +212,26 @@ func TestHandleHTTPRequestRecoversPreparePanicAndReleasesFactory(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, response.Code)
 	assert.NoError(t, fm.Close())
 	assert.Equal(t, 1, factory.closes)
+}
+
+func TestBuildTargetResponseKeepsRepeatedHeaders(t *testing.T) {
+	response := httptest.NewRecorder()
+	ctx := mock.GetMockHTTPContext(httptest.NewRequest("GET", "/user/login", nil))
+	ctx.Writer = response
+	ctx.SourceResp = &http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			constant.HeaderKeyContextType:   {constant.HeaderValueApplicationJson},
+			constant.HeaderKeyContentLength: {"2"},
+			"Set-Cookie":                    {"session=abc; Path=/", "csrf=xyz; Path=/"},
+		},
+		Body: io.NopCloser(strings.NewReader("{}")),
+	}
+
+	(&HttpConnectionManager{}).buildTargetResponse(ctx)
+
+	assert.Equal(t, []string{"session=abc; Path=/", "csrf=xyz; Path=/"}, response.Header().Values("Set-Cookie"))
+	assert.Equal(t, []string{constant.HeaderValueApplicationJson}, response.Header().Values(constant.HeaderKeyContextType))
 }
 
 // test SSE case

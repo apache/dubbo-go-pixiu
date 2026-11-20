@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"os/signal"
 	"sync"
 	"syscall"
 	"testing"
@@ -28,16 +29,150 @@ import (
 )
 
 import (
+	"github.com/agiledragon/gomonkey/v2"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/common/shutdown"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
 	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+func TestGracefulShutdownDisabledDoesNotRegisterSignalsOrRunCleanup(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		config *model.ShutdownConfig
+	}{
+		{name: "default"},
+		{name: "zero", config: &model.ShutdownConfig{Timeout: "0s"}},
+		{name: "negative", config: &model.ShutdownConfig{Timeout: "-1s"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			patches := gomonkey.ApplyFunc(signal.Notify, func(chan<- os.Signal, ...os.Signal) {
+				t.Fatal("disabled graceful shutdown must not register signal handling")
+			})
+			defer patches.Reset()
+			patches.ApplyFunc(shutdown.RunHooks, func() {
+				t.Fatal("disabled graceful shutdown must not run cleanup hooks")
+			})
+
+			lm := &ListenerManager{
+				bootstrap: &model.Bootstrap{StaticResources: model.StaticResources{
+					ShutdownConfig: tt.config,
+				}},
+			}
+			lm.gracefulShutdownInit()
+		})
+	}
+}
+
+func TestGracefulShutdownRunsCleanupBeforeListenersAndExit(t *testing.T) {
+	var signals chan<- os.Signal
+	events := make(chan string, 3)
+	exited := make(chan struct{})
+	patches := gomonkey.ApplyFunc(signal.Notify, func(c chan<- os.Signal, _ ...os.Signal) { signals = c })
+	defer patches.Reset()
+	patches.ApplyFunc(shutdown.RunHooks, func() { events <- "cleanup" })
+	patches.ApplyFunc(os.Exit, func(code int) {
+		assert.Equal(t, 0, code)
+		events <- "exit"
+		close(exited)
+	})
+	patches.ApplyMethod(&legacyListenerService{}, "ShutDown", func(_ *legacyListenerService, wg any) error {
+		events <- "listener"
+		wg.(*sync.WaitGroup).Done()
+		return nil
+	})
+	lm := &ListenerManager{
+		bootstrap: &model.Bootstrap{StaticResources: model.StaticResources{
+			ShutdownConfig: &model.ShutdownConfig{Timeout: "1h"},
+		}},
+		activeListenerService: map[string]*wrapListenerService{
+			"probe": {ListenerService: &legacyListenerService{}},
+		},
+		rwLock: &sync.RWMutex{},
+	}
+	lm.gracefulShutdownInit()
+	require.NotNil(t, signals)
+	signals <- os.Interrupt
+	select {
+	case <-exited:
+	case <-time.After(3 * time.Second):
+		t.Fatal("signal handler did not finish")
+	}
+	require.Equal(t, "cleanup", <-events)
+	require.Equal(t, "listener", <-events)
+	require.Equal(t, "exit", <-events)
+}
+
+func TestListenerManagerCleanupTimeoutStopsBeforeListenerShutdown(t *testing.T) {
+	release := make(chan struct{})
+	hooksDone := make(chan struct{})
+	patches := gomonkey.ApplyFunc(shutdown.RunHooks, func() {
+		<-release
+		close(hooksDone)
+	})
+	defer patches.Reset()
+	defer func() {
+		close(release)
+		<-hooksDone
+	}()
+	groups := make(chan *sync.WaitGroup, 1)
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"probe": {ListenerService: &shutdownListenerService{groups: groups}},
+		},
+		rwLock: &sync.RWMutex{},
+	}
+	type result struct {
+		errs     []error
+		timedOut bool
+	}
+	finished := make(chan result, 1)
+	go func() {
+		errs, timedOut := lm.handleShutdownSignal(os.Interrupt, 20*time.Millisecond)
+		finished <- result{errs: errs, timedOut: timedOut}
+	}()
+	select {
+	case got := <-finished:
+		require.Empty(t, got.errs)
+		require.True(t, got.timedOut)
+		require.Equal(t, 1, shutdownExitCode(got.errs, got.timedOut))
+		require.Empty(t, groups, "listeners must not drain before cleanup finishes")
+	case <-time.After(3 * time.Second):
+		t.Fatal("blocked cleanup exceeded the overall shutdown timeout")
+	}
+}
+
+func TestListenerManagerCleanupAndListenersShareTimeout(t *testing.T) {
+	release := make(chan struct{})
+	patches := gomonkey.ApplyFunc(shutdown.RunHooks, func() {
+		time.Sleep(200 * time.Millisecond)
+	})
+	defer patches.Reset()
+	timer := time.AfterFunc(400*time.Millisecond, func() { close(release) })
+	defer func() {
+		if timer.Stop() {
+			close(release)
+		}
+	}()
+	lm := &ListenerManager{
+		activeListenerService: map[string]*wrapListenerService{
+			"probe": {ListenerService: &shutdownListenerService{release: release}},
+		},
+		rwLock: &sync.RWMutex{},
+	}
+
+	errs, timedOut := lm.handleShutdownSignal(os.Interrupt, 300*time.Millisecond)
+
+	require.Empty(t, errs)
+	require.True(t, timedOut, "cleanup must consume the listener shutdown budget")
+}
 
 type transactionListenerService struct {
 	listener.BaseListenerService

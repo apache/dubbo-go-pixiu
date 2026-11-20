@@ -1,0 +1,22 @@
+kind: AdminRouteBinding
+metadata:
+  name: user-get
+spec:
+  entry:
+    protocol: http
+    path: /api/v1/users/:id
+    method: GET
+  backendRef:
+    type: registry
+  serviceSelection:
+    application: UserProvider
+    interface: com.example.UserService
+    version: 1.0.0
+    group: stable
+  invocation:
+    method: GetUser
+    timeout: 750ms
+    parameters:
+      - from: uri.id
+        to: 0
+        type: java.lang.String

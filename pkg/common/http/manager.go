@@ -259,10 +259,11 @@ func (hcm *HttpConnectionManager) buildTargetResponse(c *pch.HttpContext) {
 
 	switch res := c.SourceResp.(type) {
 	case *stdHttp.Response:
-		// Merge header
-		remoteHeader := res.Header
-		for k := range remoteHeader {
-			c.AddHeader(k, remoteHeader.Get(k))
+		// Merge header, keeping every value of repeated headers such as Set-Cookie
+		for k, values := range res.Header {
+			for _, v := range values {
+				c.AddHeader(k, v)
+			}
 		}
 		// status code
 		c.StatusCode(res.StatusCode)

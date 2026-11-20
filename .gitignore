@@ -5,6 +5,7 @@ logs/
 
 # admin
 etcd-data/
+/.env
 
 # app
 dubbo-go-pixiu

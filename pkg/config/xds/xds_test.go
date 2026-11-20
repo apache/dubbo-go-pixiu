@@ -19,7 +19,9 @@ package xds
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -111,8 +113,265 @@ func TestAdapter_createApiManager(t *testing.T) {
 	ada := Xds{
 		clusterMg: clusterMg,
 	}
-	ada.Start()
-	api := ada.createApiManager(&apiConfig, &node, constant.ClusterType)
+	require.NoError(t, ada.Start())
+	api, err := ada.createApiManager(&apiConfig, &node, constant.ClusterType)
 	assert := require.New(t)
+	assert.NoError(err)
 	assert.NotNil(api)
+}
+
+func TestAdapter_createApiManager_ErrorHandling(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	apiclient.Init(clusterMg)
+
+	node := &model.Node{
+		Cluster: "test-cluster",
+		Id:      "node-test-1",
+	}
+
+	tests := []struct {
+		name        string
+		apiConfig   *model.ApiConfigSource
+		expectErr   bool
+		description string
+	}{
+		{
+			name:        "nil config",
+			apiConfig:   nil,
+			expectErr:   false,
+			description: "should return (nil, nil) for nil config (not configured is not an error)",
+		},
+		{
+			name: "empty cluster name - GRPC type",
+			apiConfig: &model.ApiConfigSource{
+				APIType:     model.ApiTypeGRPC,
+				APITypeStr:  "GRPC",
+				ClusterName: []string{}, // Empty
+			},
+			expectErr:   true,
+			description: "should return error for empty cluster name in GRPC type",
+		},
+		{
+			name: "unsupported API type",
+			apiConfig: &model.ApiConfigSource{
+				APIType:     model.ApiType(-1), // Invalid type
+				APITypeStr:  "INVALID",
+				ClusterName: []string{"cluster-1"},
+			},
+			expectErr:   true,
+			description: "should return error for unsupported API type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ada := &Xds{
+				clusterMg: clusterMg,
+				exitCh:    make(chan struct{}),
+			}
+
+			api, err := ada.createApiManager(tt.apiConfig, node, constant.ClusterType)
+			assert := require.New(t)
+			if tt.expectErr {
+				assert.Error(err, tt.description)
+				assert.Nil(api, tt.description)
+			} else {
+				assert.NoError(err, tt.description)
+				assert.Nil(api, tt.description)
+			}
+		})
+	}
+}
+
+func TestAdapter_Start_NilApiManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	drm := mocks.NewMockDynamicResourceManager(ctrl)
+
+	apiclient.Init(clusterMg)
+
+	// LDS configured but with an empty cluster name -> createApiManager returns an error.
+	// Start() calls GetLds() once for the nil-check, then again inside createApiManager.
+	gomock.InOrder(
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{}, // Empty - will cause createApiManager to return an error
+		}),
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
+	// CDS is not configured, so its block is skipped after the nil-check.
+	drm.EXPECT().GetCds().Return(nil)
+
+	ada := &Xds{
+		clusterMg:         clusterMg,
+		dynamicResourceMg: drm,
+		exitCh:            make(chan struct{}),
+	}
+
+	// Start must surface the LDS init failure instead of silently returning (fail-fast).
+	err := ada.Start()
+	assert := require.New(t)
+	assert.Error(err)
+	assert.Contains(err.Error(), "LDS")
+	assert.Nil(ada.lds) // not created because createApiManager failed
+	assert.Nil(ada.cds) // not configured
+	select {
+	case <-ada.exitCh:
+	default:
+		t.Fatal("failed xDS startup must close the exit channel")
+	}
+}
+
+func TestAdapter_Start_CdsNilApiManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	drm := mocks.NewMockDynamicResourceManager(ctrl)
+
+	apiclient.Init(clusterMg)
+
+	// LDS not configured.
+	drm.EXPECT().GetLds().Return(nil)
+
+	// CDS configured but with an empty cluster name -> createApiManager returns an error.
+	// Start() calls GetCds() once for the nil-check, then again inside createApiManager.
+	gomock.InOrder(
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{}, // Empty - will cause createApiManager to return an error
+		}),
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
+
+	ada := &Xds{
+		clusterMg:         clusterMg,
+		dynamicResourceMg: drm,
+		exitCh:            make(chan struct{}),
+	}
+
+	// Start must surface the CDS init failure (fail-fast).
+	err := ada.Start()
+	assert := require.New(t)
+	assert.Error(err)
+	assert.Contains(err.Error(), "CDS")
+	assert.Nil(ada.lds) // not configured
+	assert.Nil(ada.cds) // not created because createApiManager failed
+}
+
+// TestAdapter_Start_LdsAndCdsIndependentErrors verifies the core P0 fix: an LDS init failure
+// must NOT skip CDS initialization. Both are attempted, and the returned error reports both.
+func TestAdapter_Start_LdsAndCdsIndependentErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	drm := mocks.NewMockDynamicResourceManager(ctrl)
+
+	apiclient.Init(clusterMg)
+
+	// LDS configured with an empty cluster name -> fails.
+	gomock.InOrder(
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetLds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
+	// CDS also configured with an empty cluster name -> fails too, proving it was attempted
+	// despite the LDS failure.
+	gomock.InOrder(
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetCds().Return(&model.ApiConfigSource{
+			APIType:     model.ApiTypeGRPC,
+			ClusterName: []string{},
+		}),
+		drm.EXPECT().GetNode().Return(&model.Node{}),
+	)
+
+	ada := &Xds{
+		clusterMg:         clusterMg,
+		dynamicResourceMg: drm,
+		exitCh:            make(chan struct{}),
+	}
+
+	err := ada.Start()
+	assert := require.New(t)
+	assert.Error(err)
+	// Both LDS and CDS failures are present in the joined error.
+	assert.Contains(err.Error(), "LDS")
+	assert.Contains(err.Error(), "CDS")
+	assert.Nil(ada.lds)
+	assert.Nil(ada.cds)
+}
+
+func TestAdapter_Start_SharedClusterConnectionFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	clusterMg := mocks.NewMockClusterManager(ctrl)
+	store := mocks.NewMockClusterStore(ctrl)
+	drm := mocks.NewMockDynamicResourceManager(ctrl)
+	cluster := &model.ClusterConfig{
+		Name: "shared-xds",
+		Endpoints: []*model.Endpoint{{
+			Address: model.SocketAddress{Address: "127.0.0.1", Port: 19999},
+		}},
+	}
+	clusterMg.EXPECT().HasCluster(cluster.Name).Return(true).Times(2)
+	clusterMg.EXPECT().CloneXdsControlStore().Return(store, nil).Times(1)
+	store.EXPECT().Config().Return([]*model.ClusterConfig{cluster}).Times(1)
+	apiConfig := &model.ApiConfigSource{
+		APIType:     model.ApiTypeGRPC,
+		ClusterName: []string{cluster.Name},
+	}
+	drm.EXPECT().GetLds().Return(apiConfig).Times(2)
+	drm.EXPECT().GetCds().Return(apiConfig).Times(2)
+	drm.EXPECT().GetNode().Return(&model.Node{}).Times(2)
+
+	dialErr := errors.New("xDS cluster is unreachable")
+	dialCalls := 0
+	patches := gomonkey.ApplyFunc(grpc.DialContext, func(context.Context, string, ...grpc.DialOption) (*grpc.ClientConn, error) { //nolint:staticcheck // test intercepts the production blocking dial
+		dialCalls++
+		return nil, dialErr
+	})
+	defer patches.Reset()
+
+	adapter := &Xds{
+		clusterMg:         clusterMg,
+		dynamicResourceMg: drm,
+		exitCh:            make(chan struct{}),
+	}
+	var startErr error
+	require.NotPanics(t, func() { startErr = adapter.Start() })
+	require.Error(t, startErr)
+	require.Contains(t, startErr.Error(), "create LDS api manager")
+	require.Contains(t, startErr.Error(), "create CDS api manager")
+	require.Equal(t, 2, strings.Count(startErr.Error(), dialErr.Error()))
+	require.Equal(t, 1, dialCalls, "both watches must reuse the cached connection error")
+	require.Nil(t, adapter.lds)
+	require.Nil(t, adapter.cds)
+	select {
+	case <-adapter.exitCh:
+	default:
+		t.Fatal("failed xDS startup must close the exit channel")
+	}
 }
