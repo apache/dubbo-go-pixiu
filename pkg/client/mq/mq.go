@@ -126,9 +126,9 @@ func (c Client) Call(req *client.Request) (res any, err error) {
 			consumerFacadeMap.Store(cReq.ConsumerGroup, facade)
 			if f, ok := consumerFacadeMap.Load(cReq.ConsumerGroup); ok {
 				cf := f.(ConsumerFacade)
-				ctx, cancel := context.WithTimeout(c.ctx, req.Timeout)
-				defer cancel()
-				err = cf.Subscribe(ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl), WithConsumerGroup(cReq.ConsumerGroup))
+				// A subscription outlives this registration request. Its workers
+				// stop on client cancellation, unsubscribe, or a failed health check.
+				err = cf.Subscribe(c.ctx, WithTopics(cReq.TopicList), WithConsumeUrl(cReq.ConsumeUrl), WithCheckUrl(cReq.CheckUrl), WithConsumerGroup(cReq.ConsumerGroup))
 				if err != nil {
 					facade.Stop()
 					consumerFacadeMap.Delete(cReq.ConsumerGroup)
