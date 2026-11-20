@@ -40,7 +40,7 @@ export class ApiError extends Error {
 function sessionHeaders() {
   const session = readSession()
   if (!session) return {}
-  return { token: session.token, username: session.username }
+  return { token: session.token }
 }
 
 function isAuthFailure(status: number, bodyData: unknown) {

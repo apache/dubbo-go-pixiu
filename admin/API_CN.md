@@ -18,6 +18,23 @@
 
 * **data**：一般为 YAML 格式的数据
 
+## 账号接口
+
+所有账号接口都使用请求头 `token` 传递登录后获取的 JWT。`POST /register` 仅允许管理员调用，创建的新账号也具有管理员角色；用户名需要为 1 到 255 个字符，密码需要为 8 到 128 个字符。
+
+```http
+POST /register HTTP/1.1
+Host: 127.0.0.1:8081
+Content-Type: application/x-www-form-urlencoded
+token: <登录后获取的 JWT>
+
+username=operator&password=change-me-123
+```
+
+新部署在没有 `admin` 账号时会初始化默认账号 `admin` / `pixiuadmin`。首次登录后请在 Admin v2 的个人中心修改默认密码。
+
+服务启动时会为已有的 `pixiu_user` 表补充用户名唯一索引。若表中已经存在重名账号，服务会停止启动且不会修改数据；请先手动处理重名账号后再重启。
+
 ## 一、基础信息
 
 ### 1.1 获取基础信息

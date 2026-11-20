@@ -81,6 +81,19 @@ func JWTAuth() gin.HandlerFunc {
 	}
 }
 
+// CurrentUsername returns the username from the JWT validated by JWTAuth.
+func CurrentUsername(c *gin.Context) string {
+	claims, ok := c.Get("claims")
+	if !ok {
+		return ""
+	}
+	userClaims, ok := claims.(*CustomClaims)
+	if !ok {
+		return ""
+	}
+	return userClaims.Username
+}
+
 // JWT Signature structure
 type JWT struct {
 	SigningKey []byte

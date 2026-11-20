@@ -20,7 +20,9 @@ package account
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 import (
@@ -39,41 +41,48 @@ import (
 )
 
 // @Tags Register
-// @Summary user registration
-// @Produce  application/json
+// @Summary register an administrator account
+// @Description Create an administrator account. The request requires a valid JWT belonging to an administrator.
+// @Accept application/x-www-form-urlencoded
+// @Produce application/json
+// @Param token header string true "JWT token"
 // @Param username formData string true "username"
 // @Param password formData string true "password"
-// @Success 200 {string} string "{"code":"","data":""}"
+// @Success 200 {string} string "{\"code\":\"\",\"data\":\"\"}"
 // @Router /register [post]
 func Register(c *gin.Context) {
-	username := c.PostForm("username")
-	password := c.PostForm("password")
+	registerAccount(c, account.CheckUserIsAdmin, account.Register)
+}
 
-	// username password Format check
-	//if flag, _ := regexp.MatchString("^[a-zA-Z0-9_-]{4,16}$", username); !flag {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"status": -1,
-	//		"msg":    "illegal username",
-	//		"data":   nil,
-	//	})
-	//	return
-	//}
-
-	//if flag, _ := regexp.MatchString("^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,20}$", password); !flag {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"status": -1,
-	//		"msg":    "illegal password",
-	//		"data":   nil,
-	//	})
-	//	return
-	//}
-	password = utils.Md5(password)
-	err := account.Register(username, password)
-	if err != nil {
+func registerAccount(c *gin.Context, checkUserIsAdmin func(string) (bool, error), createAccount func(string, string) error) {
+	currentUsername := auth.CurrentUsername(c)
+	isAdmin, err := checkUserIsAdmin(currentUsername)
+	if !isAdmin {
+		if err == nil {
+			err = errors.New("only administrators can register accounts")
+		}
 		c.JSON(http.StatusOK, config.WithError(err))
-	} else {
-		c.JSON(http.StatusOK, config.WithRet("Register successfully, please login!"))
+		return
 	}
+
+	username := strings.TrimSpace(c.PostForm("username"))
+	password := c.PostForm("password")
+	usernameLength := utf8.RuneCountInString(username)
+	passwordLength := utf8.RuneCountInString(password)
+	if usernameLength == 0 || usernameLength > 255 {
+		c.JSON(http.StatusOK, config.WithError(errors.New("username must be between 1 and 255 characters")))
+		return
+	}
+	if passwordLength < 8 || passwordLength > 128 {
+		c.JSON(http.StatusOK, config.WithError(errors.New("password must be between 8 and 128 characters")))
+		return
+	}
+
+	if err := createAccount(username, utils.Md5(password)); err != nil {
+		c.JSON(http.StatusOK, config.WithError(err))
+		return
+	}
+	c.JSON(http.StatusOK, config.WithRet("Register successfully, please login!"))
 }
 
 // login result
@@ -119,8 +128,6 @@ func generateToken(c *gin.Context, username string) {
 		c.JSON(http.StatusOK, config.WithError(err))
 		return
 	}
-
-	log.Println(token)
 
 	data := LoginResult{
 		Username: username,

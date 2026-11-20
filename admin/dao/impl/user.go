@@ -92,13 +92,16 @@ func (d *UserDao) GetUserInfo(username string) (bool, any, error) {
 
 func (d *UserDao) GetUserRole(username string) (bool, any, error) {
 	db := d.db
-	var roleId int
 	var role, description string
-	err := db.QueryRow("SELECT role FROM pixiu_user WHERE username = ?", username).Scan(&roleId)
-	if err != nil {
-		return false, "", err
-	}
-	err = db.QueryRow("SELECT role_name, description FROM pixiu_role where id = (SELECT role_id FROM pixiu_user_role WHERE user_id = 1)").Scan(&role, &description)
+	err := db.QueryRow(`
+		SELECT r.role_name, r.description
+		FROM pixiu_user AS u
+		JOIN pixiu_user_role AS ur ON ur.user_id = u.id
+		JOIN pixiu_role AS r ON r.id = ur.role_id
+		WHERE u.username = ?
+		ORDER BY r.id
+		LIMIT 1
+	`, username).Scan(&role, &description)
 	if err != nil {
 		return false, "", err
 	}
