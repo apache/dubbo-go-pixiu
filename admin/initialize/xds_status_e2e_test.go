@@ -33,6 +33,7 @@ import (
 
 import (
 	adminconfig "github.com/apache/dubbo-go-pixiu/admin/config"
+	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	xdsController "github.com/apache/dubbo-go-pixiu/admin/controller/xds"
 	adminxds "github.com/apache/dubbo-go-pixiu/admin/xds"
 )
@@ -59,7 +60,7 @@ func TestXDSStatusRouteEndToEnd(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/config/api/xds/status", nil)
 	req.Header.Set("token", signToken(t))
 	recorder := httptest.NewRecorder()
-	Routers().ServeHTTP(recorder, req)
+	routers(func(c *gin.Context) { c.Next() }).ServeHTTP(recorder, req)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	var response struct {
@@ -81,13 +82,38 @@ func TestXDSStatusRouteEndToEnd(t *testing.T) {
 
 	adminxds.DefaultStatusStore.RecordListenError(errors.New("address already in use"))
 	recorder = httptest.NewRecorder()
-	Routers().ServeHTTP(recorder, req.Clone(req.Context()))
+	routers(func(c *gin.Context) { c.Next() }).ServeHTTP(recorder, req.Clone(req.Context()))
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.False(t, response.Data.Listening)
 	require.False(t, response.Data.Ready)
 	require.True(t, response.Data.Degraded)
 	require.Equal(t, "address already in use", response.Data.ListenError)
+}
+
+func TestXDSStatusRouteRequiresAdministrator(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() { gin.SetMode(gin.DebugMode) })
+
+	for _, test := range []struct {
+		name       string
+		username   string
+		wantStatus int
+	}{
+		{name: "administrator", username: "admin", wantStatus: http.StatusOK},
+		{name: "ordinary user", username: "user", wantStatus: http.StatusForbidden},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			router := routers(auth.AdminAuthWithChecker(func(username string) (bool, error) {
+				return username == "admin", nil
+			}))
+			req := httptest.NewRequest(http.MethodGet, "/config/api/xds/status", nil)
+			req.Header.Set("token", signTokenForUser(t, test.username))
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+			require.Equal(t, test.wantStatus, recorder.Code)
+		})
+	}
 }
 
 func TestSwaggerIncludesXDSStatusRoute(t *testing.T) {

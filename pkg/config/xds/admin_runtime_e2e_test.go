@@ -347,7 +347,7 @@ func TestAdminHTTPToRunningPixiuEndToEnd(t *testing.T) {
 	upstreamTwoHost, upstreamTwoPort := splitAddress(t, strings.TrimPrefix(upstreamTwo.URL, "http://"))
 	listenerPort := reserveRuntimeE2EPort(t)
 
-	router := initialize.Routers()
+	router := initialize.RoutersWithAdminAuth(func(c *gin.Context) { c.Next() })
 	token := runtimeE2EToken(t)
 	clusterYAML := runtimeE2EClusterYAML(0, upstreamOneHost, upstreamOnePort)
 	runtimeE2EAdminForm(t, router, token, http.MethodPut, "/config/api/cluster", clusterYAML)

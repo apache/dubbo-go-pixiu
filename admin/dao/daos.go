@@ -23,7 +23,7 @@ type GuestDao interface {
 	Login(username, password string) (bool, int)
 	// EnsureUsernameUniqueIndex prevents duplicate usernames during concurrent registration.
 	EnsureUsernameUniqueIndex() error
-	// EnsureDefaultAdmin creates the bootstrap account when it does not exist.
+	// EnsureDefaultAdmin ensures the bootstrap administrator and migrates legacy roles once.
 	EnsureDefaultAdmin(username, password string) error
 	// Register creates an administrator account.
 	Register(username, password string) error

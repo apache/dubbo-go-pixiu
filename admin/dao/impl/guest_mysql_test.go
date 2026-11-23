@@ -104,6 +104,57 @@ func TestEnsureUsernameUniqueIndexLeavesExistingDuplicatesUntouched(t *testing.T
 	}
 }
 
+func TestEnsureUsernameUniqueIndexDoesNotAcceptPrefixIndex(t *testing.T) {
+	db := newGuestMySQLTestDB(t)
+	createGuestTestTables(t, db)
+	if _, err := db.Exec("CREATE UNIQUE INDEX prefix_username ON pixiu_user (username(16))"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&GuestDao{db: db}).EnsureUsernameUniqueIndex(); err != nil {
+		t.Fatalf("EnsureUsernameUniqueIndex() error = %v", err)
+	}
+	indexed, err := hasUniqueUsernameIndex(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !indexed {
+		t.Fatal("hasUniqueUsernameIndex() = false after adding full-column unique index")
+	}
+}
+
+func TestEnsureUsernameUniqueIndexDoesNotAcceptCompositeIndex(t *testing.T) {
+	db := newGuestMySQLTestDB(t)
+	createGuestTestTables(t, db)
+	if _, err := db.Exec("CREATE UNIQUE INDEX composite_username ON pixiu_user (username, password(16))"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&GuestDao{db: db}).EnsureUsernameUniqueIndex(); err != nil {
+		t.Fatalf("EnsureUsernameUniqueIndex() error = %v", err)
+	}
+	indexed, err := hasUniqueUsernameIndex(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !indexed {
+		t.Fatal("hasUniqueUsernameIndex() = false after adding single-column unique index")
+	}
+}
+
+func TestEnsureUsernameUniqueIndexRejectsIncompatibleFixedName(t *testing.T) {
+	db := newGuestMySQLTestDB(t)
+	createGuestTestTables(t, db)
+	if _, err := db.Exec("CREATE INDEX uniq_pixiu_user_username ON pixiu_user (username(16))"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := (&GuestDao{db: db}).EnsureUsernameUniqueIndex()
+	if err == nil || !strings.Contains(err.Error(), `index "uniq_pixiu_user_username" already exists with an incompatible definition`) {
+		t.Fatalf("EnsureUsernameUniqueIndex() error = %v, want incompatible index error", err)
+	}
+}
+
 func TestEnsureDefaultAdminSeedsRoleAndAssociation(t *testing.T) {
 	db := newGuestMySQLTestDB(t)
 	createGuestTestTables(t, db)
@@ -161,7 +212,7 @@ func TestEnsureDefaultAdminSeedsRoleAndAssociation(t *testing.T) {
 	}
 }
 
-func TestEnsureDefaultAdminPreservesExistingNonAdminAccount(t *testing.T) {
+func TestEnsureDefaultAdminPromotesExistingAccountAndPreservesPassword(t *testing.T) {
 	db := newGuestMySQLTestDB(t)
 	createGuestTestTables(t, db)
 	dao := &GuestDao{db: db}
@@ -181,16 +232,94 @@ func TestEnsureDefaultAdminPreservesExistingNonAdminAccount(t *testing.T) {
 	if err := db.QueryRow("SELECT password, role FROM pixiu_user WHERE username = ?", "admin").Scan(&password, &role); err != nil {
 		t.Fatal(err)
 	}
-	if password != "existing-hash" || role != 0 {
-		t.Fatalf("existing account = (password %q, role %d), want (existing-hash, 0)", password, role)
+	if password != "existing-hash" || role != 1 {
+		t.Fatalf("existing account = (password %q, role %d), want (existing-hash, 1)", password, role)
 	}
 
 	var associationCount int
-	if err := db.QueryRow("SELECT COUNT(*) FROM pixiu_user_role").Scan(&associationCount); err != nil {
+	if err := db.QueryRow("SELECT COUNT(*) FROM pixiu_user_role WHERE role_id = 1").Scan(&associationCount); err != nil {
 		t.Fatal(err)
 	}
-	if associationCount != 0 {
-		t.Fatalf("non-admin account role associations = %d, want 0", associationCount)
+	if associationCount != 1 {
+		t.Fatalf("admin role associations = %d, want 1", associationCount)
+	}
+}
+
+func TestEnsureDefaultAdminMigratesLegacyAdminsOnlyOnce(t *testing.T) {
+	db := newGuestMySQLTestDB(t)
+	createGuestTestTables(t, db)
+	if _, err := db.Exec(`
+		INSERT INTO pixiu_role (id, role_name, description)
+		VALUES (1, 'admin', 'Administrator')
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO pixiu_user (username, password, role)
+		VALUES ('admin', 'existing-admin-hash', 0),
+		       ('legacy-admin', 'legacy-hash', 1),
+		       ('ordinary-user', 'ordinary-hash', 0)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO pixiu_user_role (user_id, role_id)
+		SELECT id, 1 FROM pixiu_user WHERE username IN ('admin', 'legacy-admin')
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	dao := &GuestDao{db: db}
+	if err := dao.EnsureDefaultAdmin("admin", "bootstrap-hash"); err != nil {
+		t.Fatalf("EnsureDefaultAdmin() error = %v", err)
+	}
+	if err := dao.Register("new-admin", "new-admin-hash"); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if err := dao.EnsureDefaultAdmin("admin", "replacement-hash"); err != nil {
+		t.Fatalf("EnsureDefaultAdmin() second call error = %v", err)
+	}
+
+	accounts := map[string]struct {
+		password string
+		role     int
+	}{
+		"admin":         {password: "existing-admin-hash", role: 1},
+		"legacy-admin":  {password: "legacy-hash", role: 0},
+		"ordinary-user": {password: "ordinary-hash", role: 0},
+		"new-admin":     {password: "new-admin-hash", role: 1},
+	}
+	for username, want := range accounts {
+		var got struct {
+			password string
+			role     int
+		}
+		if err := db.QueryRow("SELECT password, role FROM pixiu_user WHERE username = ?", username).Scan(&got.password, &got.role); err != nil {
+			t.Fatalf("read %q: %v", username, err)
+		}
+		if got != want {
+			t.Errorf("account %q = (%q, %d), want (%q, %d)", username, got.password, got.role, want.password, want.role)
+		}
+	}
+
+	var legacyAdminAssociations, legacyUserAssociations int
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM pixiu_user_role AS ur
+		JOIN pixiu_user AS u ON u.id = ur.user_id
+		WHERE u.username = 'legacy-admin' AND ur.role_id = 1
+	`).Scan(&legacyAdminAssociations); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM pixiu_user_role AS ur
+		JOIN pixiu_user AS u ON u.id = ur.user_id
+		JOIN pixiu_role AS r ON r.id = ur.role_id
+		WHERE u.username = 'legacy-admin' AND r.role_name = 'user'
+	`).Scan(&legacyUserAssociations); err != nil {
+		t.Fatal(err)
+	}
+	if legacyAdminAssociations != 0 || legacyUserAssociations != 1 {
+		t.Fatalf("legacy role associations = (admin %d, user %d), want (0, 1)", legacyAdminAssociations, legacyUserAssociations)
 	}
 }
 
@@ -233,6 +362,9 @@ func newGuestMySQLTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	dsn := os.Getenv("PIXIU_TEST_MYSQL_DSN")
 	if dsn == "" {
+		if os.Getenv("CI") != "" {
+			t.Fatal("PIXIU_TEST_MYSQL_DSN is required in CI")
+		}
 		t.Skip("set PIXIU_TEST_MYSQL_DSN to a MySQL account allowed to create and drop databases")
 	}
 
@@ -283,7 +415,8 @@ func createGuestTestTables(t *testing.T, db *sql.DB) {
 			id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 			username VARCHAR(255) NOT NULL,
 			password VARCHAR(255) NOT NULL,
-			role INT NOT NULL DEFAULT 1
+			role INT NOT NULL DEFAULT 1,
+			date_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 	`); err != nil {
 		t.Fatalf("create pixiu_user test table: %v", err)
@@ -298,7 +431,7 @@ func createGuestTestTables(t *testing.T, db *sql.DB) {
 	}
 	if _, err := db.Exec(`
 		CREATE TABLE pixiu_role (
-			id INT NOT NULL PRIMARY KEY,
+			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 			role_name VARCHAR(255) NOT NULL,
 			description VARCHAR(255) NOT NULL
 		) ENGINE=InnoDB

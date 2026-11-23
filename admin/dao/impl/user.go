@@ -50,29 +50,21 @@ func (d *UserDao) Create(db *sql.DB) (any, error) {
 
 func (d *UserDao) EditPassword(oldPassword, newPassword, username string) (bool, error) {
 	db := d.db
-	var id int
-	var password string
 	now := time.Now().Format("2006-01-02 15:04:05")
 	oldPassword = utils.Md5(oldPassword)
 	newPassword = utils.Md5(newPassword)
-	err := db.QueryRow("SELECT id, password FROM  pixiu_user WHERE username = ? AND password = ?;", username, oldPassword).Scan(&id, &password)
-	if err != nil {
-		return false, errors.New("oldPassword error")
-	}
-	stmt, err := db.Prepare("UPDATE pixiu_user SET password = ?, date_updated = ? WHERE id = ? AND username = ?;")
-	if err != nil {
-		return false, errors.New("illegal sql statement")
-	}
-	defer stmt.Close()
-	r, err := stmt.Exec(newPassword, now, id, username)
+	result, err := db.Exec("UPDATE pixiu_user SET password = ?, date_updated = ? WHERE username = ? AND password = ?;", newPassword, now, username, oldPassword)
 	if err != nil {
 		return false, errors.New("fail to update data, Exec fail")
 	}
-	_, err = r.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return false, errors.New("fail to update data, RowAffected fail")
 	}
-	return true, err
+	if rowsAffected != 1 {
+		return false, errors.New("oldPassword error")
+	}
+	return true, nil
 }
 
 func (d *UserDao) GetUserInfo(username string) (bool, any, error) {

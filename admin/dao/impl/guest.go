@@ -69,6 +69,14 @@ func (d *GuestDao) EnsureUsernameUniqueIndex() error {
 		return nil
 	}
 
+	indexExists, indexValid, err := fixedUsernameIndexStatus(d.db)
+	if err != nil {
+		return err
+	}
+	if indexExists && !indexValid {
+		return fmt.Errorf("cannot add unique username index: index %q already exists with an incompatible definition; rename or remove it and restart", usernameIndexName)
+	}
+
 	if username, err := findDuplicateUsername(d.db); err == nil {
 		return fmt.Errorf("cannot add unique username index: duplicate username %q exists; resolve duplicate accounts and restart", username)
 	} else if !errors.Is(err, SQL.ErrNoRows) {
@@ -100,10 +108,30 @@ func hasUniqueUsernameIndex(db *SQL.DB) (bool, error) {
 			  AND table_name = 'pixiu_user'
 			  AND non_unique = 0
 			GROUP BY index_name
-			HAVING COUNT(*) = 1 AND MAX(column_name = 'username') = 1
+			HAVING COUNT(*) = 1 AND MAX(column_name = 'username' AND sub_part IS NULL) = 1
 		)
 	`).Scan(&indexed)
 	return indexed, err
+}
+
+const usernameIndexName = "uniq_pixiu_user_username"
+
+func fixedUsernameIndexStatus(db *SQL.DB) (exists, valid bool, err error) {
+	var columnCount, matchingColumnCount int
+	err = db.QueryRow(`
+		SELECT COUNT(*), COALESCE(SUM(non_unique = 0 AND column_name = 'username' AND sub_part IS NULL), 0)
+		FROM information_schema.statistics
+		WHERE table_schema = DATABASE()
+		  AND table_name = 'pixiu_user'
+		  AND index_name = ?
+	`, usernameIndexName).Scan(&columnCount, &matchingColumnCount)
+	if err != nil {
+		return false, false, err
+	}
+	if columnCount == 0 {
+		return false, false, nil
+	}
+	return true, columnCount == 1 && matchingColumnCount == 1, nil
 }
 
 func findDuplicateUsername(db *SQL.DB) (string, error) {
@@ -119,6 +147,15 @@ func findDuplicateUsername(db *SQL.DB) (string, error) {
 }
 
 func (d *GuestDao) EnsureDefaultAdmin(username, password string) error {
+	if _, err := d.db.Exec(`
+		CREATE TABLE IF NOT EXISTS pixiu_admin_migrations (
+			migration_key VARCHAR(128) NOT NULL PRIMARY KEY,
+			applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		) ENGINE=InnoDB
+	`); err != nil {
+		return fmt.Errorf("create admin migration table: %w", err)
+	}
+
 	tx, err := d.db.Begin()
 	if err != nil {
 		return err
@@ -131,6 +168,9 @@ func (d *GuestDao) EnsureDefaultAdmin(username, password string) error {
 	`); err != nil {
 		return err
 	}
+	if _, err := tx.Exec("UPDATE pixiu_role SET role_name = 'admin', description = 'Administrator' WHERE id = 1"); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`
 		INSERT IGNORE INTO pixiu_user (username, password, role)
 		VALUES (?, ?, 1)
@@ -139,18 +179,67 @@ func (d *GuestDao) EnsureDefaultAdmin(username, password string) error {
 	}
 
 	var userID int64
-	var role int
-	if err := tx.QueryRow("SELECT id, role FROM pixiu_user WHERE username = ? FOR UPDATE", username).Scan(&userID, &role); err != nil {
+	if err := tx.QueryRow("SELECT id FROM pixiu_user WHERE username = ? FOR UPDATE", username).Scan(&userID); err != nil {
 		return err
 	}
-	if role == 1 {
+	if _, err := tx.Exec("UPDATE pixiu_user SET role = 1 WHERE id = ?", userID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO pixiu_user_role (user_id, role_id)
+		SELECT ?, 1 FROM DUAL
+		WHERE NOT EXISTS (
+			SELECT 1 FROM pixiu_user_role WHERE user_id = ? AND role_id = 1
+		)
+	`, userID, userID); err != nil {
+		return err
+	}
+
+	const migrationKey = "legacy-admin-accounts-demoted-v1"
+	result, err := tx.Exec("INSERT IGNORE INTO pixiu_admin_migrations (migration_key) VALUES (?)", migrationKey)
+	if err != nil {
+		return err
+	}
+	applied, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if applied == 1 {
+		var userRoleID int
+		err := tx.QueryRow("SELECT id FROM pixiu_role WHERE role_name = 'user' ORDER BY id LIMIT 1").Scan(&userRoleID)
+		if errors.Is(err, SQL.ErrNoRows) {
+			roleResult, insertErr := tx.Exec("INSERT INTO pixiu_role (role_name, description) VALUES ('user', 'User')")
+			if insertErr != nil {
+				return insertErr
+			}
+			roleID, insertErr := roleResult.LastInsertId()
+			if insertErr != nil {
+				return insertErr
+			}
+			userRoleID = int(roleID)
+		} else if err != nil {
+			return err
+		}
+
 		if _, err := tx.Exec(`
 			INSERT INTO pixiu_user_role (user_id, role_id)
-			SELECT ?, 1 FROM DUAL
-			WHERE NOT EXISTS (
-				SELECT 1 FROM pixiu_user_role WHERE user_id = ? AND role_id = 1
-			)
-		`, userID, userID); err != nil {
+			SELECT id, ? FROM pixiu_user
+			WHERE role = 1 AND username <> ?
+			  AND NOT EXISTS (
+				SELECT 1 FROM pixiu_user_role
+				WHERE user_id = pixiu_user.id AND role_id = ?
+			  )
+		`, userRoleID, username, userRoleID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("UPDATE pixiu_user SET role = 0 WHERE role = 1 AND username <> ?", username); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`
+			DELETE ur FROM pixiu_user_role AS ur
+			JOIN pixiu_user AS u ON u.id = ur.user_id
+			WHERE ur.role_id = 1 AND u.username <> ?
+		`, username); err != nil {
 			return err
 		}
 	}
