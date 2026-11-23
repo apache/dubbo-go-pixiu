@@ -74,12 +74,15 @@ func TestGracefulShutdownRunsCleanupBeforeListenersAndExit(t *testing.T) {
 	var signals chan<- os.Signal
 	events := make(chan string, 3)
 	exited := make(chan struct{})
+	var exitOnce sync.Once
 	patches := gomonkey.ApplyFunc(signal.Notify, func(c chan<- os.Signal, _ ...os.Signal) { signals = c })
 	defer patches.Reset()
 	patches.ApplyFunc(shutdown.RunHooks, func() { events <- "cleanup" })
 	patches.ApplyFunc(os.Exit, func(int) {
-		events <- "exit"
-		close(exited)
+		exitOnce.Do(func() {
+			events <- "exit"
+			close(exited)
+		})
 	})
 	patches.ApplyMethod(&legacyListenerService{}, "ShutDown", func(_ *legacyListenerService, wg any) error {
 		events <- "listener"
