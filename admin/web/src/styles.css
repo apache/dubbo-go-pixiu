@@ -1327,6 +1327,16 @@ td:first-child small {
   background: #fff2f2;
   color: #9b353b;
 }
+.cluster-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cluster-recovery p {
+  margin: 0;
+}
 .cluster-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

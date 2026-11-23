@@ -95,6 +95,9 @@ export function ClusterLifecyclePage({ locale, onDirtyChange }: ClusterPageProps
   const [busy, setBusy] = useState('')
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null)
   const hasUnsavedChanges = Boolean(editor?.dirty || yamlError)
+  const sourceMissing = Boolean(
+    editor?.draft?.sourceId && status?.id === editor.draft.id && !status.publishedExists,
+  )
   useEffect(() => {
     onDirtyChange?.(hasUnsavedChanges)
   }, [hasUnsavedChanges, onDirtyChange])
@@ -232,12 +235,34 @@ export function ClusterLifecyclePage({ locale, onDirtyChange }: ClusterPageProps
       if (!editor?.draft || editor.dirty || yamlError) {
         throw new Error(label('请先保存有效草稿，再发布', 'Save a valid draft before publishing'))
       }
+      if (sourceMissing) {
+        throw new Error(
+          label(
+            '原集群已删除。请恢复历史版本，或复制为新草稿后发布。',
+            'The original cluster was deleted. Restore a revision or copy this configuration to a new draft.',
+          ),
+        )
+      }
       setIssues([])
       await clusterLifecycleApi.publish(editor.draft)
       await refreshEditor(editor.draft)
       await load()
       setNotice(
         label('集群已发布，正在通过 xDS 生效', 'Cluster published; xDS propagation is in progress'),
+      )
+    })
+
+  const copyAsNewDraft = () =>
+    void run('copy', async () => {
+      if (!editor || yamlError) {
+        throw new Error(yamlError || label('没有可复制的配置', 'No configuration to copy'))
+      }
+      const copied = await clusterLifecycleApi.create(editor.object)
+      openEditor(copied, copied.object)
+      await refreshEditor(copied)
+      await load()
+      setNotice(
+        label('已复制为新草稿，原草稿仍保留', 'Copied to a new draft; the original draft remains'),
       )
     })
 
@@ -400,9 +425,11 @@ export function ClusterLifecyclePage({ locale, onDirtyChange }: ClusterPageProps
           <p className="eyebrow">CLUSTER CONFIGURATION</p>
           <h1>{current.object.metadata.name || label('未命名集群', 'Unnamed cluster')}</h1>
           <p className="muted">
-            {status?.publishedExists
-              ? label('已发布 · 可继续编辑草稿', 'Published · draft can be edited')
-              : label('草稿尚未发布', 'Draft is not published')}
+            {sourceMissing
+              ? label('原集群已删除 · 草稿保留', 'Original cluster deleted · draft retained')
+              : status?.publishedExists
+                ? label('已发布 · 可继续编辑草稿', 'Published · draft can be edited')
+                : label('草稿尚未发布', 'Draft is not published')}
             {current.dirty ? ` · ${label('有未保存改动', 'Unsaved changes')}` : ''}
           </p>
         </div>
@@ -424,13 +451,45 @@ export function ClusterLifecyclePage({ locale, onDirtyChange }: ClusterPageProps
           <button
             type="button"
             className="primary"
-            disabled={Boolean(busy) || !current.draft || current.dirty || Boolean(yamlError)}
+            disabled={
+              Boolean(busy) ||
+              !current.draft ||
+              status?.id !== current.draft.id ||
+              sourceMissing ||
+              current.dirty ||
+              Boolean(yamlError)
+            }
             onClick={publish}
           >
             {busy === 'publish' ? label('发布中…', 'Publishing…') : label('发布', 'Publish')}
           </button>
         </div>
       </div>
+      {sourceMissing && (
+        <div className="cluster-notice cluster-recovery" role="status">
+          <p>
+            {history.length
+              ? label(
+                  '原集群已删除，无法直接发布此草稿。可从发布历史恢复，或将当前配置复制为新草稿。',
+                  'The original cluster was deleted. Restore a published revision, or copy this configuration to a new draft.',
+                )
+              : label(
+                  '原集群已删除，无法直接发布此草稿。将当前配置复制为新草稿后即可继续发布。',
+                  'The original cluster was deleted. Copy this configuration to a new draft to publish it.',
+                )}
+          </p>
+          <button
+            type="button"
+            className="secondary"
+            disabled={Boolean(busy) || Boolean(yamlError)}
+            onClick={copyAsNewDraft}
+          >
+            {busy === 'copy'
+              ? label('正在复制…', 'Copying…')
+              : label('复制为新草稿', 'Copy to new draft')}
+          </button>
+        </div>
+      )}
       {notice && (
         <div
           className={`cluster-notice ${noticeError ? 'error' : ''}`}

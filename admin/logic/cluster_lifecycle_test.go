@@ -210,3 +210,31 @@ func TestClusterRollbackRestoresDeletedRuntimeWithoutChangingItsID(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, history, 2)
 }
+
+func TestClusterDeletedLegacySourceCanBeCopiedAndPublishedAsNew(t *testing.T) {
+	store, kv := newTestClusterDraftStore(t)
+	ctx := context.Background()
+	legacy := &legacyconfig.Cluster{Name: "backend", Type: "Static", Address: "127.0.0.1", Port: 20880}
+	require.NoError(t, store.CreateRuntime(ctx, legacy))
+	linked, err := store.CreateFromPublished(ctx, legacy.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.DeleteRuntime(ctx, legacy.ID))
+
+	status, err := store.Status(ctx, linked.ID)
+	require.NoError(t, err)
+	require.False(t, status.PublishedExists)
+	history, err := store.History(ctx, linked.ID)
+	require.NoError(t, err)
+	require.Empty(t, history, "legacy clusters have no lifecycle history to restore")
+	_, err = store.Publish(ctx, linked.ID, linked.Revision)
+	require.ErrorIs(t, err, ErrClusterPublishConflict)
+
+	copied, err := store.CreateDraft(ctx, linked.Object)
+	require.NoError(t, err)
+	require.Zero(t, copied.SourceID)
+	published, err := store.Publish(ctx, copied.ID, copied.Revision)
+	require.NoError(t, err)
+	require.NotEqual(t, legacy.ID, published.RuntimeID)
+	require.Equal(t, "backend", runtimeClusterAt(t, kv, store.runtimeKey(published.RuntimeID)).Name)
+	require.True(t, kv.fakeHasKey(store.draftKey(linked.ID)), "the original draft remains available")
+}
