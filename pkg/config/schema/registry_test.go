@@ -26,10 +26,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuiltinRegistryContainsOnlyAdminRouteBinding(t *testing.T) {
+func TestBuiltinRegistryContainsAdminObjects(t *testing.T) {
 	registry, err := NewBuiltinRegistry()
 	require.NoError(t, err)
-	require.Len(t, registry.List(), 1)
+	require.Len(t, registry.List(), 2)
 
 	objectSchema, ok := registry.Lookup(KindAdminRouteBinding)
 	require.True(t, ok)

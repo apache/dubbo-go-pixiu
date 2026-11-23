@@ -123,6 +123,44 @@ true
 - opt.values
 ```
 
+#### generic 模式
+
+`integrationRequest.generic` 选择泛化调用的方式，取值：
+
+```yaml
+- "true"        # 默认，map 泛化：values 作为有类型的参数发送，结果以 map 返回
+- map           # "true" 的别名；不带引号的 `generic: true` 也可以
+- gson          # 请求以 JSON 文本发送，结果以 JSON 文本返回
+- protobuf-json # 请求以 protobuf JSON 文本发送，结果以 protobuf JSON 文本返回
+```
+
+map 方式沿用上面的 `opt.values` 与 `opt.types` 约定：`values` 是参数列表，`types` 是每个参数的 Java 类型名。
+
+`gson` 与 `protobuf-json` 方式把整个请求消息作为 JSON 文本发送，因此映射必须恰好产生一个参数，并且恰好声明一个类型，该类型描述请求消息本身：
+
+```yaml
+integrationRequest:
+  requestType: dubbo
+  interface: com.example.Greeter
+  method: SayHello
+  protocol: tri
+  serialization: hessian2
+  generic: protobuf-json
+  parameterTypes:
+    - com.example.HelloRequest
+  mappingParams:
+    - name: requestBody.values
+      mapTo: opt.values
+```
+
+请求体 `{"values":{"name":"test"}}` 会以 `{"name":"test"}` 作为唯一的泛化参数发送，provider 返回的 JSON 文本直接作为响应体写出，不会被包成带引号的字符串。
+
+字符串类型的映射结果必须是合法 JSON 文本，并且按原样逐字节写出，因为它本身就是已经序列化好的文档；查询参数这类普通字符串会被拒绝。其它类型的值由 `json.Marshal` 重新编码，因此对象键会按字典序排列、空白被压缩；请求体按 `json.Number` 解码，大整数不会丢位。
+
+消息类型由声明给出：通常写在 `parameterTypes`，也可以用 `opt.types`，位置映射里的 `mapType` 同样可以作为该声明，`mapType` 在这里不参与标量转换。三者都没有时请求会被拒绝，因为 JSON 文本本身无法告诉 Java provider 应该查找哪个方法签名。
+
+provider 侧要求：Triple 场景下 provider 需要声明 `serialization: hessian2`，并提供泛化入口 `$invoke`。dubbo-go 的非 IDL 服务默认提供该入口，IDL 导出的服务在 [apache/dubbo-go#3752](https://github.com/apache/dubbo-go/pull/3752) 之后同样提供。
+
 #### 选择项
 
 在mapTo 里面使用特定的关键字(列表如下)，貔貅可以自动组装泛化调用的参数

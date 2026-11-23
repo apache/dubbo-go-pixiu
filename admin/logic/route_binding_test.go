@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -717,6 +718,52 @@ func TestRouteBindingStoreUpdateRejectsNameChange(t *testing.T) {
 	}
 	if updatedBinding.Object.Spec["entry"].(map[string]any)["path"] != "/api/users/:id" {
 		t.Fatalf("same-name update was not saved: %+v", updatedBinding.Object)
+	}
+}
+
+func TestRouteBindingStoreRejectsClusterDraftWrites(t *testing.T) {
+	store := newTestRouteBindingStore(t)
+	ctx := context.Background()
+	saved, err := store.SaveDraft(ctx, testRouteBinding("user-get", "/api/users", "GET"), true, 0)
+	if err != nil {
+		t.Fatalf("initial SaveDraft: %v", err)
+	}
+	cluster := schema.AdminObject{
+		Kind:     schema.KindAdminCluster,
+		Metadata: schema.ObjectMetadata{Name: "user-get"},
+		Spec: map[string]any{
+			"type":     "Static",
+			"endpoint": map[string]any{"address": "127.0.0.1", "port": 20880},
+		},
+	}
+	for name, write := range map[string]func() error{
+		"create": func() error {
+			candidate := cluster.Clone()
+			candidate.Metadata.Name = "new-cluster"
+			_, err := store.SaveDraft(ctx, candidate, true, 0)
+			return err
+		},
+		"update": func() error {
+			_, err := store.UpdateDraft(ctx, "user-get", cluster, saved.Revision)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var issues schema.ValidationErrors
+			if err := write(); !errors.As(err, &issues) || len(issues) != 1 || issues[0].Path != "kind" {
+				t.Fatalf("wrong-kind write error = %v, want kind validation issue", err)
+			}
+		})
+	}
+	current, err := store.Get(ctx, "user-get", true)
+	if err != nil {
+		t.Fatalf("Get original draft: %v", err)
+	}
+	if current.Revision != saved.Revision || !reflect.DeepEqual(current.Object, saved.Object) {
+		t.Fatalf("rejected update changed original draft: got %+v, want %+v", current, saved)
+	}
+	if _, err := store.Get(ctx, "new-cluster", true); !errors.Is(err, ErrRouteBindingNotFound) {
+		t.Fatalf("rejected create persisted a cluster draft: %v", err)
 	}
 }
 

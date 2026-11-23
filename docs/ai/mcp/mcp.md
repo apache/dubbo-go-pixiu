@@ -402,6 +402,13 @@ static_resources:
 
 Pixiu supports dynamic discovery and management of MCP tool configurations through Nacos 3.0+. By using Nacos as a registry center, you can centrally manage MCP tool definitions and achieve dynamic configuration updates without restarting the gateway.
 
+> **Port requirement (v2 SDK):** Pixiu's Nacos client uses the v2 SDK, which communicates over gRPC. In addition to the main port you put in `address` (`8848` by default), the client opens a **gRPC port = main port + 1000** (`9848` by default). Both TCP ports must be reachable through any firewall, container port mapping, or reverse proxy:
+>
+> - `8848/TCP` — Nacos main port (HTTP console + API)
+> - `9848/TCP` — gRPC port (main port + 1000, used by the v2 client)
+>
+> If only `8848` is exposed, the gateway will fail to connect at runtime. See the [2.0 compatibility guide](https://nacos.io/en-us/docs/v2/upgrading/2.0.0-compatibility.html).
+
 #### Adapter Configuration (`adapters`)
 
 To enable Nacos integration, you need to add an `adapters` section to your configuration file. The adapter is responsible for connecting to the Nacos registry and subscribing to MCP service configurations.

@@ -18,8 +18,8 @@
 package main
 
 import (
+	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
 	"time"
 )
@@ -32,7 +32,6 @@ import (
 	config2 "github.com/apache/dubbo-go-pixiu/admin/config"
 	"github.com/apache/dubbo-go-pixiu/admin/controller/auth"
 	"github.com/apache/dubbo-go-pixiu/admin/core"
-	"github.com/apache/dubbo-go-pixiu/pkg/logger"
 )
 
 var (
@@ -49,33 +48,27 @@ var (
 			"(appKey authorization, interface authority, online and offline). \n" +
 			"(c) " + strconv.Itoa(time.Now().Year()) + " Dubbogo",
 		Version: config2.Version,
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			initDefaultValue()
+			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := auth.GetSignKey(); err != nil {
 				return err
 			}
-			_, err := config2.LoadAPIConfigFromFile(configPath)
+			_, err := config2.LoadAPIConfigFromFile(apiConfigPath)
 			if err != nil {
-				logger.Errorf("load admin config  error:%+v", err)
+				return fmt.Errorf("load admin config error: %w", err)
 			}
-			if err := Start(); err != nil {
-				return err
-			}
-			// gracefully shutdown
-			sigint := make(chan os.Signal, 1)
-			signal.Notify(sigint, os.Interrupt)
-			<-sigint
-			Stop()
-			return nil
+			defer Stop()
+			return Start(configPath)
 		},
 	}
 )
 
 // Start start init etcd client and start admin http server
-func Start() error {
-	return core.RunServer()
+func Start(configPath string) error {
+	return core.RunServer(configPath)
 }
 
 func Stop() {

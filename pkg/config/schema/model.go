@@ -21,7 +21,10 @@ import (
 	"github.com/apache/dubbo-go-pixiu/pkg/common/copyutil"
 )
 
-const KindAdminRouteBinding = "AdminRouteBinding"
+const (
+	KindAdminRouteBinding = "AdminRouteBinding"
+	KindAdminCluster      = "AdminCluster"
+)
 
 // AdminObject is the YAML object edited by Admin. Its stable envelope stays
 // small; the registered schema gives the dynamic spec its actual contract.

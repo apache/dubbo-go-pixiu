@@ -21,6 +21,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -116,6 +117,58 @@ func TestDecodeRoutesDubboAndTripleThroughOutboundClient(t *testing.T) {
 			assert.Equal(t, "SayHello", recorder.req.Method)
 			assert.Equal(t, []any{"alice"}, recorder.req.Arguments)
 			assert.Equal(t, 150*time.Millisecond, recorder.req.Timeout)
+		})
+	}
+}
+
+func TestDecodeUnwrapsJSONTextResult(t *testing.T) {
+	tests := []struct {
+		desc string
+		res  any
+		want []byte
+	}{
+		{desc: "object result text", res: `{"greeting":"hello"}`, want: []byte(`{"greeting":"hello"}`)},
+		{desc: "string result keeps its quotes", res: `"hello"`, want: []byte(`"hello"`)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			recorder := &recordingDubboClient{res: test.res}
+			ctx := &contexthttp.HttpContext{
+				Timeout: time.Second,
+				Request: httptest.NewRequest(http.MethodPost, "http://example.com/greet",
+					strings.NewReader(`{"values":{"name":"test"}}`)),
+				Writer: httptest.NewRecorder(),
+			}
+			ctx.API(router.API{
+				Method: config.Method{
+					Timeout:  time.Second,
+					HTTPVerb: http.MethodPost,
+					IntegrationRequest: config.IntegrationRequest{
+						RequestType: constant.DubboRequest,
+						DubboBackendConfig: config.DubboBackendConfig{
+							Interface:      "com.demo.Greeter",
+							Method:         "SayHello",
+							Generic:        constant.GenericModeProtobufJSON,
+							ParameterTypes: []string{"com.demo.HelloRequest"},
+						},
+						MappingParams: []config.MappingParam{
+							{Name: "requestBody.values", MapTo: "0"},
+						},
+					},
+				},
+			})
+
+			f := &Filter{
+				conf:        filterConfig{DubboProxyConfig: &dubbo.DubboProxyConfig{}},
+				dubboClient: recorder,
+			}
+			status := f.Decode(ctx)
+
+			require.Equal(t, extfilter.Continue, status)
+			assert.Equal(t, test.want, ctx.SourceResp)
+			require.NotNil(t, recorder.req)
+			assert.Equal(t, []any{`{"name":"test"}`}, recorder.req.Arguments)
 		})
 	}
 }

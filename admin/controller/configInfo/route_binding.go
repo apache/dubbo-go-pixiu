@@ -74,7 +74,12 @@ func GetRouteBindingSchema(c *gin.Context) {
 		writeRouteBindingError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, adminconfig.WithRet(registry.List()))
+	routeSchema, ok := registry.Lookup(schema.KindAdminRouteBinding)
+	if !ok {
+		writeRouteBindingError(c, fmt.Errorf("%w: %s", schema.ErrSchemaNotFound, schema.KindAdminRouteBinding))
+		return
+	}
+	c.JSON(http.StatusOK, adminconfig.WithRet([]schema.ObjectSchema{routeSchema}))
 }
 
 // GetRouteBindingList returns high-level route bindings from the draft or
@@ -238,6 +243,10 @@ func ValidateRouteBinding(c *gin.Context) {
 	object, _, err := decodeRouteBindingRequest(c)
 	if err != nil {
 		writeRouteBindingError(c, err)
+		return
+	}
+	if object.Kind != schema.KindAdminRouteBinding {
+		writeRouteBindingError(c, schema.ValidationErrors{{Path: "kind", Code: "invalid", Message: fmt.Sprintf("route binding kind must be %q", schema.KindAdminRouteBinding)}})
 		return
 	}
 	registry, err := schema.NewBuiltinRegistry()
