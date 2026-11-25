@@ -22,7 +22,9 @@ import (
 	"testing"
 )
 
-import "google.golang.org/grpc/codes"
+import (
+	"google.golang.org/grpc/codes"
+)
 
 func TestGRPCStatusToHTTPStatus(t *testing.T) {
 	tests := []struct {
