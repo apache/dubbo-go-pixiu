@@ -18,6 +18,7 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -128,7 +129,7 @@ func (dc *Client) Call(req *client.Request) (resp any, err error) {
 		span.AddEvent(semconv.ExceptionEventName, trace.WithAttributes(semconv.ExceptionMessageKey.String(err.Error())))
 		urlErr, ok := err.(*url.Error)
 		if ok && urlErr.Timeout() {
-			err = errors.Errorf("http req call timeout err: %s", err.Error())
+			err = fmt.Errorf("http req call timeout err: %w", err)
 		}
 	}
 

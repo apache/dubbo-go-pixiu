@@ -20,9 +20,13 @@ package http
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 )
 
 import (
@@ -96,6 +100,34 @@ func TestMapParams(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, string(rawBody),
 		"{\"age\":\"19\",\"nickName\":\"trump\",\"testStruct\":{\"name\":\"mock\",\"nickName\":\"trump\",\"test\":\"happy\"}}")
+}
+
+func TestCallPreservesHTTPTimeoutCause(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	target, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request, err := http.NewRequest(http.MethodGet, "http://pixiu.test/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api := mock.GetMockAPI(constant.Get, "/")
+	api.Schema = target.Scheme
+	api.Host = target.Host
+	api.Path = "/"
+	req := client.NewReq(context.Background(), request, api)
+	req.Timeout = 50 * time.Millisecond
+
+	_, err = NewHTTPClient().Call(req)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Call() error = %v, want error wrapping context.DeadlineExceeded", err)
+	}
 }
 
 func TestParseURL(t *testing.T) {

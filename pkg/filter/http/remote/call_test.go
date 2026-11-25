@@ -19,6 +19,8 @@ package remote
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,6 +51,12 @@ type recordingDubboClient struct {
 }
 
 type testContextKey struct{}
+
+type timeoutTestError struct{}
+
+func (timeoutTestError) Error() string   { return "network timeout" }
+func (timeoutTestError) Timeout() bool   { return true }
+func (timeoutTestError) Temporary() bool { return false }
 
 func (c *recordingDubboClient) Apply() error {
 	return nil
@@ -218,6 +226,47 @@ func TestDecodeStopsWithLocalReplyWhenBuildOutboundFails(t *testing.T) {
 	assert.True(t, ctx.LocalReply())
 	assert.Equal(t, http.StatusInternalServerError, writer.Code)
 	assert.Contains(t, writer.Body.String(), "client call error")
+}
+
+func TestHandleClientErrorClassifiesTimeoutsByType(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus int
+	}{
+		{
+			name:       "deadline exceeded",
+			err:        context.DeadlineExceeded,
+			wantStatus: http.StatusGatewayTimeout,
+		},
+		{
+			name:       "wrapped deadline exceeded",
+			err:        fmt.Errorf("upstream call failed: %w", context.DeadlineExceeded),
+			wantStatus: http.StatusGatewayTimeout,
+		},
+		{
+			name:       "network timeout",
+			err:        timeoutTestError{},
+			wantStatus: http.StatusGatewayTimeout,
+		},
+		{
+			name:       "timeout text without timeout cause",
+			err:        errors.New("upstream timeout setting is invalid"),
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := httptest.NewRecorder()
+			ctx := &contexthttp.HttpContext{Writer: writer}
+
+			got := (&Filter{}).handleClientError(ctx, tt.err)
+
+			assert.Equal(t, extfilter.Stop, got)
+			assert.Equal(t, tt.wantStatus, writer.Code)
+		})
+	}
 }
 
 func TestFilterFactoryApplyOnlyInitializesDubboClient(t *testing.T) {
