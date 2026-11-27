@@ -19,7 +19,9 @@ package listener_test
 
 import (
 	"net"
+	"sync"
 	"testing"
+	"time"
 )
 
 import (
@@ -27,14 +29,52 @@ import (
 )
 
 import (
+	"github.com/apache/dubbo-go-pixiu/pkg/config"
 	"github.com/apache/dubbo-go-pixiu/pkg/listener"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/grpc"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/tcp"
-	_ "github.com/apache/dubbo-go-pixiu/pkg/listener/triple"
+	"github.com/apache/dubbo-go-pixiu/pkg/listener/grpc"
+	"github.com/apache/dubbo-go-pixiu/pkg/listener/http"
+	"github.com/apache/dubbo-go-pixiu/pkg/listener/http2"
+	"github.com/apache/dubbo-go-pixiu/pkg/listener/tcp"
+	"github.com/apache/dubbo-go-pixiu/pkg/listener/triple"
 	"github.com/apache/dubbo-go-pixiu/pkg/model"
 )
+
+func TestListenerShutdownCompletesWaitGroupWithDisabledTimeout(t *testing.T) {
+	previous := config.GetBootstrap()
+	t.Cleanup(func() { config.SetBootstrap(previous) })
+	for _, timeout := range []string{"0s", "-1s"} {
+		config.SetBootstrap(&model.Bootstrap{StaticResources: model.StaticResources{
+			ShutdownConfig: &model.ShutdownConfig{Timeout: timeout},
+		}})
+		for _, service := range []struct {
+			name string
+			listener.ListenerService
+		}{
+			{name: "HTTP", ListenerService: &http.HttpListenerService{}},
+			{name: "HTTP2", ListenerService: &http2.Http2ListenerService{}},
+			{name: "TCP", ListenerService: &tcp.TcpListenerService{}},
+			{name: "Triple", ListenerService: &triple.TripleListenerService{}},
+			{name: "gRPC", ListenerService: &grpc.GrpcListenerService{}},
+		} {
+			t.Run(service.name+"/"+timeout, func(t *testing.T) {
+				var wg sync.WaitGroup
+				wg.Add(1)
+				require.NoError(t, service.ShutDown(&wg))
+				done := make(chan struct{})
+				go func() {
+					wg.Wait()
+					close(done)
+				}()
+				select {
+				case <-done:
+				case <-time.After(time.Second):
+					wg.Done()
+					t.Fatal("ShutDown returned without completing its WaitGroup")
+				}
+			})
+		}
+	}
+}
 
 func TestListenerStartReturnsOccupiedPortError(t *testing.T) {
 	occupied, err := net.Listen("tcp", "127.0.0.1:0")
