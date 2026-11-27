@@ -17,32 +17,63 @@
  * under the License.
  */
 
+import { useEffect, useId, useRef } from 'react'
+
 export function ConfirmDialog({
   open,
   title = '确认操作',
+  description = '此操作无法撤销，请确认继续。',
+  confirmLabel = '确认',
+  cancelLabel = '取消',
   onConfirm,
   onCancel,
-}: {
+}: Readonly<{
   open: boolean
   title?: string
+  description?: string
+  confirmLabel?: string
+  cancelLabel?: string
   onConfirm: () => void
   onCancel: () => void
-}) {
-  if (!open) return null
+}>) {
+  const titleId = useId()
+  const descriptionId = useId()
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const onCancelRef = useRef(onCancel)
+  onCancelRef.current = onCancel
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!open || !dialog) return
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialog.showModal()
+    cancelRef.current?.focus()
+    return () => {
+      dialog.close()
+      previous?.focus()
+    }
+  }, [open])
   return (
-    <div className="drawer-backdrop">
-      <div className="confirm-dialog">
-        <h3>{title}</h3>
-        <p>此操作无法撤销，请确认继续。</p>
-        <div>
-          <button className="secondary" onClick={onCancel}>
-            取消
-          </button>
-          <button className="primary" onClick={onConfirm}>
-            确认
-          </button>
-        </div>
+    <dialog
+      ref={dialogRef}
+      className="confirm-dialog"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onCancel={(event) => {
+        event.preventDefault()
+        onCancelRef.current()
+      }}
+    >
+      <h3 id={titleId}>{title}</h3>
+      <p id={descriptionId}>{description}</p>
+      <div>
+        <button ref={cancelRef} type="button" className="secondary" onClick={onCancel}>
+          {cancelLabel}
+        </button>
+        <button type="button" className="primary" onClick={onConfirm}>
+          {confirmLabel}
+        </button>
       </div>
-    </div>
+    </dialog>
   )
 }

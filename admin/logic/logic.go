@@ -35,8 +35,6 @@ import (
 	gxetcd "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	perrors "github.com/pkg/errors"
-
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 import (
@@ -173,49 +171,33 @@ func decodeClusters(kList, vList []string) ([]config.Cluster, error) {
 
 // BizCreateCluster create cluster
 func BizCreateCluster(res *config.Cluster) error {
-	res.ID = getClusterId()
-	if res.ID == ErrID {
-		logger.Warnf("can't get id from etcd")
-		return perrors.New("BizSetCluster error can't get id from etcd")
+	store, err := NewAdminClusterDraftStore()
+	if err != nil {
+		return err
 	}
-	data, _ := yaml.MarshalYML(res)
-	setErr := adminconfig.Client.Create(getClusterKey(strconv.Itoa(res.ID)), string(data))
-
-	if setErr != nil {
-		logger.Warnf("Create etcd error, %v\n", setErr)
-		return perrors.WithMessage(setErr, "BizSetCluster error")
-	}
-
-	return nil
+	return store.CreateRuntime(context.Background(), res)
 }
 
 // BizUpdateCluster create cluster
 func BizUpdateCluster(res *config.Cluster) error {
-	if res.ID <= 0 {
-		logger.Warnf("invalid cluster id, %d", res.ID)
-		return perrors.New("invalid cluster id")
+	store, err := NewAdminClusterDraftStore()
+	if err != nil {
+		return err
 	}
-	data, _ := yaml.MarshalYML(res)
-	setErr := adminconfig.Client.Update(getClusterKey(strconv.Itoa(res.ID)), string(data))
-
-	if setErr != nil {
-		logger.Warnf("Update etcd error, %v\n", setErr)
-		return perrors.WithMessage(setErr, "BizSetCluster error")
-	}
-
-	return nil
+	return store.UpdateRuntime(context.Background(), res)
 }
 
 // BizDeleteCluster delete cluster
 func BizDeleteCluster(id string) error {
-	key := getClusterKey(id)
-	// delete all key with prefix to delete method key
-	_, err := adminconfig.Client.GetRawClient().Delete(adminconfig.Client.GetCtx(), key, clientv3.WithPrefix())
-	if err != nil {
-		logger.Warnf("BizDeleteCluster, %v\n", err)
-		return perrors.WithMessage(err, "BizDeleteCluster error")
+	parsed, err := strconv.Atoi(id)
+	if err != nil || parsed <= 0 {
+		return errors.New("valid cluster ID is required")
 	}
-	return nil
+	store, err := NewAdminClusterDraftStore()
+	if err != nil {
+		return err
+	}
+	return store.DeleteRuntime(context.Background(), parsed)
 }
 
 // BizGetCluster get cluster
@@ -317,48 +299,29 @@ func decodeListeners(kList, vList []string) ([]config.Listener, error) {
 
 // BizCreateListener create Listener
 func BizCreateListener(res *config.Listener) error {
-	if strings.TrimSpace(res.Name) == "" {
-		logger.Warnf("invalid listener name, %s", res.Name)
-		return perrors.New("invalid listener id")
+	store, err := NewAdminClusterDraftStore()
+	if err != nil {
+		return err
 	}
-	data, _ := yaml.MarshalYML(res)
-	setErr := adminconfig.Client.Create(getListenerKey(res.Name), string(data))
-
-	if setErr != nil {
-		logger.Warnf("Create etcd error, %v\n", setErr)
-		return perrors.WithMessage(setErr, "BizSetCluster error")
-	}
-
-	return nil
+	return store.WriteListener(context.Background(), res, true)
 }
 
 // BizUpdateListener create Listener
 func BizUpdateListener(res *config.Listener) error {
-	if strings.TrimSpace(res.Name) == "" {
-		logger.Warnf("invalid listener name, %s", res.Name)
-		return perrors.New("invalid listener name")
+	store, err := NewAdminClusterDraftStore()
+	if err != nil {
+		return err
 	}
-	data, _ := yaml.MarshalYML(res)
-	setErr := adminconfig.Client.Update(getListenerKey(res.Name), string(data))
-
-	if setErr != nil {
-		logger.Warnf("Update etcd error, %v\n", setErr)
-		return perrors.WithMessage(setErr, "BizSetListener error")
-	}
-
-	return nil
+	return store.WriteListener(context.Background(), res, false)
 }
 
 // BizDeleteListener delete Listener
 func BizDeleteListener(name string) error {
-	key := getListenerKey(name)
-	// delete all key with prefix to delete listener key
-	_, err := adminconfig.Client.GetRawClient().Delete(adminconfig.Client.GetCtx(), key, clientv3.WithPrefix())
+	store, err := NewAdminClusterDraftStore()
 	if err != nil {
-		logger.Warnf("BizDeleteListener, %v\n", err)
-		return perrors.WithMessage(err, "BizDeleteListener error")
+		return err
 	}
-	return nil
+	return store.DeleteListener(context.Background(), name)
 }
 
 // BizGetListener get Listener
