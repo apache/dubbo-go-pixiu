@@ -135,6 +135,20 @@ func BizGetClusters() ([]config.Cluster, error) {
 	return decodeClusters(kList, vList)
 }
 
+// BizGetClustersWithContext reads clusters using the caller's request context.
+func BizGetClustersWithContext(ctx context.Context) ([]config.Cluster, error) {
+	kList, vList, err := getChildrenKVListWithContext(ctx, getRootPath(Clusters))
+	if err != nil {
+		if errors.Is(err, gxetcd.ErrKVPairNotFound) {
+			return []config.Cluster{}, nil
+		}
+		logger.Debugf("get clusters error from etcd, %+v, %+v, %s", kList, vList, err)
+		return nil, perrors.WithMessage(err, "get clusters error")
+	}
+
+	return decodeClusters(kList, vList)
+}
+
 func decodeClusters(kList, vList []string) ([]config.Cluster, error) {
 	if len(kList) != len(vList) {
 		return nil, perrors.Errorf("cluster key/value length mismatch: %d != %d", len(kList), len(vList))
@@ -227,6 +241,56 @@ func BizGetListeners() ([]config.Listener, error) {
 	}
 
 	return decodeListeners(kList, vList)
+}
+
+// BizGetListenersWithContext reads listeners using the caller's request context.
+func BizGetListenersWithContext(ctx context.Context) ([]config.Listener, error) {
+	kList, vList, err := getChildrenKVListWithContext(ctx, getRootPath(Listeners))
+	if err != nil {
+		if errors.Is(err, gxetcd.ErrKVPairNotFound) {
+			return []config.Listener{}, nil
+		}
+		logger.Debugf("get listeners error from etcd, %+v, %+v, %s", kList, vList, err)
+		return nil, perrors.WithMessage(err, "get listeners error")
+	}
+
+	return decodeListeners(kList, vList)
+}
+
+type etcdRangeGetter interface {
+	Get(context.Context, string, ...clientv3.OpOption) (*clientv3.GetResponse, error)
+}
+
+func getChildrenKVListWithContext(ctx context.Context, key string) ([]string, []string, error) {
+	if adminconfig.Client == nil {
+		return nil, nil, gxetcd.ErrNilETCDV3Client
+	}
+	rawClient := adminconfig.Client.GetRawClient()
+	if rawClient == nil {
+		return nil, nil, gxetcd.ErrNilETCDV3Client
+	}
+	return getChildrenKVList(ctx, rawClient, key)
+}
+
+func getChildrenKVList(ctx context.Context, client etcdRangeGetter, key string) ([]string, []string, error) {
+	if !strings.HasSuffix(key, "/") {
+		key += "/"
+	}
+	response, err := client.Get(ctx, key, clientv3.WithPrefix())
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(response.Kvs) == 0 {
+		return nil, nil, gxetcd.ErrKVPairNotFound
+	}
+
+	keys := make([]string, 0, len(response.Kvs))
+	values := make([]string, 0, len(response.Kvs))
+	for _, kv := range response.Kvs {
+		keys = append(keys, string(kv.Key))
+		values = append(values, string(kv.Value))
+	}
+	return keys, values, nil
 }
 
 func decodeListeners(kList, vList []string) ([]config.Listener, error) {
