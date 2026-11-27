@@ -281,7 +281,7 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	err = jsonToProtoMsg(c.Request.Body, grpcReq)
 	if err != nil && !errors.Is(err, io.EOF) {
 		logger.Errorf("%s err {failed to convert json to proto msg, %s}", loggerHeader, err.Error())
-		errResp := http.BadGateway.WithError(fmt.Errorf("protocol conversion error: %w", err))
+		errResp := http.BadRequest.WithError(fmt.Errorf("invalid JSON request: %w", err))
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
 	}
@@ -296,35 +296,36 @@ func (f *Filter) Decode(c *http.HttpContext) filter.FilterStatus {
 	t := metadata.MD{}
 
 	resp, err := Invoke(ctx, stub, mthDesc, grpcReq, grpc.Header(&md), grpc.Trailer(&t))
-	// judge err is server side error or not
-	if st, ok := status.FromError(err); ok {
-		// Handle client-side gRPC errors (e.g., InvalidArgument)
-		if st.Code() != codes.OK && !isServerError(st) {
-			logger.Errorf("%s err {gRPC client error, code: %s, msg: %s}", loggerHeader, st.Code(), st.Message())
-			errResp := http.BadGateway.WithError(fmt.Errorf("gRPC client error: %w", err))
-			c.SendLocalReply(errResp.Status, errResp.ToJSON())
-			f.connections.Invalidate(connectionKey, clientConn)
-			return filter.Stop
-		}
-		// Handle server-side gRPC errors
-		if isServerError(st) {
-			if isServerTimeout(st) {
-				logger.Errorf("%s err {failed to invoke grpc service provider because timeout, err:%s}", loggerHeader, err.Error())
-				errResp := http.GatewayTimeout.WithError(fmt.Errorf("upstream timeout: %w", err))
-				c.SendLocalReply(errResp.Status, errResp.ToJSON())
-				f.connections.Invalidate(connectionKey, clientConn)
-				return filter.Stop
-			}
+	if err != nil {
+		grpcStatus, ok := status.FromError(err)
+		if !ok {
+			// Preserve the existing service-unavailable response for transport errors
+			// that do not carry a gRPC status.
 			logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
 			errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
 			c.SendLocalReply(errResp.Status, errResp.ToJSON())
 			f.connections.Invalidate(connectionKey, clientConn)
 			return filter.Stop
 		}
-	} else if err != nil {
-		// Handle non-gRPC errors
-		logger.Errorf("%s err {failed to invoke grpc service provider, %s}", loggerHeader, err.Error())
-		errResp := http.ServiceUnavailable.WithError(fmt.Errorf("gRPC invoke error: %w", err))
+
+		grpcCode := grpcStatus.Code()
+		if grpcCode == codes.OK {
+			grpcCode = codes.Unknown
+		}
+		httpStatus := grpcStatusToHTTPStatus(grpcCode)
+		logger.Errorf("%s err {gRPC invoke failed, code: %s, msg: %s}", loggerHeader, grpcCode, grpcStatus.Message())
+		message := strings.ToLower(stdHttp.StatusText(httpStatus))
+		if message == "" {
+			message = grpcStatus.Message()
+			if message == "" {
+				message = "request canceled"
+			}
+		}
+		errResp := &http.ErrorResponse{
+			Status:  httpStatus,
+			Message: message,
+			Err:     fmt.Errorf("gRPC invoke error: %w", err),
+		}
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		f.connections.Invalidate(connectionKey, clientConn)
 		return filter.Stop
@@ -456,13 +457,36 @@ func protoMsgToJson(msg proto.Message) (string, error) {
 	return m.MarshalToString(msg)
 }
 
-func isServerError(st *status.Status) bool {
-	return st.Code() == codes.DeadlineExceeded || st.Code() == codes.ResourceExhausted || st.Code() == codes.Internal ||
-		st.Code() == codes.Unavailable
-}
-
-func isServerTimeout(st *status.Status) bool {
-	return st.Code() == codes.DeadlineExceeded || st.Code() == codes.Canceled
+// grpcStatusToHTTPStatus follows the conventional grpc-gateway status mapping.
+func grpcStatusToHTTPStatus(code codes.Code) int {
+	switch code {
+	case codes.OK:
+		return stdHttp.StatusOK
+	case codes.Canceled:
+		return 499
+	case codes.InvalidArgument, codes.FailedPrecondition, codes.OutOfRange:
+		return stdHttp.StatusBadRequest
+	case codes.DeadlineExceeded:
+		return stdHttp.StatusGatewayTimeout
+	case codes.NotFound:
+		return stdHttp.StatusNotFound
+	case codes.AlreadyExists, codes.Aborted:
+		return stdHttp.StatusConflict
+	case codes.PermissionDenied:
+		return stdHttp.StatusForbidden
+	case codes.Unauthenticated:
+		return stdHttp.StatusUnauthorized
+	case codes.ResourceExhausted:
+		return stdHttp.StatusTooManyRequests
+	case codes.Unimplemented:
+		return stdHttp.StatusNotImplemented
+	case codes.Unavailable:
+		return stdHttp.StatusServiceUnavailable
+	case codes.Unknown, codes.Internal, codes.DataLoss:
+		return stdHttp.StatusInternalServerError
+	default:
+		return stdHttp.StatusInternalServerError
+	}
 }
 
 func (factory *FilterFactory) Config() any {
