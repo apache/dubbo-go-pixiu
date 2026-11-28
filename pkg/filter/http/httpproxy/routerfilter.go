@@ -132,9 +132,14 @@ func (f *Filter) Decode(hc *contexthttp.HttpContext) filter.FilterStatus {
 	)
 
 	parsedURL := url.URL{
-		Host:     endpoint.Address.GetAddress(),
-		Scheme:   f.scheme,
-		Path:     r.URL.Path,
+		Host:   endpoint.Address.GetAddress(),
+		Scheme: f.scheme,
+		Path:   r.URL.Path,
+		// url.URL.EscapedPath only honours RawPath while it still decodes to
+		// Path; a rewrite that touches Path through HttpContext.SetUrl therefore
+		// falls back to re-escaping instead of forwarding a stale encoding.
+		// This preserves the wire form of paths such as /files/a%2Fb.
+		RawPath:  r.URL.RawPath,
 		RawQuery: r.URL.RawQuery,
 	}
 
