@@ -81,6 +81,12 @@ func RunServer(configPath string) error {
 
 	account.InitUserDao()
 	account.InitGuestDao()
+	if err := account.EnsureUsernameUniqueIndex(); err != nil {
+		global.LOG.Fatal("failed to initialize unique username index", zap.Error(err))
+	}
+	if err := account.EnsureDefaultAdmin(); err != nil {
+		global.LOG.Fatal("failed to initialize default Admin account", zap.Error(err))
+	}
 
 	router := initialize.Routers()
 

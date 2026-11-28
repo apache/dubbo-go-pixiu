@@ -39,6 +39,7 @@ import (
 
 import (
 	"github.com/apache/dubbo-go-pixiu/admin/config"
+	"github.com/apache/dubbo-go-pixiu/admin/logic/account"
 )
 
 // @Tags Auth
@@ -78,6 +79,47 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 		c.Set("claims", claims)
+	}
+}
+
+// CurrentUsername returns the username from the JWT validated by JWTAuth.
+func CurrentUsername(c *gin.Context) string {
+	claims, ok := c.Get("claims")
+	if !ok {
+		return ""
+	}
+	userClaims, ok := claims.(*CustomClaims)
+	if !ok {
+		return ""
+	}
+	return userClaims.Username
+}
+
+// AdminAuth restricts administrative APIs to users with the administrator role.
+func AdminAuth() gin.HandlerFunc {
+	return AdminAuthWithChecker(account.CheckUserIsAdmin)
+}
+
+// AdminAuthWithChecker creates administrator middleware with the supplied role checker.
+func AdminAuthWithChecker(checkAdmin func(string) (bool, error)) gin.HandlerFunc {
+	return adminAuth(checkAdmin)
+}
+
+func adminAuth(checkAdmin func(string) (bool, error)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := CurrentUsername(c)
+		if username == "" {
+			c.JSON(http.StatusForbidden, config.WithError(errors.New("administrator access required")))
+			c.Abort()
+			return
+		}
+		isAdmin, err := checkAdmin(username)
+		if err != nil || !isAdmin {
+			c.JSON(http.StatusForbidden, config.WithError(errors.New("administrator access required")))
+			c.Abort()
+			return
+		}
+		c.Next()
 	}
 }
 

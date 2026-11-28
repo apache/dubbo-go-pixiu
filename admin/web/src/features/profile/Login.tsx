@@ -88,7 +88,9 @@ export function Login() {
           </button>
         </form>
         <small className="login-hint">
-          {english ? 'Use your Pixiu Admin account' : '请使用 Pixiu Admin 账号登录'}
+          {english
+            ? 'Default account: admin / pixiuadmin. Change the password after signing in.'
+            : '默认账号：admin / pixiuadmin。登录后请在个人中心修改密码。'}
         </small>
       </div>
     </div>

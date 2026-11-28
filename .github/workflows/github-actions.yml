@@ -92,6 +92,21 @@ jobs:
     needs: golangci
     name: Unit Test
     runs-on: ubuntu-latest
+    env:
+      PIXIU_TEST_MYSQL_DSN: root:${{ github.run_id }}@tcp(127.0.0.1:3306)/mysql?parseTime=true
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ github.run_id }}
+          MYSQL_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root --password=$MYSQL_ROOT_PASSWORD"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6

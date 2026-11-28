@@ -243,7 +243,7 @@ func installAdminRouterWithRegoMock(t *testing.T, m *regoMockOPA, opaCfg adminco
 	adminconfig.Bootstrap = &adminconfig.AdminBootstrap{OPA: cfg}
 	t.Cleanup(func() { adminconfig.Bootstrap = prev })
 
-	return Routers()
+	return routers(func(c *gin.Context) { c.Next() })
 }
 
 // adminPutPolicy uses the real /config/api/opa/policy PUT route, signed with

@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/url"
@@ -31,6 +32,8 @@ import (
 )
 
 import (
+	"github.com/go-sql-driver/mysql"
+
 	"github.com/stretchr/testify/require"
 
 	"go.etcd.io/etcd/server/v3/embed"
@@ -120,8 +123,20 @@ func testAdminSignalShutdown(t *testing.T, signalName string) {
 	dir := t.TempDir()
 	adminPath := filepath.Join(dir, "admin.yaml")
 	apiPath := filepath.Join(dir, "api.yaml")
+	mysqlConfig := setupAdminSignalMySQL(t)
 	require.NoError(t, os.WriteFile(adminPath, []byte(fmt.Sprintf("system:\n  addr: %d\nzap:\n  director: %s\n", httpPort, dir)), 0o600))
-	require.NoError(t, os.WriteFile(apiPath, []byte(fmt.Sprintf("etcd:\n  address: %s\nxds:\n  listen_port: %d\n", etcd.Clients[0].Addr(), xdsPort)), 0o600))
+	apiConfig := fmt.Sprintf(`etcd:
+  address: %q
+xds:
+  listen_port: %d
+mysql:
+  username: %q
+  password: %q
+  host: %q
+  port: %q
+  dbname: %q
+`, etcd.Clients[0].Addr(), xdsPort, mysqlConfig.Username, mysqlConfig.Password, mysqlConfig.Host, mysqlConfig.Port, mysqlConfig.Dbname)
+	require.NoError(t, os.WriteFile(apiPath, []byte(apiConfig), 0o600))
 	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "admin-signal-test-key-at-least-32-bytes-long")
 
 	addresses := []string{fmt.Sprintf("127.0.0.1:%d", httpPort), fmt.Sprintf("127.0.0.1:%d", xdsPort)}
@@ -159,5 +174,87 @@ func testAdminSignalShutdown(t *testing.T, signalName string) {
 			_ = conn.Close()
 		}
 		require.Error(t, err, "command returned while %s was still listening", address)
+	}
+}
+
+func setupAdminSignalMySQL(t *testing.T) config2.MysqlConfig {
+	t.Helper()
+	dsn := os.Getenv("PIXIU_TEST_MYSQL_DSN")
+	if dsn == "" {
+		if os.Getenv("CI") != "" {
+			t.Fatal("PIXIU_TEST_MYSQL_DSN is required in CI")
+		}
+		t.Skip("set PIXIU_TEST_MYSQL_DSN to a TCP MySQL account allowed to create and drop databases")
+	}
+
+	connectionConfig, err := mysql.ParseDSN(dsn)
+	require.NoError(t, err, "parse PIXIU_TEST_MYSQL_DSN")
+	if connectionConfig.Net != "tcp" {
+		if os.Getenv("CI") != "" {
+			t.Fatalf("Admin signal test requires a TCP MySQL DSN in CI, got %q", connectionConfig.Net)
+		}
+		t.Skipf("Admin signal test requires TCP MySQL; PIXIU_TEST_MYSQL_DSN uses %q", connectionConfig.Net)
+	}
+	host, port, err := net.SplitHostPort(connectionConfig.Addr)
+	require.NoError(t, err, "parse MySQL address")
+
+	adminConfig := *connectionConfig
+	adminConfig.DBName = ""
+	adminDB, err := sql.Open("mysql", adminConfig.FormatDSN())
+	require.NoError(t, err, "open MySQL connection")
+	t.Cleanup(func() { _ = adminDB.Close() })
+	require.NoError(t, adminDB.Ping(), "connect to MySQL")
+
+	databaseName := fmt.Sprintf("pixiu_admin_signal_%d_%d", time.Now().UnixNano(), os.Getpid())
+	_, err = adminDB.Exec("CREATE DATABASE `" + databaseName + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+	require.NoError(t, err, "create isolated MySQL database")
+	t.Cleanup(func() {
+		if _, err := adminDB.Exec("DROP DATABASE `" + databaseName + "`"); err != nil {
+			t.Errorf("drop isolated MySQL database: %v", err)
+		}
+	})
+
+	databaseConfig := *connectionConfig
+	databaseConfig.DBName = databaseName
+	db, err := sql.Open("mysql", databaseConfig.FormatDSN())
+	require.NoError(t, err, "open isolated MySQL database")
+	t.Cleanup(func() { _ = db.Close() })
+	require.NoError(t, db.Ping(), "connect to isolated MySQL database")
+	createAdminSignalTables(t, db)
+
+	return config2.MysqlConfig{
+		Username: connectionConfig.User,
+		Password: connectionConfig.Passwd,
+		Host:     host,
+		Port:     port,
+		Dbname:   databaseName,
+	}
+}
+
+func createAdminSignalTables(t *testing.T, db *sql.DB) {
+	t.Helper()
+	statements := []string{
+		`CREATE TABLE pixiu_user (
+			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			username VARCHAR(255) NOT NULL,
+			password VARCHAR(255) NOT NULL,
+			role INT NOT NULL DEFAULT 1,
+			date_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE pixiu_user_role (
+			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			user_id INT NOT NULL,
+			role_id INT NOT NULL
+		) ENGINE=InnoDB`,
+		`CREATE TABLE pixiu_role (
+			id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			role_name VARCHAR(255) NOT NULL,
+			description VARCHAR(255) NOT NULL
+		) ENGINE=InnoDB`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatalf("create Admin signal test table: %v", err)
+		}
 	}
 }

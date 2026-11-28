@@ -143,9 +143,9 @@ func TestCheckTcpConn(t *testing.T) {
 
 	// Failure case 1: Invalid address format
 	t.Run("failed connection due to invalid address format", func(t *testing.T) {
-		success := CheckTcpConn("invalid address", "80", 100*time.Millisecond)
+		success := CheckTcpConn("[::1", "80", 100*time.Millisecond)
 		if success {
-			t.Errorf("CheckTcpConn(%q, %q, ...) should return false for an invalid address format", "invalid address", "80")
+			t.Errorf("CheckTcpConn(%q, %q, ...) should return false for an invalid address format", "[::1", "80")
 		}
 	})
 

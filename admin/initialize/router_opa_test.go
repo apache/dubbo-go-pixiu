@@ -146,10 +146,14 @@ func (m *mockOPA) records() []recordedRequest {
 
 // signToken uses the configured test key so the token passes JWTAuth.
 func signToken(t *testing.T) string {
+	return signTokenForUser(t, "e2e")
+}
+
+func signTokenForUser(t *testing.T, username string) string {
 	t.Helper()
 	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "b6d79187f31f3a59a2734e8c9a89001383349f65c8ad2a9d1f32e570bd84965e")
 	claims := auth.CustomClaims{
-		Username: "e2e",
+		Username: username,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 			Issuer:    "router-test",
@@ -167,7 +171,8 @@ func signToken(t *testing.T) string {
 	return s
 }
 
-// installRouter builds the real Routers() and points OPAConfig at the mock.
+// installRouter builds the real router and points OPAConfig at the mock. The
+// admin checker is isolated here; AdminAuth itself is covered in auth tests.
 // Restores both gin mode and the global Bootstrap on cleanup.
 func installRouter(t *testing.T, m *mockOPA, opaCfg adminconfig.OPAConfig) *gin.Engine {
 	t.Helper()
@@ -182,7 +187,7 @@ func installRouter(t *testing.T, m *mockOPA, opaCfg adminconfig.OPAConfig) *gin.
 	adminconfig.Bootstrap = &adminconfig.AdminBootstrap{OPA: cfg}
 	t.Cleanup(func() { adminconfig.Bootstrap = prev })
 
-	return Routers()
+	return routers(func(c *gin.Context) { c.Next() })
 }
 
 func putMultipart(t *testing.T, fields map[string]string) (string, *bytes.Buffer) {
@@ -204,6 +209,21 @@ func doReq(t *testing.T, r *gin.Engine, req *http.Request) *httptest.ResponseRec
 }
 
 // ----- tests ----------------------------------------------------------------
+
+func TestRegisterRouteRequiresJWT(t *testing.T) {
+	t.Setenv("DUBBOGO_PIXIU_JWT_SIGN_KEY", "b6d79187f31f3a59a2734e8c9a89001383349f65c8ad2a9d1f32e570bd84965e")
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() { gin.SetMode(gin.DebugMode) })
+	router := Routers()
+
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader("username=created&password=password123"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := doReq(t, router, req)
+
+	if !strings.Contains(w.Body.String(), "Request does not carry token") {
+		t.Fatalf("unauthenticated registration should be rejected before reaching the handler, got %s", w.Body.String())
+	}
+}
 
 // 1. JWT middleware actually gates /config/api/opa/policy.
 func TestOPARoutes_NoTokenRejected(t *testing.T) {

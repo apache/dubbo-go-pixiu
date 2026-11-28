@@ -1272,6 +1272,109 @@ td:first-child small {
 .page-resource {
   max-width: 1100px;
 }
+.account-page {
+  max-width: 1100px;
+}
+.account-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+.account-column {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.account-card {
+  align-self: start;
+  min-width: 0;
+}
+.account-registration-form {
+  max-width: 520px;
+}
+.account-details {
+  margin: 0;
+  display: grid;
+  gap: 16px;
+}
+.account-details div {
+  display: grid;
+  gap: 5px;
+}
+.account-details dt {
+  color: #7f8a8b;
+  font-size: 11px;
+}
+.account-details dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.account-form {
+  display: grid;
+  gap: 14px;
+}
+.account-form label {
+  display: grid;
+  gap: 7px;
+  color: #526163;
+  font-size: 12px;
+}
+.account-form input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #dce4e5;
+  border-radius: 7px;
+  background: transparent;
+  color: #233033;
+  padding: 0 11px;
+  outline: 0;
+}
+.account-form input:focus {
+  border-color: #4fd9c2;
+  box-shadow: 0 0 0 3px #4fd9c222;
+}
+.account-submit {
+  justify-content: center;
+  justify-self: start;
+  min-width: 130px;
+}
+.account-feedback {
+  border-radius: 6px;
+  padding: 9px 11px;
+  font-size: 12px;
+}
+.account-feedback.error {
+  color: #a44545;
+  background: #fff1f1;
+}
+.account-feedback.success {
+  color: #267a66;
+  background: #e9f8f4;
+}
+.dark .account-details dt,
+.dark .account-form label {
+  color: #aab5b4;
+}
+.dark .account-form input {
+  border-color: #354244;
+  color: #e8efed;
+}
+.dark .account-feedback.error {
+  color: #f2a3a3;
+  background: #42272a;
+}
+.dark .account-feedback.success {
+  color: #8ee8d8;
+  background: #193b37;
+}
+@media (max-width: 800px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .route-prototype,
 .data-prototype {
   max-width: none;
