@@ -41,6 +41,11 @@ type (
 		// Close the listener service forcefully
 		Close() error
 		// ShutDown gracefully shuts down the listener.
+		// The manager considers shutdown complete when this method returns;
+		// implementations should finish cleanup before returning any shutdown error.
+		// The argument is a per-call *sync.WaitGroup incremented once, retained
+		// only for compatibility with existing plugins that call Done(). The
+		// manager never waits on it; plugins that do not call Done() are supported.
 		ShutDown(any) error
 		// Refresh config
 		Refresh(model.Listener) error
