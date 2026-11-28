@@ -20,6 +20,7 @@ package dubbo
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	dclient "dubbo.apache.org/dubbo-go/v3/client"
 	_ "dubbo.apache.org/dubbo-go/v3/cluster/loadbalance/consistenthashing"
 	"dubbo.apache.org/dubbo-go/v3/common/constant"
+	"dubbo.apache.org/dubbo-go/v3/common/rpcerror"
 	"dubbo.apache.org/dubbo-go/v3/filter/generic"
 	"dubbo.apache.org/dubbo-go/v3/global"
 	_ "dubbo.apache.org/dubbo-go/v3/imports"
@@ -61,6 +63,26 @@ const (
 	spanTagType   = "type"
 	spanTagValues = "values"
 )
+
+// dubboTimeoutError preserves the original error while exposing Dubbo Go's
+// typed timeout through the standard net.Error interface.
+type dubboTimeoutError struct {
+	cause error
+}
+
+var _ net.Error = (*dubboTimeoutError)(nil)
+
+func (e *dubboTimeoutError) Error() string   { return e.cause.Error() }
+func (e *dubboTimeoutError) Unwrap() error   { return e.cause }
+func (e *dubboTimeoutError) Timeout() bool   { return true }
+func (e *dubboTimeoutError) Temporary() bool { return false }
+
+func normalizeDubboCallError(err error) error {
+	if rpcerror.KindOf(err) == rpcerror.KindTimeout {
+		return &dubboTimeoutError{cause: err}
+	}
+	return err
+}
 
 var (
 	dubboClient        *Client
@@ -298,6 +320,7 @@ func (dc *Client) Call(ctx context.Context, req *DubboOutboundRequest) (any, err
 
 	rst, err := gs.Invoke(invokeCtx, req.Method, types, vals)
 	if err != nil {
+		err = normalizeDubboCallError(err)
 		if span != nil {
 			span.RecordError(err)
 		}
