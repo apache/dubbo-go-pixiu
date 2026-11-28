@@ -18,8 +18,10 @@
 package remote
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -192,7 +194,7 @@ func (f *Filter) callDubbo(c *contexthttp.HttpContext, api router.API) filter.Fi
 
 func (f *Filter) handleClientError(c *contexthttp.HttpContext, err error) filter.FilterStatus {
 	logger.Errorf("[dubbo-go-pixiu] client call err: %v!", err)
-	if strings.Contains(strings.ToLower(err.Error()), "timeout") {
+	if isTimeoutError(err) {
 		errResp := contexthttp.GatewayTimeout.WithError(fmt.Errorf("client timeout: %w", err))
 		c.SendLocalReply(errResp.Status, errResp.ToJSON())
 		return filter.Stop
@@ -200,6 +202,15 @@ func (f *Filter) handleClientError(c *contexthttp.HttpContext, err error) filter
 	errResp := contexthttp.InternalError.WithError(fmt.Errorf("client call error: %w", err))
 	c.SendLocalReply(errResp.Status, errResp.ToJSON())
 	return filter.Stop
+}
+
+func isTimeoutError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func (f *Filter) matchHTTPClient(typ string) (client.Client, error) {
